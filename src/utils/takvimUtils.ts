@@ -97,9 +97,11 @@ export function createAutomaticEvents(
   });
 
   // Bordro dönemleri → etkinlik
-  const periods = [...new Set(bordrolar.map((b) => b.period))];
+  const periods = [...new Set(bordrolar.map((b) => b.period).filter(Boolean))];
   periods.forEach((period) => {
+    if (!period || typeof period !== 'string' || !period.includes('-')) return;
     const [year, month] = period.split('-');
+    if (!year || !month || isNaN(Number(year)) || isNaN(Number(month))) return;
     const odemeGunu = new Date(Number(year), Number(month) - 1, BORDRO_SURELERI.bordroOdemeGunleri);
     events.push({
       id: uid(),
@@ -143,10 +145,19 @@ export function getEventsInRange(
 
 export function organizeEventsByDate(
   events: TakvimEtkinlik[],
-  date: Date
-): TakvimEtkinlik[] {
-  const dateStr = date.toISOString().split('T')[0];
-  return events.filter((e) => e.tarih === dateStr);
+  date: Date | string
+): { etkinlikler: TakvimEtkinlik[] } {
+  // date hem Date hem string olabilir; güvenli şekilde YYYY-MM-DD üret
+  let dateStr: string;
+  if (date instanceof Date) {
+    dateStr = date.toISOString().split('T')[0];
+  } else if (typeof date === 'string') {
+    dateStr = date.split('T')[0];
+  } else {
+    dateStr = '';
+  }
+  const etkinlikler = events.filter((e) => (e.tarih ?? '').split('T')[0] === dateStr);
+  return { etkinlikler };
 }
 
 // ─── Renk / Etiket Yardımcıları ──────────────────────────────────────────────

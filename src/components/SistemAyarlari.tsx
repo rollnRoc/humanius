@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getRoleLabel } from '../auth/roles';
 import { companyService } from '../services/companyService';
 import { userService, type UserProfile } from '../services/userService';
+import { userManagementService } from '../services/userManagementService';
 
 interface CompanyRow {
   id: string;
@@ -246,7 +247,17 @@ const SistemAyarlari: React.FC = () => {
     setPasswordMessage('Şifreniz başarıyla güncellendi.');
   };
 
-  const canManage = appRole === 'superadmin' || appRole === 'admin';
+  // Kullanıcı yönetimi: superadmin + admin + hr
+  const canManage = appRole === 'superadmin' || appRole === 'admin' || appRole === 'hr';
+  // Şirket oluşturma/düzenleme/silme: yalnızca superadmin
+  const canManageCompanies = appRole === 'superadmin';
+
+  // superadmin değilse şirketler sekmesinde takılı kalmayı engelle
+  useEffect(() => {
+    if (!canManageCompanies && manageTab === 'sirketler') {
+      setManageTab('kullanicilar');
+    }
+  }, [canManageCompanies, manageTab]);
 
   const clearManageAlerts = () => {
     setManageError('');
@@ -401,24 +412,14 @@ const SistemAyarlari: React.FC = () => {
         );
         setManageMessage('Kullanıcı güncellendi.');
       } else {
-        const result = await userService.createUser({
-          full_name: userForm.full_name.trim(),
+        await userManagementService.createCompanyUser({
+          fullName: userForm.full_name.trim(),
           email: userForm.email.trim(),
           password: userForm.password,
-          role: userForm.role,
-          company_id: userForm.company_id || null,
+          role: userForm.role as 'admin' | 'manager' | 'employee' | 'hr' | 'user',
+          companyId: userForm.company_id || undefined,
         });
-
-        if (!result.success) {
-          throw new Error(result.error || 'Kullanıcı eklenemedi.');
-        }
-        if (result.warning) {
-          setManageError(result.warning);
-        } else {
-          setManageMessage(result.needsEmailConfirm
-            ? 'Kullanıcı oluşturuldu. E-posta onayı bekleniyor.'
-            : 'Yeni kullanıcı eklendi.');
-        }
+        setManageMessage('Yeni kullanıcı eklendi.');
       }
 
       resetUserForm();
@@ -604,18 +605,20 @@ const SistemAyarlari: React.FC = () => {
                   {showUserForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                   {showUserForm ? 'Kullanıcı Formunu Kapat' : 'Yeni Kullanıcı'}
                 </button>
-                <button
-                  onClick={() => {
-                    clearManageAlerts();
-                    setManageTab('sirketler');
-                    resetCompanyForm();
-                    setShowCompanyForm((v) => !v);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700"
-                >
-                  {showCompanyForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-                  {showCompanyForm ? 'Şirket Formunu Kapat' : 'Yeni Şirket'}
-                </button>
+                {canManageCompanies && (
+                  <button
+                    onClick={() => {
+                      clearManageAlerts();
+                      setManageTab('sirketler');
+                      resetCompanyForm();
+                      setShowCompanyForm((v) => !v);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700"
+                  >
+                    {showCompanyForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                    {showCompanyForm ? 'Şirket Formunu Kapat' : 'Yeni Şirket'}
+                  </button>
+                )}
                 <button
                   onClick={handleSyncUsersToEmployees}
                   disabled={syncLoading}
@@ -641,7 +644,7 @@ const SistemAyarlari: React.FC = () => {
 
           {!canManage && (
             <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-              Bu bölüm sadece Süper Yönetici ve Şirket Yöneticisi rolleri için açıktır.
+              Bu bölüm sadece Süper Yönetici, Şirket Yöneticisi ve İK rolleri için açıktır.
             </div>
           )}
 
@@ -658,16 +661,18 @@ const SistemAyarlari: React.FC = () => {
                 >
                   Kullanıcılar ({users.length})
                 </button>
-                <button
-                  onClick={() => setManageTab('sirketler')}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    manageTab === 'sirketler'
-                      ? 'bg-white text-cyan-700 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                >
-                  Şirketler ({companies.length})
-                </button>
+                {canManageCompanies && (
+                  <button
+                    onClick={() => setManageTab('sirketler')}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      manageTab === 'sirketler'
+                        ? 'bg-white text-cyan-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    Şirketler ({companies.length})
+                  </button>
+                )}
               </div>
 
               {showUserForm && (
@@ -708,10 +713,15 @@ const SistemAyarlari: React.FC = () => {
                       onChange={(e) => setUserForm((prev) => ({ ...prev, role: e.target.value }))}
                       className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
                     >
-                      <option value="superadmin">Süper Yönetici</option>
-                      <option value="admin">Şirket Yöneticisi</option>
-                      <option value="manager">Müdür</option>
+                      {/* superadmin hiçbir formdan oluşturulamaz */}
+                      {profile?.role === 'superadmin' && (
+                        <option value="admin">Şirket Yöneticisi</option>
+                      )}
+                      {profile?.role === 'admin' && (
+                        <option value="admin">Şirket Yöneticisi</option>
+                      )}
                       <option value="hr">İK</option>
+                      <option value="manager">Müdür</option>
                       <option value="employee">Personel</option>
                       <option value="user">Kullanıcı</option>
                     </select>

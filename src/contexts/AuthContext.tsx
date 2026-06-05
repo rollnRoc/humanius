@@ -15,10 +15,11 @@ interface AuthContextType {
   appRole: AppRole;
   isSuperAdmin: boolean;
   isAdmin: boolean;
+  isHr: boolean;
+  isManager: boolean;
   isUser: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: AuthError | null }>;
@@ -94,38 +95,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error };
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName
-        }
-      }
-    });
-
-    if (error) return { error };
-
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email: email,
-          full_name: fullName,
-          role: 'employee'
-        });
-
-      if (profileError) {
-        console.error('Error creating profile:', profileError);
-        return { error: profileError };
-      }
-    }
-
-    return { error };
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -175,10 +144,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     appRole,
     isSuperAdmin: appRole === 'superadmin',
     isAdmin: appRole === 'superadmin' || appRole === 'admin',
-    isUser: appRole === 'user',
+    isHr: appRole === 'hr',
+    isManager: appRole === 'manager',
+    isUser: appRole === 'user' || appRole === 'employee',
     loading,
     signIn,
-    signUp,
     signOut,
     resetPassword,
     updatePassword,

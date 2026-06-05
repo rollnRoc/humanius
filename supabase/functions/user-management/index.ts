@@ -177,7 +177,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (operation === 'create_company_user') {
-      if (!['superadmin', 'admin'].includes(profile.role)) {
+      if (!['superadmin', 'admin', 'hr'].includes(profile.role)) {
         return jsonResponse({ error: 'Bu işlem için yetkiniz yok.' }, 403);
       }
 
@@ -203,6 +203,9 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: 'Süper admin rolü bu işlemle oluşturulamaz.' }, 403);
       }
       if (requestedRole === 'admin' && profile.role !== 'superadmin') {
+        nextRole = 'employee';
+      }
+      if (profile.role === 'hr' && !['employee', 'user', 'manager', 'hr'].includes(requestedRole)) {
         nextRole = 'employee';
       }
 

@@ -3,7 +3,6 @@ import { Search, Users, Calendar, FileText, CreditCard, Bell, CreditCard as Edit
 import { View } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
-import LanguageSelector from './LanguageSelector';
 import LogoEditor, { LogoConfig } from './LogoEditor';
 import { canAccessView, getRoleLabel } from '../auth/roles';
 
@@ -103,6 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'arama' as View, label: 'Arama', icon: SearchIcon },
     { id: 'personel' as View, label: t('sidebar.allPersonnel'), icon: Users, children: [
+      { id: 'personel' as View, label: 'Personel Listesi' },
       { id: 'gorev-tanimi' as View, label: 'Görev Tanımı' },
       { id: 'gorev-tanimi-kayitlari' as View, label: 'Görev Tanımı Kayıtları' },
       { id: 'ozluk-dosyasi' as View, label: 'Özlük Dosyası' },
@@ -118,14 +118,17 @@ const Sidebar: React.FC<SidebarProps> = ({
       { id: 'yan-haklar' as View, label: 'Esnek Yan Haklar' },
     ]},
     { id: 'izin' as View, label: t('sidebar.leaveManagement'), icon: Calendar, children: [
+      { id: 'izin' as View, label: 'İzin Talepleri' },
       { id: 'izin-cakisma' as View, label: 'İzin Çakışma Kontrolü' },
       { id: 'izin-tanimlari' as View, label: 'İzin Türleri Tanımları' },
     ]},
     { id: 'egitim' as View, label: 'Eğitim & Gelişim (LMS)', icon: GraduationCap, children: [
+      { id: 'egitim' as View, label: 'Eğitim Kataloğu & LMS' },
       { id: 'yetkinlik' as View, label: 'Yetkinlik Matrisi' },
       { id: 'onboarding' as View, label: 'Onboarding Akışı' },
     ]},
     { id: 'raporlar' as View, label: t('sidebar.reports'), icon: FileText, children: [
+      { id: 'raporlar' as View, label: 'İzin Raporları' },
       { id: 'analitik' as View, label: 'Veri Analitiği' },
       { id: 'okr' as View, label: 'OKR Hedefler' },
       { id: 'form-builder' as View, label: 'Dinamik Form' },
@@ -185,8 +188,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
-        <p className="text-sm font-semibold text-gray-800">{profile?.full_name || 'Demo Kullanici'}</p>
-        <p className="mt-0.5 text-xs text-gray-400">{profile?.company_id ? '' : 'Humanius Demo Sirketi'}</p>
+        <p className="text-sm font-semibold text-gray-800">{profile?.full_name || 'Demo Kullanıcı'}</p>
+        <p className="mt-0.5 text-xs text-gray-400">{profile?.company_id ? '' : 'Humanius Demo Şirketi'}</p>
         <p className="mt-1 text-xs text-gray-500">{getRoleLabel(effectiveRole)}</p>
       </div>
 
@@ -305,10 +308,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </nav>
 
-      {/* Language Selector */}
-      <div className="mt-6 pt-4 border-t border-gray-200">
-        <LanguageSelector />
-      </div>
+
 
       {/* Logout */}
       {user && (

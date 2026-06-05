@@ -7,22 +7,6 @@ import type { View } from '../types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
-const DEMO_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
-const DEMO_USER_ID = '00000000-0000-0000-0000-000000000000';
-
-const getDemoProfile = (): Profile => {
-  const now = new Date().toISOString();
-  return {
-    id: DEMO_USER_ID,
-    email: 'demo@local',
-    full_name: 'Demo Kullanici',
-    company_id: DEMO_COMPANY_ID,
-    role: 'admin',
-    avatar_url: null,
-    created_at: now,
-    updated_at: now,
-  };
-};
 
 interface AuthContextType {
   user: User | null;
@@ -34,7 +18,6 @@ interface AuthContextType {
   isUser: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: AuthError | null }>;
@@ -57,7 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         fetchProfile(session.user.id);
       } else {
-        setProfile(getDemoProfile());
+        setProfile(null);
         setLoading(false);
       }
     });
@@ -69,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           await fetchProfile(session.user.id);
         } else {
-          setProfile(getDemoProfile());
+          setProfile(null);
           setLoading(false);
         }
       })();
@@ -87,10 +70,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (error) throw error;
-      setProfile(data ?? getDemoProfile());
+      if (!data) {
+        console.error('Profile not found for user:', userId);
+        setProfile(null);
+        return;
+      }
+
+      setProfile(data);
     } catch (error) {
       console.error('Error fetching profile:', error);
-      setProfile(getDemoProfile());
+      setProfile(null);
     } finally {
       setLoading(false);
     }
@@ -104,41 +93,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error };
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName
-        }
-      }
-    });
-
-    if (error) return { error };
-
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email: email,
-          full_name: fullName,
-          role: 'employee'
-        });
-
-      if (profileError) {
-        console.error('Error creating profile:', profileError);
-      }
-    }
-
-    return { error };
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    setProfile(getDemoProfile());
+    setProfile(null);
     setSession(null);
   };
 
@@ -187,7 +145,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isUser: appRole === 'user',
     loading,
     signIn,
-    signUp,
     signOut,
     resetPassword,
     updatePassword,

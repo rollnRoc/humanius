@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle } from 'lucide-react';
 import { Employee, Company, Department } from '../types';
 import { useScrollLock } from '../hooks/useScrollLock';
+import { useAuth } from '../contexts/AuthContext';
 
 interface EmployeeDrawerProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   departments
 }) => {
   useScrollLock(isOpen);
+  const { appRole } = useAuth();
+  const showCompanySelector = appRole === 'superadmin';
 
   const [formData, setFormData] = useState<Employee | null>(null);
   const [activeTab, setActiveTab] = useState('genel');
@@ -214,21 +217,23 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
             {activeTab === 'is' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="employee-company" className="block text-sm font-medium text-gray-700 mb-2">Şirket</label>
-                    <select
-                      id="employee-company"
-                      value={formData.company}
-                      onChange={(e) => handleInputChange('company', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    >
-                      {companies.map(company => (
-                        <option key={company} value={company}>
-                          {company}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {showCompanySelector && (
+                    <div>
+                      <label htmlFor="employee-company" className="block text-sm font-medium text-gray-700 mb-2">Şirket</label>
+                      <select
+                        id="employee-company"
+                        value={formData.company}
+                        onChange={(e) => handleInputChange('company', e.target.value)}
+                        className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      >
+                        {companies.map(company => (
+                          <option key={company} value={company}>
+                            {company}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label htmlFor="employee-department" className="block text-sm font-medium text-gray-700 mb-2">Departman</label>
                     <select

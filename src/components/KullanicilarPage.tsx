@@ -21,7 +21,7 @@ import { userService, type UserProfile } from '../services/userService';
 import { userManagementService } from '../services/userManagementService';
 import { companyService } from '../services/companyService';
 import { useAuth } from '../contexts/AuthContext';
-import { getRoleLabel } from '../auth/roles';
+import { getRoleLabel, canManageUsers } from '../auth/roles';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -84,6 +84,8 @@ const UserModal: React.FC<UserModalProps> = ({
   onSuccess,
   currentUserId,
 }) => {
+  const { profile: creatorProfile } = useAuth();
+  const creatorRole = creatorProfile?.role ?? 'employee';
   const [form, setForm] = useState<UserFormData>({
     email:      initial?.email      ?? '',
     password:   '',
@@ -112,15 +114,13 @@ const UserModal: React.FC<UserModalProps> = ({
     setLoading(true);
     try {
       if (mode === 'create') {
-        const result = await userService.createUser({
-          email:      form.email.trim(),
-          password:   form.password,
-          full_name:  form.full_name.trim(),
-          role:       form.role,
-          company_id: form.company_id || null,
+        await userManagementService.createCompanyUser({
+          fullName:  form.full_name.trim(),
+          email:     form.email.trim(),
+          password:  form.password,
+          role:      form.role as 'admin' | 'manager' | 'employee' | 'hr' | 'user',
+          companyId: form.company_id || undefined,
         });
-        if (!result.success) throw new Error(result.error ?? 'Kullanıcı oluşturulamadı');
-        if (result.warning) setInfo(result.warning);
         onSuccess();
       } else if (mode === 'edit' && initial) {
         await userService.updateProfile(
@@ -224,9 +224,19 @@ const UserModal: React.FC<UserModalProps> = ({
               onChange={set('role')}
               className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
             >
-              {ROLE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
+              {ROLE_OPTIONS
+                .filter((opt) => {
+                  // superadmin hiçbir formdan oluşturulamaz
+                  if (opt.value === 'superadmin') return false;
+                  // admin yalnızca superadmin tarafından atanabilir
+                  if (opt.value === 'admin' && creatorRole !== 'superadmin') return false;
+                  // hr; admin atayamaz (kendine eşit hr ve altını atayabilir)
+                  if (opt.value === 'admin' && creatorRole === 'hr') return false;
+                  return true;
+                })
+                .map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
             </select>
           </div>
 
@@ -407,7 +417,7 @@ const KullanicilarPage: React.FC = () => {
           >
             <RefreshCw size={16} />
           </button>
-          {(appRole === 'superadmin' || appRole === 'admin') && (
+          {canManageUsers(appRole) && (
             <button
               onClick={() => { setEditTarget(null); setModalMode('create'); }}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
@@ -495,7 +505,7 @@ const KullanicilarPage: React.FC = () => {
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">
                     Kayıt Tarihi
                   </th>
-                  {(appRole === 'superadmin' || appRole === 'admin') && (
+                  {canManageUsers(appRole) && (
                     <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       İşlemler
                     </th>
@@ -572,7 +582,7 @@ const KullanicilarPage: React.FC = () => {
                       </td>
 
                       {/* Actions */}
-                      {(appRole === 'superadmin' || appRole === 'admin') && (
+                      {canManageUsers(appRole) && (
                         <td className="px-5 py-3.5 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button
