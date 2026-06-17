@@ -4,6 +4,7 @@ import { BordroItem } from '../types/bordro';
 import { formatNumber } from '../utils/bordroCalculations';
 import BordroOnay from './BordroOnay';
 import { bordroService } from '../services/bordroService';
+import { useAuth } from '../contexts/AuthContext';
 
 interface BordroViewModalProps {
   bordro: BordroItem;
@@ -24,7 +25,12 @@ const BordroViewModal: React.FC<BordroViewModalProps> = ({
   isEmployeeView = false,
   onSendForApproval
 }) => {
-  const [approvalStatus, setApprovalStatus] = useState<'beklemede' | 'onaylandi' | 'reddedildi' | 'taslak'>('taslak');
+  const { appRole } = useAuth();
+  const effectiveEmployeeView = isEmployeeView || ['employee', 'user'].includes(appRole);
+
+  const [approvalStatus, setApprovalStatus] = useState<'beklemede' | 'onaylandi' | 'reddedildi' | 'taslak'>(
+    bordro.approval_status || 'taslak'
+  );
   const [approvalDetails, setApprovalDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -35,18 +41,25 @@ const BordroViewModal: React.FC<BordroViewModalProps> = ({
   const loadApprovalStatus = async () => {
     try {
       setLoading(true);
+      console.log('loadApprovalStatus: bordro.id =', bordro.id, 'bordro.approval_status =', bordro.approval_status);
       const approvals = await bordroService.getApprovals(bordro.id);
+      console.log('loadApprovalStatus: fetched approvals =', approvals);
 
       if (approvals && approvals.length > 0) {
         const latestApproval = approvals[0];
+        console.log('loadApprovalStatus: setting approval status from database =', latestApproval.approval_status);
         setApprovalStatus(latestApproval.approval_status as any);
         setApprovalDetails(latestApproval);
       } else {
+        console.log('loadApprovalStatus: setting approval status from bordro prop =', bordro.approval_status || 'taslak');
         setApprovalStatus(bordro.approval_status || 'taslak');
         setApprovalDetails(null);
       }
     } catch (error) {
-      console.error('Onay durumu yüklenemedi:', error);
+      console.error('Onay durumu yüklenemedi, fallback kullanılıyor:', error);
+      // Fallback: If DB query fails (e.g. due to RLS), preserve the status from the prop
+      setApprovalStatus(bordro.approval_status || 'taslak');
+      setApprovalDetails(null);
     } finally {
       setLoading(false);
     }
@@ -352,7 +365,7 @@ const BordroViewModal: React.FC<BordroViewModalProps> = ({
             </div>
           </div>
 
-          {approvalStatus === 'beklemede' && !loading && isEmployeeView && (
+          {approvalStatus === 'beklemede' && !loading && effectiveEmployeeView && (
             <BordroOnay
               bordro={bordro}
               employeeId={employeeId}
@@ -361,7 +374,7 @@ const BordroViewModal: React.FC<BordroViewModalProps> = ({
             />
           )}
           
-          {approvalStatus === 'beklemede' && !loading && !isEmployeeView && (
+          {approvalStatus === 'beklemede' && !loading && !effectiveEmployeeView && (
             <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-center">
               <Clock className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
               <h3 className="text-sm font-semibold text-yellow-800">Personel Onayı Bekleniyor</h3>
@@ -369,7 +382,7 @@ const BordroViewModal: React.FC<BordroViewModalProps> = ({
             </div>
           )}
 
-          {approvalStatus === 'taslak' && !loading && !isEmployeeView && onSendForApproval && (
+          {approvalStatus === 'taslak' && !loading && !effectiveEmployeeView && onSendForApproval && (
             <div className="mt-6">
               <button
                 onClick={() => {
