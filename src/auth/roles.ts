@@ -35,32 +35,32 @@ const ALLOWED_VIEWS: Record<AppRole, View[]> = {
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
     'raporlar', 'analitik', 'uyari', 'ayar', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'egitim-girisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
-    'okr', 'yetkinlik', 'yan-haklar', 'form-builder', 'kullanim-kilavuzu', 'bordro-icmal',
+    'okr', 'yetkinlik', 'yan-haklar', 'form-builder', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
   ],
   admin: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
     'raporlar', 'analitik', 'uyari', 'ayar', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'egitim-girisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
-    'okr', 'yetkinlik', 'yan-haklar', 'form-builder', 'kullanim-kilavuzu', 'bordro-icmal',
+    'okr', 'yetkinlik', 'yan-haklar', 'form-builder', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
   ],
   hr: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
     'raporlar', 'analitik', 'uyari', 'ayar', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'egitim-girisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
-    'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal',
+    'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
   ],
   manager: [
     'arama', 'personel', 'izin', 'izin-cakisma', 'izin-listesi', 'uyari', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'pdks', 'pdks-devam', 'is-akisi', 'egitim-girisi', 'performans', 'egitim', 'org-sema', 'zimmet', 'okr', 'yetkinlik',
-    'kullanim-kilavuzu',
+    'kullanim-kilavuzu', 'is-akisi-menu',
   ],
   employee: [
     'arama', 'bordro', 'izin', 'uyari', 'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'egitim-girisi', 'performans',
-    'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu',
+    'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
   ],
   user: [
     'arama', 'bordro', 'izin', 'uyari', 'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'egitim-girisi', 'performans',
-    'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu',
+    'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
   ],
 };
 

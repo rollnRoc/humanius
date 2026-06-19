@@ -32,7 +32,8 @@ export type View =
   | 'pdks-devam'
   | 'is-akisi'
   | 'egitim-girisi'
-  | 'izin-listesi';
+  | 'izin-listesi'
+  | 'is-akisi-menu';
 
 // ─── Core Entities ───────────────────────────────────────────────────────────
 

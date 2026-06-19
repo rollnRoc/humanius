@@ -148,7 +148,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       { id: 'izin-tanimlari' as View, label: 'İzin Türleri Tanımları' },
       { id: 'izin-listesi' as View, label: 'İzinli Kişiler Listesi' },
     ]},
-    { id: 'pdks' as View, label: 'İŞ AKIŞI', icon: Clock, children: [
+    { id: 'is-akisi-menu' as View, label: 'İŞ AKIŞI', icon: Clock, children: [
       { id: 'pdks-devam' as View, label: 'Devam Kontrolü' },
       { id: 'is-akisi' as View, label: 'İş Akışı Gösterimi' },
       { id: 'egitim-girisi' as View, label: 'Eğitim Girişi' },
