@@ -309,6 +309,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
   const handleOnaySuccess = () => {
     setShowOnayModal(false);
     alert('Görev tanımı başarıyla onaylandı!');
+    loadRecords();
   };
 
   const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
@@ -400,6 +401,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Bağlı Pozisyon</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Onay Durumu</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Kayıt Tarihi</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">İşlemler</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -425,6 +427,22 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                           </td>
                           <td className="px-4 py-3 text-sm text-slate-600">
                             {record.created_at ? new Date(record.created_at).toLocaleString('tr-TR') : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {durum === 'beklemede' ? (
+                              <button
+                                onClick={() => {
+                                  setSavedGorevTanimiId(record.id);
+                                  setSelectedEmployeeId(record.employee_id);
+                                  setShowOnayModal(true);
+                                }}
+                                className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded-lg text-xs transition-colors shadow-sm"
+                              >
+                                Onayla
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-400">-</span>
+                            )}
                           </td>
                         </tr>
                       );
