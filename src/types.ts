@@ -34,7 +34,8 @@ export type View =
   | 'egitim-girisi'
   | 'izin-listesi'
   | 'is-akisi-menu'
-  | 'sifre-degistir';
+  | 'sifre-degistir'
+  | 'offboarding';
 
 // ─── Core Entities ───────────────────────────────────────────────────────────
 

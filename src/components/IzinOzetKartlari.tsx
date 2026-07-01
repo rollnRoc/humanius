@@ -288,7 +288,7 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
             <p className="px-5 py-8 text-center text-sm text-gray-400">Henüz personel verisi yok.</p>
           )}
 
-          {empSummaries.map(({ emp, bekleyen, kullanilanYillik, kullanilanMazeret, kullanilanHastalik, kullanilanUcretsiz, toplamHak, kalanYillik, pct, bugunIzinde, talepleri }) => {
+          {empSummaries.map(({ emp, hak, bekleyen, kullanilanYillik, kullanilanMazeret, kullanilanHastalik, kullanilanUcretsiz, toplamHak, kalanYillik, pct, bugunIzinde, talepleri }) => {
             const isExpanded = expandedEmp === emp.id;
             return (
               <div key={emp.id}>

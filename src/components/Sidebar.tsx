@@ -169,6 +169,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       { id: 'org-sema' as View, label: 'Organizasyon Şeması' },
       { id: 'zimmet' as View, label: 'Tüm Zimmetler Listesi' },
       { id: 'kullanicilar' as View, label: 'Kullanıcılar' },
+      { id: 'offboarding' as View, label: 'İşten Çıkış (Offboarding)' },
       { id: 'ayar' as View, label: 'Personel ve Şirket Yönetimi' },
     ]},
     { id: 'ozluk-dosyasi' as View, label: 'Personel Yönetimi', icon: UserCircle, children: [

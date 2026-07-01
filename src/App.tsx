@@ -41,6 +41,7 @@ import PerformansYonetimi from './components/PerformansYonetimi';
 import EgitimLMS from './components/EgitimLMS';
 import AnalitiKDashboard from './components/AnalitiKDashboard';
 import KVKKUyumluluk from './components/KVKKUyumluluk';
+import { OffboardingManager } from './components/OffboardingManager';
 import IzinTanimlari from './components/IzinTanimlari';
 import OrganizasyonSemasi from './components/OrganizasyonSemasi';
 import ZimmetYonetimi from './components/ZimmetYonetimi';
@@ -844,7 +845,7 @@ const AppInner: React.FC = () => {
     if (!window.confirm('Bu izin kaydını silmek istediğinize emin misiniz?')) return;
     try {
       await izinService.deleteTalep(id);
-      setIzinTalepleri((prev) => prev.filter((t) => t.id !== id));
+      await loadData();
       alert('İzin kaydı başarıyla silindi.');
     } catch (err: any) {
       console.error('İzin silinirken hata oluştu:', err);
@@ -856,7 +857,7 @@ const AppInner: React.FC = () => {
     if (!window.confirm('Bu izin kaydını iptal etmek istediğinize emin misiniz?')) return;
     try {
       await izinService.updateTalep(id, { durum: 'iptal' });
-      setIzinTalepleri((prev) => prev.map((t) => t.id === id ? { ...t, durum: 'iptal' } : t));
+      await loadData();
       alert('İzin kaydı başarıyla iptal edildi.');
     } catch (err: any) {
       console.error('İzin iptal edilirken hata oluştu:', err);
@@ -1233,6 +1234,15 @@ const AppInner: React.FC = () => {
 
         {/* KVKK Uyumluluk */}
         {currentView === 'kvkk' && <KVKKUyumluluk employees={employees} />}
+
+        {/* İşten Çıkış / Offboarding */}
+        {currentView === 'offboarding' && (
+          <OffboardingManager 
+            employees={employees}
+            onDataRefresh={loadData}
+            companyName={companies[0] || 'Humanius'}
+          />
+        )}
 
         {/* İzinli Kişiler Listesi */}
         {currentView === 'izin-listesi' && (
