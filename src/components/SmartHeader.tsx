@@ -53,7 +53,8 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) =>
       'pdks-devam': 'Devam Kontrolü',
       'egitim-girisi': 'Eğitim Girişi',
       'raporlar': 'Raporlar',
-      'is-akisi': 'İş Akışı'
+      'is-akisi': 'İş Akışı',
+      'sifre-degistir': 'Şifre & Güvenlik Ayarları'
     };
     return map[view as string] || view;
   };
@@ -71,7 +72,8 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) =>
       'okr': 'OKR Hedeflerim',
       'yetkinlik': 'Yetkinlik Değerlendirmelerim',
       'yan-haklar': 'Esnek Yan Haklarım',
-      'kullanim-kilavuzu': 'Kullanım Kılavuzu'
+      'kullanim-kilavuzu': 'Kullanım Kılavuzu',
+      'sifre-degistir': 'Şifre & Güvenlik Ayarlarım'
     };
     const title = employeeTitleMap[currentView] || currentView;
 

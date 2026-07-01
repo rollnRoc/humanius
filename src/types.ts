@@ -33,7 +33,8 @@ export type View =
   | 'is-akisi'
   | 'egitim-girisi'
   | 'izin-listesi'
-  | 'is-akisi-menu';
+  | 'is-akisi-menu'
+  | 'sifre-degistir';
 
 // ─── Core Entities ───────────────────────────────────────────────────────────
 

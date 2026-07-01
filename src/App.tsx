@@ -27,6 +27,7 @@ import SmartHeader from './components/SmartHeader';
 import { GlobalEmployeeHeader } from './components/GlobalEmployeeHeader';
 import { ContextualHelp } from './components/ContextualHelp';
 import KullanicilarPage from './components/KullanicilarPage';
+import SifreDegistir from './components/SifreDegistir';
 import IzinOzetKartlari from './components/IzinOzetKartlari';
 import IzinliKisiler from './components/IzinliKisiler';
 import PdksDevam from './components/PdksDevam';
@@ -1241,6 +1242,9 @@ const AppInner: React.FC = () => {
 
         {/* Kullanım Kılavuzu */}
         {currentView === 'kullanim-kilavuzu' && <KullanımKilavuzu />}
+
+        {/* Şifre ve Güvenlik Ayarları */}
+        {currentView === 'sifre-degistir' && <SifreDegistir />}
         </div>
       </main>
     );

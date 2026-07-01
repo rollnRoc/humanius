@@ -3,7 +3,7 @@ import {
   Search, User, Calendar, CreditCard, X, Zap,
   Hash, Mail, Phone, MapPin, Briefcase, Tag, Layers,
   UserCog, ChevronRight, SlidersHorizontal, Bell,
-  Clock, GraduationCap, Target, Shield, Layout, BookOpen, LogOut,
+  Clock, GraduationCap, Target, Shield, Layout, BookOpen, LogOut, Lock,
 } from 'lucide-react';
 import type { Employee, View } from '../types';
 import type { IzinTalebi } from '../types/izin';
@@ -466,13 +466,22 @@ export const SearchPage: React.FC<SearchPageProps> = ({
                   </>
                 )}
               </div>
-              <button
-                onClick={() => signOut()}
-                className="flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-all shrink-0"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Çıkış Yap</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onNavigate('sifre-degistir')}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-all shrink-0 font-medium"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Şifre Değiştir</span>
+                </button>
+                <button
+                  onClick={() => signOut()}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-all shrink-0"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Çıkış Yap</span>
+                </button>
+              </div>
             </div>
           )}
 

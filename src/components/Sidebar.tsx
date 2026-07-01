@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Users, Calendar, FileText, CreditCard, Bell, Edit2, SearchIcon, LogOut, BookOpen, Clock, GraduationCap, Shield, Gift, ChevronDown, UserCircle, Settings, Layout } from 'lucide-react';
+import { Search, Users, Calendar, FileText, CreditCard, Bell, Edit2, SearchIcon, LogOut, BookOpen, Clock, GraduationCap, Shield, Gift, ChevronDown, UserCircle, Settings, Layout, Lock } from 'lucide-react';
 import { View } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -369,9 +369,20 @@ const Sidebar: React.FC<SidebarProps> = ({
 
 
 
-      {/* Logout */}
+      {/* Logout & Settings */}
       {user && (
-        <div className="mt-3">
+        <div className="mt-3 space-y-1">
+          <button
+            onClick={() => onViewChange('sifre-degistir')}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm transition-all border ${
+              currentView === 'sifre-degistir'
+                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border-transparent hover:border-gray-200'
+            }`}
+          >
+            <Lock className="w-4 h-4" />
+            <span className="font-medium">Şifre Değiştir</span>
+          </button>
           <button
             onClick={() => signOut()}
             className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-200"

@@ -36,31 +36,36 @@ const ALLOWED_VIEWS: Record<AppRole, View[]> = {
     'raporlar', 'analitik', 'uyari', 'ayar', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'form-builder', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
+    'sifre-degistir',
   ],
   admin: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
     'raporlar', 'analitik', 'uyari', 'ayar', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'form-builder', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
+    'sifre-degistir',
   ],
   hr: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
     'raporlar', 'analitik', 'uyari', 'ayar', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
+    'sifre-degistir',
   ],
   manager: [
     'arama', 'personel', 'izin', 'izin-cakisma', 'izin-listesi', 'uyari', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'org-sema', 'zimmet', 'okr', 'yetkinlik',
-    'kullanim-kilavuzu', 'is-akisi-menu',
+    'kullanim-kilavuzu', 'is-akisi-menu', 'sifre-degistir',
   ],
   employee: [
     'arama', 'bordro', 'izin', 'uyari', 'ozluk-dosyasi', 'pdks', 'pdks-devam', 'performans',
     'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
+    'sifre-degistir',
   ],
   user: [
     'arama', 'bordro', 'izin', 'uyari', 'ozluk-dosyasi', 'pdks', 'pdks-devam', 'performans',
     'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
+    'sifre-degistir',
   ],
 };
 

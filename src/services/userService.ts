@@ -290,11 +290,7 @@ export const userService = {
 
     const updates: { approval_passcode?: string | null; approval_signature?: string | null } = {};
     if (Object.prototype.hasOwnProperty.call(settings, 'approvalPasscode')) {
-      if (settings.approvalPasscode) {
-        updates.approval_passcode = bcrypt.hashSync(settings.approvalPasscode, 10);
-      } else {
-        updates.approval_passcode = null;
-      }
+      updates.approval_passcode = settings.approvalPasscode ?? null;
     }
     if (Object.prototype.hasOwnProperty.call(settings, 'approvalSignature')) {
       updates.approval_signature = settings.approvalSignature ?? null;
