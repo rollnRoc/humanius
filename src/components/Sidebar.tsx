@@ -27,6 +27,13 @@ const safeWriteLocalStorage = (key: string, value: string) => {
   }
 };
 
+const BlueHLogo: React.FC<{ className?: string; style?: React.CSSProperties }> = ({ className = "w-10 h-10", style }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className={`${className} select-none`} style={style}>
+    <rect width="100" height="100" rx="20" fill="#2563eb" />
+    <path d="M30 25 V75 M70 25 V75 M30 50 H70" stroke="white" stroke-width="14" stroke-linecap="round" />
+  </svg>
+);
+
 interface SidebarProps {
   currentView: View;
   onViewChange: (view: View) => void;
@@ -234,26 +241,35 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Brand */}
       <div className="relative group mb-5">
         <div className="flex items-center justify-center p-3 bg-gray-50 rounded-xl border border-gray-200">
-          <img
-            src={logoSrc}
-            alt="Logo"
-            style={{
-              width: `${logoConfig.width}px`,
-              height: `${logoConfig.height}px`,
-              transform: `rotate(${logoConfig.rotation}deg)`,
-              maxWidth: '100%',
-              objectFit: 'contain'
-            }}
-            className="transition-transform"
-          />
+          {effectiveRole === 'superadmin' || !logoSrc || logoSrc === DEFAULT_LOGO_SRC ? (
+            <div className="flex items-center gap-3">
+              <BlueHLogo className="w-12 h-12" />
+              <span className="text-xl font-bold text-gray-800 tracking-tight">Humanius</span>
+            </div>
+          ) : (
+            <img
+              src={logoSrc}
+              alt="Logo"
+              style={{
+                width: `${logoConfig.width}px`,
+                height: `${logoConfig.height}px`,
+                transform: `rotate(${logoConfig.rotation}deg)`,
+                maxWidth: '100%',
+                objectFit: 'contain'
+              }}
+              className="transition-transform"
+            />
+          )}
         </div>
-        <button
-          onClick={() => setShowLogoEditor(true)}
-          className="absolute top-2 right-2 p-2 bg-white rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-50"
-          title="Logo'yu Düzenle"
-        >
-          <Edit2 className="w-4 h-4 text-gray-600" />
-        </button>
+        {effectiveRole !== 'superadmin' && (
+          <button
+            onClick={() => setShowLogoEditor(true)}
+            className="absolute top-2 right-2 p-2 bg-white rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-50"
+            title="Logo'yu Düzenle"
+          >
+            <Edit2 className="w-4 h-4 text-gray-600" />
+          </button>
+        )}
       </div>
 
       <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3">

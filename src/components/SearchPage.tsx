@@ -147,6 +147,13 @@ function HighlightMulti({ text, words }: { text: string; words: string[] }) {
   );
 }
 
+const BlueHLogo: React.FC<{ className?: string; style?: React.CSSProperties }> = ({ className = "w-10 h-10", style }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className={`${className} select-none`} style={style}>
+    <rect width="100" height="100" rx="20" fill="#2563eb" />
+    <path d="M30 25 V75 M70 25 V75 M30 50 H70" stroke="white" stroke-width="14" stroke-linecap="round" />
+  </svg>
+);
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const SearchPage: React.FC<SearchPageProps> = ({
@@ -454,16 +461,16 @@ export const SearchPage: React.FC<SearchPageProps> = ({
         <div className="max-w-3xl mx-auto space-y-3 pt-8">
 
           {/* Employee Header */}
-          {['employee', 'user'].includes(effectiveRole) && (
+          {appRole && (
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-2">
               <div className="flex items-center gap-2">
-                {companyLogoUrl ? (
-                  <img src={companyLogoUrl} alt="Logo" className="h-8 object-contain" />
+                {effectiveRole === 'superadmin' || !companyLogoUrl ? (
+                  <div className="flex items-center gap-2">
+                    <BlueHLogo className="w-8 h-8" />
+                    <span className="text-xl font-bold text-gray-800 tracking-tight">Humanius</span>
+                  </div>
                 ) : (
-                  <>
-                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">H</div>
-                    <h1 className="text-xl font-bold text-gray-800">Humanius</h1>
-                  </>
+                  <img src={companyLogoUrl} alt="Logo" className="h-8 object-contain" />
                 )}
               </div>
               <div className="flex items-center gap-2">
