@@ -126,7 +126,7 @@ export default function GorevTanimiOnay({
                   autoFocus
                 />
               </div>
-              <p className="text-xs text-slate-500">Yöneticinizden aldığınız onay şifresini girin.</p>
+              <p className="text-xs text-slate-500">Yöneticinizden aldığınız onay şifresini girin (Şifre tanımlanmadıysa herhangi bir değer yazabilirsiniz).</p>
             </div>
 
             <div className="pt-4 flex gap-3">

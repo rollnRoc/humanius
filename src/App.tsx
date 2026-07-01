@@ -528,6 +528,7 @@ const AppInner: React.FC = () => {
           employee_type: emp.employeeType ?? 'normal',
           tc_no: emp.tc_no ?? '',
           sicil_no: emp.sicil_no ?? '',
+          join_date: emp.joinDate ?? emp.join_date ?? null,
         });
       } else {
         await employeeService.update(emp.id, {
@@ -542,6 +543,9 @@ const AppInner: React.FC = () => {
           address: emp.address,
           skills: emp.skills,
           employee_type: emp.employeeType ?? 'normal',
+          tc_no: emp.tc_no ?? '',
+          sicil_no: emp.sicil_no ?? '',
+          join_date: emp.joinDate ?? emp.join_date ?? null,
         });
       }
       setDrawerOpen(false);

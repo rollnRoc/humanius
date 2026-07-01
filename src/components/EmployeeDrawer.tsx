@@ -210,6 +210,29 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
+                  <div>
+                    <label htmlFor="employee-tcno" className="block text-sm font-medium text-gray-700 mb-2">TC Kimlik No</label>
+                    <input
+                      id="employee-tcno"
+                      type="text"
+                      maxLength={11}
+                      value={formData.tc_no || ''}
+                      onChange={(e) => handleInputChange('tc_no', e.target.value.replace(/\D/g, ''))}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder="11 haneli TC No"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="employee-sicilno" className="block text-sm font-medium text-gray-700 mb-2">SGK Sicil No</label>
+                    <input
+                      id="employee-sicilno"
+                      type="text"
+                      value={formData.sicil_no || ''}
+                      onChange={(e) => handleInputChange('sicil_no', e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder="SGK Sicil Numarası"
+                    />
+                  </div>
                 </div>
               </div>
             )}
