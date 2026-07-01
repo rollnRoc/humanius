@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Users, Calendar, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
+import { useAuth } from '../contexts/AuthContext';
 
 interface IzinOzetKartlariProps {
   employees: Employee[];
   izinTalepleri: IzinTalebi[];
   izinHaklari: IzinHakki[];
+  onUpdateHak?: (employeeId: string, toplamHak: number, mazeretHak: number, hakId?: string) => void;
 }
 
 const IZIN_TURU_LABEL: Record<string, string> = {
@@ -29,8 +31,16 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
   employees,
   izinTalepleri,
   izinHaklari,
+  onUpdateHak,
 }) => {
   const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
+  const { profile } = useAuth();
+  const userRole = profile?.role || 'employee';
+  const isAuthorized = !['employee', 'user'].includes(userRole);
+
+  const [editingHakEmpId, setEditingHakEmpId] = useState<string | null>(null);
+  const [inputToplamHak, setInputToplamHak] = useState<number>(14);
+  const [inputMazeretHak, setInputMazeretHak] = useState<number>(5);
 
   const yil = new Date().getFullYear();
   const bugun = new Date().toISOString().split('T')[0];
@@ -379,8 +389,66 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
                         </div>
                       </div>
                     )}
-                    {talepleri.length === 0 && (
-                      <p className="mt-3 text-xs text-gray-400 flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> Henüz izin talebi yok.</p>
+                    {/* İzin Hakları Düzenleme (İK / Yönetici) */}
+                    {isAuthorized && (
+                      <div className="mt-4 pt-4 border-t border-gray-150">
+                        {editingHakEmpId === emp.id ? (
+                          <div className="flex flex-wrap items-center gap-4 bg-white p-3.5 rounded-xl border border-gray-200 shadow-sm w-full">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-gray-600">Yıllık Hak:</span>
+                              <input
+                                type="number"
+                                value={inputToplamHak}
+                                onChange={(e) => setInputToplamHak(Math.max(0, parseInt(e.target.value) || 0))}
+                                className="w-16 px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 font-bold text-gray-700 text-center"
+                              />
+                              <span className="text-xs text-gray-400">gün</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-gray-600">Mazeret Hak:</span>
+                              <input
+                                type="number"
+                                value={inputMazeretHak}
+                                onChange={(e) => setInputMazeretHak(Math.max(0, parseInt(e.target.value) || 0))}
+                                className="w-16 px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 font-bold text-gray-700 text-center"
+                              />
+                              <span className="text-xs text-gray-400">gün</span>
+                            </div>
+                            <div className="flex gap-2 ml-auto">
+                              <button
+                                onClick={() => setEditingHakEmpId(null)}
+                                className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-50 transition-colors"
+                              >
+                                İptal
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (onUpdateHak) {
+                                    onUpdateHak(emp.id, inputToplamHak, inputMazeretHak, hak?.id);
+                                  }
+                                  setEditingHakEmpId(null);
+                                }}
+                                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm transition-colors"
+                              >
+                                Kaydet
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-full flex justify-end">
+                            <button
+                              onClick={() => {
+                                setEditingHakEmpId(emp.id);
+                                setInputToplamHak(toplamHak);
+                                setInputMazeretHak(hak?.mazeret ?? 5);
+                              }}
+                              className="px-3.5 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition-all shadow-sm"
+                            >
+                              İzin Haklarını Düzenle
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}

@@ -852,6 +852,25 @@ const AppInner: React.FC = () => {
     }
   };
 
+  const handleUpdateIzinHakki = async (employeeId: string, toplamHak: number, mazeretHak: number, hakId?: string) => {
+    try {
+      const yil = new Date().getFullYear();
+      await izinService.createOrUpdateHakki({
+        id: hakId,
+        employee_id: employeeId,
+        company_id: profile?.company_id,
+        yil,
+        toplam_hak: toplamHak,
+        mazeret_izin: mazeretHak,
+      });
+      await loadData();
+      alert('İzin hakları başarıyla güncellendi.');
+    } catch (err: any) {
+      console.error('İzin hakları güncellenemedi:', err);
+      alert('İzin hakları güncellenirken bir hata oluştu.');
+    }
+  };
+
   // ── Auth guard ──────────────────────────────────────────────────────────────
   if (authLoading) {
     return (
@@ -1128,6 +1147,7 @@ const AppInner: React.FC = () => {
                   employees={employees}
                   izinTalepleri={izinTalepleri}
                   izinHaklari={izinHaklari}
+                  onUpdateHak={handleUpdateIzinHakki}
                 />
               </>
             )}
