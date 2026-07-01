@@ -840,6 +840,18 @@ const AppInner: React.FC = () => {
     }
   };
 
+  const handleDeleteIzinTalebi = async (id: string) => {
+    if (!window.confirm('Bu izin kaydını silmek istediğinize emin misiniz?')) return;
+    try {
+      await izinService.deleteTalep(id);
+      setIzinTalepleri((prev) => prev.filter((t) => t.id !== id));
+      alert('İzin kaydı başarıyla silindi.');
+    } catch (err: any) {
+      console.error('İzin silinirken hata oluştu:', err);
+      alert('İzin kaydı silinirken bir hata oluştu.');
+    }
+  };
+
   // ── Auth guard ──────────────────────────────────────────────────────────────
   if (authLoading) {
     return (
@@ -1196,6 +1208,7 @@ const AppInner: React.FC = () => {
             izinTalepleri={izinTalepleri} 
             employees={employees} 
             departments={departments} 
+            onDeleteLeave={handleDeleteIzinTalebi}
           />
         )}
 

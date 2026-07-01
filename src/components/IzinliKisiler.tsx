@@ -1,15 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { Calendar as CalendarIcon, Filter, Search } from 'lucide-react';
+import { Calendar as CalendarIcon, Filter, Search, Trash2 } from 'lucide-react';
 import type { IzinTalebi } from '../types/izin';
 import type { Employee, Department } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface IzinliKisilerProps {
   izinTalepleri: IzinTalebi[];
   employees: Employee[];
   departments: Department[];
+  onDeleteLeave?: (leaveId: string) => void;
 }
 
-const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees, departments }) => {
+const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees, departments, onDeleteLeave }) => {
+  const { profile } = useAuth();
+  const userRole = profile?.role || 'employee';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
@@ -114,6 +119,7 @@ const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees,
               <th className="px-6 py-4">Başlangıç</th>
               <th className="px-6 py-4">Bitiş</th>
               <th className="px-6 py-4">Süre</th>
+              {!['employee', 'user'].includes(userRole) && <th className="px-6 py-4 text-right">İşlemler</th>}
             </tr>
           </thead>
           <tbody>
@@ -130,11 +136,22 @@ const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees,
                   <td className="px-6 py-4 text-gray-600">{new Date(leave.baslangicTarihi).toLocaleDateString('tr-TR')}</td>
                   <td className="px-6 py-4 text-gray-600">{new Date(leave.bitisTarihi).toLocaleDateString('tr-TR')}</td>
                   <td className="px-6 py-4 font-medium text-gray-800">{leave.kullanilanGun} Gün</td>
+                  {!['employee', 'user'].includes(userRole) && (
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => onDeleteLeave && onDeleteLeave(leave.id)}
+                        className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
+                        title="İzni İptal Et / Sil"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={!['employee', 'user'].includes(userRole) ? 7 : 6} className="px-6 py-12 text-center text-gray-500">
                   <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-lg font-medium">İzinli personel bulunamadı</p>
                   <p className="text-sm mt-1">Seçilen kriterlere uygun onaylanmış izin kaydı yoktur.</p>
