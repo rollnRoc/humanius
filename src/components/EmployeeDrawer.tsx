@@ -236,18 +236,20 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                   )}
                   <div>
                     <label htmlFor="employee-department" className="block text-sm font-medium text-gray-700 mb-2">Departman</label>
-                    <select
+                    <input
                       id="employee-department"
+                      type="text"
+                      list="departments-list"
                       value={formData.department}
                       onChange={(e) => handleInputChange('department', e.target.value)}
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    >
+                      placeholder="Departman girin veya seçin"
+                    />
+                    <datalist id="departments-list">
                       {departments.map(dept => (
-                        <option key={dept} value={dept}>
-                          {dept}
-                        </option>
+                        <option key={dept} value={dept} />
                       ))}
-                    </select>
+                    </datalist>
                   </div>
                   <div>
                     <label htmlFor="employee-position" className="block text-sm font-medium text-gray-700 mb-2">Pozisyon</label>
