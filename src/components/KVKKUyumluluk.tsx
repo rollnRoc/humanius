@@ -3,6 +3,7 @@ import { Shield, Lock, Eye, FileText, AlertTriangle, CheckCircle, Clock, Downloa
 import { Employee } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { userService } from '../services/userService';
+import { companyService } from '../services/companyService';
 
 interface VeriKategori {
   id: string;
@@ -57,10 +58,10 @@ const YASAL_METINLER: YasalMetin[] = [
     icerik: `6698 SAYILI KİŞİSEL VERİLERİN KORUNMASI KANUNU (KVKK) AYDINLATMA METNİ
 
 1. Veri Sorumlusu
-Bu Aydınlatma Metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("Kanun") uyarınca, veri sorumlusu sıfatıyla Humanius HRM bünyesinde çalışanlar, çalışan adayları ve şirket ortaklarının kişisel verilerinin işlenmesine ilişkin usul ve esasları belirlemek amacıyla hazırlanmıştır.
+Bu Aydınlatma Metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("Kanun") uyarınca, veri sorumlusu sıfatıyla {{SIRKET_ADI}} bünyesinde çalışanlar, çalışan adayları ve şirket ortaklarının kişisel verilerinin işlenmesine ilişkin usul ve esasları belirlemek amacıyla hazırlanmıştır.
 
 2. İşlenen Kişisel Verileriniz ve İşlenme Amaçları
-Şirketimiz tarafından elde edilen kişisel verileriniz (Ad, soyad, TC Kimlik Numarası, telefon, adres, e-posta, bordro ve mali kayıtlar, PDKS devam kayıtları, performans puanları ve sağlık durum bilgileri vb.), aşağıdaki amaçlar doğrultusunda işlenmektedir:
+Şirketimiz {{SIRKET_ADI}} tarafından elde edilen kişisel verileriniz (Ad, soyad, TC Kimlik Numarası, telefon, adres, e-posta, bordro ve mali kayıtlar, PDKS devam kayıtları, performans puanları ve sağlık durum bilgileri vb.), aşağıdaki amaçlar doğrultusunda işlenmektedir:
 - İş akdinin ifası ve iş kanunu mevzuatından kaynaklanan yükümlülüklerin yerine getirilmesi,
 - Maaş, prim, yan haklar ve diğer mali hak edişlerin hesaplanması ve ödenmesi,
 - İSG (İş Sağlığı ve Güvenliği) süreçlerinin yürütülmesi ve takibi,
@@ -78,7 +79,7 @@ Kişisel verileriniz, iş başvurusu formları, özlük dosyası beyanları, PDK
     kanunNo: 'Madde 5/2 ve 6/2 Uyarınca',
     icerik: `ÇALIŞAN AÇIK RIZA BEYANNAMESİ
 
-Şirketiniz bünyesinde istihdam edildiğim süre boyunca, iş ilişkisinin gerektirdiği ve yasal mevzuata uygun olarak talep edilen kişisel verilerim ile özel nitelikli kişisel verilerimin (sağlık verileri, engellilik durumu, biyometrik veya turnike geçiş PDKS kayıtları vb.) işlenmesine, şirket içi sistemlerde (Humanius HRM altyapısı) güvenli olarak saklanmasına ve kanuni zorunluluklar dahilinde üçüncü taraflarla paylaşılmasına özgür irademle, bilgilendirilmiş olarak açıkça rıza gösterdiğimi beyan ederim.
+Şirketiniz {{SIRKET_ADI}} bünyesinde istihdam edildiğim süre boyunca, iş ilişkisinin gerektirdiği ve yasal mevzuata uygun olarak talep edilen kişisel verilerim ile özel nitelikli kişisel verilerimin (sağlık verileri, engellilik durumu, biyometrik veya turnike geçiş PDKS kayıtları vb.) işlenmesine, şirket içi sistemlerde ({{SIRKET_ADI}} altyapısı) güvenli olarak saklanmasına ve kanuni zorunluluklar dahilinde üçüncü taraflarla paylaşılmasına özgür irademle, bilgilendirilmiş olarak açıkça rıza gösterdiğimi beyan ederim.
 
 Bu kapsamda özellikle:
 - Sağlık raporlarımın ve meslek hastalığı takip kayıtlarımın İSG birimince işlenmesine,
@@ -92,16 +93,16 @@ Bu kapsamda özellikle:
     icerik: `GİZLİLİK VE GİZLİLİK TAAHHÜTNAMESİ
 
 1. Gizli Bilgi Tanımı
-İşbu Taahhütname kapsamında "Gizli Bilgi", çalışanın görevi gereği öğrendiği veya şirket sistemlerinde eriştiği her türlü ticari, finansal, teknik veri, müşteri listeleri, personel bilgileri, yazılım kaynak kodları, veri tabanı şifreleri ve ticari sır niteliğindeki bilgileri ifade eder.
+İşbu Taahhütname kapsamında "Gizli Bilgi", çalışanın görevi gereği öğrendiği veya {{SIRKET_ADI}} sistemlerinde eriştiği her türlü ticari, finansal, teknik veri, müşteri listeleri, personel bilgileri, yazılım kaynak kodları, veri tabanı şifreleri ve ticari sır niteliğindeki bilgileri ifade eder.
 
 2. Çalışanın Yükümlülükleri
 Çalışan, iş ilişkisi süresince ve iş akdinin sona ermesinden sonra da dahil olmak üzere:
 - Görevi gereği edindiği gizli bilgileri hiçbir surette şirket dışındaki üçüncü şahıs veya kurumlarla paylaşmamayı,
-- Şirket tarafından kendisine teslim edilen bilgisayar, mobil cihaz ve erişim şifrelerini güvenli tutmayı ve yetkisiz kişilere kullandırmamayı,
-- Humanius HRM sistemi üzerinde kendi giriş şifresini ve dijital onay şifresini (PIN) gizli tutacağını, üçüncü şahıslara devretmeyeceğini taahhüt eder.
+- {{SIRKET_ADI}} tarafından kendisine teslim edilen bilgisayar, mobil cihaz ve erişim şifrelerini güvenli tutmayı ve yetkisiz kişilere kullandırmamayı,
+- {{SIRKET_ADI}} HRM sistemi üzerinde kendi giriş şifresini ve dijital onay şifresini (PIN) gizli tutacağını, üçüncü şahıslara devretmeyeceğini taahhüt eder.
 
 3. İhlal Durumu
-Çalışan, işbu taahhütname hükümlerine aykırı davranması durumunda iş akdinin haklı nedenle feshedilebileceğini, şirketin uğrayacağı her türlü maddi ve manevi zararı tazmin etmekle yükümlü olacağını kabul ve beyan eder.`
+Çalışan, işbu taahhütname hükümlerine aykırı davranması durumunda iş akdinin haklı nedenle feshedilebileceğini, {{SIRKET_ADI}} şirketinin uğrayacağı her türlü maddi ve manevi zararı tazmin etmekle yükümlü olacağını kabul ve beyan eder.`
   }
 ];
 
@@ -152,6 +153,7 @@ const KVKKUyumluluk: React.FC<KVKKUyumlulukProps> = ({ employees = [] }) => {
 
   const [aktifSekme, setAktifSekme] = useState<'genel' | 'veri-envanteri' | 'audit-log' | 'haklar' | 'metinler'>('genel');
   const [secilenMetin, setSecilenMetin] = useState<string>('kvkk_aydinlatma');
+  const [companyName, setCompanyName] = useState('Humanius HRM');
 
   // Kontrol listesi durumu (Local Storage destekli, sıfırlanabilir)
   const [kontroller, setKontroller] = useState<{ kontrol: string; durum: boolean; oncelik: string }[]>([]);
@@ -161,6 +163,30 @@ const KVKKUyumluluk: React.FC<KVKKUyumlulukProps> = ({ employees = [] }) => {
   const [pinCode, setPinCode] = useState('');
   const [pinError, setPinError] = useState('');
   const [signedDocs, setSignedDocs] = useState<Record<string, { date: string; ip: string; name: string }>>({});
+
+  // Dinamik Yasal Metinler ({{SIRKET_ADI}} yerini alan)
+  const dynamicYasalMetinler = React.useMemo(() => {
+    return YASAL_METINLER.map(m => ({
+      ...m,
+      icerik: m.icerik.replace(/\{\{SIRKET_ADI\}\}/g, companyName)
+    }));
+  }, [companyName]);
+
+  useEffect(() => {
+    const fetchCompany = async () => {
+      if (profile?.company_id) {
+        try {
+          const comp = await companyService.getById(profile.company_id);
+          if (comp?.name) {
+            setCompanyName(comp.name);
+          }
+        } catch (err) {
+          console.error("Şirket ismi yüklenirken hata:", err);
+        }
+      }
+    };
+    fetchCompany();
+  }, [profile?.company_id]);
 
   useEffect(() => {
     // 1. Kontrolleri yükle
@@ -250,7 +276,7 @@ const KVKKUyumluluk: React.FC<KVKKUyumlulukProps> = ({ employees = [] }) => {
   };
 
   const handlePrint = (metinId: string) => {
-    const metin = YASAL_METINLER.find(m => m.id === metinId);
+    const metin = dynamicYasalMetinler.find(m => m.id === metinId);
     if (!metin) return;
 
     const printWindow = window.open('', '_blank');
@@ -576,7 +602,7 @@ const KVKKUyumluluk: React.FC<KVKKUyumlulukProps> = ({ employees = [] }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1 space-y-2">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Doküman Listesi</p>
-            {YASAL_METINLER.map((metin) => (
+            {dynamicYasalMetinler.map((metin) => (
               <button
                 key={metin.id}
                 onClick={() => setSecilenMetin(metin.id)}
@@ -602,7 +628,7 @@ const KVKKUyumluluk: React.FC<KVKKUyumlulukProps> = ({ employees = [] }) => {
 
           <div className="md:col-span-2 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-[450px]">
             {(() => {
-              const metin = YASAL_METINLER.find(m => m.id === secilenMetin);
+              const metin = dynamicYasalMetinler.find(m => m.id === secilenMetin);
               if (!metin) return null;
               const isSigned = signedDocs[metin.id];
 
