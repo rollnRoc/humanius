@@ -16,6 +16,8 @@ import {
   UserCheck,
   User,
   RefreshCw,
+  KeyRound,
+  PenTool,
 } from 'lucide-react';
 import { userService, type UserProfile } from '../services/userService';
 import { userManagementService } from '../services/userManagementService';
@@ -54,6 +56,259 @@ const RoleBadge: React.FC<{ role: string }> = ({ role }) => {
       <Icon size={11} />
       {cfg.label}
     </span>
+  );
+};
+
+// ─── Signature Canvas ────────────────────────────────────────────────────────
+interface SignatureCanvasProps {
+  onChange: (value: string) => void;
+}
+
+const SignatureCanvas: React.FC<SignatureCanvasProps> = ({ onChange }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#4c1d95';
+  }, []);
+
+  const draw = (x: number, y: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const getPoint = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    if ('touches' in event) {
+      return {
+        x: event.touches[0].clientX - rect.left,
+        y: event.touches[0].clientY - rect.top,
+      };
+    }
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+  };
+
+  const start = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    setIsDrawing(true);
+    const point = getPoint(event);
+    if (!point) return;
+    draw(point.x, point.y);
+  };
+
+  const move = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    const point = getPoint(event);
+    if (!point) return;
+    draw(point.x, point.y);
+  };
+
+  const stop = () => {
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.beginPath();
+    onChange(canvas.toDataURL('image/png'));
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.beginPath();
+    onChange('');
+  };
+
+  return (
+    <div className="rounded-lg border border-purple-200 bg-white p-2">
+      <canvas
+        ref={canvasRef}
+        width={520}
+        height={150}
+        onMouseDown={start}
+        onMouseMove={move}
+        onMouseUp={stop}
+        onMouseLeave={stop}
+        onTouchStart={start}
+        onTouchMove={move}
+        onTouchEnd={stop}
+        className="w-full rounded-md border border-dashed border-purple-300 bg-purple-50/30 touch-none"
+      />
+      <div className="mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={clearCanvas}
+          className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+        >
+          Temizle
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── Security Modal ──────────────────────────────────────────────────────────
+interface SecurityModalProps {
+  user: UserProfile;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+const SecurityModal: React.FC<SecurityModalProps> = ({ user, onClose, onSuccess }) => {
+  const [securityPasscode, setSecurityPasscode] = useState('');
+  const [securitySignature, setSecuritySignature] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      setLoading(true);
+      try {
+        const settings = await userService.getUserSecuritySettings(user);
+        setSecurityPasscode(settings.approvalPasscode ?? '');
+        setSecuritySignature(settings.approvalSignature ?? '');
+      } catch (err: any) {
+        setError(err.message ?? 'Güvenlik ayarları yüklenemedi.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSettings();
+  }, [user]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (securityPasscode && securityPasscode.length < 4) {
+      setError('Onay şifresi en az 4 karakter olmalıdır.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await userService.updateUserSecuritySettings(user, {
+        approvalPasscode: securityPasscode.trim() || null,
+        approvalSignature: securitySignature.trim() || null,
+      });
+      onSuccess();
+    } catch (err: any) {
+      setError(err.message ?? 'Ayarlar kaydedilemedi.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center">
+              <KeyRound size={18} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">İmza & Onay Şifresi</h2>
+              <p className="text-xs text-gray-500">{user.full_name} • {user.email}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2.5 rounded-xl">
+              <AlertCircle size={15} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Onay Şifresi</label>
+              <input
+                type="text"
+                value={securityPasscode}
+                onChange={(e) => setSecurityPasscode(e.target.value)}
+                placeholder="Örn: 1234"
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => setSecurityPasscode(Math.floor(100000 + Math.random() * 900000).toString())}
+                className="w-full py-2.5 border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+              >
+                <KeyRound size={13} />
+                Şifre Oluştur
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Dijital İmza</label>
+            <SignatureCanvas onChange={setSecuritySignature} />
+            {securitySignature.startsWith('data:image') && (
+              <div className="mt-2 rounded-xl border border-gray-150 p-2 bg-gray-50/50">
+                <p className="mb-1 text-[10px] font-bold text-gray-500">İmza Önizleme</p>
+                <img src={securitySignature} alt="İmza Önizleme" className="h-12 rounded border border-gray-200 bg-white" />
+              </div>
+            )}
+            <p className="mt-2 text-[10px] text-gray-400">İsterseniz metin olarak da imza kaydı girebilirsiniz.</p>
+            <textarea
+              value={securitySignature}
+              onChange={(e) => setSecuritySignature(e.target.value)}
+              rows={2}
+              placeholder="İmza adı veya dijital imza verisi"
+              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mt-1"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              İptal
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+            >
+              {loading
+                ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                : 'Kaydet'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 };
 
@@ -326,7 +581,7 @@ const DeleteConfirm: React.FC<DeleteConfirmProps> = ({ user, onConfirm, onCancel
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const KullanicilarPage: React.FC = () => {
-  const { user: currentUser, appRole } = useAuth();
+  const { user: currentUser, appRole, profile } = useAuth();
   const [users, setUsers]               = useState<UserProfile[]>([]);
   const [companies, setCompanies]       = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading]           = useState(true);
@@ -337,6 +592,7 @@ const KullanicilarPage: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [toast, setToast]               = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [securityTargetUser, setSecurityTargetUser] = useState<UserProfile | null>(null);
 
   const showToast = (type: 'success' | 'error', msg: string) => {
     setToast({ type, msg });
@@ -373,15 +629,19 @@ const KullanicilarPage: React.FC = () => {
     }
   };
 
+  const companyUsers = profile?.role === 'superadmin'
+    ? users
+    : users.filter((u) => u.company_id === profile?.company_id);
+
   // Stats
-  const totalUsers      = users.length;
-  const superadmins     = users.filter((u) => u.role === 'superadmin').length;
-  const admins          = users.filter((u) => u.role === 'admin').length;
-  const regularUsers    = users.filter((u) => !['superadmin', 'admin'].includes(u.role)).length;
+  const totalUsers      = companyUsers.length;
+  const superadmins     = companyUsers.filter((u) => u.role === 'superadmin').length;
+  const admins          = companyUsers.filter((u) => u.role === 'admin').length;
+  const regularUsers    = companyUsers.filter((u) => !['superadmin', 'admin'].includes(u.role)).length;
 
   const companyNameMap = Object.fromEntries(companies.map((c) => [c.id, c.name]));
 
-  const filtered = users.filter((u) => {
+  const filtered = companyUsers.filter((u) => {
     const matchSearch =
       !searchTerm ||
       u.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -592,6 +852,13 @@ const KullanicilarPage: React.FC = () => {
                             >
                               <Edit2 size={14} />
                             </button>
+                            <button
+                              onClick={() => setSecurityTargetUser(u)}
+                              className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                              title="İmza/Şifre Ayarla"
+                            >
+                              <KeyRound size={14} />
+                            </button>
                             {!isCurrentUser && appRole === 'superadmin' && (
                               <button
                                 onClick={() => setDeleteTarget(u)}
@@ -644,6 +911,18 @@ const KullanicilarPage: React.FC = () => {
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleteTarget(null)}
           loading={deleteLoading}
+        />
+      )}
+
+      {securityTargetUser && (
+        <SecurityModal
+          user={securityTargetUser}
+          onClose={() => setSecurityTargetUser(null)}
+          onSuccess={() => {
+            setSecurityTargetUser(null);
+            showToast('success', 'İmza ve onay şifresi başarıyla güncellendi!');
+            loadData();
+          }}
         />
       )}
     </div>

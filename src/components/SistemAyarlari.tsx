@@ -840,7 +840,7 @@ const SistemAyarlari: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {users.map((targetUser) => (
+                        {(profile?.role === 'superadmin' ? users : users.filter(u => u.company_id === profile?.company_id)).map((targetUser) => (
                           <tr key={targetUser.id} className="border-b border-gray-100">
                             <td className="px-4 py-3 text-sm font-medium text-gray-800">{targetUser.full_name}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">{targetUser.email}</td>
