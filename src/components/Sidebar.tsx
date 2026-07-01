@@ -63,6 +63,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
+  const companyIdKey = profile?.company_id ? `_${profile.company_id}` : '';
+  const logoSrcKey = `logoSrc${companyIdKey}`;
+  const logoConfigKey = `logoConfig${companyIdKey}`;
+
   const [logoSrc, setLogoSrc] = useState(DEFAULT_LOGO_SRC);
   const [logoConfig, setLogoConfig] = useState<LogoConfig>({
     width: 225,
@@ -74,12 +78,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleLogoSave = (config: LogoConfig) => {
     setLogoConfig(config);
-    safeWriteLocalStorage('logoConfig', JSON.stringify(config));
+    safeWriteLocalStorage(logoConfigKey, JSON.stringify(config));
   };
 
   const handleLogoSelect = async (nextLogoSrc: string) => {
     setLogoSrc(nextLogoSrc);
-    safeWriteLocalStorage('logoSrc', nextLogoSrc);
+    safeWriteLocalStorage(logoSrcKey, nextLogoSrc);
     
     if (profile?.company_id) {
       try {
@@ -104,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         }
       }
       
-      const savedLogoSrc = safeReadLocalStorage('logoSrc');
+      const savedLogoSrc = safeReadLocalStorage(logoSrcKey);
       if (savedLogoSrc && !LEGACY_LOGO_SRCS.includes(savedLogoSrc)) {
         setLogoSrc(savedLogoSrc);
       } else {
@@ -114,8 +118,17 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     loadCompanyLogo();
 
-    const saved = safeReadLocalStorage('logoConfig');
-    if (!saved) return;
+    const saved = safeReadLocalStorage(logoConfigKey);
+    if (!saved) {
+      setLogoConfig({
+        width: 225,
+        height: 75,
+        x: 0,
+        y: 0,
+        rotation: 0
+      });
+      return;
+    }
 
     try {
       const parsed = JSON.parse(saved) as Partial<LogoConfig>;
@@ -132,12 +145,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       }));
     } catch {
       try {
-        localStorage.removeItem('logoConfig');
+        localStorage.removeItem(logoConfigKey);
       } catch {
         // ignore storage cleanup failures
       }
     }
-  }, [profile?.company_id]);
+  }, [profile?.company_id, logoSrcKey, logoConfigKey]);
 
   const uygulamalarIds: View[] = ['kvkk', 'kullanim-kilavuzu'];
 
