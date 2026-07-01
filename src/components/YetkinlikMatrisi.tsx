@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Search, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Target, Plus, X, Save } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Target, Plus, X, Save, Trash2 } from 'lucide-react';
 import type { Employee } from '../types';
 
 interface Yetkinlik {
@@ -65,42 +65,58 @@ const DEMO_POZISYON_GEREKSINIM: PozisyonGereksinim[] = [
   },
 ];
 
-function demoPersonelYetkinlikleri(employees: Employee[]): PersonelYetkinlik[] {
-  const sonuc: PersonelYetkinlik[] = [];
-  employees.forEach((emp, ei) => {
-    DEMO_YETKINLIKLER.forEach((y, yi) => {
-      const rastgele = ((ei * 7 + yi * 3) % 4) + 1;
-      sonuc.push({ employeeId: emp.id, yetkinlikId: y.id, seviye: rastgele });
-    });
-  });
-  return sonuc;
-}
-
 interface YetkinlikMatrisiProps {
   employees: Employee[];
+  companyId?: string;
 }
 
-const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees }) => {
+const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees, companyId = 'default' }) => {
   const [aramaMetni, setAramaMetni] = useState('');
   const [secilenPozisyon, setSecilenPozisyon] = useState<string>('');
   const [secilenEmployee, setSecilenEmployee] = useState<string>('');
   const [aktifSekme, setAktifSekme] = useState<'matris' | 'gap' | 'takdir'>('matris');
 
   const [yetkinlikler] = useState<Yetkinlik[]>(DEMO_YETKINLIKLER);
-  const [personelYetkinlikler, setPersonelYetkinlikler] = useState<PersonelYetkinlik[]>(() =>
-    demoPersonelYetkinlikleri(employees)
-  );
-  const [takdirler, setTakdirler] = useState<{ id: string; gonderen: string; alan: string; mesaj: string; puan: number; tarih: string }[]>([
-    { id: 't1', gonderen: 'Yönetici', alan: employees[0]?.name ?? 'Personel', mesaj: 'Proje teslimindeki olağanüstü katkı için teşekkürler!', puan: 5, tarih: '2026-05-01' },
-    { id: 't2', gonderen: employees[1]?.name ?? 'Ekip Arkadaşı', alan: employees[0]?.name ?? 'Personel', mesaj: 'Müşteri şikayetini çok hızlı çözdün, harika!', puan: 4, tarih: '2026-04-28' },
-  ]);
+
+  // Load personelYetkinlikler from localStorage or default to 0 for all pairs
+  const [personelYetkinlikler, setPersonelYetkinlikler] = useState<PersonelYetkinlik[]>(() => {
+    const saved = localStorage.getItem(`humanius_personel_yetkinlikler_${companyId}`);
+    if (saved) return JSON.parse(saved);
+
+    // Default to 0 for all employees and all competencies
+    const sonuc: PersonelYetkinlik[] = [];
+    employees.forEach((emp) => {
+      DEMO_YETKINLIKLER.forEach((y) => {
+        sonuc.push({ employeeId: emp.id, yetkinlikId: y.id, seviye: 0 });
+      });
+    });
+    return sonuc;
+  });
+
+  // Load takdirler from localStorage, empty by default as requested
+  const [takdirler, setTakdirler] = useState<{ id: string; gonderen: string; alan: string; mesaj: string; puan: number; tarih: string }[]>(() => {
+    const saved = localStorage.getItem(`humanius_takdirler_${companyId}`);
+    return saved ? JSON.parse(saved) : []; // Empty by default
+  });
+
   const [takdirForm, setTakdirForm] = useState(false);
   const [yeniTakdir, setYeniTakdir] = useState({ alan: '', mesaj: '', puan: 5 });
 
-  const filtreliPersonel = employees.filter((emp) =>
-    emp.name.toLowerCase().includes(aramaMetni.toLowerCase()) ||
-    emp.position?.toLowerCase().includes(aramaMetni.toLowerCase())
-  );
+  // Sync to localStorage
+  useEffect(() => {
+    localStorage.setItem(`humanius_personel_yetkinlikler_${companyId}`, JSON.stringify(personelYetkinlikler));
+  }, [personelYetkinlikler, companyId]);
+
+  useEffect(() => {
+    localStorage.setItem(`humanius_takdirler_${companyId}`, JSON.stringify(takdirler));
+  }, [takdirler, companyId]);
+
+  const filtreliPersonel = useMemo(() => {
+    return employees.filter((emp) =>
+      emp.name.toLowerCase().includes(aramaMetni.toLowerCase()) ||
+      (emp.position && emp.position.toLowerCase().includes(aramaMetni.toLowerCase()))
+    );
+  }, [employees, aramaMetni]);
 
   const getYetkinlikSeviye = (employeeId: string, yetkinlikId: string) =>
     personelYetkinlikler.find((py) => py.employeeId === employeeId && py.yetkinlikId === yetkinlikId)?.seviye ?? 0;
@@ -108,9 +124,12 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees }) => {
   const setSeviye = (employeeId: string, yetkinlikId: string, seviye: number) => {
     setPersonelYetkinlikler((prev) => {
       const idx = prev.findIndex((py) => py.employeeId === employeeId && py.yetkinlikId === yetkinlikId);
-      if (idx === -1) return [...prev, { employeeId, yetkinlikId, seviye }];
       const next = [...prev];
-      next[idx] = { ...next[idx], seviye };
+      if (idx === -1) {
+        next.push({ employeeId, yetkinlikId, seviye });
+      } else {
+        next[idx] = { ...next[idx], seviye };
+      }
       return next;
     });
   };
@@ -129,9 +148,17 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees }) => {
       const fark = mevcut - g.minSeviye;
       return { yetkinlik: yetk, minSeviye: g.minSeviye, mevcutSeviye: mevcut, fark };
     });
-  }, [secilenEmployee, secilenPozisyon, personelYetkinlikler, employees]);
+  }, [secilenEmployee, secilenPozisyon, personelYetkinlikler, employees, yetkinlikler]);
 
-  const kategoriler = [...new Set(yetkinlikler.map((y) => y.kategori))];
+  const kategoriler = useMemo(() => {
+    return [...new Set(yetkinlikler.map((y) => y.kategori))];
+  }, [yetkinlikler]);
+
+  const deleteTakdir = (id: string) => {
+    if (window.confirm('Bu takdir mesajını silmek istediğinize emin misiniz?')) {
+      setTakdirler(takdirler.filter((t) => t.id !== id));
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -164,16 +191,16 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees }) => {
       {aktifSekme === 'matris' && (
         <div className="space-y-4">
           <div className="flex gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-48">
+            <div className="relative flex-1 min-w-48 bg-white rounded-xl border border-gray-200">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input value={aramaMetni} onChange={(e) => setAramaMetni(e.target.value)}
                 placeholder="Personel ara..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
+                className="w-full pl-9 pr-3 py-2 text-sm outline-none bg-transparent" />
             </div>
           </div>
 
           {kategoriler.map((kategori) => (
-            <div key={kategori} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div key={kategori} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
               <div className="bg-gray-50 border-b border-gray-100 px-4 py-2">
                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{kategori} Yetkinlikleri</p>
               </div>
@@ -190,7 +217,7 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {filtreliPersonel.slice(0, 8).map((emp) => (
+                    {filtreliPersonel.map((emp) => (
                       <tr key={emp.id} className="hover:bg-gray-50">
                         <td className="px-4 py-2 sticky left-0 bg-white">
                           <p className="text-sm font-medium text-gray-800 truncate max-w-[130px]">{emp.name}</p>
@@ -235,11 +262,11 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees }) => {
       {/* --- GAP ANALYSIS SEKMESİ --- */}
       {aktifSekme === 'gap' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">Personel Seç</label>
               <select value={secilenEmployee} onChange={(e) => setSecilenEmployee(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
                 <option value="">Personel seçin</option>
                 {employees.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.position})</option>)}
               </select>
@@ -247,7 +274,7 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees }) => {
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">Karşılaştırılacak Pozisyon</label>
               <select value={secilenPozisyon} onChange={(e) => setSecilenPozisyon(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
                 <option value="">Mevcut pozisyon</option>
                 {DEMO_POZISYON_GEREKSINIM.map((p) => <option key={p.pozisyon} value={p.pozisyon}>{p.pozisyon}</option>)}
               </select>
@@ -337,11 +364,11 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees }) => {
       {/* --- TAKDİR & ROZET SEKMESİ --- */}
       {aktifSekme === 'takdir' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <p className="text-sm text-gray-500">Çalışanlar birbirlerine takdir mesajı ve puan gönderebilir</p>
             <button
               onClick={() => setTakdirForm(true)}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700"
+              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Takdir Gönder
@@ -350,8 +377,14 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees }) => {
 
           <div className="space-y-3">
             {takdirler.map((t) => (
-              <div key={t.id} className="bg-white rounded-2xl border border-gray-200 p-4">
-                <div className="flex items-start justify-between">
+              <div key={t.id} className="bg-white rounded-2xl border border-gray-200 p-4 relative group shadow-sm">
+                <button
+                  onClick={() => deleteTakdir(t.id)}
+                  className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <div className="flex items-start justify-between flex-wrap gap-4">
                   <div>
                     <p className="text-sm font-semibold text-gray-800">
                       <span className="text-indigo-700">{t.gonderen}</span>
@@ -387,7 +420,7 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees }) => {
                 <div>
                   <label className="text-xs font-medium text-gray-600 block mb-1">Kime</label>
                   <select value={yeniTakdir.alan} onChange={(e) => setYeniTakdir({ ...yeniTakdir, alan: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
                     <option value="">Personel seçin</option>
                     {employees.map((e) => <option key={e.id} value={e.name}>{e.name}</option>)}
                   </select>

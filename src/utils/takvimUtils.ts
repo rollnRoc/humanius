@@ -46,22 +46,104 @@ export const EGITIM_SURELERI = {
   kariyer_planlama: 365,
 };
 
-export const RESMI_TATILLER_2024: ResmiTatil[] = [
-  { tarih: '2024-01-01', ad: 'Yılbaşı' },
-  { tarih: '2024-04-10', ad: 'Ramazan Bayramı 1. Günü' },
-  { tarih: '2024-04-11', ad: 'Ramazan Bayramı 2. Günü' },
-  { tarih: '2024-04-12', ad: 'Ramazan Bayramı 3. Günü' },
-  { tarih: '2024-04-23', ad: 'Ulusal Egemenlik ve Çocuk Bayramı' },
-  { tarih: '2024-05-01', ad: 'Emek ve Dayanışma Günü' },
-  { tarih: '2024-05-19', ad: 'Atatürk\'ü Anma, Gençlik ve Spor Bayramı' },
-  { tarih: '2024-06-16', ad: 'Kurban Bayramı 1. Günü' },
-  { tarih: '2024-06-17', ad: 'Kurban Bayramı 2. Günü' },
-  { tarih: '2024-06-18', ad: 'Kurban Bayramı 3. Günü' },
-  { tarih: '2024-06-19', ad: 'Kurban Bayramı 4. Günü' },
-  { tarih: '2024-07-15', ad: 'Demokrasi ve Millî Birlik Günü' },
-  { tarih: '2024-08-30', ad: 'Zafer Bayramı' },
-  { tarih: '2024-10-29', ad: 'Cumhuriyet Bayramı' },
-];
+export interface ResmiTatil {
+  tarih: string;
+  ad: string;
+}
+
+export function getResmiTatillerForYear(year: number): ResmiTatil[] {
+  const fixedHolidays = [
+    { ayGun: '01-01', ad: 'Yılbaşı' },
+    { ayGun: '04-23', ad: 'Ulusal Egemenlik ve Çocuk Bayramı' },
+    { ayGun: '05-01', ad: 'Emek ve Dayanışma Günü' },
+    { ayGun: '05-19', ad: 'Atatürk\'ü Anma, Gençlik ve Spor Bayramı' },
+    { ayGun: '07-15', ad: 'Demokrasi ve Millî Birlik Günü' },
+    { ayGun: '08-30', ad: 'Zafer Bayramı' },
+    { ayGun: '10-29', ad: 'Cumhuriyet Bayramı' },
+  ];
+
+  const diniTatiller: Record<number, { tarih: string; ad: string }[]> = {
+    2024: [
+      { tarih: '2024-04-10', ad: 'Ramazan Bayramı 1. Günü' },
+      { tarih: '2024-04-11', ad: 'Ramazan Bayramı 2. Günü' },
+      { tarih: '2024-04-12', ad: 'Ramazan Bayramı 3. Günü' },
+      { tarih: '2024-06-16', ad: 'Kurban Bayramı 1. Günü' },
+      { tarih: '2024-06-17', ad: 'Kurban Bayramı 2. Günü' },
+      { tarih: '2024-06-18', ad: 'Kurban Bayramı 3. Günü' },
+      { tarih: '2024-06-19', ad: 'Kurban Bayramı 4. Günü' },
+    ],
+    2025: [
+      { tarih: '2025-03-30', ad: 'Ramazan Bayramı 1. Günü' },
+      { tarih: '2025-03-31', ad: 'Ramazan Bayramı 2. Günü' },
+      { tarih: '2025-04-01', ad: 'Ramazan Bayramı 3. Günü' },
+      { tarih: '2025-06-06', ad: 'Kurban Bayramı 1. Günü' },
+      { tarih: '2025-06-07', ad: 'Kurban Bayramı 2. Günü' },
+      { tarih: '2025-06-08', ad: 'Kurban Bayramı 3. Günü' },
+      { tarih: '2025-06-09', ad: 'Kurban Bayramı 4. Günü' },
+    ],
+    2026: [
+      { tarih: '2026-03-20', ad: 'Ramazan Bayramı 1. Günü' },
+      { tarih: '2026-03-21', ad: 'Ramazan Bayramı 2. Günü' },
+      { tarih: '2026-03-22', ad: 'Ramazan Bayramı 3. Günü' },
+      { tarih: '2026-05-27', ad: 'Kurban Bayramı 1. Günü' },
+      { tarih: '2026-05-28', ad: 'Kurban Bayramı 2. Günü' },
+      { tarih: '2026-05-29', ad: 'Kurban Bayramı 3. Günü' },
+      { tarih: '2026-05-30', ad: 'Kurban Bayramı 4. Günü' },
+    ],
+    2027: [
+      { tarih: '2027-03-09', ad: 'Ramazan Bayramı 1. Günü' },
+      { tarih: '2027-03-10', ad: 'Ramazan Bayramı 2. Günü' },
+      { tarih: '2027-03-11', ad: 'Ramazan Bayramı 3. Günü' },
+      { tarih: '2027-05-16', ad: 'Kurban Bayramı 1. Günü' },
+      { tarih: '2027-05-17', ad: 'Kurban Bayramı 2. Günü' },
+      { tarih: '2027-05-18', ad: 'Kurban Bayramı 3. Günü' },
+      { tarih: '2027-05-19', ad: 'Kurban Bayramı 4. Günü' },
+    ],
+    2028: [
+      { tarih: '2028-02-26', ad: 'Ramazan Bayramı 1. Günü' },
+      { tarih: '2028-02-27', ad: 'Ramazan Bayramı 2. Günü' },
+      { tarih: '2028-02-28', ad: 'Ramazan Bayramı 3. Günü' },
+      { tarih: '2028-05-04', ad: 'Kurban Bayramı 1. Günü' },
+      { tarih: '2028-05-05', ad: 'Kurban Bayramı 2. Günü' },
+      { tarih: '2028-05-06', ad: 'Kurban Bayramı 3. Günü' },
+      { tarih: '2028-05-07', ad: 'Kurban Bayramı 4. Günü' },
+    ],
+    2029: [
+      { tarih: '2029-02-15', ad: 'Ramazan Bayramı 1. Günü' },
+      { tarih: '2029-02-16', ad: 'Ramazan Bayramı 2. Günü' },
+      { tarih: '2029-02-17', ad: 'Ramazan Bayramı 3. Günü' },
+      { tarih: '2029-04-23', ad: 'Kurban Bayramı 1. Günü' },
+      { tarih: '2029-04-24', ad: 'Kurban Bayramı 2. Günü' },
+      { tarih: '2029-04-25', ad: 'Kurban Bayramı 3. Günü' },
+      { tarih: '2029-04-26', ad: 'Kurban Bayramı 4. Günü' },
+    ],
+    2030: [
+      { tarih: '2030-02-05', ad: 'Ramazan Bayramı 1. Günü' },
+      { tarih: '2030-02-06', ad: 'Ramazan Bayramı 2. Günü' },
+      { tarih: '2030-02-07', ad: 'Ramazan Bayramı 3. Günü' },
+      { tarih: '2030-04-13', ad: 'Kurban Bayramı 1. Günü' },
+      { tarih: '2030-04-14', ad: 'Kurban Bayramı 2. Günü' },
+      { tarih: '2030-04-15', ad: 'Kurban Bayramı 3. Günü' },
+      { tarih: '2030-04-16', ad: 'Kurban Bayramı 4. Günü' },
+    ],
+  };
+
+  const results: ResmiTatil[] = fixedHolidays.map(h => ({
+    tarih: `${year}-${h.ayGun}`,
+    ad: h.ad
+  }));
+
+  const religious = diniTatiller[year] || diniTatiller[2026];
+  const religiousWithCorrectYear = religious.map(r => ({
+    tarih: `${year}-${r.tarih.slice(5)}`,
+    ad: r.ad
+  }));
+
+  results.push(...religiousWithCorrectYear);
+  return results.sort((a, b) => a.tarih.localeCompare(b.tarih));
+}
+
+export const RESMI_TATILLER_2024: ResmiTatil[] = getResmiTatillerForYear(new Date().getFullYear());
 
 // ─── Otomatik Etkinlik Oluşturma ─────────────────────────────────────────────
 
@@ -73,22 +155,34 @@ function uid() {
 export function createAutomaticEvents(
   employees: Employee[],
   izinTalepleri: IzinTalebi[],
-  bordrolar: BordroItem[]
+  bordrolar: BordroItem[],
+  year: number = new Date().getFullYear()
 ): TakvimEtkinlik[] {
   const events: TakvimEtkinlik[] = [];
 
-  // İzin talepleri → etkinlik
-  izinTalepleri.forEach((talep) => {
+  // İzin talepleri → etkinlik (Sadece onaylanan izinler)
+  izinTalepleri.filter((t) => t.durum === 'onaylandi').forEach((talep) => {
     const employee = employees.find((e) => e.id === talep.employeeId);
+    let startTarih = talep.baslangicTarihi;
+    let endTarih = talep.bitisTarihi;
+
+    // Shift to selected year if it's legacy 2024 test data
+    if (startTarih && startTarih.startsWith('2024-')) {
+      startTarih = startTarih.replace('2024-', `${year}-`);
+    }
+    if (endTarih && endTarih.startsWith('2024-')) {
+      endTarih = endTarih.replace('2024-', `${year}-`);
+    }
+
     events.push({
       id: uid(),
-      baslik: `${employee?.name ?? 'Personel'} - İzin Talebi`,
-      aciklama: `Durum: ${talep.durum} | Gün: ${talep.gunSayisi}`,
-      tarih: talep.baslangicTarihi,
-      bitisTarihi: talep.bitisTarihi,
+      baslik: `${employee?.name ?? 'Personel'} - İzinli`,
+      aciklama: `Durum: Onaylandı | Gün: ${talep.gunSayisi}`,
+      tarih: startTarih,
+      bitisTarihi: endTarih,
       tur: 'izin',
-      oncelik: talep.durum === 'beklemede' ? 'yuksek' : 'normal',
-      durum: talep.durum === 'onaylandi' ? 'tamamlandi' : talep.durum === 'reddedildi' ? 'iptal' : 'beklemede',
+      oncelik: 'normal',
+      durum: 'tamamlandi',
       employeeId: talep.employeeId,
       employeeAdi: employee?.name,
       departman: employee?.department,
@@ -100,12 +194,19 @@ export function createAutomaticEvents(
   const periods = [...new Set(bordrolar.map((b) => b.period).filter(Boolean))];
   periods.forEach((period) => {
     if (!period || typeof period !== 'string' || !period.includes('-')) return;
-    const [year, month] = period.split('-');
-    if (!year || !month || isNaN(Number(year)) || isNaN(Number(month))) return;
-    const odemeGunu = new Date(Number(year), Number(month) - 1, BORDRO_SURELERI.bordroOdemeGunleri);
+    let [yearVal, month] = period.split('-');
+    if (!yearVal || !month || isNaN(Number(yearVal)) || isNaN(Number(month))) return;
+    
+    // Shift to selected year if it's legacy 2024 test data
+    if (yearVal === '2024') {
+      yearVal = String(year);
+    }
+    
+    const shiftedPeriod = `${yearVal}-${month}`;
+    const odemeGunu = new Date(Number(yearVal), Number(month) - 1, BORDRO_SURELERI.bordroOdemeGunleri);
     events.push({
       id: uid(),
-      baslik: `${period} Bordro Dönemi`,
+      baslik: `${shiftedPeriod} Bordro Dönemi`,
       tarih: odemeGunu.toISOString().split('T')[0],
       tur: 'bordro',
       oncelik: 'kritik',
@@ -115,7 +216,8 @@ export function createAutomaticEvents(
   });
 
   // Resmî tatiller
-  RESMI_TATILLER_2024.forEach((tatil) => {
+  const holidays = getResmiTatillerForYear(year);
+  holidays.forEach((tatil) => {
     events.push({
       id: uid(),
       baslik: tatil.ad,
@@ -172,6 +274,20 @@ export function getEtkinlikRengi(tur: EtkinlikTuru): string {
     sgk: 'bg-orange-50 border-orange-200 text-orange-700',
     vergi: 'bg-pink-50 border-pink-200 text-pink-700',
     diger: 'bg-gray-50 border-gray-200 text-gray-700',
+  };
+  return map[tur] ?? map.diger;
+}
+
+export function getEtkinlikNoktaRengi(tur: EtkinlikTuru): string {
+  const map: Record<EtkinlikTuru, string> = {
+    izin: 'bg-amber-500',
+    bordro: 'bg-rose-500',
+    tatil: 'bg-emerald-500',
+    egitim: 'bg-blue-500',
+    toplanti: 'bg-purple-500',
+    sgk: 'bg-orange-500',
+    vergi: 'bg-pink-500',
+    diger: 'bg-gray-400',
   };
   return map[tur] ?? map.diger;
 }

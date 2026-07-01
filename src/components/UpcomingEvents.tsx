@@ -5,11 +5,14 @@ import { useLanguage } from '../contexts/LanguageContext';
 const UpcomingEvents: React.FC = () => {
   const { t } = useLanguage();
 
+  const currentYear = new Date().getFullYear();
+  const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+
   const events = [
-    { id: 1, title: 'Ahmet Yılmaz - Yıllık İzin', date: '2024-01-15', type: 'izin' },
-    { id: 2, title: 'IT Departmanı Toplantısı', date: '2024-01-18', type: 'toplanti' },
-    { id: 3, title: 'Bordro Hazırlama Son Gün', date: '2024-01-20', type: 'bordro' },
-    { id: 4, title: 'Yeni Personel Oryantasyonu', date: '2024-01-22', type: 'egitim' }
+    { id: 1, title: 'Ahmet Yılmaz - Yıllık İzin', date: `${currentYear}-${currentMonth}-15`, type: 'izin' },
+    { id: 2, title: 'IT Departmanı Toplantısı', date: `${currentYear}-${currentMonth}-18`, type: 'toplanti' },
+    { id: 3, title: 'Bordro Hazırlama Son Gün', date: `${currentYear}-${currentMonth}-20`, type: 'bordro' },
+    { id: 4, title: 'Yeni Personel Oryantasyonu', date: `${currentYear}-${currentMonth}-22`, type: 'egitim' }
   ];
 
   const getEventColor = (type: string) => {

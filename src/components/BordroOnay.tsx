@@ -104,6 +104,7 @@ interface BordroOnayProps {
   bordro: any;
   employeeId: string;
   employeeName: string;
+  initialShowModal?: boolean;
   onApprovalComplete?: () => void;
 }
 
@@ -111,9 +112,10 @@ const BordroOnay: React.FC<BordroOnayProps> = ({
   bordro,
   employeeId,
   employeeName,
+  initialShowModal = false,
   onApprovalComplete
 }) => {
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(initialShowModal);
   const [verificationMethod, setVerificationMethod] = useState<'passcode'>('passcode');
   const [signatureData, setSignatureData] = useState('');
   const [idDocumentData, setIdDocumentData] = useState('');

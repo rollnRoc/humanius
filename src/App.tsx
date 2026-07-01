@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Bell, X, Megaphone } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import Sidebar from './components/Sidebar';
@@ -30,7 +31,7 @@ import IzinOzetKartlari from './components/IzinOzetKartlari';
 import IzinliKisiler from './components/IzinliKisiler';
 import PdksDevam from './components/PdksDevam';
 import IsAkisi from './components/IsAkisi';
-import EgitimGirisi from './components/EgitimGirisi';
+
 import { IzinWorkflowListesi } from './components/IzinWorkflow';
 import AIBrowserPage from './browser/AIBrowserPage';
 import GuideContextMenu from './components/GuideContextMenu';
@@ -48,6 +49,8 @@ import OnboardingAkisi from './components/OnboardingAkisi';
 import EsnekYanHaklar from './components/EsnekYanHaklar';
 import IzinCakismaKontrol from './components/IzinCakismaKontrol';
 import DinamikFormBuilder from './components/DinamikFormBuilder';
+import KullanımKilavuzu from './components/KullanımKilavuzu';
+import { OnboardingModal } from './components/OnboardingModal';
 import { employeeService } from './services/employeeService';
 import { companyService } from './services/companyService';
 import { izinService } from './services/izinService';
@@ -106,6 +109,7 @@ class AppSectionErrorBoundary extends React.Component<
 const AppInner: React.FC = () => {
   const { user, profile, appRole, loading: authLoading } = useAuth();
   const effectiveAppRole = user ? appRole : 'admin';
+  const isEmployeeOnly = ['employee', 'user'].includes(effectiveAppRole);
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [currentView, setCurrentView] = useState<View>('arama');
@@ -113,7 +117,78 @@ const AppInner: React.FC = () => {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedCompany, setSelectedCompany] = useState('all');
 
+  const isPopStateRef = useRef(false);
+
+  useEffect(() => {
+    // Initial state replace
+    window.history.replaceState({ view: currentView }, '', '');
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.view) {
+        isPopStateRef.current = true;
+        setCurrentView(event.state.view);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (isPopStateRef.current) {
+      isPopStateRef.current = false;
+    } else {
+      window.history.pushState({ view: currentView }, '', '');
+    }
+  }, [currentView]);
+
+  // ── Global Notification & Toplu Uyarı ────────────────────────────────────────
+  const [showAlertNotification, setShowAlertNotification] = useState(() => {
+    try {
+      return localStorage.getItem('humanius_new_alert_notification') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [showTopluUyariModal, setShowTopluUyariModal] = useState(false);
+  const [topluUyariTitle, setTopluUyariTitle] = useState('');
+  const [topluUyariDesc, setTopluUyariDesc] = useState('');
+  const [topluUyariDate, setTopluUyariDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [topluUyariPriority, setTopluUyariPriority] = useState<'dusuk' | 'normal' | 'yuksek' | 'kritik'>('normal');
+  const [topluUyariType, setTopluUyariType] = useState('diger');
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        setShowAlertNotification(localStorage.getItem('humanius_new_alert_notification') === 'true');
+      } catch {}
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  useEffect(() => {
+    if (currentView === 'uyari') {
+      try {
+        localStorage.setItem('humanius_new_alert_notification', 'false');
+        window.dispatchEvent(new Event('storage'));
+      } catch {}
+    }
+  }, [currentView]);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (profile?.id) {
+      const shownKey = `humanius_onboarding_shown_${profile.id}`;
+      const hasShown = localStorage.getItem(shownKey) === 'true';
+      if (!hasShown) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [profile]);
 
   useEffect(() => {
     if (currentView === 'chat') {
@@ -132,6 +207,7 @@ const AppInner: React.FC = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [stats, setStats] = useState<Stats>({ active: 0, onLeave: 0, inactive: 0 });
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
 
   // ── Drawer ──────────────────────────────────────────────────────────────────
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -204,8 +280,8 @@ const AppInner: React.FC = () => {
 
       if (isEmployeeRole) {
         const currentUserEmp = mapped.find((emp) => {
-          const profileEmail = String(profile?.email ?? '').toLocaleLowerCase('tr-TR');
-          const empEmail = String(emp.email ?? '').toLocaleLowerCase('tr-TR');
+          const profileEmail = String(profile?.email ?? '').toLowerCase();
+          const empEmail = String(emp.email ?? '').toLowerCase();
           if (profileEmail && empEmail && profileEmail === empEmail) return true;
           const profileName = String(profile?.full_name ?? '').trim().toLocaleLowerCase('tr-TR');
           const empName = String(emp.name ?? '').trim().toLocaleLowerCase('tr-TR');
@@ -233,6 +309,7 @@ const AppInner: React.FC = () => {
       try {
         const compData = await companyService.getById(profile.company_id);
         setCompanies(compData ? [compData.name] : []);
+        setCompanyLogoUrl(compData?.logo_url ?? null);
       } catch {}
 
       // İzin talepleri
@@ -343,13 +420,23 @@ const AppInner: React.FC = () => {
     } catch (err) {
       console.error('Veri yüklenemedi:', err);
     }
-  }, [profile?.company_id]);
+  }, [profile?.company_id, profile?.role, profile?.email, profile?.full_name]);
 
   useEffect(() => {
-    if (user && profile) loadData();
-  }, [user, profile, loadData]);
+    if (user && profile?.company_id) loadData();
+  }, [user, profile?.company_id, loadData]);
 
-  // Removed auto-open effect as we now have explicit cards
+  // Automatically select the logged in employee in the profile/details view
+  useEffect(() => {
+    const isEmployeeRole = ['employee', 'user'].includes(effectiveAppRole);
+    if (isEmployeeRole && employees.length > 0) {
+      const emp = employees[0];
+      if (!selectedEmployee || selectedEmployee.id !== emp.id) {
+        setSelectedEmployee(emp);
+        setGlobalAccessGranted(true);
+      }
+    }
+  }, [effectiveAppRole, employees, selectedEmployee]);
 
   // ── Filtered lists ──────────────────────────────────────────────────────────
   const filteredEmployees = employees.filter((emp) => {
@@ -396,8 +483,10 @@ const AppInner: React.FC = () => {
   const handleEmployeeClick = (emp: Employee) => {
     setSelectedEmployee(emp);
     setIsNewEmployee(false);
-    setGlobalAccessGranted(false);
-    setDrawerOpen(true);
+    setGlobalAccessGranted(true);
+    if (effectiveAppRole !== 'employee' && effectiveAppRole !== 'user') {
+      setDrawerOpen(true);
+    }
   };
 
   const handleNewEmployee = () => {
@@ -771,6 +860,7 @@ const AppInner: React.FC = () => {
             bordrolar={bordrolar}
             onEmployeeClick={(emp) => { handleEmployeeClick(emp); }}
             onNavigate={(view) => setCurrentView(view)}
+            companyLogoUrl={companyLogoUrl}
           />
         </div>
       );
@@ -781,23 +871,63 @@ const AppInner: React.FC = () => {
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 relative">
         <SmartHeader currentView={currentView} onNavigate={setCurrentView} />
         
-        <div className="md:hidden flex items-center justify-between bg-white border-b border-gray-200 p-4 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">H</div>
-            <h1 className="text-xl font-bold text-gray-800">Humanius</h1>
+        {!isEmployeeOnly && (
+          <div className="md:hidden flex items-center justify-between bg-white border-b border-gray-200 p-4 shrink-0">
+            <div className="flex items-center gap-2">
+              {companyLogoUrl ? (
+                <img src={companyLogoUrl} alt="Logo" className="h-8 object-contain" />
+              ) : (
+                <>
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">H</div>
+                  <h1 className="text-xl font-bold text-gray-800">Humanius</h1>
+                </>
+              )}
+            </div>
+            <button onClick={() => setMobileMenuOpen(true)} className="p-2 -mr-2 text-gray-600">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
           </div>
-          <button onClick={() => setMobileMenuOpen(true)} className="p-2 -mr-2 text-gray-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-          </button>
-          </div>
+        )}
           <div className="flex-1 overflow-y-auto p-6 relative">
-
-            {selectedEmployee && ['ozluk-dosyasi', 'gorev-tanimi', 'gorev-tanimi-kayitlari', 'zimmet', 'performans', 'egitim', 'okr', 'yetkinlik', 'yan-haklar', 'izin-cakisma'].includes(currentView) && (
-              <GlobalEmployeeHeader
-                employee={selectedEmployee}
-                isAccessGranted={globalAccessGranted}
-                onAccessGranted={() => setGlobalAccessGranted(true)}
-              />
+            {showAlertNotification && currentView !== 'uyari' && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl flex items-center justify-between shadow-sm animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 rounded-lg text-amber-800 shrink-0">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-amber-900 text-sm">Yeni Etkinlik & Duyuru!</h4>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      Takviminizde yeni etkinlikler veya güncel duyurular bulunmaktadır. Lütfen kontrol ediniz.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setCurrentView('uyari');
+                      try {
+                        localStorage.setItem('humanius_new_alert_notification', 'false');
+                        window.dispatchEvent(new Event('storage'));
+                      } catch {}
+                    }}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    Takvimi Görüntüle
+                  </button>
+                  <button
+                    onClick={() => {
+                      try {
+                        localStorage.setItem('humanius_new_alert_notification', 'false');
+                        window.dispatchEvent(new Event('storage'));
+                      } catch {}
+                    }}
+                    className="p-1.5 hover:bg-amber-100 rounded-lg transition-colors text-amber-800 shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             )}
 
           {/* Personel listesi */}
@@ -823,7 +953,7 @@ const AppInner: React.FC = () => {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
               <QuickActions
                 onBulkLeave={() => setShowTopluIzinForm(true)}
-                onBulkAlert={() => setCurrentView('uyari')}
+                onBulkAlert={() => setShowTopluUyariModal(true)}
                 onUploadPayroll={() => setCurrentView('bordro')}
               />
               <UpcomingEvents />
@@ -840,13 +970,17 @@ const AppInner: React.FC = () => {
           <OzlukDosyasi
             employees={employees}
             selectedEmpId={selectedEmployee?.id}
-            isAccessGranted={globalAccessGranted}
+            isAccessGranted={true}
             izinTalepleri={izinTalepleri}
             izinHaklari={izinHaklari}
             bordrolar={bordrolar}
             onSelectEmployee={(empId) => {
               const emp = employees.find(e => e.id === empId);
-              if (emp) handleEmployeeClick(emp);
+              if (emp) {
+                setSelectedEmployee(emp);
+                setIsNewEmployee(false);
+                setGlobalAccessGranted(true);
+              }
             }}
           />
         )}
@@ -860,14 +994,14 @@ const AppInner: React.FC = () => {
                 .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                 .slice(0, 1)
                 .map(pendingBordro => (
-                <div key={pendingBordro.id} className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 shadow-sm flex items-center justify-between">
+                <div key={pendingBordro.id} className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h3 className="text-lg font-bold text-yellow-800">Onay Bekleyen Bordro</h3>
                     <p className="text-sm text-yellow-700">{pendingBordro.period} dönemi bordronuz onayınızı bekliyor.</p>
                   </div>
                   <button
                     onClick={() => setSelectedBordro(pendingBordro)}
-                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-medium hover:bg-yellow-700 transition-colors"
+                    className="w-full sm:w-auto text-center px-4 py-2.5 bg-yellow-600 text-white rounded-xl text-sm font-semibold hover:bg-yellow-700 transition-colors whitespace-nowrap shrink-0"
                   >
                     Görüntüle ve Onayla
                   </button>
@@ -905,14 +1039,24 @@ const AppInner: React.FC = () => {
         {/* İzin Yönetimi */}
         {currentView === 'izin' && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
               <h2 className="text-xl font-bold text-gray-800">İzin Yönetimi</h2>
-              <button
-                onClick={() => setShowIzinForm(true)}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
-              >
-                + Yeni İzin Talebi
-              </button>
+              <div className="flex gap-2">
+                {!['employee', 'user'].includes(effectiveAppRole) && (
+                  <button
+                    onClick={() => setShowTopluIzinForm(true)}
+                    className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
+                  >
+                    👥 Toplu İzin Tanımla
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowIzinForm(true)}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  + Yeni İzin Talebi
+                </button>
+              </div>
             </div>
 
             <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5">
@@ -1012,8 +1156,7 @@ const AppInner: React.FC = () => {
 
         {/* İŞ AKIŞI ve Operasyon */}
         {currentView === 'pdks-devam' && <PdksDevam employees={employees} />}
-        {currentView === 'is-akisi' && <IsAkisi />}
-        {currentView === 'egitim-girisi' && <EgitimGirisi />}
+        {currentView === 'is-akisi' && <IsAkisi companyId={profile?.company_id} />}
 
         {/* PDKS (Eski) */}
         {currentView === 'pdks' && (
@@ -1024,10 +1167,10 @@ const AppInner: React.FC = () => {
         )}
 
         {/* Performans */}
-        {currentView === 'performans' && <PerformansYonetimi employees={employees} />}
+        {currentView === 'performans' && <PerformansYonetimi employees={employees} userRole={effectiveAppRole} />}
 
         {/* Eğitim LMS */}
-        {currentView === 'egitim' && <EgitimLMS employees={employees} />}
+        {currentView === 'egitim' && <EgitimLMS employees={employees} companyId={profile?.company_id} />}
 
         {/* Analitik Dashboard */}
         {currentView === 'analitik' && (
@@ -1072,7 +1215,7 @@ const AppInner: React.FC = () => {
         {currentView === 'yan-haklar' && <EsnekYanHaklar employees={employees} />}
 
         {/* İzin Çakışma Kontrolü */}
-        {currentView === 'izin-cakisma' && <IzinCakismaKontrol employees={employees} />}
+        {currentView === 'izin-cakisma' && <IzinCakismaKontrol employees={employees} izinTalepleri={izinTalepleri} />}
 
         {/* Dinamik Form Builder */}
         {currentView === 'form-builder' && <DinamikFormBuilder />}
@@ -1093,14 +1236,7 @@ const AppInner: React.FC = () => {
         {currentView === 'ayar' && <SistemAyarlari />}
 
         {/* Kullanım Kılavuzu */}
-        {currentView === 'kullanim-kilavuzu' && (
-          <iframe
-            src="/kullanim-kilavuzu.html"
-            className="w-full rounded-2xl border border-gray-200 bg-white"
-            style={{ height: 'calc(100vh - 96px)' }}
-            title="Kullanım Kılavuzu"
-          />
-        )}
+        {currentView === 'kullanim-kilavuzu' && <KullanımKilavuzu />}
         </div>
       </main>
     );
@@ -1110,26 +1246,28 @@ const AppInner: React.FC = () => {
     <GuideContextMenu onNavigate={(v) => setCurrentView(v as View)}>
     <ContextualHelp />
     <div className="flex h-screen overflow-hidden bg-gray-50">
-            <div className={`md:block ${mobileMenuOpen ? 'block fixed inset-0 z-50' : 'hidden md:relative z-40'}`}>
-        {mobileMenuOpen && <div className="fixed inset-0 bg-black/50 md:hidden" onClick={() => setMobileMenuOpen(false)} />}
-        <AppSectionErrorBoundary
-          resetKey={currentView}
-          fallback={
-            <aside className="w-64 bg-white border-r border-gray-200 p-5 sticky top-0 h-screen overflow-y-auto shadow-sm">
-              <h2 className="text-sm font-semibold text-gray-800">Menü yüklenemedi</h2>
-            </aside>
-          }
-        >
-          <div className="relative h-full bg-white w-64 md:w-auto">
-            <Sidebar
-              currentView={currentView}
-              onViewChange={(v) => { setCurrentView(v); setMobileMenuOpen(false); }}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-            />
-          </div>
-        </AppSectionErrorBoundary>
-      </div>
+            {!isEmployeeOnly && (
+        <div className={`md:block ${mobileMenuOpen ? 'block fixed inset-0 z-50' : 'hidden md:relative z-40'}`}>
+          {mobileMenuOpen && <div className="fixed inset-0 bg-black/50 md:hidden" onClick={() => setMobileMenuOpen(false)} />}
+          <AppSectionErrorBoundary
+            resetKey={currentView}
+            fallback={
+              <aside className="w-64 bg-white border-r border-gray-200 p-5 sticky top-0 h-screen overflow-y-auto shadow-sm">
+                <h2 className="text-sm font-semibold text-gray-800">Menü yüklenemedi</h2>
+              </aside>
+            }
+          >
+            <div className="relative h-full bg-white w-64 md:w-auto">
+              <Sidebar
+                currentView={currentView}
+                onViewChange={(v) => { setCurrentView(v); setMobileMenuOpen(false); }}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+              />
+            </div>
+          </AppSectionErrorBoundary>
+        </div>
+      )}
 
       <AppSectionErrorBoundary
         resetKey={currentView}
@@ -1175,6 +1313,174 @@ const AppInner: React.FC = () => {
           onApprovalComplete={loadData}
           isEmployeeView={['employee', 'user'].includes(effectiveAppRole)}
           onSendForApproval={handleSendBordroForApproval}
+        />
+      )}
+
+      {showTopluUyariModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 overflow-hidden transform transition-all">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                  <Megaphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">Toplu Uyarı Gönder</h3>
+                  <p className="text-xs text-gray-500">Tüm şirket çalışanlarına duyuru gönderin</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowTopluUyariModal(false);
+                  setTopluUyariTitle('');
+                  setTopluUyariDesc('');
+                }}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Duyuru Başlığı</label>
+                <input
+                  type="text"
+                  value={topluUyariTitle}
+                  onChange={(e) => setTopluUyariTitle(e.target.value)}
+                  placeholder="Örn: Yıl Sonu Değerlendirme Toplantısı"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-800 placeholder-gray-400 text-sm transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Duyuru Detayı</label>
+                <textarea
+                  value={topluUyariDesc}
+                  onChange={(e) => setTopluUyariDesc(e.target.value)}
+                  placeholder="Çalışanlara iletmek istediğiniz detaylı açıklama..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-800 placeholder-gray-400 text-sm min-h-[100px] transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Tarih</label>
+                  <input
+                    type="date"
+                    value={topluUyariDate}
+                    onChange={(e) => setTopluUyariDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-800 text-sm transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Öncelik Derecesi</label>
+                  <select
+                    value={topluUyariPriority}
+                    onChange={(e) => setTopluUyariPriority(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-gray-200 bg-white rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-800 text-sm transition-all"
+                  >
+                    <option value="dusuk">Düşük</option>
+                    <option value="normal">Normal</option>
+                    <option value="yuksek">Yüksek</option>
+                    <option value="kritik">Kritik</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Etkinlik Türü</label>
+                <select
+                  value={topluUyariType}
+                  onChange={(e) => setTopluUyariType(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 bg-white rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-800 text-sm transition-all"
+                >
+                  <option value="diger">Duyuru / Diğer</option>
+                  <option value="izin">İzin Bildirimi</option>
+                  <option value="bordro">Bordro / Maaş Bildirimi</option>
+                  <option value="tatil">Resmi Tatil / Kapalı Gün</option>
+                  <option value="egitim">Eğitim / Seminer</option>
+                  <option value="toplanti">Toplantı / Organizasyon</option>
+                  <option value="sgk">SGK İşlemleri</option>
+                  <option value="vergi">Vergi Beyanları</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center gap-3 p-5 bg-gray-50 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTopluUyariModal(false);
+                  setTopluUyariTitle('');
+                  setTopluUyariDesc('');
+                }}
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-100 text-sm font-semibold transition-colors"
+              >
+                İptal Et
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!topluUyariTitle) {
+                    alert('Lütfen bir başlık girin.');
+                    return;
+                  }
+
+                  const newEv: any = {
+                    id: `custom-${Date.now()}`,
+                    baslik: topluUyariTitle,
+                    aciklama: topluUyariDesc,
+                    tarih: topluUyariDate || new Date().toISOString().split('T')[0],
+                    tur: topluUyariType,
+                    oncelik: topluUyariPriority,
+                    durum: 'beklemede',
+                  };
+
+                  try {
+                    const saved = localStorage.getItem('humanius_custom_events');
+                    const existingList = saved ? JSON.parse(saved) : [];
+                    const updatedList = [...existingList, newEv];
+                    localStorage.setItem('humanius_custom_events', JSON.stringify(updatedList));
+                    localStorage.setItem('humanius_new_alert_notification', 'true');
+                    window.dispatchEvent(new Event('storage'));
+                  } catch (e) {
+                    console.error('Failed to save bulk alert:', e);
+                  }
+
+                  setShowTopluUyariModal(false);
+                  setTopluUyariTitle('');
+                  setTopluUyariDesc('');
+                  setCurrentView('uyari');
+                }}
+                className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
+              >
+                Gönder ve Yayınla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showOnboarding && (
+        <OnboardingModal
+          onClose={() => {
+            if (profile?.id) {
+              localStorage.setItem(`humanius_onboarding_shown_${profile.id}`, 'true');
+            }
+            setShowOnboarding(false);
+          }}
+          onStartGuide={() => {
+            if (profile?.id) {
+              localStorage.setItem(`humanius_onboarding_shown_${profile.id}`, 'true');
+            }
+            setShowOnboarding(false);
+            setCurrentView('kullanim-kilavuzu');
+          }}
         />
       )}
     </div>

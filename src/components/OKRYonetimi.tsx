@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, ChevronDown, ChevronRight, Target, TrendingUp, User, Edit2, Trash2, CheckCircle, X, Save } from 'lucide-react';
 import type { Employee } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 type OKRDurum = 'aktif' | 'tamamlandi' | 'risk' | 'iptal';
 
@@ -95,6 +96,8 @@ const KRSatiri: React.FC<{
   onChange: (updated: KeyResult) => void;
   onSil: () => void;
 }> = ({ kr, onChange, onSil }) => {
+  const { appRole } = useAuth();
+  const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole || 'employee');
   const [duzenle, setDuzenle] = useState(false);
   const [girilenDeger, setGirilenDeger] = useState(kr.mevcutDeger.toString());
   const oran = Math.min(kr.mevcutDeger / kr.hedefDeger, 1);
@@ -108,9 +111,11 @@ const KRSatiri: React.FC<{
           <button onClick={() => setDuzenle((v) => !v)} className="p-1 rounded-lg hover:bg-gray-200 text-gray-500">
             <Edit2 className="w-3.5 h-3.5" />
           </button>
-          <button onClick={onSil} className="p-1 rounded-lg hover:bg-red-100 text-red-400">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          {isManagement && (
+            <button onClick={onSil} className="p-1 rounded-lg hover:bg-red-100 text-red-400">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -255,6 +260,9 @@ interface OKRYonetimiProps {
 }
 
 const OKRYonetimi: React.FC<OKRYonetimiProps> = ({ employees }) => {
+  const { appRole } = useAuth();
+  const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole || 'employee');
+
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
   const currentQuarter = Math.floor(currentMonth / 3) + 1;
@@ -335,13 +343,15 @@ const OKRYonetimi: React.FC<OKRYonetimiProps> = ({ employees }) => {
             Şirket → Departman → Kişi hiyerarşisinde hedef ve temel sonuçlar
           </p>
         </div>
-        <button
-          onClick={() => setYeniModal(true)}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700"
-        >
-          <Plus className="w-4 h-4" />
-          Yeni Hedef
-        </button>
+        {isManagement && (
+          <button
+            onClick={() => setYeniModal(true)}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700"
+          >
+            <Plus className="w-4 h-4" />
+            Yeni Hedef
+          </button>
+        )}
       </div>
 
       {/* Dönem & Filtre */}

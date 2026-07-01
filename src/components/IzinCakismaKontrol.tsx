@@ -72,12 +72,49 @@ interface CakismaUyari {
 
 interface IzinCakismaProps {
   employees: Employee[];
+  izinTalepleri?: any[];
 }
 
-const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees }) => {
+const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees, izinTalepleri }) => {
   const [izinler, setIzinler] = useState<IzinKayit[]>(DEMO_IZINLER);
   const [yeniIzin, setYeniIzin] = useState<Partial<IzinKayit>>({ tur: 'Yıllık İzin', durum: 'beklemede' });
   const [formAcik, setFormAcik] = useState(false);
+
+  // Helper to map DB izin_turu to label
+  const getIzinTurLabel = (tur: string): string => {
+    switch (tur) {
+      case 'yillik': return 'Yıllık İzin';
+      case 'mazeret': return 'Mazeret İzni';
+      case 'hastalik': return 'Hastalık İzni';
+      case 'dogum': return 'Doğum İzni';
+      case 'babalik': return 'Babalık İzni';
+      case 'evlilik': return 'Evlilik İzni';
+      case 'olum': return 'Ölüm İzni';
+      case 'askerlik': return 'Askerlik İzni';
+      case 'ucretsiz': return 'Ücretsiz İzin';
+      default: return 'Diğer İzin';
+    }
+  };
+
+  // Sync with database izinTalepleri prop
+  React.useEffect(() => {
+    if (izinTalepleri && izinTalepleri.length > 0) {
+      const mapped = izinTalepleri.map((iz) => {
+        const emp = employees.find((e) => e.id === iz.employeeId || e.id === iz.employee_id);
+        return {
+          id: iz.id,
+          employeeId: iz.employeeId || iz.employee_id,
+          employeeAdi: emp?.name ?? 'Bilinmeyen Çalışan',
+          departman: emp?.department ?? 'Bilinmeyen Departman',
+          baslangic: iz.baslangicTarihi || iz.baslangic_tarihi,
+          bitis: iz.bitisTarihi || iz.bitis_tarihi,
+          tur: getIzinTurLabel(iz.izinTuru || iz.izin_turu),
+          durum: (iz.durum || 'beklemede') as 'beklemede' | 'onaylandi' | 'reddedildi',
+        };
+      });
+      setIzinler(mapped);
+    }
+  }, [izinTalepleri, employees]);
   const [takvimAy, setTakvimAy] = useState({ 
     yil: new Date().getFullYear(), 
     ay: new Date().getMonth() + 1 
@@ -160,6 +197,32 @@ const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees }) => {
     return izinler.filter((iz) => iz.durum !== 'reddedildi' && tarihAralik(iz.baslangic, iz.bitis).includes(tarih)).length;
   }
 
+  // Check if two or more people from the same department are on leave on the same day
+  const checkDepartmanCakismaOnDay = (tarih: string): boolean => {
+    const activeLeaves = izinler.filter(
+      (iz) => iz.durum !== 'reddedildi' && tarihAralik(iz.baslangic, iz.bitis).includes(tarih)
+    );
+    const deptCounts: Record<string, number> = {};
+    for (const iz of activeLeaves) {
+      if (iz.departman && iz.departman !== 'Bilinmeyen Departman') {
+        deptCounts[iz.departman] = (deptCounts[iz.departman] || 0) + 1;
+        if (deptCounts[iz.departman] > 1) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  // Get list of employees on leave on a day (for tooltip/title display)
+  const getIzinliPersonelDetay = (tarih: string): string => {
+    const activeLeaves = izinler.filter(
+      (iz) => iz.durum !== 'reddedildi' && tarihAralik(iz.baslangic, iz.bitis).includes(tarih)
+    );
+    if (activeLeaves.length === 0) return '';
+    return activeLeaves.map((iz) => `${iz.employeeAdi} (${iz.departman})`).join(', ');
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -207,15 +270,27 @@ const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees }) => {
               const tatil = isResmiTatil(gun);
               const haftatatimi = haftatatimiMi(gun);
               const izinSayisi = izinliPersonelSayisi(gun);
+              const hasDeptConflict = checkDepartmanCakismaOnDay(gun);
+              const detayStr = getIzinliPersonelDetay(gun);
+              const tatilMesaj = tatil ? `${tatilAdi(gun)}` : '';
+              const tooltipParts = [
+                tatilMesaj,
+                izinSayisi > 0 ? `${izinSayisi} kişi izinde: ${detayStr}` : null,
+                hasDeptConflict ? '⚠️ Aynı departmandan birden fazla kişi izinde!' : null
+              ].filter(Boolean).join(' | ');
+
               return (
                 <div key={gun}
-                  title={tatil ? tatilAdi(gun) : izinSayisi > 0 ? `${izinSayisi} kişi izinde` : undefined}
+                  title={tooltipParts || undefined}
                   className={`relative aspect-square rounded-lg text-center flex flex-col items-center justify-center text-xs cursor-default
                     ${tatil ? 'bg-red-100 text-red-700 font-bold' : haftatatimi ? 'bg-gray-50 text-gray-400' : 'text-gray-700 hover:bg-gray-50'}
+                    ${hasDeptConflict ? 'ring-2 ring-amber-400 ring-offset-1 bg-amber-50' : ''}
                   `}>
                   <span>{gun.split('-')[2]}</span>
                   {izinSayisi > 0 && (
-                    <span className="absolute bottom-0.5 right-0.5 text-[8px] bg-blue-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
+                    <span className={`absolute bottom-0.5 right-0.5 text-[8px] text-white rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold ${
+                      hasDeptConflict ? 'bg-amber-500 animate-pulse' : 'bg-blue-500'
+                    }`}>
                       {izinSayisi}
                     </span>
                   )}

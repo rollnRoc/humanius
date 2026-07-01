@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X, Save, TrendingUp, Info } from 'lucide-react';
 import type { Employee } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface YanHakKategori {
   id: string;
@@ -47,6 +48,8 @@ interface EsnekYanHaklarProps {
 
 const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
   const KISI_BUTCE = 6000; // Yıllık yan hak bütçesi (TL)
+  const { appRole } = useAuth();
+  const isEmployeeRole = ['employee', 'user'].includes(appRole);
 
   const [secimler, setSecimler] = useState<YanHakSecim[]>(DEMO_SECIMLER);
   const [secilenEmp, setSecilenEmp] = useState<string>(employees[0]?.id ?? '');
@@ -55,6 +58,17 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
   const [whatIfAcik, setWhatIfAcik] = useState(false);
   const [senaryo, setSenaryo] = useState<WhatIfSenaryo>({ ad: 'Senaryo A', maasArtisYuzde: 10, ekBudget: 1000, notlar: '' });
   const [hesapSonucu, setHesapSonucu] = useState<{ toplamMaliyet: number; kisiBasiMaliyet: number } | null>(null);
+
+  // Sync selected employee and map DEMO_SECIMLER to actual first employee ID
+  useEffect(() => {
+    if (employees.length > 0) {
+      const firstEmpId = employees[0].id;
+      setSecilenEmp(firstEmpId);
+      setSecimler((prev) =>
+        prev.map((s) => (s.employeeId === 'emp1' ? { ...s, employeeId: firstEmpId } : s))
+      );
+    }
+  }, [employees]);
 
   const empSecimler = secimler.filter((s) => s.employeeId === secilenEmp);
   const toplamKullanan = empSecimler.reduce((sum, s) => sum + s.tutar, 0);
@@ -98,16 +112,18 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
           <h2 className="text-xl font-bold text-gray-800">Esnek Yan Haklar</h2>
           <p className="text-sm text-gray-500 mt-0.5">Kişiye özel bütçe dağılımı ve bütçe simülasyonu</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => setWhatIfAcik(!whatIfAcik)}
-            className="flex items-center gap-2 border border-indigo-200 text-indigo-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-50">
-            <TrendingUp className="w-4 h-4" />What-if Simülasyonu
-          </button>
-        </div>
+        {!isEmployeeRole && (
+          <div className="flex gap-2">
+            <button onClick={() => setWhatIfAcik(!whatIfAcik)}
+              className="flex items-center gap-2 border border-indigo-200 text-indigo-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-50">
+              <TrendingUp className="w-4 h-4" />What-if Simülasyonu
+            </button>
+          </div>
+        )}
       </div>
 
       {/* What-if paneli */}
-      {whatIfAcik && (
+      {whatIfAcik && !isEmployeeRole && (
         <div className="bg-white rounded-2xl border border-indigo-200 p-5 space-y-4">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-indigo-600" />
@@ -155,37 +171,56 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
       )}
 
       {/* Özet */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-indigo-50 rounded-2xl p-4">
-          <p className="text-xs text-gray-500">Toplam Yan Hak Maliyeti</p>
-          <p className="text-2xl font-bold text-indigo-700">{toplamYanHakMaliyeti.toLocaleString('tr-TR')} ₺</p>
+      {isEmployeeRole ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-blue-50 rounded-2xl p-4">
+            <p className="text-xs text-gray-500">Kişisel Bütçe</p>
+            <p className="text-2xl font-bold text-blue-700">{KISI_BUTCE.toLocaleString('tr-TR')} ₺</p>
+          </div>
+          <div className="bg-indigo-50 rounded-2xl p-4">
+            <p className="text-xs text-gray-500">Kullanılan Bütçe</p>
+            <p className="text-2xl font-bold text-indigo-700">{toplamKullanan.toLocaleString('tr-TR')} ₺</p>
+          </div>
+          <div className="bg-green-50 rounded-2xl p-4">
+            <p className="text-xs text-gray-500">Kalan Bütçe</p>
+            <p className={`text-2xl font-bold ${kalan < 0 ? 'text-red-700' : 'text-green-700'}`}>{kalan.toLocaleString('tr-TR')} ₺</p>
+          </div>
         </div>
-        <div className="bg-blue-50 rounded-2xl p-4">
-          <p className="text-xs text-gray-500">Kişi Başı Bütçe</p>
-          <p className="text-2xl font-bold text-blue-700">{KISI_BUTCE.toLocaleString('tr-TR')} ₺</p>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-indigo-50 rounded-2xl p-4">
+            <p className="text-xs text-gray-500">Toplam Yan Hak Maliyeti</p>
+            <p className="text-2xl font-bold text-indigo-700">{toplamYanHakMaliyeti.toLocaleString('tr-TR')} ₺</p>
+          </div>
+          <div className="bg-blue-50 rounded-2xl p-4">
+            <p className="text-xs text-gray-500">Kişi Başı Bütçe</p>
+            <p className="text-2xl font-bold text-blue-700">{KISI_BUTCE.toLocaleString('tr-TR')} ₺</p>
+          </div>
+          <div className="bg-green-50 rounded-2xl p-4">
+            <p className="text-xs text-gray-500">En Çok Tercih</p>
+            <p className="text-lg font-bold text-green-700">
+              {kategoriDagilim.sort((a, b) => b.kisiSayisi - a.kisiSayisi)[0]?.icon} {kategoriDagilim[0]?.ad ?? '—'}
+            </p>
+          </div>
+          <div className="bg-orange-50 rounded-2xl p-4">
+            <p className="text-xs text-gray-500">Aktif Kategori</p>
+            <p className="text-2xl font-bold text-orange-700">{kategoriDagilim.length}</p>
+          </div>
         </div>
-        <div className="bg-green-50 rounded-2xl p-4">
-          <p className="text-xs text-gray-500">En Çok Tercih</p>
-          <p className="text-lg font-bold text-green-700">
-            {kategoriDagilim.sort((a, b) => b.kisiSayisi - a.kisiSayisi)[0]?.icon} {kategoriDagilim[0]?.ad ?? '—'}
-          </p>
-        </div>
-        <div className="bg-orange-50 rounded-2xl p-4">
-          <p className="text-xs text-gray-500">Aktif Kategori</p>
-          <p className="text-2xl font-bold text-orange-700">{kategoriDagilim.length}</p>
-        </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className={isEmployeeRole ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 gap-5"}>
         {/* Sol: Kişi bütçe paneli */}
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-gray-700">Personel Bütçe Yönetimi</p>
-              <select value={secilenEmp} onChange={(e) => setSecilenEmp(e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1 outline-none">
-                {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-              </select>
+              {!isEmployeeRole && (
+                <select value={secilenEmp} onChange={(e) => setSecilenEmp(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 outline-none">
+                  {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+              )}
             </div>
 
             {emp && (
@@ -224,56 +259,62 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold">{s.tutar.toLocaleString('tr-TR')} ₺</span>
-                      <button onClick={() => silSecim(secilenEmp, s.kategoriId)} className="opacity-50 hover:opacity-100">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                      {!isEmployeeRole && (
+                        <button onClick={() => silSecim(secilenEmp, s.kategoriId)} className="opacity-50 hover:opacity-100">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            <button
-              onClick={() => setYeniSecimModal(true)}
-              className="w-full border border-dashed border-gray-300 text-gray-500 rounded-xl py-2 text-sm hover:border-indigo-400 hover:text-indigo-600 flex items-center justify-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" /> Yan Hak Ekle
-            </button>
+            {!isEmployeeRole && (
+              <button
+                onClick={() => setYeniSecimModal(true)}
+                className="w-full border border-dashed border-gray-300 text-gray-500 rounded-xl py-2 text-sm hover:border-indigo-400 hover:text-indigo-600 flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" /> Yan Hak Ekle
+              </button>
+            )}
           </div>
         </div>
 
         {/* Sağ: Şirket geneli dağılım */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-3">
-          <p className="text-sm font-semibold text-gray-700">Şirket Geneli Dağılım</p>
-          <div className="space-y-2">
-            {kategoriDagilim.map((k) => (
-              <div key={k.id} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5">
-                    <span>{k.icon}</span>
-                    <span className="text-gray-700 font-medium">{k.ad}</span>
-                  </span>
-                  <span className="text-gray-500">{k.tutar.toLocaleString('tr-TR')} ₺ · {k.kisiSayisi} kişi</span>
+        {!isEmployeeRole && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-3">
+            <p className="text-sm font-semibold text-gray-700">Şirket Geneli Dağılım</p>
+            <div className="space-y-2">
+              {kategoriDagilim.map((k) => (
+                <div key={k.id} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <span>{k.icon}</span>
+                      <span className="text-gray-700 font-medium">{k.ad}</span>
+                    </span>
+                    <span className="text-gray-500">{k.tutar.toLocaleString('tr-TR')} ₺ · {k.kisiSayisi} kişi</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${(k.tutar / toplamYanHakMaliyeti) * 100}%` }} />
+                  </div>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5">
-                  <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${(k.tutar / toplamYanHakMaliyeti) * 100}%` }} />
-                </div>
-              </div>
-            ))}
+              ))}
 
-            {kategoriDagilim.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-4">Henüz yan hak seçimi yapılmamış</p>
-            )}
-          </div>
-
-          <div className="border-t border-gray-100 pt-3">
-            <div className="flex justify-between text-sm font-semibold text-gray-800">
-              <span>Toplam</span>
-              <span>{toplamYanHakMaliyeti.toLocaleString('tr-TR')} ₺</span>
+              {kategoriDagilim.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-4">Henüz yan hak seçimi yapılmamış</p>
+              )}
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">{secimler.length} seçim · {new Set(secimler.map((s) => s.employeeId)).size} çalışan</p>
+
+            <div className="border-t border-gray-100 pt-3">
+              <div className="flex justify-between text-sm font-semibold text-gray-800">
+                <span>Toplam</span>
+                <span>{toplamYanHakMaliyeti.toLocaleString('tr-TR')} ₺</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">{secimler.length} seçim · {new Set(secimler.map((s) => s.employeeId)).size} çalışan</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Yeni seçim modal */}

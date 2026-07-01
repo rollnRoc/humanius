@@ -173,6 +173,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
 
   // Bordro Onay
   const [bordroApprovals, setBordroApprovals] = useState<any[]>([]);
+  const [bordroApprovalsLoading, setBordroApprovalsLoading] = useState(true);
   const [showBordroOnay, setShowBordroOnay] = useState<BordroItem | null>(null);
 
   const selectedEmp = companyEmployees.find((e) => e.id === selectedEmpId) ?? null;
@@ -197,13 +198,17 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   const loadBordroApprovals = async () => {
     if (!selectedEmpId) {
       setBordroApprovals([]);
+      setBordroApprovalsLoading(false);
       return;
     }
+    setBordroApprovalsLoading(true);
     try {
       const approvals = await bordroService.getEmployeeApprovals(selectedEmpId);
       setBordroApprovals(approvals || []);
     } catch (error) {
       console.error('Bordro onayları yüklenemedi:', error);
+    } finally {
+      setBordroApprovalsLoading(false);
     }
   };
 
@@ -585,21 +590,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
 
       {selectedEmp && (
         <div className="animate-fade-in">
-          {/* SEKMELER - Sadece isAccessGranted true ise göster */}
-          {!isAccessGranted ? (
-            <div className="bg-white rounded-2xl border border-rose-200 overflow-hidden p-12 flex flex-col items-center justify-center text-center shadow-sm">
-              <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mb-6">
-                <Lock className="w-10 h-10 text-rose-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-slate-800 mb-3">Özlük Dosyası Kilitli</h3>
-              <p className="text-slate-500 max-w-lg leading-relaxed">
-                Bu personelin hassas bilgilerine (Özlük, Bordro, Belgeler vb.) erişmek için lütfen ekranın üst kısmındaki <strong>Personel Kartından</strong> (veya kartı büyüterek) 
-                <span className="bg-slate-800 text-white px-2 py-1 rounded text-xs mx-1 font-bold">Bordro & Talepler</span> 
-                butonuna tıklayıp şifreyi girin veya QR kodu okutun.
-              </p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               <div className="flex overflow-x-auto border-b border-gray-100 scrollbar-hide">
               {TABS.map((tab) => (
                 <button
@@ -626,9 +617,9 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                   <InfoSatiri icon={FileBadge} label="Sicil No" value={selectedEmp.sicil_no ?? '-'} />
                   <InfoSatiri icon={Building2} label="Departman" value={selectedEmp.department || '-'} />
                   <InfoSatiri icon={Briefcase} label="Pozisyon / Unvan" value={selectedEmp.position || '-'} />
-                  <InfoSatiri
+                   <InfoSatiri
                     icon={Calendar}
-                    label="İxe Girix Tarihi"
+                    label="İşe Giriş Tarihi"
                     value={
                       selectedEmp.join_date
                         ? new Date(selectedEmp.join_date).toLocaleDateString('tr-TR')
@@ -637,7 +628,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                   />
                   <InfoSatiri
                     icon={Clock}
-                    label="!alıxma Süresi"
+                    label="Çalışma Süresi"
                     value={calismaSuresi(selectedEmp.join_date)}
                   />
                   <InfoSatiri icon={Phone} label="Telefon" value={selectedEmp.phone || '-'} />
@@ -766,14 +757,16 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                                 {Number(b.net_maas).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                               </td>
                               <td className="px-4 py-2.5 text-right">
-                                {approval ? (
+                                {bordroApprovalsLoading ? (
+                                  <span className="text-xs text-gray-400">Yükleniyor...</span>
+                                ) : approval ? (
                                   <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
                                     approval.approval_status === 'onaylandi' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                   }`}>
                                     <CheckCircle className="w-3.5 h-3.5" />
                                     {approval.approval_status === 'onaylandi' ? 'Onaylandı' : 'Reddedildi'}
                                   </span>
-                                ) : (
+                                ) : b.approval_status === 'beklemede' ? (
                                   <button
                                     onClick={() => setShowBordroOnay(b)}
                                     className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
@@ -781,6 +774,8 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                                     <Shield className="w-4 h-4" />
                                     Bordroyu Onayla
                                   </button>
+                                ) : (
+                                  <span className="text-xs text-gray-400">Onay Beklenmiyor</span>
                                 )}
                               </td>
                             </tr>
@@ -800,7 +795,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                     <IzinKartı label="Toplam Hak" value={`${empIzinHakki?.toplamHak ?? '-'} gün`} color="blue" />
                     <IzinKartı label="Kullanılan" value={`${empIzinHakki?.kullanilanIzin ?? 0} gün`} color="amber" />
                     <IzinKartı label="Kalan" value={`${empIzinHakki?.kalanIzin ?? 0} gün`} color="green" />
-                    <IzinKartı label="!alıxma Yılı" value={`${empIzinHakki?.calismaYili ?? '-'} yıl`} color="purple" />
+                    <IzinKartı label="Çalışma Yılı" value={`${empIzinHakki?.calismaYili ?? '-'} yıl`} color="purple" />
                   </div>
 
                   {/* İzin talepleri tablosu */}
@@ -819,8 +814,8 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                           <thead className="bg-gray-50 border-b border-gray-200">
                             <tr>
                               <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">İzin Türü</th>
-                              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Baxlangıç</th>
-                              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Bitix</th>
+                              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Başlangıç</th>
+                              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Bitiş</th>
                               <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500">Gün</th>
                               <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500">Durum</th>
                             </tr>
@@ -866,12 +861,12 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                   ) : gorevTanimlari.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-gray-200 p-10 text-center">
                       <ClipboardList className="w-10 h-10 text-gray-200 mx-auto mb-2" />
-                      <p className="text-sm text-gray-400">Bu personel için onaylanmıx görev tanımı bulunamadı</p>
+                      <p className="text-sm text-gray-400">Bu personel için onaylanmış görev tanımı bulunamadı</p>
                     </div>
                   ) : (
                     gorevTanimlari.map((g) => (
                       <div key={g.id} className="rounded-xl border border-green-200 bg-green-50 p-4 space-y-4">
-                        {/* Baxlık */}
+                        {/* Başlık */}
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="flex items-center gap-2">
@@ -880,7 +875,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                             </div>
                             <p className="text-xs text-gray-500 mt-0.5 ml-6">
                               {g.is_birimi && <span className="mr-2">{g.is_birimi}</span>}
-                              {g.bagli_oldugu_pozisyon && <span>Baxlı: {g.bagli_oldugu_pozisyon}</span>}
+                              {g.bagli_oldugu_pozisyon && <span>Bağlı: {g.bagli_oldugu_pozisyon}</span>}
                             </p>
                           </div>
                           <div className="shrink-0 text-right">
@@ -945,7 +940,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
 
                           {g.calismalar?.length > 0 && (
                             <div className="bg-white rounded-lg border border-green-100 p-3">
-                              <p className="text-xs font-semibold text-gray-600 mb-2">!alıxmalar</p>
+                              <p className="text-xs font-semibold text-gray-600 mb-2">Çalışmalar</p>
                               <ul className="space-y-1">
                                 {g.calismalar.map((c, i) => (
                                   <li key={i} className="text-sm text-gray-700 flex gap-2">
@@ -1003,7 +998,6 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
               )}
             </div>
           </div>
-          )}
         </div>
       )}
       {showBordroOnay && selectedEmp && (
@@ -1011,6 +1005,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
           bordro={showBordroOnay}
           employeeId={selectedEmp.id}
           employeeName={selectedEmp.name}
+          initialShowModal={true}
           onApprovalComplete={() => {
             setShowBordroOnay(null);
             loadBordroApprovals();

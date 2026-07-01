@@ -43,8 +43,26 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { t } = useLanguage();
   const { user, profile, appRole, signOut } = useAuth();
   const effectiveRole = user ? appRole : 'admin';
-  const [showLogoEditor, setShowLogoEditor] = useState(false);
   const [openSections, setOpenSections] = useState<View[]>([]);
+  const [showLogoEditor, setShowLogoEditor] = useState(false);
+  const [showAlertDot, setShowAlertDot] = React.useState(() => {
+    try {
+      return localStorage.getItem('humanius_new_alert_notification') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  React.useEffect(() => {
+    const handleStorage = () => {
+      try {
+        setShowAlertDot(localStorage.getItem('humanius_new_alert_notification') === 'true');
+      } catch {}
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const [logoSrc, setLogoSrc] = useState(DEFAULT_LOGO_SRC);
   const [logoConfig, setLogoConfig] = useState<LogoConfig>({
     width: 225,
@@ -121,11 +139,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [profile?.company_id]);
 
-  const uygulamalarIds: View[] = ['pdks', 'kvkk', 'kullanim-kilavuzu'];
+  const uygulamalarIds: View[] = ['kvkk', 'kullanim-kilavuzu'];
 
   const rawNavItems = [
     { id: 'arama' as View, label: 'Arama', icon: SearchIcon },
-    { id: 'personel' as View, label: 'ŞİRKET YÖNETİMİ', icon: Users, children: [
+    { id: 'personel' as View, label: 'Şirket Yönetimi', icon: Users, children: [
       { id: 'personel' as View, label: 'Personel Listesi' },
       { id: 'gorev-tanimi-kayitlari' as View, label: 'Görev Tanımları Kayıtları' },
       { id: 'org-sema' as View, label: 'Organizasyon Şeması' },
@@ -133,26 +151,25 @@ const Sidebar: React.FC<SidebarProps> = ({
       { id: 'kullanicilar' as View, label: 'Kullanıcılar' },
       { id: 'ayar' as View, label: 'Personel ve Şirket Yönetimi' },
     ]},
-    { id: 'ozluk-dosyasi' as View, label: 'PERSONEL YÖNETİMİ', icon: UserCircle, children: [
+    { id: 'ozluk-dosyasi' as View, label: 'Personel Yönetimi', icon: UserCircle, children: [
       { id: 'ozluk-dosyasi' as View, label: 'Personel Kartı ve Özlük' },
       { id: 'gorev-tanimi' as View, label: 'Görev Tanımı' },
     ]},
-    { id: 'bordro' as View, label: 'BORDRO VE İCMAL', icon: CreditCard, children: [
+    { id: 'bordro' as View, label: 'Bordro ve İcmal', icon: CreditCard, children: [
       { id: 'bordro' as View, label: 'Bordro' },
       { id: 'yan-haklar' as View, label: 'Esnek Yan Haklar' },
       { id: 'bordro-icmal' as View, label: 'Bordro İcmal Raporu' },
     ]},
-    { id: 'izin' as View, label: 'İZİN YÖNETİMİ', icon: Calendar, children: [
+    { id: 'izin' as View, label: 'İzin Yönetimi', icon: Calendar, children: [
       { id: 'izin' as View, label: 'İzin Talepleri' },
       { id: 'izin-cakisma' as View, label: 'İzin Çakışma Kontrolü' },
       { id: 'izin-tanimlari' as View, label: 'İzin Türleri Tanımları' },
       { id: 'izin-listesi' as View, label: 'İzinli Kişiler Listesi' },
     ]},
-    { id: 'is-akisi-menu' as View, label: 'İŞ AKIŞI', icon: Clock, children: [
+    { id: 'is-akisi-menu' as View, label: 'İş Akışı ve PDKS', icon: Clock, children: [
+      { id: 'is-akisi' as View, label: 'İş Akışı Panosu' },
       { id: 'pdks-devam' as View, label: 'Devam Kontrolü' },
-      { id: 'is-akisi' as View, label: 'İş Akışı Gösterimi' },
       { id: 'egitim-girisi' as View, label: 'Eğitim Girişi' },
-      { id: 'raporlar' as View, label: 'Raporlar' },
       { id: 'analitik' as View, label: 'Veri Analitiği' },
     ]},
     { id: 'uyari' as View, label: 'Uyarılar Takvimi', icon: Bell },
@@ -180,7 +197,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   });
 
   const uygulamalarNavItems = [
-    { id: 'pdks' as View, label: 'PDKS & Devam Kontrol', icon: Clock },
     { id: 'kvkk' as View, label: 'KVKK / GDPR Uyumluluk', icon: Shield },
     { id: 'kullanim-kilavuzu' as View, label: 'Kullanım Kılavuzu', icon: BookOpen },
   ].filter((item) => canAccessView(effectiveRole, item.id));
@@ -242,17 +258,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           initialConfig={logoConfig}
         />
       )}
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          type="text"
-          placeholder={t('sidebar.searchPlaceholder')}
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl py-2.5 pl-10 pr-4 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
-        />
-      </div>
+
 
       {/* Navigation */}
       <nav className="space-y-1">
@@ -288,6 +294,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {isHighlighted && <div className="w-2 h-2 rounded-full bg-blue-500" />}
                 <Icon className="w-4 h-4" />
                 <span className="font-medium">{item.label}</span>
+                {item.id === 'uyari' && showAlertDot && (
+                  <span className="ml-auto w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                )}
                 {hasChildren && (
                   <ChevronDown
                     className={`ml-auto h-4 w-4 transition-transform ${isSectionOpen ? 'rotate-180' : ''}`}
@@ -322,9 +331,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* Uygulamalar Bölümü */}
         {uygulamalarNavItems.length > 0 && (
           <>
-            <div className="pt-3 pb-1">
-              <p className="px-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Uygulamalar</p>
-            </div>
             {uygulamalarNavItems.map(item => {
               const Icon = item.icon;
               const isActive = currentView === item.id;
@@ -364,8 +370,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       {/* Version */}
-      <div className="mt-4 text-xs text-gray-400">
-        v0.1 • Modern React + TypeScript
+      <div className="mt-4 text-xs text-gray-400 text-center font-medium">
+        Humanius 1.0
       </div>
     </aside>
   );

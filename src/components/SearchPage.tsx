@@ -2,11 +2,14 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Search, User, Calendar, CreditCard, X, Zap,
   Hash, Mail, Phone, MapPin, Briefcase, Tag, Layers,
-  UserCog, ChevronRight, SlidersHorizontal,
+  UserCog, ChevronRight, SlidersHorizontal, Bell,
+  Clock, GraduationCap, Target, Shield, Layout, BookOpen, LogOut,
 } from 'lucide-react';
 import type { Employee, View } from '../types';
 import type { IzinTalebi } from '../types/izin';
 import type { BordroItem } from '../types/bordro';
+import { useAuth } from '../contexts/AuthContext';
+import { canAccessView } from '../auth/roles';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -16,6 +19,7 @@ interface SearchPageProps {
   bordrolar: BordroItem[];
   onEmployeeClick: (emp: Employee) => void;
   onNavigate: (view: View) => void;
+  companyLogoUrl?: string | null;
 }
 
 type Category = 'personel' | 'izin' | 'bordro' | 'sayfa';
@@ -43,10 +47,23 @@ const PAGES: { id: View; label: string; icon: string; keywords: string[] }[] = [
   { id: 'bordro',                 label: 'Bordro',        icon: '💳', keywords: ['bordro', 'maaş', 'hesaplama', 'ücret', 'net', 'brüt', 'payroll'] },
   { id: 'izin',                   label: 'İzin Yönetimi',           icon: '📅', keywords: ['izin', 'talep', 'takvim', 'yıllık', 'mazeret', 'leave'] },
   { id: 'raporlar',               label: 'Raporlar',                icon: '📊', keywords: ['rapor', 'istatistik', 'analiz', 'report'] },
-  { id: 'uyari',                  label: 'Uyarılar Takvimi',        icon: '🔔', keywords: ['uyarı', 'takvim', 'etkinlik', 'hatırlatma', 'calendar'] },
+  { id: 'uyari',                  label: 'Uyarılar Takvimi',        icon: '🔔', keywords: ['uyarı', 'takvim', 'etkinlik', 'hatırlatma', 'calendar', 'duyuru', 'tatil', 'toplu uyarı'] },
   { id: 'ayar',                   label: 'Personel ve Şirket Yönetimi', icon: '⚙️', keywords: ['ayar', 'sistem', 'yapılandırma', 'settings', 'kullanıcı', 'user', 'şirket', 'company', 'rol', 'yetki'] },
   { id: 'gorev-tanimi',           label: 'Görev Tanımı',            icon: '📋', keywords: ['görev', 'tanım', 'rol', 'iş tanımı', 'job'] },
   { id: 'gorev-tanimi-kayitlari', label: 'Görev Tanım Kayıtları',   icon: '📁', keywords: ['görev', 'kayıt', 'geçmiş', 'history'] },
+  { id: 'is-akisi',               label: 'İş Akışı Panosu',         icon: '⏰', keywords: ['is akisi', 'iş akışı', 'kanban', 'süreç', 'pano', 'durum', 'operasyon', 'ik süreçleri', 'gösterim'] },
+  { id: 'pdks-devam',             label: 'Devam Kontrolü (PDKS)',   icon: '⏰', keywords: ['pdks', 'devam', 'mesai', 'giriş', 'çıkış', 'vardiya', 'takip', 'checkin', 'checkout', 'saat', 'kontrol'] },
+  { id: 'performans',             label: 'Performans & Değerlendirme', icon: '🎯', keywords: ['performans', 'değerlendirme', 'geri bildirim', 'feedback', 'performance', '360'] },
+  { id: 'egitim',                 label: 'Eğitim & Gelişim (LMS)',  icon: '🎓', keywords: ['eğitim', 'lms', 'gelişim', 'kurs', 'sertifika', 'training', 'öğrenme'] },
+  { id: 'kullanicilar',           label: 'Kullanıcı Hesapları',      icon: '👤', keywords: ['kullanıcılar', 'yetki', 'hesap', 'üye', 'users', 'roller', 'permission'] },
+  { id: 'zimmet',                 label: 'Zimmet Yönetimi',         icon: '💼', keywords: ['zimmet', 'demirbaş', 'cihaz', 'bilgisayar', 'telefon', 'eşya', 'inventory', 'assets'] },
+  { id: 'okr',                    label: 'OKR Hedefler',            icon: '🎯', keywords: ['okr', 'hedef', 'key results', 'objectives', 'plan', 'vizyon'] },
+  { id: 'yetkinlik',              label: 'Yetkinlik Matrisi',       icon: '📊', keywords: ['yetkinlik', 'beceri', 'matris', 'skills', 'competency'] },
+  { id: 'yan-haklar',             label: 'Esnek Yan Haklar',        icon: '💳', keywords: ['yan haklar', 'esnek yan haklar', 'bütçe', 'benefits', 'hak'] },
+  { id: 'org-sema',               label: 'Organizasyon Şeması',      icon: '📊', keywords: ['organizasyon şeması', 'şema', 'hiyerarşi', 'organizasyon', 'org chart'] },
+  { id: 'kvkk',                   label: 'KVKK Uyumluluk',          icon: '🛡️', keywords: ['kvkk', 'veri', 'güvenlik', 'politika', 'gdpr', 'gizlilik'] },
+  { id: 'form-builder',           label: 'Dinamik Form Builder',    icon: '📋', keywords: ['form builder', 'form oluşturucu', 'anket', 'talep formu', 'survey'] },
+  { id: 'kullanim-kilavuzu',      label: 'Kullanım Kılavuzu & Rehber', icon: '📖', keywords: ['rehber', 'kılavuz', 'yardım', 'kullanım kılavuzu', 'tutorial', 'nasıl kullanılır', 'help', 'onboarding'] },
 ];
 
 const IZIN_TURU: Record<string, string> = {
@@ -86,21 +103,43 @@ function safe(v: unknown): string {
   return String(v).trim();
 }
 
-/** Returns true if ALL query words appear somewhere in text */
-function matchesAll(words: string[], text: string): boolean {
-  const lo = text.toLowerCase();
-  return words.every(w => lo.includes(w));
+function normalizeTurkish(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ı/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .trim();
 }
 
-/** Highlight all query words in text */
+function makeTurkishRegexPattern(word: string): string {
+  return escapeRx(word)
+    .replace(/[gğ]/gi, '[gğ]')
+    .replace(/[uü]/gi, '[uü]')
+    .replace(/[sş]/gi, '[sş]')
+    .replace(/[iıİI]/gi, '[iıİI]')
+    .replace(/[oö]/gi, '[oö]')
+    .replace(/[cç]/gi, '[cç]');
+}
+
+/** Returns true if ALL query words appear somewhere in text (Turkish normalization friendly) */
+function matchesAll(words: string[], text: string): boolean {
+  const normalizedText = normalizeTurkish(text);
+  return words.every(w => normalizedText.includes(normalizeTurkish(w)));
+}
+
+/** Highlight all query words in text (Turkish normalization friendly) */
 function HighlightMulti({ text, words }: { text: string; words: string[] }) {
   if (!words.length) return <>{text}</>;
-  const pattern = words.map(escapeRx).join('|');
+  const pattern = words.map(makeTurkishRegexPattern).join('|');
   const parts = text.split(new RegExp(`(${pattern})`, 'gi'));
   return (
     <>
       {parts.map((p, i) =>
-        words.some(w => p.toLowerCase() === w)
+        words.some(w => normalizeTurkish(p) === normalizeTurkish(w))
           ? <mark key={i} className="bg-yellow-200 text-yellow-900 rounded px-0.5 not-italic font-semibold">{p}</mark>
           : <React.Fragment key={i}>{p}</React.Fragment>
       )}
@@ -111,12 +150,33 @@ function HighlightMulti({ text, words }: { text: string; words: string[] }) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const SearchPage: React.FC<SearchPageProps> = ({
-  employees, izinTalepleri, bordrolar, onEmployeeClick, onNavigate,
+  employees, izinTalepleri, bordrolar, onEmployeeClick, onNavigate, companyLogoUrl,
 }) => {
+  const { appRole, signOut } = useAuth();
+  const effectiveRole = appRole || 'employee';
+
   const QUICK_APPROVAL_QUERY = 'personel onay ve doğrulama şifresi al';
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<Category | 'all'>('all');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const [showAlertNotification, setShowAlertNotification] = useState(() => {
+    try {
+      return localStorage.getItem('humanius_new_alert_notification') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        setShowAlertNotification(localStorage.getItem('humanius_new_alert_notification') === 'true');
+      } catch {}
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const handleApprovalPasswordShortcut = () => {
     setQuery(QUICK_APPROVAL_QUERY);
@@ -220,6 +280,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
 
     // ── Sayfalar ──────────────────────────────────────────────────────────────
     PAGES.forEach(page => {
+      if (!canAccessView(effectiveRole, page.id)) return;
       const allText = [page.label, ...page.keywords].join(' ');
       results.push({
         id: `page-${page.id}`,
@@ -234,7 +295,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
     });
 
     return results;
-  }, [employees, izinTalepleri, bordrolar, onEmployeeClick]);
+  }, [employees, izinTalepleri, bordrolar, onEmployeeClick, effectiveRole]);
 
   // ── Search logic ─────────────────────────────────────────────────────────────
   const words = useMemo(
@@ -299,16 +360,27 @@ export const SearchPage: React.FC<SearchPageProps> = ({
   };
 
   const PAGE_ICON: Record<string, React.ReactNode> = {
-    personel:               <User       className="w-4 h-4" />,
-    kullanicilar:           <UserCog    className="w-4 h-4" />,
-    bordro:                 <CreditCard className="w-4 h-4" />,
-
-    izin:                   <Calendar   className="w-4 h-4" />,
-    raporlar:               <Layers     className="w-4 h-4" />,
-    uyari:                  <Zap        className="w-4 h-4" />,
-    ayar:                   <SlidersHorizontal className="w-4 h-4" />,
-    'gorev-tanimi':         <Briefcase  className="w-4 h-4" />,
+    personel:                 <User       className="w-4 h-4" />,
+    kullanicilar:             <UserCog    className="w-4 h-4" />,
+    bordro:                   <CreditCard className="w-4 h-4" />,
+    izin:                     <Calendar   className="w-4 h-4" />,
+    raporlar:                 <Layers     className="w-4 h-4" />,
+    uyari:                    <Zap        className="w-4 h-4" />,
+    ayar:                     <SlidersHorizontal className="w-4 h-4" />,
+    'gorev-tanimi':           <Briefcase  className="w-4 h-4" />,
     'gorev-tanimi-kayitlari': <Briefcase className="w-4 h-4" />,
+    'is-akisi':               <Clock      className="w-4 h-4" />,
+    'pdks-devam':             <Clock      className="w-4 h-4" />,
+    performans:               <Target     className="w-4 h-4" />,
+    egitim:                   <GraduationCap className="w-4 h-4" />,
+    zimmet:                   <Briefcase  className="w-4 h-4" />,
+    okr:                      <Target     className="w-4 h-4" />,
+    yetkinlik:                <Layers     className="w-4 h-4" />,
+    'yan-haklar':             <CreditCard className="w-4 h-4" />,
+    'org-sema':               <Layers     className="w-4 h-4" />,
+    kvkk:                     <Shield     className="w-4 h-4" />,
+    'form-builder':           <Layout     className="w-4 h-4" />,
+    'kullanim-kilavuzu':      <BookOpen   className="w-4 h-4" />,
   };
 
   // ── Entry renderer ─────────────────────────────────────────────────────────
@@ -379,18 +451,85 @@ export const SearchPage: React.FC<SearchPageProps> = ({
 
       {/* Sticky header */}
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 px-6 py-4 shadow-sm">
-        <div className="max-w-3xl mx-auto space-y-3">
+        <div className="max-w-3xl mx-auto space-y-3 pt-8">
+
+          {/* Employee Header */}
+          {['employee', 'user'].includes(effectiveRole) && (
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-2">
+              <div className="flex items-center gap-2">
+                {companyLogoUrl ? (
+                  <img src={companyLogoUrl} alt="Logo" className="h-8 object-contain" />
+                ) : (
+                  <>
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">H</div>
+                    <h1 className="text-xl font-bold text-gray-800">Humanius</h1>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => signOut()}
+                className="flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-all shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Çıkış Yap</span>
+              </button>
+            </div>
+          )}
+
+          {/* Notification Banner */}
+          {showAlertNotification && (
+            <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 rounded-lg text-amber-800 shrink-0">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-amber-900 text-sm">Yeni Etkinlik & Duyuru!</h4>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Takviminizde yeni etkinlikler veya güncel duyurular bulunmaktadır. Lütfen kontrol ediniz.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+                <button
+                  onClick={() => {
+                    onNavigate('uyari');
+                    try {
+                      localStorage.setItem('humanius_new_alert_notification', 'false');
+                      window.dispatchEvent(new Event('storage'));
+                    } catch {}
+                  }}
+                  className="w-full sm:w-auto text-center px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap shrink-0"
+                >
+                  Takvimi Görüntüle
+                </button>
+                <button
+                  onClick={() => {
+                    try {
+                      localStorage.setItem('humanius_new_alert_notification', 'false');
+                      window.dispatchEvent(new Event('storage'));
+                    } catch {}
+                  }}
+                  className="p-1.5 hover:bg-amber-100 rounded-lg transition-colors text-amber-800 shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Shortcut */}
-          <div className="mt-[2.2cm]">
-            <button
-              onClick={handleApprovalPasswordShortcut}
-              className="inline-flex items-center gap-2 rounded-xl border border-violet-300 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
-            >
-              <span className="text-base">🔑</span>
-              <span>Personel onay ve doğrulama şifresi al</span>
-            </button>
-          </div>
+          {['superadmin', 'admin', 'hr'].includes(effectiveRole) && (
+            <div>
+              <button
+                onClick={handleApprovalPasswordShortcut}
+                className="inline-flex items-center gap-2 rounded-xl border border-violet-300 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
+              >
+                <span className="text-base">🔑</span>
+                <span>Personel onay ve doğrulama şifresi al</span>
+              </button>
+            </div>
+          )}
 
           {/* Input */}
           <div className="relative">
@@ -456,12 +595,31 @@ export const SearchPage: React.FC<SearchPageProps> = ({
         {/* No query — quick access */}
         {!words.length && (
           <>
+            {/* Rehber Tanıtım Kartı */}
+            <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 rounded-2xl p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden">
+              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+PC9zdmc+')] opacity-30" />
+              <div className="space-y-1 relative z-10">
+                <h4 className="font-bold text-base flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-blue-200" /> Humanius Kullanım Rehberi
+                </h4>
+                <p className="text-xs text-blue-100 leading-relaxed max-w-xl">
+                  Sistemi en verimli şekilde kullanmanız için rolünüze özel ({effectiveRole === 'superadmin' || effectiveRole === 'admin' || effectiveRole === 'hr' ? 'Yönetici / İK' : effectiveRole === 'manager' ? 'Departman Müdürü' : 'Çalışan'}) hazırlanmış adım adım kontrol listesini ve rehberi görüntüleyin.
+                </p>
+              </div>
+              <button
+                onClick={() => onNavigate('kullanim-kilavuzu')}
+                className="w-full sm:w-auto text-center px-4 py-2.5 bg-white hover:bg-blue-50 text-blue-700 text-xs font-bold rounded-xl shadow-md transition-colors whitespace-nowrap shrink-0 relative z-10"
+              >
+                Rehberi İncele
+              </button>
+            </div>
+
             <section>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
                 <Zap className="w-3.5 h-3.5" /> Hızlı Erişim
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {PAGES.map(page => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {PAGES.filter(page => canAccessView(effectiveRole, page.id)).slice(0, 6).map(page => {
                   const cs = page.id === 'kullanicilar' ? CAT_STYLE.sayfa
                     : page.id.startsWith('bordro') ? CAT_STYLE.bordro
                     : page.id === 'izin' ? CAT_STYLE.izin
@@ -471,13 +629,13 @@ export const SearchPage: React.FC<SearchPageProps> = ({
                     <button
                       key={page.id}
                       onClick={() => onNavigate(page.id)}
-                      className={`bg-white border border-gray-200 rounded-xl px-4 py-3 text-left hover:${cs.border} ${cs.hoverBg} transition-all group flex items-start gap-3`}
+                      className={`bg-white border border-gray-200 rounded-xl px-4 py-3 text-left hover:${cs.border} ${cs.hoverBg} transition-all group flex items-start gap-3 w-full`}
                     >
                       <div className={`w-8 h-8 rounded-lg ${cs.bg} ${cs.text} flex items-center justify-center shrink-0 mt-0.5`}>
                         {PAGE_ICON[page.id] ?? <Layers className="w-4 h-4" />}
                       </div>
-                      <div>
-                        <p className={`font-semibold text-sm text-gray-800 group-hover:${cs.text} transition-colors`}>{page.label}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className={`font-semibold text-sm text-gray-800 group-hover:${cs.text} transition-colors break-words leading-tight`}>{page.label}</p>
                         <p className="text-[11px] text-gray-400 mt-0.5 truncate">{page.keywords.slice(0, 3).join(', ')}</p>
                       </div>
                     </button>

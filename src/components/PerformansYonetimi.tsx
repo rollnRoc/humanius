@@ -43,6 +43,7 @@ interface GeriBildirim {
 
 interface PerformansYonetimiProps {
   employees: Employee[];
+  userRole?: string;
 }
 
 function generateDemoData(employees: Employee[]) {
@@ -120,7 +121,7 @@ const PuanYildizlari: React.FC<{ puan: number; max?: number }> = ({ puan, max = 
   </div>
 );
 
-const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees }) => {
+const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, userRole = 'employee' }) => {
   const [aktifSekme, setAktifSekme] = useState<'degerlendirme' | 'okr' | 'geri-bildirim'>('degerlendirme');
   const [secilenEmployee, setSecilenEmployee] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -158,13 +159,15 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees }) =>
           <h2 className="text-xl font-bold text-gray-800">Performans & Geri Bildirim</h2>
           <p className="text-sm text-gray-500 mt-0.5">360° değerlendirme, OKR/KPI takibi ve sürekli geri bildirim</p>
         </div>
-        <button
-          onClick={() => setShowNewForm(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Yeni Değerlendirme
-        </button>
+        {!['employee', 'user'].includes(userRole) && (
+          <button
+            onClick={() => setShowNewForm(true)}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Yeni Değerlendirme
+          </button>
+        )}
       </div>
       
       {/* SkillBridge Integration Banner */}

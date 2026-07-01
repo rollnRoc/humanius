@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaInsert } from '../services/pdksService';
+import { companyService } from '../services/companyService';
 import {
   Clock, LogIn, LogOut, Search, Filter, MapPin, Fingerprint,
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
@@ -28,12 +29,36 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c; // Distance in meters
 }
 
+function parseCompanyCoords(address: string | null): { lat: number; lng: number; cleanAddress: string } {
+  const defaultCoords = { lat: 39.92077, lng: 32.85411, cleanAddress: address || '' };
+  if (!address) return defaultCoords;
+  
+  const match = address.match(/^\[([\d.-]+),\s*([\d.-]+)\]\s*(.*)$/);
+  if (match) {
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+    const cleanAddress = match[3];
+    if (!isNaN(lat) && !isNaN(lng)) {
+      return { lat, lng, cleanAddress };
+    }
+  }
+  return defaultCoords;
+}
+
+function formatCompanyAddressWithCoords(lat: number, lng: number, addressText: string): string {
+  return `[${lat},${lng}] ${addressText || ''}`.trim();
+}
+
 const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
   const { profile, appRole } = useAuth();
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
 
   const [activeTab, setActiveTab] = useState<'personal' | 'team'>(isManagement ? 'team' : 'personal');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const currentEmployee = employees.find(
+    (emp) => emp.email?.toLowerCase() === profile?.email?.toLowerCase()
+  );
 
   // -------------------------------------------------------------
   // PERSONAL SHIFT TRACKING (MESAI BASLAT/BITIR) STATES
@@ -56,9 +81,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
   // Geolocation watch ID ref
   const watchIdRef = useRef<number | null>(null);
 
-  // Simulation mode states
-  const [isSimulated, setIsSimulated] = useState(false);
-  const [simulateInOffice, setSimulateInOffice] = useState(true);
+  const [companyDetails, setCompanyDetails] = useState<any>(null);
 
   // Load state and history from localStorage and database on init
   useEffect(() => {
@@ -72,21 +95,82 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
       setActiveShiftRecordId(savedActiveId);
     }
 
-    // Load personal history
-    const savedHistory = localStorage.getItem('pdks_personal_history');
-    if (savedHistory) {
-      setLocalHistory(JSON.parse(savedHistory));
-    }
-
     // Request initial position
     requestLocation();
+
+    // Load company coordinates from database
+    if (profile?.company_id) {
+      companyService.getById(profile.company_id).then(comp => {
+        if (comp) {
+          setCompanyDetails(comp);
+          const parsed = parseCompanyCoords(comp.address);
+          setCompanyCoords({ lat: parsed.lat, lng: parsed.lng });
+        }
+      });
+    }
 
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, []);
+  }, [profile?.company_id]);
+
+  // Load shift history from database when currentEmployee is found
+  useEffect(() => {
+    const loadShiftHistory = async () => {
+      if (currentEmployee?.id) {
+        try {
+          const allVardiyalar = await pdksService.getVardiyalar();
+          // Filter to only include records for the current employee
+          const myVardiyalar = allVardiyalar.filter(v => v.employee_id === currentEmployee.id);
+          // Map to localHistory format
+          const mappedHistory = myVardiyalar.map(v => {
+            const dateObj = new Date(v.tarih);
+            const girisStr = v.giris_saati || '-';
+            const cikisStr = v.cikis_saati || '-';
+            
+            let totalHoursStr = '0 Saat';
+            if (v.giris_saati && v.cikis_saati) {
+              const [gH, gM] = v.giris_saati.split(':').map(Number);
+              const [cH, cM] = v.cikis_saati.split(':').map(Number);
+              const gMinutes = gH * 60 + gM;
+              const cMinutes = cH * 60 + cM;
+              const diffMin = cMinutes - gMinutes;
+              if (diffMin > 0) {
+                totalHoursStr = `${parseFloat((diffMin / 60).toFixed(2))} Saat`;
+              }
+            }
+
+            return {
+              id: v.id,
+              tarih: dateObj.toLocaleDateString('tr-TR'),
+              giris: girisStr,
+              cikis: cikisStr,
+              sure: totalHoursStr,
+              durum: v.durum === 'zamaninda' ? 'Zamanında' : v.durum === 'gec-kaldi' ? 'Geç Kaldı' : 'Otomatik Çıkış',
+              notlar: v.notlar || ''
+            };
+          });
+          setLocalHistory(mappedHistory);
+        } catch (error) {
+          console.error("Failed to load shift history from database:", error);
+          // Fallback to local storage
+          const savedHistory = localStorage.getItem('pdks_personal_history');
+          if (savedHistory) {
+            setLocalHistory(JSON.parse(savedHistory));
+          }
+        }
+      } else {
+        // Fallback to local storage if no currentEmployee yet
+        const savedHistory = localStorage.getItem('pdks_personal_history');
+        if (savedHistory) {
+          setLocalHistory(JSON.parse(savedHistory));
+        }
+      }
+    };
+    loadShiftHistory();
+  }, [currentEmployee?.id]);
 
   // Update timer ticks while shift is active
   useEffect(() => {
@@ -156,21 +240,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
     }
   };
 
-  // Compute distance whenever user coords or company coords change (and simulation status)
+  // Compute distance whenever user coords or company coords change
   useEffect(() => {
-    if (isSimulated) {
-      if (simulateInOffice) {
-        setDistanceToCompany(45); // simulate 45 meters (inside geofence)
-      } else {
-        setDistanceToCompany(580); // simulate 580 meters (outside geofence)
-      }
-    } else if (userCoords) {
+    if (userCoords) {
       const dist = getDistance(userCoords.lat, userCoords.lng, companyCoords.lat, companyCoords.lng);
       setDistanceToCompany(Math.round(dist));
     } else {
       setDistanceToCompany(null);
     }
-  }, [userCoords, companyCoords, isSimulated, simulateInOffice]);
+  }, [userCoords, companyCoords]);
 
   // Handle automatic check-out if user leaves the boundary while shift is active
   useEffect(() => {
@@ -190,13 +268,17 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
       return;
     }
 
+    const empId = currentEmployee?.id;
+    if (!empId) {
+      alert("Personel kaydınız sistemde bulunamadı. Lütfen İK yöneticinizle iletişime geçin.");
+      return;
+    }
+
     try {
       const now = new Date();
       const startIso = now.toISOString();
       const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
       const dateStr = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
-      
-      const recordId = `shift_${Date.now()}`;
       
       // Calculate delay based on target start 09:00
       const currentMin = now.getHours() * 60 + now.getMinutes();
@@ -205,16 +287,16 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
       const statusValue = isLate ? 'gec-kaldi' : 'zamaninda';
 
       // Sync with Supabase if profile is available
-      if (profile?.company_id && profile?.id) {
+      if (profile?.company_id) {
         const payload: VardiyaInsert = {
           company_id: profile.company_id,
-          employee_id: profile.id,
+          employee_id: empId,
           tarih: dateStr,
           vardiya_tipi: 'tam-gun',
           giris_saati: timeStr,
           cikis_saati: null,
           durum: statusValue,
-          notlar: isSimulated ? 'Mobil GPS - Simüle Edilmiş Konum' : 'Tarayıcı GPS Konum Eşleşti'
+          notlar: 'Tarayıcı GPS Konum Eşleşti'
         };
         
         try {
@@ -225,13 +307,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
           }
         } catch (dbError) {
           console.error("Database check-in failed, storing locally:", dbError);
-          setActiveShiftRecordId(recordId);
-          localStorage.setItem('pdks_active_shift_id', recordId);
         }
-      } else {
-        // Fallback for demo
-        setActiveShiftRecordId(recordId);
-        localStorage.setItem('pdks_active_shift_id', recordId);
       }
 
       setIsShiftActive(true);
@@ -256,81 +332,102 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
       const endIso = now.toISOString();
       const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
       
-      const startDateTime = new Date(shiftStartTime);
-      const diffMs = now.getTime() - startDateTime.getTime();
-      const totalHours = parseFloat((diffMs / (1000 * 3600)).toFixed(2));
-
-      // 1. Update Database if activeShiftRecordId is a valid UUID (not temporary shift_ timestamp)
-      const isDbRecord = activeShiftRecordId && !activeShiftRecordId.startsWith('shift_');
-      if (isDbRecord && activeShiftRecordId) {
+      // 1. Update Database if activeShiftRecordId is valid
+      if (activeShiftRecordId) {
         try {
           await pdksService.updateVardiya(activeShiftRecordId, {
             cikis_saati: timeStr,
             notlar: wasAutoEnded 
               ? 'Konumdan uzaklaşıldığı için sistem tarafından otomatik sonlandırıldı'
-              : (isSimulated ? 'Simüle Konum Çıkış' : 'GPS Çıkış Eşleşti')
+              : 'GPS Çıkış Eşleşti'
           });
         } catch (dbError) {
           console.error("Database check-out update failed:", dbError);
         }
       }
 
-      // 2. Save in local history
-      const newHistoryItem = {
-        id: activeShiftRecordId || `hist_${Date.now()}`,
-        tarih: startDateTime.toLocaleDateString('tr-TR'),
-        giris: startDateTime.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-        cikis: now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-        sure: totalHours,
-        durum: wasAutoEnded ? 'Otomatik Çıkış' : 'Zamanında Çıkış',
-        notlar: wasAutoEnded ? 'Konumdan ayrılma nedeniyle otomatik kapatıldı.' : 'Ofis çıkışı.'
-      };
+      // 2. Refresh shift history from database
+      if (currentEmployee?.id) {
+        try {
+          const allVardiyalar = await pdksService.getVardiyalar();
+          const myVardiyalar = allVardiyalar.filter(v => v.employee_id === currentEmployee.id);
+          const mappedHistory = myVardiyalar.map(v => {
+            const dateObj = new Date(v.tarih);
+            const girisStr = v.giris_saati || '-';
+            const cikisStr = v.cikis_saati || '-';
+            
+            let totalHoursStr = '0 Saat';
+            if (v.giris_saati && v.cikis_saati) {
+              const [gH, gM] = v.giris_saati.split(':').map(Number);
+              const [cH, cM] = v.cikis_saati.split(':').map(Number);
+              const gMinutes = gH * 60 + gM;
+              const cMinutes = cH * 60 + cM;
+              const diffMin = cMinutes - gMinutes;
+              if (diffMin > 0) {
+                totalHoursStr = `${parseFloat((diffMin / 60).toFixed(2))} Saat`;
+              }
+            }
 
-      const updatedHistory = [newHistoryItem, ...localHistory].slice(0, 30);
-      setLocalHistory(updatedHistory);
-      localStorage.setItem('pdks_personal_history', JSON.stringify(updatedHistory));
+            return {
+              id: v.id,
+              tarih: dateObj.toLocaleDateString('tr-TR'),
+              giris: girisStr,
+              cikis: cikisStr,
+              sure: totalHoursStr,
+              durum: v.durum === 'zamaninda' ? 'Zamanında' : v.durum === 'gec-kaldi' ? 'Geç Kaldı' : 'Otomatik Çıkış',
+              notlar: v.notlar || ''
+            };
+          });
+          setLocalHistory(mappedHistory);
+        } catch (error) {
+          console.error("Failed to refresh shift history from database:", error);
+        }
+      }
 
-      // 3. Clear states
+      // 3. Clear active shift storage
       setIsShiftActive(false);
       setShiftStartTime(null);
       setActiveShiftRecordId(null);
       localStorage.removeItem('pdks_active_shift_id');
       localStorage.removeItem('pdks_active_shift_start');
-      
       stopWatchingLocation();
 
       if (wasAutoEnded) {
-        alert("UYARI: Şirket konumundan ayrıldığınız tespit edildi! Mesainiz otomatik olarak sonlandırıldı ve kaydedildi.");
+        alert("Mesainiz konum sınırından uzaklaştığınız için otomatik olarak sonlandırıldı.");
       } else {
-        alert("Mesai başarıyla sonlandırıldı. İyi çalışmalar!");
+        alert("Mesainiz başarıyla sonlandırıldı (Çıkış yapıldı). İyi günler!");
       }
-
+      
     } catch (err) {
       console.error("Mesai bitirme hatası:", err);
-      alert("Mesai sonlandırılırken hata oluştu.");
+      alert("Mesai sonlandırılırken bir hata oluştu.");
     }
   };
 
-  // Toggle Simulator In/Out Office helper
-  const handleSimulationToggle = (inside: boolean) => {
-    setIsSimulated(true);
-    setSimulateInOffice(inside);
-  };
-
-  // Synchronize company coordinates to current location (Developer/Admin helper)
-  const setOfficeToCurrentLocation = () => {
-    if (userCoords) {
-      setCompanyCoords({ lat: userCoords.lat, lng: userCoords.lng });
-      setIsSimulated(false);
-      alert(`Şirket lokasyonu tarayıcı konumunuza (${userCoords.lat.toFixed(5)}, ${userCoords.lng.toFixed(5)}) eşitlendi! Artık gerçek GPS verilerinizle testi tamamlayabilirsiniz.`);
-    } else {
+  // Synchronize company coordinates to current location
+  const setOfficeToCurrentLocation = async () => {
+    if (userCoords && profile?.company_id && companyDetails) {
+      const lat = userCoords.lat;
+      const lng = userCoords.lng;
+      const parsed = parseCompanyCoords(companyDetails.address);
+      const newAddress = formatCompanyAddressWithCoords(lat, lng, parsed.cleanAddress);
+      
+      try {
+        await companyService.update(profile.company_id, { address: newAddress });
+        setCompanyCoords({ lat, lng });
+        setCompanyDetails({ ...companyDetails, address: newAddress });
+        alert(`Şirket lokasyonu tarayıcı konumunuza (${lat.toFixed(5)}, ${lng.toFixed(5)}) eşitlendi ve veritabanına kalıcı olarak kaydedildi! Artık bu şirketteki tüm çalışanlar için giriş doğrulaması bu konuma göre yapılacaktır.`);
+      } catch (err) {
+        console.error("Error saving company location:", err);
+        alert("Şirket konumu kaydedilirken bir hata oluştu.");
+      }
+    } else if (!userCoords) {
       alert("Mevcut konumunuz henüz alınamadı. Lütfen konum servisinin aktif olmasını bekleyin.");
     }
   };
 
   // -------------------------------------------------------------
   // TEAM MONITORING (MANAGER VIEW) DATA
-  // -------------------------------------------------------------
   const mockPdksData = employees.map(emp => {
     const isLate = Math.random() > 0.8;
     const isAbsent = Math.random() > 0.95;
@@ -541,11 +638,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
                       title="Kullanıcı Konumu"
                       width="100%"
                       height="100%"
-                      frameBorder="0"
-                      scrolling="no"
-                      marginHeight={0}
-                      marginWidth={0}
-                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${userCoords.lng - 0.003}%2C${userCoords.lat - 0.003}%2C${userCoords.lng + 0.003}%2C${userCoords.lat + 0.003}&layer=mapnik&marker=${userCoords.lat}%2C${userCoords.lng}`}
+                      style={{ border: 0 }}
+                      src={`https://maps.google.com/maps?q=${userCoords.lat},${userCoords.lng}&z=16&output=embed`}
                     ></iframe>
                   </div>
                   <div className="flex items-center justify-between text-xs pt-1">
@@ -570,60 +664,36 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
               )}
             </div>
 
-            {/* Geofence Testing / Simulator Tool (VITAL for testing geofences inside browsers) */}
-            <div className="bg-gradient-to-br from-gray-900 to-slate-800 rounded-2xl p-5 text-white space-y-4 shadow-md">
-              <div className="flex items-center gap-2 border-b border-slate-700 pb-3">
-                <Sliders className="w-5 h-5 text-indigo-400" />
-                <h3 className="font-bold text-sm">Konum Test Paneli (Simülatör)</h3>
+            {/* Şirket Ofis Konumu Settings Panel */}
+            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-2xl p-5 text-white space-y-4 shadow-md">
+              <div className="flex items-center gap-2 border-b border-indigo-700 pb-3">
+                <MapPin className="w-5 h-5 text-indigo-400" />
+                <h3 className="font-bold text-sm">Şirket Ofis Konumu</h3>
               </div>
               
-              <p className="text-[11px] text-slate-300 leading-relaxed">
-                Konumunuzun şirket koordinatlarına uymama riskine karşı, simülatör yardımıyla sisteme şirket içindeymiş gibi davranabilir veya ofis dışına çıktığınızda sistemin mesaiyi nasıl sonlandırdığını test edebilirsiniz.
-              </p>
-
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <button
-                  onClick={() => handleSimulationToggle(true)}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                    isSimulated && simulateInOffice
-                      ? 'bg-green-600 text-white shadow-md'
-                      : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
-                  }`}
-                >
-                  <MapPin className="w-3.5 h-3.5" /> Şirket İçi
-                </button>
-                <button
-                  onClick={() => handleSimulationToggle(false)}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                    isSimulated && !simulateInOffice
-                      ? 'bg-red-600 text-white shadow-md'
-                      : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
-                  }`}
-                >
-                  <Navigation className="w-3.5 h-3.5" /> Şirket Dışı
-                </button>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between border-b border-indigo-800 pb-1.5">
+                  <span className="text-indigo-200">Enlem (Lat):</span>
+                  <span className="font-semibold font-mono">{companyCoords.lat.toFixed(5)}</span>
+                </div>
+                <div className="flex justify-between border-b border-indigo-800 pb-1.5">
+                  <span className="text-indigo-200">Boylam (Lng):</span>
+                  <span className="font-semibold font-mono">{companyCoords.lng.toFixed(5)}</span>
+                </div>
+                <div className="flex justify-between pb-1">
+                  <span className="text-indigo-200">Güvenlik Sınırı:</span>
+                  <span className="font-semibold">{geofenceRadius} metre</span>
+                </div>
               </div>
 
-              {isSimulated && (
-                <div className="text-center pt-1">
-                  <button
-                    onClick={() => {
-                      setIsSimulated(false);
-                      requestLocation();
-                    }}
-                    className="text-[10px] text-slate-400 hover:text-slate-200 underline font-semibold"
-                  >
-                    Gerçek GPS Konumuna Geri Dön
-                  </button>
-                </div>
-              )}
-
-              {/* Coordinator Sync (Admin only tool) */}
               {isManagement && (
-                <div className="border-t border-slate-700 pt-3 mt-1 text-center">
+                <div className="border-t border-indigo-800 pt-3 mt-1 text-center space-y-2.5">
+                  <p className="text-[10px] text-indigo-200 text-left leading-normal">
+                    Şirket yöneticisi ve İK olarak, ofisin merkez noktasını mevcut GPS konumunuza eşitleyerek güncelleyebilirsiniz.
+                  </p>
                   <button
                     onClick={setOfficeToCurrentLocation}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md transform active:scale-95"
                   >
                     <Sliders className="w-3.5 h-3.5" /> Ofis Konumunu Mevcut Konumuma Eşitle
                   </button>

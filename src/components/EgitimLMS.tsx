@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BookOpen, Play, Award, CheckCircle, Clock, Users, Plus, Search, Lock, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { BookOpen, Award, CheckCircle, Clock, Users, Plus, Search, Lock, ChevronRight, X } from 'lucide-react';
 import type { Employee } from '../types';
 
 interface Egitim {
@@ -39,36 +39,6 @@ interface PersonelEgitimDurumu {
   sonAktivite: string;
 }
 
-const DEMO_EGITIMLER: Egitim[] = [
-  { id: 'e1', baslik: 'İş Güvenliği ve İSG Temel Eğitimi', kategori: 'Zorunlu', sure: 120, seviye: 'baslangic', aciklama: 'Tüm çalışanlar için zorunlu iş sağlığı ve güvenliği eğitimi.', egitmen: 'İSG Uzmanı', tur: 'video', zorunlu: true, tamamlayanSayisi: 38, toplam: 45 },
-  { id: 'e2', baslik: 'KVKK ve Kişisel Veri Gizliliği', kategori: 'Zorunlu', sure: 90, seviye: 'baslangic', aciklama: 'KVKK kapsamında veri güvenliği politikaları ve uyumluluk.', egitmen: 'Hukuk Ekibi', tur: 'sunum', zorunlu: true, tamamlayanSayisi: 42, toplam: 45 },
-  { id: 'e3', baslik: 'Etkili İletişim Becerileri', kategori: 'Kişisel Gelişim', sure: 180, seviye: 'orta', aciklama: 'İş yerinde etkili iletişim stratejileri ve pratik uygulamalar.', egitmen: 'Dr. Ayşe Kara', tur: 'canli', zorunlu: false, tamamlayanSayisi: 15, toplam: 45 },
-  { id: 'e4', baslik: 'Excel İleri Seviye', kategori: 'Teknik', sure: 240, seviye: 'ileri', aciklama: 'Pivot tablolar, VLOOKUP, makrolar ve veri analizi teknikleri.', egitmen: 'Eğitim Merkezi', tur: 'video', zorunlu: false, tamamlayanSayisi: 10, toplam: 45 },
-  { id: 'e5', baslik: 'Proje Yönetimi (PMP Hazırlık)', kategori: 'Sertifikasyon', sure: 480, seviye: 'ileri', aciklama: 'PMP sertifikasyon sınavına hazırlık kursu.', egitmen: 'Ahmet Yılmaz, PMP', tur: 'video', zorunlu: false, tamamlayanSayisi: 5, toplam: 45 },
-  { id: 'e6', baslik: 'Müşteri Hizmetleri Mükemmeliyeti', kategori: 'Satış', sure: 150, seviye: 'orta', aciklama: 'Müşteri memnuniyeti artırma ve şikayet yönetimi.', egitmen: 'Satış Eğitmeni', tur: 'canli', zorunlu: false, tamamlayanSayisi: 22, toplam: 45 },
-];
-
-const DEMO_SERTIFIKALAR: SertifikaKaydi[] = [
-  { id: 'sc1', egitimId: 'e1', egitimAdi: 'İş Güvenliği ve İSG Temel Eğitimi', employeeId: 'emp1', employeeName: 'Elif Kaya', tamamlanmaTarihi: '2025-03-15', gecerlilikSuresi: 12, puan: 92 },
-  { id: 'sc2', egitimId: 'e2', egitimAdi: 'KVKK ve Kişisel Veri Gizliliği', employeeId: 'emp1', employeeName: 'Elif Kaya', tamamlanmaTarihi: '2025-04-01', gecerlilikSuresi: 24, puan: 88 },
-  { id: 'sc3', egitimId: 'e5', egitimAdi: 'Proje Yönetimi (PMP Hazırlık)', employeeId: 'emp2', employeeName: 'Murat Şahin', tamamlanmaTarihi: '2025-02-20', gecerlilikSuresi: null, puan: 78 },
-  { id: 'sc4', egitimId: 'e1', egitimAdi: 'İş Güvenliği ve İSG Temel Eğitimi', employeeId: 'emp3', employeeName: 'Zeynep Arslan', tamamlanmaTarihi: '2025-03-20', gecerlilikSuresi: 12, puan: 95 },
-];
-
-function generatePersonelDurumu(employees: Employee[]): PersonelEgitimDurumu[] {
-  return employees.slice(0, 8).map((emp, i) => ({
-    employeeId: emp.id,
-    employeeName: emp.name,
-    department: emp.department,
-    tamamlanan: 2 + (i % 4),
-    toplam: DEMO_EGITIMLER.length,
-    zorunluTamamlanan: i < 4 ? 2 : 1,
-    zorunluToplam: 2,
-    sertifikaAdedi: i < 5 ? (i % 3 + 1) : 0,
-    sonAktivite: `2025-0${4 + (i % 2)}-${10 + i}`,
-  }));
-}
-
 const seviyeRenk: Record<Egitim['seviye'], string> = {
   baslangic: 'bg-green-100 text-green-700',
   orta: 'bg-yellow-100 text-yellow-700',
@@ -82,45 +52,236 @@ const turIkon: Record<Egitim['tur'], string> = {
   sinav: '📝',
 };
 
-const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
+interface EgitimLMSProps {
+  employees: Employee[];
+  companyId?: string;
+}
+
+const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' }) => {
   const [aktifSekme, setAktifSekme] = useState<'katalog' | 'durumlar' | 'sertifikalar'>('katalog');
   const [aramaMetni, setAramaMetni] = useState('');
   const [secilenKategori, setSecilenKategori] = useState('all');
+  
+  // Modals
   const [showNewEgitim, setShowNewEgitim] = useState(false);
+  const [showNewSertifika, setShowNewSertifika] = useState(false);
 
-  const personelDurumlari = generatePersonelDurumu(employees);
-  const kategoriler = ['all', ...Array.from(new Set(DEMO_EGITIMLER.map((e) => e.kategori)))];
-
-  const filtreliEgitimler = DEMO_EGITIMLER.filter((eg) => {
-    const aramaEslestir = !aramaMetni || eg.baslik.toLowerCase().includes(aramaMetni.toLowerCase()) || eg.kategori.toLowerCase().includes(aramaMetni.toLowerCase());
-    const kategoriEslestir = secilenKategori === 'all' || eg.kategori === secilenKategori;
-    return aramaEslestir && kategoriEslestir;
+  // States loaded dynamically from localStorage scoped to companyId
+  const [egitimler, setEgitimler] = useState<Egitim[]>(() => {
+    const saved = localStorage.getItem(`humanius_egitimler_${companyId}`);
+    return saved ? JSON.parse(saved) : []; // Empty by default
   });
 
-  const toplamTamamlama = personelDurumlari.reduce((s, p) => s + p.tamamlanan, 0);
-  const toplamZorunluTamamlama = personelDurumlari.filter((p) => p.zorunluTamamlanan >= p.zorunluToplam).length;
+  const [sertifikalar, setSertifikalar] = useState<SertifikaKaydi[]>(() => {
+    const saved = localStorage.getItem(`humanius_sertifikalar_${companyId}`);
+    return saved ? JSON.parse(saved) : []; // Empty by default
+  });
+
+  // Form states
+  const [newEgitimForm, setNewEgitimForm] = useState({
+    baslik: '',
+    kategori: '',
+    tur: 'video' as Egitim['tur'],
+    sure: 60,
+    seviye: 'baslangic' as Egitim['seviye'],
+    egitmen: '',
+    zorunlu: false,
+    aciklama: ''
+  });
+
+  const [newSertifikaForm, setNewSertifikaForm] = useState({
+    egitimId: '',
+    employeeId: '',
+    tamamlanmaTarihi: new Date().toISOString().split('T')[0],
+    gecerlilikSuresi: '',
+    puan: 85
+  });
+
+  const saveEgitimler = (updated: Egitim[]) => {
+    setEgitimler(updated);
+    localStorage.setItem(`humanius_egitimler_${companyId}`, JSON.stringify(updated));
+  };
+
+  const saveSertifikalar = (updated: SertifikaKaydi[]) => {
+    setSertifikalar(updated);
+    localStorage.setItem(`humanius_sertifikalar_${companyId}`, JSON.stringify(updated));
+  };
+
+  // Add course handler
+  const handleAddEgitim = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEgitimForm.baslik.trim()) return;
+
+    const newCourse: Egitim = {
+      id: `eg-${Date.now()}`,
+      baslik: newEgitimForm.baslik,
+      kategori: newEgitimForm.kategori || 'Genel',
+      sure: Number(newEgitimForm.sure) || 60,
+      seviye: newEgitimForm.seviye,
+      aciklama: newEgitimForm.aciklama,
+      egitmen: newEgitimForm.egitmen || 'Şirket İçi',
+      tur: newEgitimForm.tur,
+      zorunlu: newEgitimForm.zorunlu,
+      tamamlayanSayisi: 0,
+      toplam: employees.length
+    };
+
+    saveEgitimler([...egitimler, newCourse]);
+    setShowNewEgitim(false);
+    setNewEgitimForm({
+      baslik: '',
+      kategori: '',
+      tur: 'video',
+      sure: 60,
+      seviye: 'baslangic',
+      egitmen: '',
+      zorunlu: false,
+      aciklama: ''
+    });
+  };
+
+  // Add certificate completion handler
+  const handleAddSertifika = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSertifikaForm.egitimId || !newSertifikaForm.employeeId) return;
+
+    const selectedCourse = egitimler.find((eg) => eg.id === newSertifikaForm.egitimId);
+    const selectedEmp = employees.find((emp) => emp.id === newSertifikaForm.employeeId);
+    if (!selectedCourse || !selectedEmp) return;
+
+    const newCert: SertifikaKaydi = {
+      id: `sc-${Date.now()}`,
+      egitimId: newSertifikaForm.egitimId,
+      egitimAdi: selectedCourse.baslik,
+      employeeId: newSertifikaForm.employeeId,
+      employeeName: selectedEmp.name,
+      tamamlanmaTarihi: newSertifikaForm.tamamlanmaTarihi,
+      gecerlilikSuresi: newSertifikaForm.gecerlilikSuresi ? Number(newSertifikaForm.gecerlilikSuresi) : null,
+      puan: Number(newSertifikaForm.puan) || 85
+    };
+
+    saveSertifikalar([...sertifikalar, newCert]);
+
+    // Update completion count in course
+    const updatedEgitimler = egitimler.map((eg) => {
+      if (eg.id === newSertifikaForm.egitimId) {
+        const alreadyCompleted = sertifikalar.some((sc) => sc.egitimId === eg.id && sc.employeeId === newSertifikaForm.employeeId);
+        return {
+          ...eg,
+          tamamlayanSayisi: alreadyCompleted ? eg.tamamlayanSayisi : eg.tamamlayanSayisi + 1
+        };
+      }
+      return eg;
+    });
+    saveEgitimler(updatedEgitimler);
+
+    setShowNewSertifika(false);
+    setNewSertifikaForm({
+      egitimId: '',
+      employeeId: '',
+      tamamlanmaTarihi: new Date().toISOString().split('T')[0],
+      gecerlilikSuresi: '',
+      puan: 85
+    });
+  };
+
+  const deleteEgitim = (id: string) => {
+    if (window.confirm('Bu eğitimi silmek istediğinize emin misiniz?')) {
+      const updatedCourses = egitimler.filter((e) => e.id !== id);
+      const updatedCerts = sertifikalar.filter((c) => c.egitimId !== id);
+      saveEgitimler(updatedCourses);
+      saveSertifikalar(updatedCerts);
+    }
+  };
+
+  const deleteSertifika = (id: string) => {
+    if (window.confirm('Bu sertifika kaydını silmek istediğinize emin misiniz?')) {
+      const cert = sertifikalar.find((c) => c.id === id);
+      const updatedCerts = sertifikalar.filter((c) => c.id !== id);
+      saveSertifikalar(updatedCerts);
+
+      if (cert) {
+        // Decrement completion count
+        const updatedCourses = egitimler.map((eg) => {
+          if (eg.id === cert.egitimId) {
+            return {
+              ...eg,
+              tamamlayanSayisi: Math.max(0, eg.tamamlayanSayisi - 1)
+            };
+          }
+          return eg;
+        });
+        saveEgitimler(updatedCourses);
+      }
+    }
+  };
+
+  // Dynamic calculations
+  const personelDurumlari = useMemo<PersonelEgitimDurumu[]>(() => {
+    return employees.map((emp) => {
+      const empSerts = sertifikalar.filter((sc) => sc.employeeId === emp.id);
+      const tamamlanan = empSerts.length;
+      const zorunluToplam = egitimler.filter((e) => e.zorunlu).length;
+      const zorunluTamamlanan = egitimler
+        .filter((e) => e.zorunlu)
+        .filter((e) => empSerts.some((sc) => sc.egitimId === e.id)).length;
+
+      const lastActivity = empSerts.reduce((max, sc) => {
+        return !max || sc.tamamlanmaTarihi > max ? sc.tamamlanmaTarihi : max;
+      }, '');
+
+      return {
+        employeeId: emp.id,
+        employeeName: emp.name,
+        department: emp.department || 'Genel',
+        tamamlanan,
+        toplam: egitimler.length,
+        zorunluTamamlanan,
+        zorunluToplam,
+        sertifikaAdedi: tamamlanan,
+        sonAktivite: lastActivity || '-',
+      };
+    });
+  }, [employees, egitimler, sertifikalar]);
+
+  const kategoriler = useMemo(() => {
+    return ['all', ...Array.from(new Set(egitimler.map((e) => e.kategori)))];
+  }, [egitimler]);
+
+  const filtreliEgitimler = useMemo(() => {
+    return egitimler.filter((eg) => {
+      const aramaEslestir = !aramaMetni || eg.baslik.toLowerCase().includes(aramaMetni.toLowerCase()) || eg.kategori.toLowerCase().includes(aramaMetni.toLowerCase());
+      const kategoriEslestir = secilenKategori === 'all' || eg.kategori === secilenKategori;
+      return aramaEslestir && kategoriEslestir;
+    });
+  }, [egitimler, aramaMetni, secilenKategori]);
+
+  const toplamTamamlama = sertifikalar.length;
+  const toplamZorunluTamamlama = personelDurumlari.filter((p) => p.zorunluToplam > 0 && p.zorunluTamamlanan >= p.zorunluToplam).length;
 
   return (
     <div className="space-y-6">
       {/* Başlık */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-800">Eğitim ve Gelişim (LMS)</h2>
           <p className="text-sm text-gray-500 mt-0.5">Online eğitimler, sertifika yönetimi ve çalışan gelişim takibi</p>
         </div>
-        <button
-          onClick={() => setShowNewEgitim(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Yeni Eğitim Ekle
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowNewEgitim(true)}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Yeni Eğitim Ekle
+          </button>
+        </div>
       </div>
 
       {/* SkillBridge Integration Banner */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-5 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center border border-purple-50">
+          <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center border border-purple-50 shrink-0">
             <BookOpen className="w-6 h-6 text-purple-600" />
           </div>
           <div>
@@ -128,7 +289,7 @@ const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
             <p className="text-sm text-purple-700 mt-0.5">Tüm eğitim planlamaları, materyalleri ve sertifikasyon süreçleri SkillBridge LMS üzerinden İK tarafından yönetilmektedir.</p>
           </div>
         </div>
-        <a href="https://skillbridge.com.tr" target="_blank" rel="noopener noreferrer" className="bg-white border border-purple-200 text-purple-700 font-medium px-4 py-2 rounded-xl text-sm hover:bg-purple-50 transition-colors">
+        <a href="https://skillbridge.com.tr" target="_blank" rel="noopener noreferrer" className="bg-white border border-purple-200 text-purple-700 font-medium px-4 py-2 rounded-xl text-sm hover:bg-purple-50 transition-colors whitespace-nowrap">
           SkillBridge LMS'e Git
         </a>
       </div>
@@ -137,44 +298,44 @@ const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
               <BookOpen className="w-5 h-5 text-blue-600" />
             </div>
             <div>
               <p className="text-xs text-gray-500">Toplam Eğitim</p>
-              <p className="text-xl font-bold text-gray-800">{DEMO_EGITIMLER.length}</p>
+              <p className="text-xl font-bold text-gray-800">{egitimler.length}</p>
             </div>
           </div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Tamamlama</p>
+              <p className="text-xs text-gray-500">Toplam Tamamlama</p>
               <p className="text-xl font-bold text-gray-800">{toplamTamamlama}</p>
             </div>
           </div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0">
               <Award className="w-5 h-5 text-yellow-600" />
             </div>
             <div>
               <p className="text-xs text-gray-500">Sertifikalar</p>
-              <p className="text-xl font-bold text-gray-800">{DEMO_SERTIFIKALAR.length}</p>
+              <p className="text-xl font-bold text-gray-800">{sertifikalar.length}</p>
             </div>
           </div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
               <Users className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Zorunlu Tamamlayan</p>
+              <p className="text-xs text-gray-500">Zorunlu Bitiren</p>
               <p className="text-xl font-bold text-gray-800">{toplamZorunluTamamlama}</p>
             </div>
           </div>
@@ -191,7 +352,7 @@ const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
               aktifSekme === sekme ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {sekme === 'katalog' ? 'Eğitim Kataloğu' : sekme === 'durumlar' ? 'Personel Durumları' : 'Sertifikalar'}
+            {sekme === 'katalog' ? 'Eğitim Kataloğu' : sekme === 'durumlar' ? 'Personel Durumları' : 'Sertifikalar / Tamamlananlar'}
           </button>
         ))}
       </div>
@@ -200,7 +361,7 @@ const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
       {aktifSekme === 'katalog' && (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-3">
-            <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-1.5 flex-1 min-w-[200px]">
+            <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-1.5 flex-1 min-w-[200px] bg-white">
               <Search className="w-4 h-4 text-gray-400" />
               <input
                 type="text"
@@ -225,67 +386,76 @@ const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {filtreliEgitimler.map((eg) => {
-              const tamamlanmaOrani = Math.round((eg.tamamlayanSayisi / eg.toplam) * 100);
-              return (
-                <div key={eg.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-blue-300 transition-colors">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-lg">{turIkon[eg.tur]}</span>
-                        <h3 className="font-semibold text-gray-800 text-sm">{eg.baslik}</h3>
-                        {eg.zorunlu && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-600">Zorunlu</span>
-                        )}
+          {filtreliEgitimler.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-500">
+              <BookOpen className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+              <p className="font-semibold">Kayıtlı Eğitim Bulunmamaktadır</p>
+              <p className="text-xs text-gray-400 mt-1">Sağ üstteki "Yeni Eğitim Ekle" butonuna tıklayarak ilk eğitimi tanımlayabilirsiniz.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {filtreliEgitimler.map((eg) => {
+                const pct = eg.toplam > 0 ? Math.round((eg.tamamlayanSayisi / eg.toplam) * 100) : 0;
+                return (
+                  <div key={eg.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-blue-300 transition-colors relative group">
+                    <button
+                      onClick={() => deleteEgitim(eg.id)}
+                      className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg">{turIkon[eg.tur]}</span>
+                          <h3 className="font-semibold text-gray-800 text-sm">{eg.baslik}</h3>
+                          {eg.zorunlu && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-600">Zorunlu</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">{eg.egitmen} • {eg.kategori}</p>
                       </div>
-                      <p className="text-xs text-gray-500">{eg.egitmen} • {eg.kategori}</p>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${seviyeRenk[eg.seviye]}`}>
+                        {eg.seviye === 'baslangic' ? 'Başlangıç' : eg.seviye === 'orta' ? 'Orta' : 'İleri'}
+                      </span>
                     </div>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${seviyeRenk[eg.seviye]}`}>
-                      {eg.seviye === 'baslangic' ? 'Başlangıç' : eg.seviye === 'orta' ? 'Orta' : 'İleri'}
-                    </span>
-                  </div>
 
-                  <p className="text-xs text-gray-600 mb-3 line-clamp-2">{eg.aciklama}</p>
+                    <p className="text-xs text-gray-600 mb-3 line-clamp-2">{eg.aciklama}</p>
 
-                  <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {eg.sure >= 60 ? `${Math.floor(eg.sure / 60)}s ${eg.sure % 60 > 0 ? eg.sure % 60 + 'dk' : ''}` : `${eg.sure}dk`}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      {eg.tamamlayanSayisi}/{eg.toplam} tamamladı
-                    </span>
-                  </div>
-
-                  <div className="mb-3">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>Tamamlanma</span>
-                      <span>%{tamamlanmaOrani}</span>
+                    <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {eg.sure >= 60 ? `${Math.floor(eg.sure / 60)}s ${eg.sure % 60 > 0 ? eg.sure % 60 + 'dk' : ''}` : `${eg.sure}dk`}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        {eg.tamamlayanSayisi}/{eg.toplam} tamamladı
+                      </span>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${tamamlanmaOrani >= 80 ? 'bg-green-500' : tamamlanmaOrani >= 50 ? 'bg-yellow-400' : 'bg-blue-500'}`}
-                        style={{ width: `${tamamlanmaOrani}%` }}
-                      />
+
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Tamamlanma Oranı</span>
+                        <span>%{pct}</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${pct >= 85 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-400' : 'bg-blue-500'}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
-
-                  <button className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700">
-                    <Play className="w-4 h-4" />
-                    Eğitime Başla
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {/* Personel Durumları */}
       {aktifSekme === 'durumlar' && (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
@@ -293,7 +463,7 @@ const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Personel</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Departman</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tamamlanan</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Zorunlu</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Zorunlu Eğitimler</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Sertifika</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Son Aktivite</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Durum</th>
@@ -301,8 +471,9 @@ const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {personelDurumlari.map((pd) => {
-                  const zorunluTam = pd.zorunluTamamlanan >= pd.zorunluToplam;
-                  const oran = Math.round((pd.tamamlanan / pd.toplam) * 100);
+                  const hasZorunlu = pd.zorunluToplam > 0;
+                  const zorunluTam = hasZorunlu && pd.zorunluTamamlanan >= pd.zorunluToplam;
+                  const oran = pd.toplam > 0 ? Math.round((pd.tamamlanan / pd.toplam) * 100) : 0;
                   return (
                     <tr key={pd.employeeId} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-medium text-gray-800">{pd.employeeName}</td>
@@ -311,18 +482,24 @@ const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
                         <div>
                           <span className="font-semibold">{pd.tamamlanan}</span>
                           <span className="text-gray-400">/{pd.toplam}</span>
-                          <div className="h-1 bg-gray-100 rounded-full mt-1 w-16 mx-auto">
-                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${oran}%` }} />
-                          </div>
+                          {pd.toplam > 0 && (
+                            <div className="h-1 bg-gray-100 rounded-full mt-1 w-16 mx-auto">
+                              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${oran}%` }} />
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                          zorunluTam ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-                        }`}>
-                          {zorunluTam ? <CheckCircle className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                          {pd.zorunluTamamlanan}/{pd.zorunluToplam}
-                        </span>
+                        {hasZorunlu ? (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                            zorunluTam ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
+                          }`}>
+                            {zorunluTam ? <CheckCircle className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                            {pd.zorunluTamamlanan}/{pd.zorunluToplam}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">Zorunlu Yok</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className="flex items-center justify-center gap-1 font-semibold text-yellow-600">
@@ -332,11 +509,15 @@ const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
                       </td>
                       <td className="px-4 py-3 text-gray-500 text-xs">{pd.sonAktivite}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          oran >= 60 ? 'bg-green-100 text-green-700' : oran >= 30 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600'
-                        }`}>
-                          {oran >= 60 ? 'İyi' : oran >= 30 ? 'Orta' : 'Düşük'}
-                        </span>
+                        {pd.toplam > 0 ? (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            oran >= 75 ? 'bg-green-100 text-green-700' : oran >= 40 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600'
+                          }`}>
+                            {oran >= 75 ? 'İyi' : oran >= 40 ? 'Orta' : 'Düşük'}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -350,72 +531,107 @@ const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
       {/* Sertifikalar */}
       {aktifSekme === 'sertifikalar' && (
         <div className="space-y-3">
-          {DEMO_SERTIFIKALAR.map((sc) => {
-            const gecerlilikTarihi = sc.gecerlilikSuresi
-              ? new Date(new Date(sc.tamamlanmaTarihi).setMonth(new Date(sc.tamamlanmaTarihi).getMonth() + sc.gecerlilikSuresi)).toISOString().split('T')[0]
-              : null;
-            const yakindaGececek = gecerlilikTarihi && new Date(gecerlilikTarihi) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          {sertifikalar.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-500">
+              <Award className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+              <p className="font-semibold">Kayıtlı Sertifika Bulunmamaktadır</p>
+              <p className="text-xs text-gray-400 mt-1">Eğitimlerin tamamlanma kayıtlarını ve sertifikalarını yukarıdaki "Sertifika Ekle" butonu ile girebilirsiniz.</p>
+            </div>
+          ) : (
+            sertifikalar.map((sc) => {
+              const gecerlilikTarihi = sc.gecerlilikSuresi
+                ? new Date(new Date(sc.tamamlanmaTarihi).setMonth(new Date(sc.tamamlanmaTarihi).getMonth() + sc.gecerlilikSuresi)).toISOString().split('T')[0]
+                : null;
+              const yakindaGececek = gecerlilikTarihi && new Date(gecerlilikTarihi) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-            return (
-              <div key={sc.id} className="bg-white rounded-2xl border border-gray-200 p-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center">
-                      <Award className="w-6 h-6 text-yellow-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-800">{sc.egitimAdi}</p>
-                      <p className="text-sm text-gray-500">{sc.employeeName} • Tamamlandı: {sc.tamamlanmaTarihi}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-xs text-gray-400">Sınav Puanı</p>
-                      <p className={`text-lg font-bold ${sc.puan >= 85 ? 'text-green-600' : sc.puan >= 70 ? 'text-yellow-600' : 'text-red-500'}`}>
-                        {sc.puan}/100
-                      </p>
-                    </div>
-                    {gecerlilikTarihi ? (
-                      <div className={`text-right px-3 py-2 rounded-xl ${yakindaGececek ? 'bg-red-50' : 'bg-green-50'}`}>
-                        <p className="text-xs text-gray-400">Geçerlilik</p>
-                        <p className={`text-sm font-semibold ${yakindaGececek ? 'text-red-600' : 'text-green-600'}`}>
-                          {gecerlilikTarihi}
-                        </p>
-                        {yakindaGececek && <p className="text-xs text-red-500">⚠️ Yenileme gerekli</p>}
+              return (
+                <div key={sc.id} className="bg-white rounded-2xl border border-gray-200 p-5 relative group">
+                  <button
+                    onClick={() => deleteSertifika(sc.id)}
+                    className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0">
+                        <Award className="w-6 h-6 text-yellow-600" />
                       </div>
-                    ) : (
-                      <span className="px-3 py-2 rounded-xl bg-blue-50 text-xs text-blue-600 font-medium">Süresiz</span>
-                    )}
-                    <button className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                      <ChevronRight className="w-3 h-3" />
-                      Sertifikayı Görüntüle
-                    </button>
+                      <div>
+                        <p className="font-semibold text-gray-800">{sc.egitimAdi}</p>
+                        <p className="text-sm text-gray-500">{sc.employeeName} • Tamamlandı: {sc.tamamlanmaTarihi}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 ml-auto">
+                      <div className="text-right">
+                        <p className="text-xs text-gray-400">Başarı Puanı</p>
+                        <p className={`text-lg font-bold ${sc.puan >= 85 ? 'text-green-600' : sc.puan >= 70 ? 'text-yellow-600' : 'text-red-500'}`}>
+                          {sc.puan}/100
+                        </p>
+                      </div>
+                      {gecerlilikTarihi ? (
+                        <div className={`text-right px-3 py-1.5 rounded-xl ${yakindaGececek ? 'bg-red-50' : 'bg-green-50'}`}>
+                          <p className="text-[10px] text-gray-400">Sertifika Geçerlilik</p>
+                          <p className={`text-xs font-semibold ${yakindaGececek ? 'text-red-600' : 'text-green-600'}`}>
+                            {gecerlilikTarihi}
+                          </p>
+                          {yakindaGececek && <p className="text-[8px] text-red-500">⚠️ Yenilenmeli</p>}
+                        </div>
+                      ) : (
+                        <span className="px-3 py-1.5 rounded-xl bg-blue-50 text-[10px] text-blue-600 font-semibold">Süresiz</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       )}
 
       {/* Yeni Eğitim Modal */}
       {showNewEgitim && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Yeni Eğitim Ekle</h3>
-            <div className="space-y-3">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800">Yeni Eğitim Planla / Ekle</h3>
+              <button onClick={() => setShowNewEgitim(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddEgitim} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitim Başlığı</label>
-                <input type="text" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input
+                  type="text"
+                  required
+                  value={newEgitimForm.baslik}
+                  onChange={(e) => setNewEgitimForm({ ...newEgitimForm, baslik: e.target.value })}
+                  placeholder="Örn: KVKK Farkındalık Eğitimi"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Kategori</label>
-                  <input type="text" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    type="text"
+                    required
+                    value={newEgitimForm.kategori}
+                    onChange={(e) => setNewEgitimForm({ ...newEgitimForm, kategori: e.target.value })}
+                    placeholder="Zorunlu, Teknik, Satış..."
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitim Türü</label>
-                  <select className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <select
+                    value={newEgitimForm.tur}
+                    onChange={(e) => setNewEgitimForm({ ...newEgitimForm, tur: e.target.value as any })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
                     <option value="video">Video</option>
                     <option value="sunum">Sunum</option>
                     <option value="canli">Canlı</option>
@@ -423,37 +639,181 @@ const EgitimLMS: React.FC<{ employees: Employee[] }> = ({ employees }) => {
                   </select>
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Süre (dakika)</label>
-                  <input type="number" min="1" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    type="number"
+                    min="1"
+                    value={newEgitimForm.sure}
+                    onChange={(e) => setNewEgitimForm({ ...newEgitimForm, sure: Number(e.target.value) })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Seviye</label>
-                  <select className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <select
+                    value={newEgitimForm.seviye}
+                    onChange={(e) => setNewEgitimForm({ ...newEgitimForm, seviye: e.target.value as any })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
                     <option value="baslangic">Başlangıç</option>
                     <option value="orta">Orta</option>
                     <option value="ileri">İleri</option>
                   </select>
                 </div>
               </div>
+
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitmen</label>
-                <input type="text" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitmen / Kurum</label>
+                <input
+                  type="text"
+                  required
+                  value={newEgitimForm.egitmen}
+                  onChange={(e) => setNewEgitimForm({ ...newEgitimForm, egitmen: e.target.value })}
+                  placeholder="Örn: Dr. Ahmet Yılmaz"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
+
               <div className="flex items-center gap-2">
-                <input type="checkbox" id="zorunlu" className="rounded" />
-                <label htmlFor="zorunlu" className="text-sm text-gray-700">Zorunlu eğitim</label>
+                <input
+                  type="checkbox"
+                  id="zorunlu"
+                  checked={newEgitimForm.zorunlu}
+                  onChange={(e) => setNewEgitimForm({ ...newEgitimForm, zorunlu: e.target.checked })}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="zorunlu" className="text-sm font-semibold text-gray-700 select-none">Zorunlu eğitim (Her personel tamamlamalı)</label>
               </div>
+
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Açıklama</label>
-                <textarea rows={2} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitim Açıklaması</label>
+                <textarea
+                  rows={3}
+                  value={newEgitimForm.aciklama}
+                  onChange={(e) => setNewEgitimForm({ ...newEgitimForm, aciklama: e.target.value })}
+                  placeholder="Eğitim detayları, hedefleri ve kazanımları..."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
               </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowNewEgitim(false)}
+                  className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 shadow-sm"
+                >
+                  Eğitimi Kaydet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Yeni Sertifika / Başarı Kaydı Modal */}
+      {showNewSertifika && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800">Sertifika / Eğitim Tamamlama Kaydı Gir</h3>
+              <button onClick={() => setShowNewSertifika(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowNewEgitim(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">İptal</button>
-              <button onClick={() => setShowNewEgitim(false)} className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">Eğitim Ekle</button>
-            </div>
+
+            <form onSubmit={handleAddSertifika} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Tamamlanan Eğitim</label>
+                <select
+                  required
+                  value={newSertifikaForm.egitimId}
+                  onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, egitimId: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Seçin...</option>
+                  {egitimler.map((eg) => (
+                    <option key={eg.id} value={eg.id}>{eg.baslik} ({eg.kategori})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitimi Tamamlayan Personel</label>
+                <select
+                  required
+                  value={newSertifikaForm.employeeId}
+                  onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, employeeId: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Seçin...</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.department || 'Genel'})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Tamamlanma Tarihi</label>
+                  <input
+                    type="date"
+                    required
+                    value={newSertifikaForm.tamamlanmaTarihi}
+                    onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, tamamlanmaTarihi: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Başarı Puanı (0 - 100)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    required
+                    value={newSertifikaForm.puan}
+                    onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, puan: Number(e.target.value) })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Geçerlilik Süresi (Ay - Boş bırakılırsa Süresiz)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={newSertifikaForm.gecerlilikSuresi}
+                  onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, gecerlilikSuresi: e.target.value })}
+                  placeholder="Örn: 12, 24..."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowNewSertifika(false)}
+                  className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 shadow-sm"
+                >
+                  Kayıt Ekle
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -245,20 +245,20 @@
         <div class="test-accounts">
             <h3>Oluşturulacak Hesaplar</h3>
             <div class="account-item">
-                <strong>👤 Admin Kullanıcı</strong>
-                <span>E-posta: test@test.com</span>
-                <span>Şifre: 123456</span>
-                <span>Rol: admin</span>
-            </div>
-            <div class="account-item">
-                <strong>👤 HR Uzmanı</strong>
-                <span>E-posta: bilgtest@test.com</span>
+                <strong>👤 İK Uzmanı (HR)</strong>
+                <span>E-posta: testkullanici@gmail.com</span>
                 <span>Şifre: 123456</span>
                 <span>Rol: hr</span>
             </div>
             <div class="account-item">
-                <strong>👤 Çalışan</strong>
-                <span>E-posta: bhv@test.com</span>
+                <strong>👤 Müdür (Manager)</strong>
+                <span>E-posta: testkullanici3@gmail.com</span>
+                <span>Şifre: 123456</span>
+                <span>Rol: manager</span>
+            </div>
+            <div class="account-item">
+                <strong>👤 Personel (Employee)</strong>
+                <span>E-posta: testkullanici2@gmail.com</span>
                 <span>Şifre: 123456</span>
                 <span>Rol: employee</span>
             </div>
@@ -266,8 +266,8 @@
     </div>
 
     <script>
-        const SUPABASE_URL = 'https://vlkbsbdyotfuxwpvnjrz.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsa2JzYmR5b3RmdXh3cHZuanJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzQ5NjcsImV4cCI6MjA4ODM1MDk2N30.6QrktEetph_9grZZuDmUoIMSzo4bUkTXe-RryT2V57M';
+        const SUPABASE_URL = 'https://gfbtjdedaoleqhrlebof.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_wxlAHN7E63-NbwFiVhJBeA_F3PYc3w-';
         const COMPANY_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
 
         let supabase;
@@ -275,9 +275,9 @@
         const totalSteps = 12; // 3 users × (signup + profile insert + setup) = 9 + 3 setup
 
         const testUsers = [
-            { email: 'test@test.com', password: '123456', fullName: 'Test Admin', role: 'admin' },
-            { email: 'bilgtest@test.com', password: '123456', fullName: 'Bilg Test', role: 'hr' },
-            { email: 'bhv@test.com', password: '123456', fullName: 'BHV Kullanıcı', role: 'employee' }
+            { email: 'testkullanici@gmail.com', password: '123456', fullName: 'Test Kullanıcı', role: 'hr', companyId: 'aaaaaaaa-0000-0000-0000-000000000001' },
+            { email: 'testkullanici3@gmail.com', password: '123456', fullName: 'Test Kullanıcı-3', role: 'manager', companyId: '11111111-1111-1111-1111-111111111111' },
+            { email: 'testkullanici2@gmail.com', password: '123456', fullName: 'Test Kullanıcı-2', role: 'employee', companyId: 'aaaaaaaa-0000-0000-0000-000000000001' }
         ];
 
         function initSupabase() {
@@ -349,7 +349,7 @@
             }
         }
 
-        async function createProfile(userId, email, fullName, role) {
+        async function createProfile(userId, email, fullName, role, companyId) {
             try {
                 logEntry(`📋 ${email} için profile kaydı oluşturuluyor...`, 'info');
 
@@ -359,7 +359,7 @@
                         id: userId,
                         email: email,
                         full_name: fullName,
-                        company_id: COMPANY_ID,
+                        company_id: companyId || COMPANY_ID,
                         role: role
                     });
 
@@ -395,7 +395,7 @@
                     const userId = await signupUser(user.email, user.password, user.fullName, user.role);
                     
                     if (userId) {
-                        const profileCreated = await createProfile(userId, user.email, user.fullName, user.role);
+                        const profileCreated = await createProfile(userId, user.email, user.fullName, user.role, user.companyId);
                         if (!profileCreated) {
                             // Profile creation failed but user exists, log it
                         }

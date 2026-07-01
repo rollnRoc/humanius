@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Star, Clock, Zap, Search as SearchIcon } from 'lucide-react';
+import { Star, Clock, Zap, Search as SearchIcon, ArrowLeft, LogOut } from 'lucide-react';
 import type { View } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SmartHeaderProps {
   onNavigate: (view: View) => void;
@@ -8,6 +9,9 @@ interface SmartHeaderProps {
 }
 
 const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) => {
+  const { appRole, signOut } = useAuth();
+  const isEmployeeOnly = ['employee', 'user'].includes(appRole || 'employee');
+
   const [favorites, setFavorites] = useState<View[]>(() => {
     const saved = localStorage.getItem('humanius_favorites');
     return saved ? JSON.parse(saved) : ['personel', 'izin', 'bordro'];
@@ -54,30 +58,58 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) =>
     return map[view as string] || view;
   };
 
+  if (isEmployeeOnly) {
+    const employeeTitleMap: Record<string, string> = {
+      'bordro': 'Bordrolarım',
+      'izin': 'İzin Taleplerim',
+      'uyari': 'Duyurular & Uyarılar Takvimi',
+      'ozluk-dosyasi': 'Özlük Dosyam',
+      'pdks-devam': 'Devam Kontrolü (PDKS)',
+      'performans': 'Performans Değerlendirmelerim',
+      'egitim': 'Eğitim ve Gelişim',
+      'zimmet': 'Zimmetli Envanterlerim',
+      'okr': 'OKR Hedeflerim',
+      'yetkinlik': 'Yetkinlik Değerlendirmelerim',
+      'yan-haklar': 'Esnek Yan Haklarım',
+      'kullanim-kilavuzu': 'Kullanım Kılavuzu'
+    };
+    const title = employeeTitleMap[currentView] || currentView;
+
+    return (
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
+        {/* Left: Go back */}
+        <button
+          onClick={() => onNavigate('arama')}
+          className="flex items-center gap-2 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-all shadow-sm"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Ana Sayfa</span>
+        </button>
+
+        {/* Center: Title */}
+        <h2 className="text-sm sm:text-base font-bold text-gray-800 tracking-wide text-center flex-1 mx-4 truncate">
+          {title}
+        </h2>
+
+        {/* Right: Sign Out */}
+        <button
+          onClick={() => signOut()}
+          className="flex items-center gap-2 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl transition-all shadow-sm"
+        >
+          <LogOut className="w-4 h-4" />
+          <span className="hidden md:inline">Çıkış Yap</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-30">
-      <div className="flex items-center gap-6 overflow-x-auto hide-scrollbar">
-        {/* Son Kullanılanlar */}
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-gray-400" />
-          <div className="flex gap-2">
-            {recent.slice(0, 3).map((view, i) => (
-              <button
-                key={`recent-${view}-${i}`}
-                onClick={() => onNavigate(view)}
-                className={`text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition-colors ${currentView === view ? 'bg-blue-100 text-blue-700 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              >
-                {getLabel(view)}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className="flex items-center gap-6 flex-wrap">
 
-        <div className="w-px h-6 bg-gray-200"></div>
 
         {/* Favoriler (Sık Kullanılanlar) */}
         <div className="flex items-center gap-2">
-          <Star className="w-4 h-4 text-yellow-400 fill-current" />
           <div className="flex gap-2">
             {favorites.map((view, i) => (
               <div key={`fav-${view}-${i}`} className="group relative flex items-center">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, Filter, ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle, XCircle, FileText, Users, Building } from 'lucide-react';
 import { Employee } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 import { IzinTalebi } from '../types/izin';
 import { BordroItem } from '../types/bordro';
 import { TakvimEtkinlik, EtkinlikTuru, YapilandirilmisEtkinlik } from '../types/takvim';
@@ -9,12 +10,14 @@ import {
   getEventsInRange, 
   organizeEventsByDate, 
   getEtkinlikRengi, 
+  getEtkinlikNoktaRengi,
   getEtkinlikTuruAdi, 
   getOncelikRengi, 
   getDurumRengi, 
   formatTarih, 
   formatTarihAraligi,
   RESMI_TATILLER_2024,
+  getResmiTatillerForYear,
   IS_KANUNU_SURELERI,
   BORDRO_SURELERI,
   EGITIM_SURELERI
@@ -31,6 +34,9 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
   izinTalepleri,
   bordrolar
 }) => {
+  const { appRole } = useAuth();
+  const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole || 'employee');
+
   const [etkinlikler, setEtkinlikler] = useState<TakvimEtkinlik[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -38,14 +44,42 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
   const [filtreEtkinlikTuru, setFiltreEtkinlikTuru] = useState<string>('all');
   const [filtreDepartman, setFiltreDepartman] = useState<string>('all');
   const [showNewEvent, setShowNewEvent] = useState(false);
-  const [customEtkinlikler, setCustomEtkinlikler] = useState<TakvimEtkinlik[]>([]);
+  const [customEtkinlikler, setCustomEtkinlikler] = useState<TakvimEtkinlik[]>(() => {
+    try {
+      const saved = localStorage.getItem('humanius_custom_events');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [yeniEtkinlik, setYeniEtkinlik] = useState({ baslik: '', aciklama: '', tarih: '' });
+
+  // Keep state synced with localStorage and handle other tabs/components updating it
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const saved = localStorage.getItem('humanius_custom_events');
+        if (saved) {
+          setCustomEtkinlikler(JSON.parse(saved));
+        }
+      } catch {}
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Save to localStorage when modified locally
+  useEffect(() => {
+    try {
+      localStorage.setItem('humanius_custom_events', JSON.stringify(customEtkinlikler));
+    } catch {}
+  }, [customEtkinlikler]);
 
   // Otomatik ve ozel etkinlikleri birlestir
   useEffect(() => {
-    const otomatikEtkinlikler = createAutomaticEvents(employees, izinTalepleri, bordrolar);
+    const otomatikEtkinlikler = createAutomaticEvents(employees, izinTalepleri, bordrolar, currentDate.getFullYear());
     setEtkinlikler([...otomatikEtkinlikler, ...customEtkinlikler]);
-  }, [employees, izinTalepleri, bordrolar, customEtkinlikler]);
+  }, [employees, izinTalepleri, bordrolar, customEtkinlikler, currentDate]);
 
   // Mevcut ayın ilk ve son günü
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -107,7 +141,7 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
   // Resmi tatil kontrolü
   const isResmiTatil = (date: Date): ResmiTatil | null => {
     const dateString = date.toISOString().split('T')[0];
-    return RESMI_TATILLER_2024.find(tatil => tatil.tarih === dateString) || null;
+    return getResmiTatillerForYear(date.getFullYear()).find(tatil => tatil.tarih === dateString) || null;
   };
 
   const tabs = [
@@ -171,13 +205,15 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                 </select>
               </div>
 
-              <button
-                onClick={() => setShowNewEvent(true)}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Yeni Etkinlik
-              </button>
+              {isManagement && (
+                <button
+                  onClick={() => setShowNewEvent(true)}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Yeni Etkinlik
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -495,7 +531,7 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                   <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
                     <h4 className="font-medium text-pink-800 mb-2">Resmi Tatiller</h4>
                     <div className="space-y-1 text-sm text-pink-700">
-                      <div>Toplam: {RESMI_TATILLER_2024.length} gün</div>
+                      <div>Toplam: {getResmiTatillerForYear(currentDate.getFullYear()).length} gün</div>
                       <div>Milli Bayramlar: 7 gün</div>
                       <div>Dini Bayramlar: 7 gün</div>
                     </div>
@@ -505,13 +541,13 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
 
               {/* Resmi Tatil Listesi */}
               <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <h4 className="text-lg font-semibold text-gray-800 mb-4">2024 Resmi Tatil Günleri</h4>
+                <h4 className="text-lg font-semibold text-gray-800 mb-4">{currentDate.getFullYear()} Resmi Tatil Günleri</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {RESMI_TATILLER_2024.map(tatil => (
+                  {getResmiTatillerForYear(currentDate.getFullYear()).map(tatil => (
                     <div key={tatil.tarih} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
                       <div>
                         <div className="font-medium text-red-800">{tatil.ad}</div>
-                        <div className="text-sm text-red-600">{tatil.aciklama}</div>
+                        <div className="text-sm text-red-600">Resmi Tatil</div>
                       </div>
                       <div className="text-sm text-red-700">
                         {formatTarih(tatil.tarih)}
@@ -529,10 +565,10 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <h4 className="text-sm font-medium text-gray-800 mb-3">Etkinlik Türü Renk Kodları</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {Object.values(['izin_talebi', 'bordro_hazirlik', 'bordro_odeme', 'sgk_bildirimi', 'egitim', 'dogum_gunu'] as EtkinlikTuru[]).map(tur => (
+          {['izin', 'bordro', 'tatil', 'egitim', 'toplanti', 'sgk', 'vergi', 'diger'].map(tur => (
             <div key={tur} className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${getEtkinlikRengi(tur).split(' ')[0]}`} />
-              <span className="text-xs text-gray-600">{getEtkinlikTuruAdi(tur)}</span>
+              <div className={`w-3 h-3 rounded-full ${getEtkinlikNoktaRengi(tur as EtkinlikTuru)}`} />
+              <span className="text-xs text-gray-600">{getEtkinlikTuruAdi(tur as EtkinlikTuru)}</span>
             </div>
           ))}
         </div>
@@ -593,6 +629,8 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                     olusturmaTarihi: new Date().toISOString()
                   };
                   setCustomEtkinlikler([...customEtkinlikler, newEv]);
+                  localStorage.setItem('humanius_new_alert_notification', 'true');
+                  window.dispatchEvent(new Event('storage'));
                   setYeniEtkinlik({ baslik: '', aciklama: '', tarih: '' });
                   setShowNewEvent(false);
                 }}

@@ -106,7 +106,7 @@ const IzinRaporlari: React.FC<IzinRaporlariProps> = ({
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
             className="bg-white border border-gray-200 text-gray-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
-            {[2024, 2023, 2022].map(year => (
+            {[new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2].map(year => (
               <option key={year} value={year}>{year}</option>
             ))}
           </select>
