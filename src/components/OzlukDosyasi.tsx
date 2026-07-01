@@ -185,10 +185,11 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
     gorevTanimiService
       .getGorevTanimlari(effectiveCompanyId)
       .then((data) => {
-        const onaylananlar = (data ?? []).filter(
-          (g: GorevTanimi) => g.employee_id === selectedEmpId && g.onay_durumu === 'onaylandi'
+        const filtrelenmis = (data ?? []).filter(
+          (g: GorevTanimi) => g.employee_id === selectedEmpId && 
+            (g.onay_durumu === 'onaylandi' || g.onay_durumu === 'beklemede' || !g.onay_durumu)
         );
-        setGorevTanimlari(onaylananlar);
+        setGorevTanimlari(filtrelenmis);
       })
       .catch(() => setGorevTanimlari([]))
       .finally(() => setGorevTanimiLoading(false));
@@ -864,95 +865,122 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                       <p className="text-sm text-gray-400">Bu personel için onaylanmış görev tanımı bulunamadı</p>
                     </div>
                   ) : (
-                    gorevTanimlari.map((g) => (
-                      <div key={g.id} className="rounded-xl border border-green-200 bg-green-50 p-4 space-y-4">
-                        {/* Başlık */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
-                              <h3 className="text-base font-semibold text-gray-900">{g.gorev_adi}</h3>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-0.5 ml-6">
-                              {g.is_birimi && <span className="mr-2">{g.is_birimi}</span>}
-                              {g.bagli_oldugu_pozisyon && <span>Bağlı: {g.bagli_oldugu_pozisyon}</span>}
-                            </p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-semibold border border-green-200">
-                              Onaylandı
-                            </span>
-                            {g.onay_tarihi && (
-                              <p className="text-xs text-gray-400 mt-1">
-                                {new Date(g.onay_tarihi).toLocaleDateString('tr-TR')}
+                    gorevTanimlari.map((g) => {
+                      const isApproved = g.onay_durumu === 'onaylandi';
+                      const isRejected = g.onay_durumu === 'reddedildi';
+                      const containerClass = isApproved 
+                        ? 'border-green-200 bg-green-50/50' 
+                        : isRejected 
+                        ? 'border-red-200 bg-red-50/50' 
+                        : 'border-yellow-200 bg-yellow-50/50';
+                      
+                      const StatusIcon = isApproved ? CheckCircle : isRejected ? AlertTriangle : Clock;
+                      const iconColor = isApproved ? 'text-green-600' : isRejected ? 'text-red-600' : 'text-yellow-600';
+                      
+                      const badgeClass = isApproved 
+                        ? 'bg-green-100 text-green-700 border-green-200' 
+                        : isRejected 
+                        ? 'bg-red-100 text-red-700 border-red-200' 
+                        : 'bg-yellow-100 text-yellow-700 border-yellow-200';
+                      
+                      const badgeText = isApproved ? 'Onaylandı' : isRejected ? 'Reddedildi' : 'Onay Bekliyor';
+                      const itemBorderClass = isApproved 
+                        ? 'border-green-100' 
+                        : isRejected 
+                        ? 'border-red-100' 
+                        : 'border-yellow-100';
+                      const dotColor = isApproved ? 'text-green-500' : isRejected ? 'text-red-500' : 'text-yellow-500';
+
+                      return (
+                        <div key={g.id} className={`rounded-xl border p-4 space-y-4 ${containerClass}`}>
+                          {/* Başlık */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <StatusIcon className={`w-4 h-4 shrink-0 ${iconColor}`} />
+                                <h3 className="text-base font-semibold text-gray-900">{g.gorev_adi}</h3>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5 ml-6">
+                                {g.is_birimi && <span className="mr-2">{g.is_birimi}</span>}
+                                {g.bagli_oldugu_pozisyon && <span>Bağlı: {g.bagli_oldugu_pozisyon}</span>}
                               </p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}`}>
+                                {badgeText}
+                              </span>
+                              {g.onay_tarihi && (
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {new Date(g.onay_tarihi).toLocaleDateString('tr-TR')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Açıklama */}
+                          {g.gorev_aciklama && (
+                            <div className={`bg-white rounded-lg border p-3 ${itemBorderClass}`}>
+                              <p className="text-xs font-semibold text-gray-600 mb-1">Görev Açıklaması</p>
+                              <p className="text-sm text-gray-700 whitespace-pre-line">{g.gorev_aciklama}</p>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {g.sorumluluklar?.length > 0 && (
+                              <div className={`bg-white rounded-lg border p-3 ${itemBorderClass}`}>
+                                <p className="text-xs font-semibold text-gray-600 mb-2">Sorumluluklar</p>
+                                <ul className="space-y-1">
+                                  {g.sorumluluklar.map((s, i) => (
+                                    <li key={i} className="text-sm text-gray-700 flex gap-2">
+                                      <span className={`${dotColor} shrink-0`}>⬢</span>{s}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {g.yetki_ve_sorumluluklar?.length > 0 && (
+                              <div className={`bg-white rounded-lg border p-3 ${itemBorderClass}`}>
+                                <p className="text-xs font-semibold text-gray-600 mb-2">Yetki ve Sorumluluklar</p>
+                                <ul className="space-y-1">
+                                  {g.yetki_ve_sorumluluklar.map((y, i) => (
+                                    <li key={i} className="text-sm text-gray-700 flex gap-2">
+                                      <span className="text-blue-500 shrink-0">⬢</span>{y}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {g.performans_kriterleri?.length > 0 && (
+                              <div className={`bg-white rounded-lg border p-3 ${itemBorderClass}`}>
+                                <p className="text-xs font-semibold text-gray-600 mb-2">Performans Kriterleri</p>
+                                <ul className="space-y-1">
+                                  {g.performans_kriterleri.map((p, i) => (
+                                    <li key={i} className="text-sm text-gray-700 flex gap-2">
+                                      <span className="text-purple-500 shrink-0">⬢</span>{p}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {g.calismalar?.length > 0 && (
+                              <div className={`bg-white rounded-lg border p-3 ${itemBorderClass}`}>
+                                <p className="text-xs font-semibold text-gray-600 mb-2">Çalışmalar</p>
+                                <ul className="space-y-1">
+                                  {g.calismalar.map((c, i) => (
+                                    <li key={i} className="text-sm text-gray-700 flex gap-2">
+                                      <span className="text-amber-500 shrink-0">⬢</span>{c}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
                             )}
                           </div>
                         </div>
-
-                        {/* Açıklama */}
-                        {g.gorev_aciklama && (
-                          <div className="bg-white rounded-lg border border-green-100 p-3">
-                            <p className="text-xs font-semibold text-gray-600 mb-1">Görev Açıklaması</p>
-                            <p className="text-sm text-gray-700 whitespace-pre-line">{g.gorev_aciklama}</p>
-                          </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {g.sorumluluklar?.length > 0 && (
-                            <div className="bg-white rounded-lg border border-green-100 p-3">
-                              <p className="text-xs font-semibold text-gray-600 mb-2">Sorumluluklar</p>
-                              <ul className="space-y-1">
-                                {g.sorumluluklar.map((s, i) => (
-                                  <li key={i} className="text-sm text-gray-700 flex gap-2">
-                                    <span className="text-green-500 shrink-0">⬢</span>{s}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {g.yetki_ve_sorumluluklar?.length > 0 && (
-                            <div className="bg-white rounded-lg border border-green-100 p-3">
-                              <p className="text-xs font-semibold text-gray-600 mb-2">Yetki ve Sorumluluklar</p>
-                              <ul className="space-y-1">
-                                {g.yetki_ve_sorumluluklar.map((y, i) => (
-                                  <li key={i} className="text-sm text-gray-700 flex gap-2">
-                                    <span className="text-blue-500 shrink-0">⬢</span>{y}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {g.performans_kriterleri?.length > 0 && (
-                            <div className="bg-white rounded-lg border border-green-100 p-3">
-                              <p className="text-xs font-semibold text-gray-600 mb-2">Performans Kriterleri</p>
-                              <ul className="space-y-1">
-                                {g.performans_kriterleri.map((p, i) => (
-                                  <li key={i} className="text-sm text-gray-700 flex gap-2">
-                                    <span className="text-purple-500 shrink-0">⬢</span>{p}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {g.calismalar?.length > 0 && (
-                            <div className="bg-white rounded-lg border border-green-100 p-3">
-                              <p className="text-xs font-semibold text-gray-600 mb-2">Çalışmalar</p>
-                              <ul className="space-y-1">
-                                {g.calismalar.map((c, i) => (
-                                  <li key={i} className="text-sm text-gray-700 flex gap-2">
-                                    <span className="text-amber-500 shrink-0">⬢</span>{c}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}
