@@ -56,9 +56,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
   const [activeTab, setActiveTab] = useState<'personal' | 'team'>(isManagement ? 'team' : 'personal');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const currentEmployee = employees.find(
-    (emp) => emp.email?.toLowerCase() === profile?.email?.toLowerCase()
-  );
+  const currentEmployee = isManagement
+    ? (employees.find((emp) => emp.email?.toLowerCase() === profile?.email?.toLowerCase()) || 
+       employees.find((emp) => emp.name?.toLowerCase() === profile?.full_name?.toLowerCase()))
+    : employees[0];
 
   // -------------------------------------------------------------
   // PERSONAL SHIFT TRACKING (MESAI BASLAT/BITIR) STATES
