@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calendar as CalendarIcon, Filter, Search, Trash2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Filter, Search, Trash2, XCircle } from 'lucide-react';
 import type { IzinTalebi } from '../types/izin';
 import type { Employee, Department } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,9 +9,10 @@ interface IzinliKisilerProps {
   employees: Employee[];
   departments: Department[];
   onDeleteLeave?: (leaveId: string) => void;
+  onCancelLeave?: (leaveId: string) => void;
 }
 
-const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees, departments, onDeleteLeave }) => {
+const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees, departments, onDeleteLeave, onCancelLeave }) => {
   const { profile } = useAuth();
   const userRole = profile?.role || 'employee';
 
@@ -138,13 +139,22 @@ const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees,
                   <td className="px-6 py-4 font-medium text-gray-800">{leave.kullanilanGun} Gün</td>
                   {!['employee', 'user'].includes(userRole) && (
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => onDeleteLeave && onDeleteLeave(leave.id)}
-                        className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
-                        title="İzni İptal Et / Sil"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-2.5">
+                        <button
+                          onClick={() => onCancelLeave && onCancelLeave(leave.id)}
+                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                          title="İzni İptal Et"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => onDeleteLeave && onDeleteLeave(leave.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          title="İzin Talebini Sil"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>

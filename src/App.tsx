@@ -852,6 +852,18 @@ const AppInner: React.FC = () => {
     }
   };
 
+  const handleCancelIzinTalebi = async (id: string) => {
+    if (!window.confirm('Bu izin kaydını iptal etmek istediğinize emin misiniz?')) return;
+    try {
+      await izinService.updateTalep(id, { durum: 'iptal' });
+      setIzinTalepleri((prev) => prev.map((t) => t.id === id ? { ...t, durum: 'iptal' } : t));
+      alert('İzin kaydı başarıyla iptal edildi.');
+    } catch (err: any) {
+      console.error('İzin iptal edilirken hata oluştu:', err);
+      alert('İzin kaydı iptal edilirken bir hata oluştu.');
+    }
+  };
+
   const handleUpdateIzinHakki = async (employeeId: string, toplamHak: number, mazeretHak: number, hakId?: string) => {
     try {
       const yil = new Date().getFullYear();
@@ -1229,6 +1241,7 @@ const AppInner: React.FC = () => {
             employees={employees} 
             departments={departments} 
             onDeleteLeave={handleDeleteIzinTalebi}
+            onCancelLeave={handleCancelIzinTalebi}
           />
         )}
 
