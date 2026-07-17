@@ -852,13 +852,6 @@ const KullanicilarPage: React.FC = () => {
                             >
                               <Edit2 size={14} />
                             </button>
-                            <button
-                              onClick={() => setSecurityTargetUser(u)}
-                              className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                              title="İmza/Şifre Ayarla"
-                            >
-                              <KeyRound size={14} />
-                            </button>
                             {!isCurrentUser && appRole === 'superadmin' && (
                               <button
                                 onClick={() => setDeleteTarget(u)}
@@ -914,17 +907,7 @@ const KullanicilarPage: React.FC = () => {
         />
       )}
 
-      {securityTargetUser && (
-        <SecurityModal
-          user={securityTargetUser}
-          onClose={() => setSecurityTargetUser(null)}
-          onSuccess={() => {
-            setSecurityTargetUser(null);
-            showToast('success', 'İmza ve onay şifresi başarıyla güncellendi!');
-            loadData();
-          }}
-        />
-      )}
+
     </div>
   );
 };

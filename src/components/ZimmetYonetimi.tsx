@@ -336,13 +336,6 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
-                          title="QR Kodu Göster"
-                          onClick={() => setQrZimmet(z)}
-                          className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600"
-                        >
-                          <QrCode className="w-4 h-4" />
-                        </button>
-                        <button
                           title="Personele Ata / İade Al"
                           onClick={() => setAtamaPaneli(z)}
                           className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600"
@@ -380,8 +373,7 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
         </div>
       </div>
 
-      {/* QR Modal */}
-      {qrZimmet && <ZimmetQRModal zimmet={qrZimmet} onClose={() => setQrZimmet(null)} />}
+
 
       {/* Atama Paneli Modal */}
       {atamaPaneli && isAdminOrHR && (

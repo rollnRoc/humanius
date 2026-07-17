@@ -937,7 +937,7 @@ const AppInner: React.FC = () => {
             </button>
           </div>
         )}
-          <div className="flex-1 overflow-y-auto p-6 relative">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 relative">
             {showAlertNotification && currentView !== 'uyari' && (
               <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl flex items-center justify-between shadow-sm animate-pulse">
                 <div className="flex items-center gap-3">
@@ -1012,7 +1012,6 @@ const AppInner: React.FC = () => {
 
         {/* Görev Tanımı */}
         {currentView === 'gorev-tanimi' && <GorevTanimi mode="form" employees={employees} />}
-        {currentView === 'gorev-tanimi-kayitlari' && <GorevTanimi mode="records" employees={employees} />}
 
         {/* Özlük Dosyası */}
         {currentView === 'ozluk-dosyasi' && (
@@ -1068,15 +1067,38 @@ const AppInner: React.FC = () => {
               />
             </div>
           ) : (
-            <BordroMain
-              employees={employees}
-              onSaveBordro={handleSaveBordro}
-              bordrolar={bordrolar}
-              onEdit={handleEditBordro}
-              onDelete={handleDeleteBordro}
-              onView={handleViewBordro}
-              onSendForApproval={handleSendBordroForApproval}
-            />
+            <div className="space-y-6">
+              {(() => {
+                const selfEmp = employees.find(e => e.email?.toLowerCase() === profile?.email?.toLowerCase());
+                const pendingSelfBordro = selfEmp ? bordrolar.find(b => b.employee_id === selfEmp.id && b.approval_status === 'beklemede') : null;
+                if (pendingSelfBordro) {
+                  return (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-yellow-800">Kendi Onay Bekleyen Bordronuz</h3>
+                        <p className="text-sm text-yellow-700">{pendingSelfBordro.period} dönemi bordronuz onayınızı bekliyor.</p>
+                      </div>
+                      <button
+                        onClick={() => setSelectedBordro(pendingSelfBordro)}
+                        className="w-full sm:w-auto text-center px-4 py-2.5 bg-yellow-600 text-white rounded-xl text-sm font-semibold hover:bg-yellow-700 transition-colors whitespace-nowrap shrink-0"
+                      >
+                        Görüntüle ve Onayla
+                      </button>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+              <BordroMain
+                employees={employees}
+                onSaveBordro={handleSaveBordro}
+                bordrolar={bordrolar}
+                onEdit={handleEditBordro}
+                onDelete={handleDeleteBordro}
+                onView={handleViewBordro}
+                onSendForApproval={handleSendBordroForApproval}
+              />
+            </div>
           )
         )}
         

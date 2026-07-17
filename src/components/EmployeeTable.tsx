@@ -65,7 +65,7 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
-      <div className="overflow-x-visible min-h-[350px]">
+      <div className="overflow-x-auto min-h-[350px]">
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">

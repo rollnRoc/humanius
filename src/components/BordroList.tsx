@@ -127,31 +127,6 @@ const BordroList: React.FC<BordroListProps> = ({
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => onEdit(bordro)}
-                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Düzenle"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => onSendForApproval(bordro)}
-                        className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        title="Onaya Gönder"
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm('Bu bordroyu silmek istediğinize emin misiniz?')) {
-                            onDelete(bordro.id);
-                          }
-                        }}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Sil"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                   </td>
                 </tr>

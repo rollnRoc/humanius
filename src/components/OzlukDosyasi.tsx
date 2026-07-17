@@ -13,6 +13,7 @@ import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
 import type { BordroItem } from '../types/bordro';
 import BordroOnay from './BordroOnay';
+import GorevTanimiOnay from './GorevTanimiOnay';
 import BordroList from './BordroList';
 import { bordroService } from '../services/bordroService';
 import { QRCodeSVG } from 'qrcode.react';
@@ -176,10 +177,18 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   const [bordroApprovalsLoading, setBordroApprovalsLoading] = useState(true);
   const [showBordroOnay, setShowBordroOnay] = useState<BordroItem | null>(null);
 
+  // Görev Tanımı Onay
+  const [activeOnayGorevTanimi, setActiveOnayGorevTanimi] = useState<GorevTanimi | null>(null);
+
   const selectedEmp = companyEmployees.find((e) => e.id === selectedEmpId) ?? null;
 
-  // Görev tanımlarını yükle
-  useEffect(() => {
+  const currentEmployeeMatch = React.useMemo(() => {
+    return employees.find(e => e.email?.toLowerCase() === profile?.email?.toLowerCase());
+  }, [employees, profile]);
+
+  const isSelf = selectedEmpId === currentEmployeeMatch?.id;
+
+  const loadGorevTanimlari = () => {
     if (!selectedEmpId || !effectiveCompanyId) { setGorevTanimlari([]); return; }
     setGorevTanimiLoading(true);
     gorevTanimiService
@@ -193,6 +202,11 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
       })
       .catch(() => setGorevTanimlari([]))
       .finally(() => setGorevTanimiLoading(false));
+  };
+
+  // Görev tanımlarını yükle
+  useEffect(() => {
+    loadGorevTanimlari();
   }, [selectedEmpId, effectiveCompanyId]);
 
   // Bordro Onayları yükle
@@ -914,6 +928,15 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                                   {new Date(g.onay_tarihi).toLocaleDateString('tr-TR')}
                                 </p>
                               )}
+                              {!isApproved && !isRejected && isSelf && (
+                                <button
+                                  onClick={() => setActiveOnayGorevTanimi(g)}
+                                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
+                                >
+                                  <Shield className="w-3.5 h-3.5" />
+                                  Oku ve Onayla
+                                </button>
+                              )}
                             </div>
                           </div>
 
@@ -1037,6 +1060,19 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
           onApprovalComplete={() => {
             setShowBordroOnay(null);
             loadBordroApprovals();
+          }}
+        />
+      )}
+      {activeOnayGorevTanimi && selectedEmp && (
+        <GorevTanimiOnay
+          gorevTanimiId={activeOnayGorevTanimi.id || ''}
+          employeeId={selectedEmp.id}
+          employeeName={selectedEmp.name}
+          documentName={activeOnayGorevTanimi.gorev_adi}
+          onClose={() => setActiveOnayGorevTanimi(null)}
+          onSuccess={() => {
+            setActiveOnayGorevTanimi(null);
+            loadGorevTanimlari();
           }}
         />
       )}

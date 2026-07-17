@@ -55,8 +55,34 @@ export const OffboardingManager: React.FC<OffboardingManagerProps> = ({
     return EXIT_REASONS.find(r => r.value === exitReason)?.label || 'Diğer';
   }, [exitReason]);
 
+  const formatDateTR = (dateStr: string | undefined): string => {
+    if (!dateStr) return 'Belirtilmemiş';
+    try {
+      const cleanStr = dateStr.split('T')[0];
+      const parts = cleanStr.split('-');
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          return `${parts[2]}.${parts[1]}.${parts[0]}`;
+        }
+        return `${parts[0]}.${parts[1]}.${parts[2]}`;
+      }
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}.${month}.${year}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   // İbraname Belgesi HTML şablonu üretici
   const generateIbranameHTML = (emp: Employee, date: string, reasonLabel: string, customNotes: string) => {
+    const formattedJoinDate = formatDateTR(emp.joinDate || emp.join_date);
+    const formattedExitDate = formatDateTR(date);
+    const todayStr = formatDateTR(new Date().toISOString());
+
     return `
       <div style="max-width: 800px; margin: 0 auto; padding: 20px; font-family: sans-serif; line-height: 1.6; color: #333;">
         <div style="text-align: center; border-bottom: 2px solid #3182ce; padding-bottom: 15px; margin-bottom: 30px;">
@@ -83,11 +109,11 @@ export const OffboardingManager: React.FC<OffboardingManagerProps> = ({
           </tr>
           <tr>
             <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold; background-color: #f7fafc;">İşe Giriş Tarihi</td>
-            <td style="padding: 10px; border: 1px solid #e2e8f0;">${emp.joinDate || emp.join_date || 'Belirtilmemiş'}</td>
+            <td style="padding: 10px; border: 1px solid #e2e8f0;">${formattedJoinDate}</td>
           </tr>
           <tr>
             <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold; background-color: #f7fafc;">İşten Çıkış Tarihi</td>
-            <td style="padding: 10px; border: 1px solid #e2e8f0;">${date}</td>
+            <td style="padding: 10px; border: 1px solid #e2e8f0;">${formattedExitDate}</td>
           </tr>
           <tr>
             <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold; background-color: #f7fafc;">Ayrılış Nedeni</td>
@@ -102,7 +128,7 @@ export const OffboardingManager: React.FC<OffboardingManagerProps> = ({
 
         <div style="margin-bottom: 40px; text-align: justify; font-size: 14px; line-height: 1.8;">
           <p>
-            Yukarıda açık kimliği ve çalışma bilgileri belirtilen personelin, <strong>${companyName}</strong> nezdindeki hizmet sözleşmesi <strong>${date}</strong> tarihi itibariyle son bulmuştur.
+            Yukarıda açık kimliği ve çalışma bilgileri belirtilen personelin, <strong>${companyName}</strong> nezdindeki hizmet sözleşmesi <strong>${formattedExitDate}</strong> tarihi itibariyle son bulmuştur.
           </p>
           <p>
             Çalışan, işyerinde çalıştığı süre boyunca hak kazandığı tüm normal ücret, fazla mesai, hafta tatili, genel tatil, yıllık ücretli izin ücreti ile ihbar ve kıdem tazminatı dahil olmak üzere yasal ve akdi tüm alacaklarını tam, eksiksiz ve nakden tahsil ettiğini; işverenden hiçbir ad ve nam altında alacağının kalmadığını kabul, beyan ve taahhüt eder.
@@ -380,7 +406,7 @@ export const OffboardingManager: React.FC<OffboardingManagerProps> = ({
                   <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 font-bold text-gray-900">{emp.name}</td>
                     <td className="px-6 py-4 text-gray-600">{emp.department} / {emp.position}</td>
-                    <td className="px-6 py-4 text-gray-600">{emp.joinDate || emp.join_date || '-'}</td>
+                    <td className="px-6 py-4 text-gray-600">{formatDateTR(emp.joinDate || emp.join_date)}</td>
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => handlePrintExitedDoc(emp)}

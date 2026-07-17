@@ -855,12 +855,6 @@ const SistemAyarlari: React.FC = () => {
                                   <Pencil className="h-3.5 w-3.5" /> Düzenle
                                 </button>
                                 <button
-                                  onClick={() => openSecurityForm(targetUser)}
-                                  className="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50 px-2 py-1 text-xs font-semibold text-purple-700"
-                                >
-                                  <KeyRound className="h-3.5 w-3.5" /> İmza/Şifre
-                                </button>
-                                <button
                                   onClick={() => handleDeleteUser(targetUser)}
                                   disabled={targetUser.id === user?.id}
                                   className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 disabled:opacity-50"
@@ -917,83 +911,7 @@ const SistemAyarlari: React.FC = () => {
                 )}
               </div>
 
-              {showSecurityForm && securityTargetUser && (
-                <form onSubmit={handleSaveSecuritySettings} className="mt-5 rounded-xl border border-purple-200 bg-purple-50 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="text-sm font-semibold text-purple-800">Kullanıcı İmza ve Şifre İşlemleri</h4>
-                      <p className="text-xs text-purple-700 mt-1">{securityTargetUser.full_name} • {securityTargetUser.email}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={closeSecurityForm}
-                      className="rounded-md border border-purple-200 bg-white px-2 py-1 text-xs font-semibold text-purple-700"
-                    >
-                      Kapat
-                    </button>
-                  </div>
 
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-purple-800">Onay Şifresi</label>
-                      <input
-                        value={securityPasscode}
-                        onChange={(e) => setSecurityPasscode(e.target.value)}
-                        placeholder="Örn: 1234"
-                        className="w-full rounded-lg border border-purple-200 bg-white px-3 py-2 text-sm outline-none focus:border-purple-500"
-                      />
-                    </div>
-                    <div className="flex items-end">
-                      <button
-                        type="button"
-                        onClick={() => setSecurityPasscode(Math.floor(100000 + Math.random() * 900000).toString())}
-                        className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-white px-3 py-2 text-xs font-semibold text-purple-700"
-                      >
-                        <KeyRound className="h-3.5 w-3.5" /> Şifre Oluştur
-                      </button>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="mb-1 block text-xs font-semibold text-purple-800">Dijital İmza</label>
-                      <SignatureCanvas onChange={setSecuritySignature} />
-                      {securitySignature.startsWith('data:image') && (
-                        <div className="mt-2 rounded-lg border border-purple-200 bg-white p-2">
-                          <p className="mb-1 text-[11px] font-semibold text-purple-700">İmza Önizleme</p>
-                          <img src={securitySignature} alt="İmza Önizleme" className="h-16 rounded border border-purple-100" />
-                        </div>
-                      )}
-                      <p className="mt-2 text-[11px] text-purple-700">İsterseniz metin olarak da imza kaydı girebilirsiniz.</p>
-                      <textarea
-                        value={securitySignature}
-                        onChange={(e) => setSecuritySignature(e.target.value)}
-                        rows={3}
-                        placeholder="İmza adı veya dijital imza verisi"
-                        className="w-full rounded-lg border border-purple-200 bg-white px-3 py-2 text-sm outline-none focus:border-purple-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      type="submit"
-                      disabled={securityLoading}
-                      className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
-                    >
-                      <PenTool className="h-3.5 w-3.5" />
-                      {securityLoading ? 'Kaydediliyor...' : 'İmza/Şifreyi Kaydet'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSecurityPasscode('');
-                        setSecuritySignature('');
-                      }}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700"
-                    >
-                      Temizle
-                    </button>
-                  </div>
-                </form>
-              )}
             </>
           )}
         </div>

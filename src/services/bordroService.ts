@@ -224,7 +224,8 @@ export const bordroService = {
       .eq('id', employeeId)
       .maybeSingle();
 
-    if (error || !data || !data.approval_passcode) return false;
+    if (error || !data) return false;
+    if (!data.approval_passcode) return true; // Şifre tanımlanmamışsa doğrudan onaylanabilsin
 
     let isValid = false;
     try {

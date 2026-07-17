@@ -82,10 +82,10 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) =>
         {/* Left: Go back */}
         <button
           onClick={() => onNavigate('arama')}
-          className="flex items-center gap-2 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-all shadow-sm"
+          className="flex items-center gap-2 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 sm:px-4 py-2 rounded-xl transition-all shadow-sm"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Ana Sayfa</span>
+          <span className="hidden sm:inline">Ana Sayfa</span>
         </button>
 
         {/* Center: Title */}
@@ -96,10 +96,10 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) =>
         {/* Right: Sign Out */}
         <button
           onClick={() => signOut()}
-          className="flex items-center gap-2 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl transition-all shadow-sm"
+          className="flex items-center gap-2 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-3 sm:px-4 py-2 rounded-xl transition-all shadow-sm"
         >
           <LogOut className="w-4 h-4" />
-          <span className="hidden md:inline">Çıkış Yap</span>
+          <span className="hidden sm:inline">Çıkış Yap</span>
         </button>
       </div>
     );

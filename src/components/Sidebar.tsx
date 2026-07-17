@@ -165,7 +165,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'arama' as View, label: 'Arama', icon: SearchIcon },
     { id: 'personel' as View, label: 'Şirket Yönetimi', icon: Users, children: [
       { id: 'personel' as View, label: 'Personel Listesi' },
-      { id: 'gorev-tanimi-kayitlari' as View, label: 'Görev Tanımları Kayıtları' },
       { id: 'org-sema' as View, label: 'Organizasyon Şeması' },
       { id: 'zimmet' as View, label: 'Tüm Zimmetler Listesi' },
       { id: 'kullanicilar' as View, label: 'Kullanıcılar' },

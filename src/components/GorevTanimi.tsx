@@ -4,6 +4,7 @@ import { companyService } from '../services/companyService';
 import { employeeService } from '../services/employeeService';
 import { gorevTanimiService } from '../services/gorevTanimiService';
 import { useAuth } from '../contexts/AuthContext';
+import { emailService } from '../services/emailService';
 import GorevTanimiOnay from './GorevTanimiOnay';
 
 interface Task {
@@ -70,21 +71,19 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    if (employeesProp && employeesProp.length > 0) {
-      setEmployees(employeesProp);
+    const init = async () => {
+      if (employeesProp && employeesProp.length > 0) {
+        setEmployees(employeesProp);
+      } else {
+        await loadEmployees();
+      }
       setCompanyId(effectiveCompanyId);
       setIsLoading(false);
-      if (mode === 'records') loadRecords();
-      return;
-    }
-
-    if (mode === 'records') {
-      setIsLoading(false);
-      loadRecords();
-      return;
-    }
-
-    loadEmployees();
+      if (mode === 'records') {
+        loadRecords();
+      }
+    };
+    init();
   }, [profile, mode, employeesProp]);
 
   useEffect(() => {
@@ -292,7 +291,6 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       setSaveSuccess(true);
       setSaveError('');
       setTimeout(() => setSaveSuccess(false), 3000);
-      setShowOnayModal(true);
     } catch (error: any) {
       console.error('Görev tanımı kaydedilemedi:', error);
       const detailMessage = error?.details || error?.hint || error?.message;
@@ -310,6 +308,39 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
     setShowOnayModal(false);
     alert('Görev tanımı başarıyla onaylandı!');
     loadRecords();
+  };
+
+  const handleDirectApprove = async (recordId: string, employeeId: string, employeeName: string, gorevAdi: string) => {
+    try {
+      const approval = {
+        gorev_tanimi_id: recordId,
+        employee_id: employeeId,
+        employee_name: employeeName || 'Personel',
+        verification_method: 'direct_manager',
+        passcode_hash: 'manager_approved',
+        approval_status: 'onaylandi',
+        ip_address: '',
+        user_agent: navigator.userAgent
+      };
+
+      await gorevTanimiService.createApproval(approval);
+
+      // E-posta bildirimi gönder
+      const employee = await employeeService.getById(employeeId);
+      if (employee && employee.email) {
+        await emailService.sendGorevTanimiEmail(
+          employee.email,
+          employeeName || 'Personel',
+          `${gorevAdi} - Görev Tanımı`
+        );
+      }
+
+      alert('Görev tanımı başarıyla onaylandı!');
+      loadRecords();
+    } catch (err: any) {
+      console.error('Doğrudan onay hatası:', err);
+      alert('Onaylanırken bir hata oluştu: ' + (err.message || err));
+    }
   };
 
   const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
@@ -432,9 +463,12 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                             {durum === 'beklemede' ? (
                               <button
                                 onClick={() => {
-                                  setSavedGorevTanimiId(record.id);
-                                  setSelectedEmployeeId(record.employee_id);
-                                  setShowOnayModal(true);
+                                  handleDirectApprove(
+                                    record.id,
+                                    record.employee_id,
+                                    record.employee_name,
+                                    record.gorev_adi
+                                  );
                                 }}
                                 className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded-lg text-xs transition-colors shadow-sm"
                               >
@@ -453,6 +487,16 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
             )}
           </div>
         </div>
+        {showOnayModal && selectedEmployee && (
+          <GorevTanimiOnay
+            gorevTanimiId={savedGorevTanimiId}
+            employeeId={selectedEmployeeId}
+            employeeName={selectedEmployee.name}
+            documentName={`${savedRecords.find(r => r.id === savedGorevTanimiId)?.gorev_adi || 'Pozisyon'} - Görev Tanımı`}
+            onClose={() => setShowOnayModal(false)}
+            onSuccess={handleOnaySuccess}
+          />
+        )}
       </div>
     );
   }
@@ -546,23 +590,13 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                 <RefreshCw className="h-4 w-4" />
                 Sıfırla
               </button>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Görevlerde ara..."
-                className="w-72 rounded-full border border-slate-300 py-2 pl-10 pr-4 text-sm focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-              />
-            </div>
           </div>
+        </div>
 
           {saveSuccess && (
             <div className="mx-6 mt-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3 text-green-700">
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <p className="text-sm font-medium">Görev tanımı başarıyla kaydedildi. Personel onayı için modal açıldı.</p>
+              <p className="text-sm font-medium">Görev tanımı başarıyla kaydedildi ve personelin onayına sunuldu.</p>
             </div>
           )}
           {saveError && (

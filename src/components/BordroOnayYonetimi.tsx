@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, Eye, Calendar, User, Shield, FileText } from 'lucide-react';
 import { bordroService } from '../services/bordroService';
 import { employeeService } from '../services/employeeService';
+import bcrypt from 'bcryptjs';
 import { useAuth } from '../contexts/AuthContext';
 import { emailService } from '../services/emailService';
 import BordroViewModal from './BordroViewModal';
@@ -88,9 +89,27 @@ const BordroOnayYonetimi: React.FC = () => {
 
     try {
       // Onaylayan kişinin (login olan kullanıcının) şifresi kontrol edilmeli
-      const storedPasscode = await employeeService.getEmployeePasscode(user.id);
+      const empList = await employeeService.getAll(user.user_metadata.company_id);
+      const matchedEmployee = empList.find(e => e.email.toLowerCase() === user.email?.toLowerCase());
+      if (!matchedEmployee) return false;
 
-      if (storedPasscode !== passcode) {
+      const storedPasscode = matchedEmployee.approval_passcode;
+      let isValid = false;
+      if (storedPasscode) {
+        try {
+          isValid = bcrypt.compareSync(passcode, storedPasscode);
+        } catch {
+          isValid = false;
+        }
+        if (!isValid && storedPasscode === passcode) {
+          isValid = true;
+        }
+      } else {
+        // Eğer onay şifresi tanımlanmamışsa doğrudan onaylasın
+        isValid = true;
+      }
+
+      if (!isValid) {
         return false;
       }
 

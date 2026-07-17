@@ -94,6 +94,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
       setIsShiftActive(true);
       setShiftStartTime(savedStart);
       setActiveShiftRecordId(savedActiveId);
+      startWatchingLocation();
     }
 
     // Request initial position
@@ -217,7 +218,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
   };
 
   // Watch position when shift starts
-  const startWatchingLocation = () => {
+  function startWatchingLocation() {
     if (watchIdRef.current !== null) return;
 
     if (navigator.geolocation) {
@@ -232,14 +233,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
         { enableHighAccuracy: true }
       );
     }
-  };
+  }
 
-  const stopWatchingLocation = () => {
+  function stopWatchingLocation() {
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
-  };
+  }
 
   // Compute distance whenever user coords or company coords change
   useEffect(() => {
@@ -251,15 +252,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
     }
   }, [userCoords, companyCoords]);
 
-  // Handle automatic check-out if user leaves the boundary while shift is active
-  useEffect(() => {
-    if (isShiftActive && distanceToCompany !== null && distanceToCompany > geofenceRadius) {
-      // Auto logout or warning
-      console.warn("User has walked outside the geofence boundary!");
-      // We automatically end the shift to prevent system manipulation
-      handleEndShift(true); // pass true for auto-end due to departure
-    }
-  }, [distanceToCompany, isShiftActive]);
+
 
   // Start Shift Handler
   const handleStartShift = async () => {
