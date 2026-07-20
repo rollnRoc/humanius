@@ -20,8 +20,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
   const actions = [
     { label: t('quickActions.bulkLeave'), icon: Calendar, onClick: onBulkLeave },
     { label: t('quickActions.bulkAlert'), icon: Bell, onClick: onBulkAlert },
-    { label: t('quickActions.uploadPayroll'), icon: FileText, onClick: onUploadPayroll },
-    { label: t('quickActions.assignCertificate'), icon: Award, onClick: onAssignCertificate }
+    { label: t('quickActions.uploadPayroll'), icon: FileText, onClick: onUploadPayroll }
   ];
 
   return (
@@ -30,7 +29,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
         <h3 className="font-bold text-gray-800">{t('quickActions.title')}</h3>
       </div>
       <div className="p-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {actions.map((action, index) => {
             const Icon = action.icon;
             return (
@@ -38,10 +37,10 @@ const QuickActions: React.FC<QuickActionsProps> = ({
                 key={index}
                 type="button"
                 onClick={action.onClick}
-                className="flex items-center gap-2 bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm"
+                className="flex items-center justify-center gap-2 bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm w-full"
               >
-                <Icon className="w-4 h-4" />
-                <span className="text-sm">{action.label}</span>
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="text-sm whitespace-nowrap">{action.label}</span>
               </button>
             );
           })}

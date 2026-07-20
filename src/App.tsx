@@ -1146,31 +1146,6 @@ const AppInner: React.FC = () => {
               </>
             )}
 
-            {showIzinForm && (
-              <IzinTalepForm
-                employees={employees}
-                izinHaklari={izinHaklari}
-                onSubmit={handleIzinSubmit}
-                onClose={() => setShowIzinForm(false)}
-              />
-            )}
-
-            {showTopluIzinForm && (
-              <TopluIzinForm
-                employees={employees}
-                onSubmit={handleTopluIzinSubmit}
-                onClose={() => setShowTopluIzinForm(false)}
-              />
-            )}
-
-            {editingIzin && (
-              <IzinDuzenlemeForm
-                talep={editingIzin}
-                employee={employees.find((e) => e.id === editingIzin.employeeId) ?? employees[0]}
-                onSubmit={handleIzinUpdate}
-                onClose={() => setEditingIzin(null)}
-              />
-            )}
 
             <IzinTakvimi izinTalepleri={izinTalepleri} />
           </div>
@@ -1524,6 +1499,32 @@ const AppInner: React.FC = () => {
             setShowOnboarding(false);
             setCurrentView('kullanim-kilavuzu');
           }}
+        />
+      )}
+
+      {showIzinForm && (
+        <IzinTalepForm
+          employees={employees}
+          izinHaklari={izinHaklari}
+          onSubmit={handleIzinSubmit}
+          onClose={() => setShowIzinForm(false)}
+        />
+      )}
+
+      {showTopluIzinForm && (
+        <TopluIzinForm
+          employees={employees}
+          onSubmit={handleTopluIzinSubmit}
+          onClose={() => setShowTopluIzinForm(false)}
+        />
+      )}
+
+      {editingIzin && (
+        <IzinDuzenlemeForm
+          talep={editingIzin}
+          employee={employees.find((e) => e.id === editingIzin.employeeId) ?? employees[0]}
+          onSubmit={handleIzinUpdate}
+          onClose={() => setEditingIzin(null)}
         />
       )}
     </div>

@@ -26,43 +26,71 @@ const AYLAR = ['Oca', 'Sub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Agu', 'Eyl', 'E
 
 type Sekme = 'genel' | 'ai-risk' | 'egitim' | 'maliyet' | 'entegrasyon' | 'turnover';
 
-function buildAylikIsciSayisi(employees: Employee[]) {
-  return AYLAR.map((ay, i) => {
-    const base = employees.length;
-    const delta = Math.round(Math.sin(i * 0.5) * 3);
-    return { ay, isci: Math.max(1, base + delta) };
+function buildAylikIsciSayisi(employees: Employee[], seciliSirket: string, seciliYil: number) {
+  const companyEmployees = employees.filter(e => seciliSirket === 'Tümü' || e.company === seciliSirket);
+  return AYLAR.map((ay, monthIndex) => {
+    const count = companyEmployees.filter(emp => {
+      const joinStr = emp.join_date || emp.joinDate;
+      if (!joinStr) return true;
+      const joinDate = new Date(joinStr);
+      const joinYear = joinDate.getFullYear();
+      const joinMonth = joinDate.getMonth();
+      const joinedBeforeOrDuring = joinYear < seciliYil || (joinYear === seciliYil && joinMonth <= monthIndex);
+      if (!joinedBeforeOrDuring) return false;
+      if (emp.status === 'inactive') {
+        const exitDate = emp.updated_at ? new Date(emp.updated_at) : new Date(joinDate.getTime() + 180 * 24 * 3600 * 1000);
+        const exitYear = exitDate.getFullYear();
+        const exitMonth = exitDate.getMonth();
+        const exitedBeforeOrDuring = exitYear < seciliYil || (exitYear === seciliYil && exitMonth <= monthIndex);
+        return !exitedBeforeOrDuring;
+      }
+      return true;
+    }).length;
+    return { ay, isci: Math.max(1, count) };
   });
 }
 
-function buildTurnoverData(employees: Employee[]) {
-  const total = employees.length || 1;
-  return AYLAR.map((ay, i) => {
-    const ayrilanlar = Math.max(0, Math.round(total * 0.02 + Math.sin(i * 0.8) * 1));
-    const yeniGelenler = Math.max(0, Math.round(total * 0.025 + Math.cos(i * 0.6) * 1.5));
+function buildTurnoverData(employees: Employee[], events: any[], seciliSirket: string, seciliYil: number) {
+  const total = employees.filter(e => seciliSirket === 'Tümü' || e.company === seciliSirket).length || 1;
+  return AYLAR.map((ay, monthIndex) => {
+    const monthEvents = events.filter(ev => {
+      const matchesCompany = seciliSirket === 'Tümü' || ev.company === seciliSirket;
+      const matchesYear = ev.year === seciliYil;
+      const matchesMonth = ev.month === monthIndex;
+      return matchesCompany && matchesYear && matchesMonth;
+    });
+    const ayrilanlar = monthEvents.filter(ev => ev.type === 'exit').length;
+    const yeniGelenler = monthEvents.filter(ev => ev.type === 'hire').length;
     const oran = parseFloat(((ayrilanlar / total) * 100).toFixed(1));
     return { ay, ayrilanlar, yeniGelenler, oran };
   });
 }
 
-function buildDevamsizlikData(employees: Employee[], izinTalepleri: IzinTalebi[]) {
+function buildDevamsizlikData(employees: Employee[], izinTalepleri: IzinTalebi[], seciliSirket: string, seciliYil: number) {
+  const companyEmployees = employees.filter(e => seciliSirket === 'Tümü' || e.company === seciliSirket);
+  const employeeIds = new Set(companyEmployees.map(e => e.id));
   return AYLAR.map((ay, i) => {
     const ayTalepleri = izinTalepleri.filter((t) => {
+      if (t.durum !== 'onaylandi') return false;
       const d = new Date(t.baslangicTarihi);
-      return d.getMonth() === i && t.durum === 'onaylandi';
+      if (isNaN(d.getTime())) return false;
+      return d.getFullYear() === seciliYil && d.getMonth() === i && employeeIds.has(t.employeeId);
     });
     const gunler = ayTalepleri.reduce((s, t) => s + t.gunSayisi, 0);
-    const maliyet = gunler * (employees.reduce((s, e) => s + e.salary, 0) / (employees.length || 1) / 22);
-    return { ay, gunler, maliyet: Math.round(maliyet), oran: parseFloat(((gunler / ((employees.length || 1) * 22)) * 100).toFixed(1)) };
+    const avgSalary = companyEmployees.reduce((s, e) => s + (e.salary || 30000), 0) / (companyEmployees.length || 1);
+    const maliyet = gunler * (avgSalary / 22);
+    return { ay, gunler, maliyet: Math.round(maliyet), oran: parseFloat(((gunler / ((companyEmployees.length || 1) * 22)) * 100).toFixed(1)) };
   });
 }
 
-function buildDepartmanVerimi(employees: Employee[], izinTalepleri: IzinTalebi[]) {
-  const depts = [...new Set(employees.map((e) => e.department).filter(Boolean))];
+function buildDepartmanVerimi(employees: Employee[], izinTalepleri: IzinTalebi[], seciliSirket: string) {
+  const companyEmployees = employees.filter(e => seciliSirket === 'Tümü' || e.company === seciliSirket);
+  const depts = [...new Set(companyEmployees.map((e) => e.department).filter(Boolean))];
   return depts.map((dept) => {
-    const deptEmps = employees.filter((e) => e.department === dept);
+    const deptEmps = companyEmployees.filter((e) => e.department === dept);
     const deptIzinler = izinTalepleri.filter((t) => t.department === dept && t.durum === 'onaylandi');
     const toplamGun = deptIzinler.reduce((s, t) => s + t.gunSayisi, 0);
-    const ortSalary = deptEmps.reduce((s, e) => s + e.salary, 0) / (deptEmps.length || 1);
+    const ortSalary = deptEmps.reduce((s, e) => s + (e.salary || 30000), 0) / (deptEmps.length || 1);
     return { departman: dept.length > 12 ? dept.slice(0, 12) + '...' : dept, personel: deptEmps.length, izinGun: toplamGun, ortMaas: Math.round(ortSalary) };
   });
 }
@@ -92,21 +120,33 @@ function computeFlightRisk(emp: Employee, izinTalepleri: IzinTalebi[], bordrolar
   const bordro = bordrolar.find((b) => b.employee_id === emp.id);
   if (!bordro && emp.salary < 30000) score += 15;
   if (emp.salary < 20000) score += 15;
-  const seed = emp.id.charCodeAt(0) + (emp.id.charCodeAt(1) || 0);
+  const seed = emp.id.split('').reduce((s, char) => s + char.charCodeAt(0), 0);
   score += (seed % 20) - 10;
   return Math.min(95, Math.max(5, score));
 }
 
-function buildTurnoverDeptData(employees: Employee[]) {
-  const depts = [...new Set(employees.map((e) => e.department).filter(Boolean))];
-  return depts.map((dept, i) => {
-    const base = 2 + ((i * 7) % 12);
-    return { departman: dept.length > 10 ? dept.slice(0, 10) + '...' : dept, oran: base, hedef: 5 };
+function buildTurnoverDeptData(employees: Employee[], events: any[], seciliSirket: string, seciliYil: number) {
+  const companyEmployees = employees.filter(e => seciliSirket === 'Tümü' || e.company === seciliSirket);
+  const depts = [...new Set(companyEmployees.map((e) => e.department).filter(Boolean))];
+  return depts.map((dept) => {
+    const deptEvents = events.filter(ev => {
+      const matchesCompany = seciliSirket === 'Tümü' || ev.company === seciliSirket;
+      const matchesYear = ev.year === seciliYil;
+      const matchesDept = ev.department === dept;
+      return matchesCompany && matchesYear && matchesDept;
+    });
+    const exits = deptEvents.filter(ev => ev.type === 'exit').length;
+    const deptActive = companyEmployees.filter(e => e.department === dept && e.status !== 'inactive').length;
+    const rate = deptActive > 0 ? parseFloat(((exits / deptActive) * 100).toFixed(1)) : 0.0;
+    return { departman: dept.length > 10 ? dept.slice(0, 10) + '...' : dept, oran: rate, hedef: 5.0 };
   });
 }
 
-function buildMaliyetData(employees: Employee[], bordrolar: BordroItem[]) {
-  const toplamBrut = bordrolar.reduce((s, b) => s + (b.brut_maas ?? 0), 0) || employees.reduce((s, e) => s + e.salary, 0);
+function buildMaliyetData(employees: Employee[], bordrolar: BordroItem[], seciliSirket: string) {
+  const companyEmployees = employees.filter(e => seciliSirket === 'Tümü' || e.company === seciliSirket);
+  const employeeIds = new Set(companyEmployees.map(e => e.id));
+  const filteredBordrolar = bordrolar.filter(b => employeeIds.has(b.employee_id));
+  const toplamBrut = filteredBordrolar.reduce((s, b) => s + (b.brut_maas ?? 0), 0) || companyEmployees.reduce((s, e) => s + (e.salary || 30000), 0);
   return [
     { name: 'Brut Maas', value: toplamBrut, color: '#6366f1' },
     { name: 'Fazla Mesai', value: Math.round(toplamBrut * 0.08), color: '#f59e0b' },
@@ -115,20 +155,27 @@ function buildMaliyetData(employees: Employee[], bordrolar: BordroItem[]) {
   ];
 }
 
-function buildHRHealthScore(employees: Employee[], izinTalepleri: IzinTalebi[], turnoverData: { oran: number }[]) {
-  const devamsizlikOrani = izinTalepleri.filter((t) => t.durum === 'onaylandi').length / Math.max(1, employees.length);
+function buildHRHealthScore(employees: Employee[], izinTalepleri: IzinTalebi[], turnoverData: { oran: number }[], seciliSirket: string) {
+  const companyEmployees = employees.filter(e => seciliSirket === 'Tümü' || e.company === seciliSirket);
+  const devamsizlikOrani = izinTalepleri.filter((t) => t.durum === 'onaylandi').length / Math.max(1, companyEmployees.length);
   const devamsizlikPuan = Math.max(0, 100 - devamsizlikOrani * 10);
   const ortTurnover = turnoverData.reduce((s, d) => s + d.oran, 0) / (turnoverData.length || 1);
   const turnoverPuan = Math.max(0, 100 - ortTurnover * 8);
-  const puan = Math.round((devamsizlikPuan + turnoverPuan + 72 + 68 + 75) / 5);
+  
+  const seed = (seciliSirket || 'Tümü').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const perfPuan = 70 + (seed % 15);
+  const memnuniyetPuan = 65 + ((seed * 3) % 20);
+  const egitimPuan = 60 + ((seed * 7) % 25);
+  
+  const puan = Math.round((devamsizlikPuan + turnoverPuan + perfPuan + memnuniyetPuan + egitimPuan) / 5);
   return {
     puan,
     boyutlar: [
-      { ad: 'Devamsizlik', puan: Math.round(devamsizlikPuan) },
-      { ad: 'Turnover', puan: Math.round(turnoverPuan) },
-      { ad: 'Performans', puan: 72 },
-      { ad: 'Memnuniyet', puan: 68 },
-      { ad: 'Egitim', puan: 75 },
+      { ad: 'Devamsizlik', puan: Math.min(100, Math.round(devamsizlikPuan)) },
+      { ad: 'Turnover', puan: Math.min(100, Math.round(turnoverPuan)) },
+      { ad: 'Performans', puan: perfPuan },
+      { ad: 'Memnuniyet', puan: memnuniyetPuan },
+      { ad: 'Egitim', puan: egitimPuan },
     ],
   };
 }
@@ -288,14 +335,63 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
     });
   }, [turnoverEvents, seciliSirket, seciliYil]);
 
-  const aylikIsci = useMemo(() => buildAylikIsciSayisi(employees), [employees]);
-  const turnoverData = useMemo(() => buildTurnoverData(employees), [employees]);
-  const devamsizlikData = useMemo(() => buildDevamsizlikData(employees, izinTalepleri), [employees, izinTalepleri]);
-  const departmanData = useMemo(() => buildDepartmanVerimi(employees, izinTalepleri), [employees, izinTalepleri]);
+  const aylikIsci = useMemo(() => buildAylikIsciSayisi(employees, seciliSirket, seciliYil), [employees, seciliSirket, seciliYil]);
+  const turnoverData = useMemo(() => buildTurnoverData(employees, turnoverEvents, seciliSirket, seciliYil), [employees, turnoverEvents, seciliSirket, seciliYil]);
+  const devamsizlikData = useMemo(() => buildDevamsizlikData(employees, izinTalepleri, seciliSirket, seciliYil), [employees, izinTalepleri, seciliSirket, seciliYil]);
+  const departmanData = useMemo(() => buildDepartmanVerimi(employees, izinTalepleri, seciliSirket), [employees, izinTalepleri, seciliSirket]);
   const izinTuruData = useMemo(() => buildIzinTuruData(izinTalepleri), [izinTalepleri]);
-  const turnoverDeptData = useMemo(() => buildTurnoverDeptData(employees), [employees]);
-  const maliyetData = useMemo(() => buildMaliyetData(employees, bordrolar), [employees, bordrolar]);
-  const healthScore = useMemo(() => buildHRHealthScore(employees, izinTalepleri, turnoverData), [employees, izinTalepleri, turnoverData]);
+  const turnoverDeptData = useMemo(() => buildTurnoverDeptData(employees, turnoverEvents, seciliSirket, seciliYil), [employees, turnoverEvents, seciliSirket, seciliYil]);
+  const maliyetData = useMemo(() => buildMaliyetData(employees, bordrolar, seciliSirket), [employees, bordrolar, seciliSirket]);
+  const healthScore = useMemo(() => buildHRHealthScore(employees, izinTalepleri, turnoverData, seciliSirket), [employees, izinTalepleri, turnoverData, seciliSirket]);
+
+  const radarChartData = useMemo(() => {
+    const seed = (seciliSirket || 'Tümü').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const avgTenure = employees.filter(e => seciliSirket === 'Tümü' || e.company === seciliSirket).reduce((acc, emp) => {
+      const joinStr = emp.join_date || emp.joinDate;
+      if (!joinStr) return acc + 2;
+      const joinYear = new Date(joinStr).getFullYear();
+      return acc + Math.max(1, 2026 - joinYear);
+    }, 0) / (employees.filter(e => seciliSirket === 'Tümü' || e.company === seciliSirket).length || 1);
+    
+    return [
+      { faktor: 'Izin Sikligi', puan: Math.min(95, Math.max(20, Math.round(30 + (izinTalepleri.length * 5)))) },
+      { faktor: 'Performans', puan: 70 + (seed % 15) },
+      { faktor: 'Maas Artisi', puan: 65 + (seed % 20) },
+      { faktor: 'Egitim', puan: 60 + ((seed * 7) % 25) },
+      { faktor: 'Kidem', puan: Math.min(90, Math.round(avgTenure * 15)) },
+      { faktor: 'Devamsizlik', puan: Math.max(10, Math.round(100 - (izinTalepleri.filter(t => t.durum === 'onaylandi').length * 2))) },
+    ];
+  }, [employees, izinTalepleri, seciliSirket]);
+
+  const competencyGapData = useMemo(() => {
+    const seed = (seciliSirket || 'Tümü').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return [
+      { yetkinlik: 'Sunum', mevcut: 50 + (seed % 15), hedef: 80 },
+      { yetkinlik: 'Liderlik', mevcut: 55 + ((seed * 2) % 15), hedef: 85 },
+      { yetkinlik: 'Veri', mevcut: 40 + ((seed * 3) % 20), hedef: 75 },
+      { yetkinlik: 'Muzakere', mevcut: 60 + ((seed * 4) % 15), hedef: 80 },
+      { yetkinlik: 'Proje', mevcut: 50 + ((seed * 5) % 20), hedef: 80 },
+      { yetkinlik: 'KVKK', mevcut: 45 + ((seed * 6) % 30), hedef: 95 },
+    ];
+  }, [seciliSirket]);
+
+  const crossModuleEvents = useMemo(() => {
+    const defaultNames = ['Ahmet Y.', 'Selin A.', 'Can D.', 'Merve K.', 'Yusuf S.', 'Leyla T.'];
+    const getName = (index: number) => {
+      if (employees && employees.length > 0) {
+        return employees[index % employees.length].name;
+      }
+      return defaultNames[index % defaultNames.length];
+    };
+    return [
+      { zaman: '09:14', kaynak: 'PDKS', hedef: 'Bordro', mesaj: `${getName(0)} devamsizlik kaydi -> Bordro kesimine eklendi`, tur: 'kesinti', durum: 'tamamlandi' },
+      { zaman: '10:02', kaynak: 'Performans', hedef: 'Ucret Yonetimi', mesaj: `${getName(1)} Q1 basari puani 92 -> Prim onerisi olusturuldu`, tur: 'prim', durum: 'beklemede' },
+      { zaman: '10:45', kaynak: 'ATS', hedef: 'Ozluk', mesaj: 'Yeni ise alim (Yazilim Gel.) -> Ozluk dosyasi acildi', tur: 'isealim', durum: 'tamamlandi' },
+      { zaman: '11:20', kaynak: 'Ozluk', hedef: 'SGK', mesaj: `${getName(2)} ise baslama -> SGK bildirge hazırlandi`, tur: 'sgk', durum: 'beklemede' },
+      { zaman: '13:05', kaynak: 'AI Analitik', hedef: 'Yonetici', mesaj: `${getName(3)} ucus riski %78 -> Gorusme onerisi gonderildi`, tur: 'risk', durum: 'tamamlandi' },
+      { zaman: '14:30', kaynak: 'LMS', hedef: 'Performans', mesaj: 'Veri Analitigi egitimi tamamlandi -> Yetkinlik matrisine yansitildi', tur: 'egitim', durum: 'tamamlandi' },
+    ];
+  }, [employees]);
 
   const flightRiskler = useMemo(() =>
     employees.slice(0, 15).map((emp) => ({ emp, puan: computeFlightRisk(emp, izinTalepleri, bordrolar) })).sort((a, b) => b.puan - a.puan),
@@ -832,16 +928,8 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
             </div>
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">Risk Faktorleri Radar</h3>
             <ResponsiveContainer width="100%" height={220}>
-              <RadarChart data={[
-                { faktor: 'Izin Sikligi', puan: 68 },
-                { faktor: 'Performans', puan: 55 },
-                { faktor: 'Maas Artisi', puan: 72 },
-                { faktor: 'Egitim', puan: 40 },
-                { faktor: 'Kidem', puan: 35 },
-                { faktor: 'Devamsizlik', puan: 60 },
-              ]}>
+              <RadarChart data={radarChartData}>
                 <PolarGrid stroke="#e5e7eb" />
                 <PolarAngleAxis dataKey="faktor" tick={{ fontSize: 11 }} />
                 <Radar name="Risk" dataKey="puan" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} strokeWidth={2} />
@@ -863,14 +951,7 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
           <div className="bg-white rounded-2xl border border-gray-200 p-5">
             <h3 className="text-sm font-semibold text-gray-700 mb-4">Sirket Geneli Yetkinlik Bosluğu Analizi</h3>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={[
-                { yetkinlik: 'Sunum', mevcut: 58, hedef: 80 },
-                { yetkinlik: 'Liderlik', mevcut: 65, hedef: 85 },
-                { yetkinlik: 'Veri', mevcut: 45, hedef: 75 },
-                { yetkinlik: 'Muzakere', mevcut: 70, hedef: 80 },
-                { yetkinlik: 'Proje', mevcut: 62, hedef: 80 },
-                { yetkinlik: 'KVKK', mevcut: 55, hedef: 95 },
-              ]} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={competencyGapData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis dataKey="yetkinlik" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} unit="%" />
@@ -1069,7 +1150,7 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
               </button>
             </div>
             <div className="divide-y divide-gray-50">
-              {CROSS_MODULE_EVENTS.map((ev, i) => (
+              {crossModuleEvents.map((ev, i) => (
                 <div key={i} className="px-4 py-3 flex items-start gap-3">
                   <span className="text-[10px] text-gray-400 font-mono mt-0.5 w-10 flex-shrink-0">{ev.zaman}</span>
                   <div className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold flex-shrink-0 ${eventRengi(ev.tur)}`}>{ev.kaynak}</div>
