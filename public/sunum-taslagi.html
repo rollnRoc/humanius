@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Humanius HRM - Satış ve Müşteri Sunum Rehberi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --primary-light: #e0e7ff;
+      --secondary: #0f172a;
+      --text: #334155;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --border: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+
+    header {
+      max-width: 1000px;
+      margin: 0 auto 40px auto;
+      text-align: center;
+    }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--secondary);
+      letter-spacing: -0.025em;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      color: #64748b;
+      margin-bottom: 24px;
+    }
+
+    .btn-group {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: white;
+      color: var(--secondary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: #f1f5f9;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: grid;
+      gap: 40px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+    }
+
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--secondary);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .slide {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 30px;
+      background: white;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    }
+
+    .slide-header {
+      background: var(--secondary);
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slide-num {
+      background: var(--primary);
+      color: white;
+      font-size: 0.8rem;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .slide-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .slide-body {
+      padding: 24px;
+    }
+
+    .slide-visuals {
+      background: #f8fafc;
+      border-bottom: 1px dashed var(--border);
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 0.85rem;
+      color: #475569;
+    }
+
+    .slide-visuals strong {
+      color: var(--secondary);
+    }
+
+    .script-box {
+      background: var(--primary-light);
+      border-left: 4px solid var(--primary);
+      padding: 20px;
+      border-radius: 12px;
+      color: #1e1b4b;
+      position: relative;
+    }
+
+    .script-box::before {
+      content: '🗣️ SÖYLECEK METİN:';
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+      color: var(--primary-dark);
+    }
+
+    .demo-step {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .demo-step:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--secondary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .step-content h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--secondary);
+      margin-bottom: 4px;
+    }
+
+    .step-content p {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+
+    .step-action {
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-family: monospace;
+      color: #334155;
+    }
+
+    .qa-box {
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+    }
+
+    .qa-box:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+      margin-bottom: 0;
+    }
+
+    .question {
+      font-weight: 700;
+      color: var(--secondary);
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+
+    .answer {
+      font-size: 0.9rem;
+      color: var(--text);
+      background: #f0fdf4;
+      border-left: 4px solid var(--success);
+      padding: 12px 16px;
+      border-radius: 8px;
+    }
+
+    @media print {
+      body {
+        background: white;
+        color: black;
+        padding: 0;
+      }
+      .btn-group {
+        display: none;
+      }
+      .card {
+        box-shadow: none;
+        border: none;
+        padding: 0;
+      }
+      .slide {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Humanius HRM</h1>
+    <p class="subtitle">Satış Sunumu ve Canlı Demo Script Rehberi</p>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="window.print()">
+        🖨️ PDF Olarak Kaydet / Yazdır
+      </button>
+      <a href="/" class="btn btn-secondary">
+        🏠 Uygulamaya Git
+      </a>
+    </div>
+  </header>
+
+  <div class="container">
+    
+    <!-- Genel Bilgiler -->
+    <div class="card">
+      <h2 class="section-title">⏱️ Sunum Süre Dağılımı ve Hazırlık</h2>
+      <p style="font-size: 0.95rem; margin-bottom: 12px;">Bu rehber, toplam <strong>30 dakikalık</strong> bir görüşme için tasarlanmıştır:</p>
+      <ul style="list-style-position: inside; font-size: 0.9rem; margin-bottom: 20px; color: #475569;">
+        <li>Slayt Anlatımı (10 Dakika)</li>
+        <li>Canlı Sistem Demosu (12 Dakika)</li>
+        <li>Soru - Cevap (8 Dakika)</li>
+      </ul>
+      <p style="font-size: 0.9rem; padding: 12px; background: #fffbeb; border-left: 4px solid var(--warning); border-radius: 8px; color: #78350f;">
+        <strong>Önemli Demo Hazırlığı:</strong> Sunumdan önce bilgisayarınızda iki farklı tarayıcı açın. Birinde <strong>İK/Yönetici</strong> paneli açık olsun, diğer gizli sekmede ise <strong>Çalışan/Personel</strong> hesabı açık olsun. Bu sayede rol geçişlerini gecikme olmadan hızlıca yapabilirsiniz.
+      </p>
+    </div>
+
+    <!-- Slaytlar -->
+    <div class="card">
+      <h2 class="section-title">📽️ Slayt-Slayt Sunum Akışı</h2>
+
+      <!-- Slayt 1 -->
+      <div class="slide">
+        <div class="slide-header">
+          <span class="slide-title">Giriş ve Hoş Geldiniz</span>
+          <span class="slide-num">Slayt 1</span>
+        </div>
+        <div class="slide-body">
+          <div class="slide-visuals">
+            <strong>Ekranda Gösterilecek Görsel:</strong> Şık, karanlık tema üzerinde Humanius logosu ve "İnsan Kaynaklarında Dijital Dönüşümün Yeni Yüzü" yazısı.
+          </div>
+          <div class="script-box">
+            "Merhabalar değerli yöneticilerim ve İK profesyonellerimiz, hoş geldiniz. Bugün sizlere, şirketimizin insan gücünü ve operasyonel verimliliğini tamamen yeni bir seviyeye taşıyacak olan yeni nesil insan kaynakları yönetim sistemimiz Humanius’u takdim etmekten büyük mutluluk duyuyorum. İnsan kaynakları sadece evrak işlerinden ibaret değildir; bir şirketin kalbidir. Humanius, bu kalbin çok daha hızlı, hatasız ve yasal mevzuata tam uyumlu şekilde atması için geliştirildi. Şimdi gelin, İK departmanlarımızın her gün karşılaştığı zorlukları ve Humanius'un bu zorlukları nasıl ortadan kaldırdığını birlikte inceleyelim."
+          </div>
+        </div>
+      </div>
+
+      <!-- Slayt 2 -->
+      <div class="slide">
+        <div class="slide-header">
+          <span class="slide-title">Problem & Çözüm Matrisi</span>
+          <span class="slide-num">Slayt 2</span>
+        </div>
+        <div class="slide-body">
+          <div class="slide-visuals">
+            <strong>Ekranda Gösterilecek Görsel:</strong> Excel yığınları ve ıslak imzalı kağıtların karşısında Humanius'un sade ekran görüntüsü.
+          </div>
+          <div class="script-box">
+            "Hepimiz biliyoruz ki klasik İK süreçlerinde ciddi verimsizlikler var. Excel tablosunda takip edilmeye çalışılan yıllık izin hakedişleri karışabiliyor, ıslak imzalı izin formları arşivlerde kayboluyor. Her ay hazırlanan bordroların çalışanlara imzalatılması tam bir operasyonel kabusa dönüşebiliyor. Turnike geçişleri (PDKS) ile puantaj verilerini birleştirmek ise saatler alıyor. Humanius, tüm bu dağınıklığı ortadan kaldırıyor. Excel tablolarını ve kağıt imza süreçlerini tamamen tarihe gömerek; özlük işlerinden bordro onayına, PDKS'den yasal uyumluluğa kadar tüm akışı tek bir ekranda, güvenli ve şeffaf bir şekilde birleştiriyor."
+          </div>
+        </div>
+      </div>
+
+      <!-- Slayt 3 -->
+      <div class="slide">
+        <div class="slide-header">
+          <span class="slide-title">Kullanıcı Rolleri ve Veri Güvenliği</span>
+          <span class="slide-num">Slayt 3</span>
+        </div>
+        <div class="slide-body">
+          <div class="slide-visuals">
+            <strong>Ekranda Gösterilecek Görsel:</strong> 5 kullanıcı rolü (Yönetici, İK Uzmanı, Departman Müdürü, Personel vb.) ve aralarındaki yetki sınırları şeması.
+          </div>
+          <div class="script-box">
+            "Platformumuzun en güçlü kaslarından biri, gelişmiş ve güvenli rol hiyerarşisidir. Humanius'ta herkes kendi dünyasında çalışır. İK uzmanımız tüm personel kayıtlarını, bordro hesaplamalarını ve izin taleplerini yönetebilir. Departman müdürlerimiz yalnızca kendi ekiplerinin performans hedeflerini görür ve ekiplerinin izin taleplerini onaylar. Çalışanlarımız ise sadece kendilerini ilgilendiren ekranlara erişebilir; kendi bordrosunu inceler, izin talebinde bulunur veya atanan eğitimlerini tamamlar. Bu ayrım, veritabanı seviyesinde özel bir güvenlik katmanıyla korunur. Yani bir çalışanın, başka bir çalışanın maaş veya özlük bilgisine erişmesi teknik olarak kesinlikle imkansızdır."
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Canlı Demo -->
+    <div class="card">
+      <h2 class="section-title">💻 Adım Adım Canlı Sistem Demosu</h2>
+      
+      <div class="demo-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Akıllı Arama Motorunu Gösterin</h4>
+          <p>En üstteki arama çubuğuna bir personel adı yazıp doğrudan profiline tıklayın ya da "Bordro" yazıp ilgili sayfaya gidin.</p>
+          <div class="step-action">"Sistemde kaybolma devrine son. Arama çubuğuna sadece 'bordro' yazarak hesaplama ekranına, ya da çalışan adını yazarak özlük dosyasına saniyeler içinde erişebilirsiniz."</div>
+        </div>
+      </div>
+
+      <div class="demo-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Personel Özlük Dosyası & Zimmetler</h4>
+          <p>Çalışan listesinden bir çalışanın detay çekmecesini açın. Belgeler, Zimmetler ve Geçmiş Bordro sekmelerini gezdirin.</p>
+          <div class="step-action">"Bu ekran çalışanın dijital kimliğidir. Kendisine teslim edilen bilgisayarın seri numarasından, yüklediği İSG belgelerine ve yıllık izin hakedişine kadar her şey tek bir ekranda."</div>
+        </div>
+      </div>
+
+      <div class="demo-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Dijital Bordro Onay Akışı</h4>
+          <p>İK ekranından bordro gönderimi yapın, ardından gizli sekmedeki Personel ekranına geçip bordroyu onaylayın.</p>
+          <div class="step-action">"Bordroları hazırladıktan sonra tek tıkla personele gönderiyorsunuz. Personel anında mobil uyumlu ekranından bildirimi görüyor ve yasal olarak geçerli dijital onayını saniyeler içinde veriyor."</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Sorular ve İkna Yöntemleri -->
+    <div class="card">
+      <h2 class="section-title">💬 Müşteri İtirazları ve Cevap Scriptleri</h2>
+
+      <div class="qa-box">
+        <div class="question">Soru: "Bizim hali hazırda bir kartlı PDKS sistemimiz var, Humanius'a geçince turnikeleri değiştirecek miyiz?"</div>
+        <div class="answer">"Hayır, turnikelerinizi değiştirmenize gerek yok. Humanius'un esnek API mimarisi sayesinde mevcut turnike veya kart okuyucu sisteminizin veri çıktılarını doğrudan sisteme entegre edebiliyoruz. Çalışanlarınız kart bastığında veriler otomatik olarak Humanius'a akar."</div>
+      </div>
+
+      <div class="qa-box">
+        <div class="question">Soru: "Kanun veya asgari ücret değişirse yazılımsal destek mi almamız gerekiyor?"</div>
+        <div class="answer">"Kesinlikle hayır. Humanius tamamen parametrik çalışır. Yasal asgari ücret, damga vergisi, resmi tatiller veya vergi dilimleri değiştiğinde, İK yöneticiniz 'Sistem Ayarları' panelinden yeni oranları kendisi saniyeler içinde güncelleyebilir. Kod yazılması gerekmez."</div>
+      </div>
+
+    </div>
+
+  </div>
+
+</body>
+</html>
