@@ -58,6 +58,7 @@ import { companyService } from './services/companyService';
 import { izinService } from './services/izinService';
 import { bordroService } from './services/bordroService';
 import { canAccessView, getDefaultViewForRole } from './auth/roles';
+import { supabase } from './lib/supabase';
 import Login from './components/Login';
 import type { Employee, View, Stats, Company, Department } from './types';
 import type { IzinTalebi, IzinHakki } from './types/izin';
@@ -152,6 +153,7 @@ const AppInner: React.FC = () => {
       return false;
     }
   });
+  const [activeAlertText, setActiveAlertText] = useState<{ title: string; desc: string } | null>(null);
 
   const [showTopluUyariModal, setShowTopluUyariModal] = useState(false);
   const [topluUyariTitle, setTopluUyariTitle] = useState('');
@@ -419,6 +421,63 @@ const AppInner: React.FC = () => {
         }
         setBordrolar(bordroData);
       } catch {}
+
+      // Load custom events from takvim_gunleri table
+      try {
+        const { data: calendarData, error: calErr } = await supabase
+          .from('takvim_gunleri')
+          .select('*')
+          .eq('company_id', profile.company_id);
+        if (!calErr && calendarData) {
+          const eventsFromDb = calendarData.map((e: any) => ({
+            id: e.id,
+            baslik: e.ad,
+            aciklama: e.aciklama ?? '',
+            tarih: e.tarih,
+            tur: e.tur === 'firma_ozel' ? 'diger' : e.tur === 'resmi_tatil' ? 'tatil' : 'diger',
+            oncelik: 'normal',
+            durum: 'beklemede',
+          }));
+          
+          const localSaved = localStorage.getItem('humanius_custom_events');
+          const localEvents = localSaved ? JSON.parse(localSaved) : [];
+          const dbEventIds = new Set(eventsFromDb.map((e: any) => e.id));
+          const uniqueLocalEvents = localEvents.filter((e: any) => !dbEventIds.has(e.id));
+          
+          const combinedEvents = [...eventsFromDb, ...uniqueLocalEvents];
+          localStorage.setItem('humanius_custom_events', JSON.stringify(combinedEvents));
+          window.dispatchEvent(new Event('storage'));
+        }
+      } catch (err) {
+        console.error('Failed to load custom calendar events:', err);
+      }
+
+      // Load unread notifications from bildirimler table
+      try {
+        const { data: notificationsData, error: notifErr } = await supabase
+          .from('bildirimler')
+          .select('*')
+          .eq('company_id', profile.company_id)
+          .eq('user_id', profile.id)
+          .eq('okundu_mu', false)
+          .order('created_at', { ascending: false });
+
+        if (!notifErr && notificationsData && notificationsData.length > 0) {
+          const latest = notificationsData[0];
+          setActiveAlertText({
+            title: latest.baslik,
+            desc: latest.mesaj,
+          });
+          setShowAlertNotification(true);
+          localStorage.setItem('humanius_new_alert_notification', 'true');
+        } else {
+          setActiveAlertText(null);
+          setShowAlertNotification(false);
+          localStorage.setItem('humanius_new_alert_notification', 'false');
+        }
+      } catch (err) {
+        console.error('Failed to load unread notifications:', err);
+      }
     } catch (err) {
       console.error('Veri yüklenemedi:', err);
     }
@@ -945,9 +1004,11 @@ const AppInner: React.FC = () => {
                     <Bell className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-amber-900 text-sm">Yeni Etkinlik & Duyuru!</h4>
+                    <h4 className="font-semibold text-amber-900 text-sm">
+                      {activeAlertText?.title || 'Yeni Etkinlik & Duyuru!'}
+                    </h4>
                     <p className="text-xs text-amber-700 mt-0.5">
-                      Takviminizde yeni etkinlikler veya güncel duyurular bulunmaktadır. Lütfen kontrol ediniz.
+                      {activeAlertText?.desc || 'Takviminizde yeni etkinlikler veya güncel duyurular bulunmaktadır. Lütfen kontrol ediniz.'}
                     </p>
                   </div>
                 </div>
@@ -959,6 +1020,17 @@ const AppInner: React.FC = () => {
                         localStorage.setItem('humanius_new_alert_notification', 'false');
                         window.dispatchEvent(new Event('storage'));
                       } catch {}
+                      if (profile?.id) {
+                        supabase
+                          .from('bildirimler')
+                          .update({ okundu_mu: true, okunma_tarihi: new Date().toISOString() })
+                          .eq('user_id', profile.id)
+                          .eq('okundu_mu', false)
+                          .then(() => {
+                            setShowAlertNotification(false);
+                            setActiveAlertText(null);
+                          });
+                      }
                     }}
                     className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
                   >
@@ -970,6 +1042,17 @@ const AppInner: React.FC = () => {
                         localStorage.setItem('humanius_new_alert_notification', 'false');
                         window.dispatchEvent(new Event('storage'));
                       } catch {}
+                      if (profile?.id) {
+                        supabase
+                          .from('bildirimler')
+                          .update({ okundu_mu: true, okunma_tarihi: new Date().toISOString() })
+                          .eq('user_id', profile.id)
+                          .eq('okundu_mu', false)
+                          .then(() => {
+                            setShowAlertNotification(false);
+                            setActiveAlertText(null);
+                          });
+                      }
                     }}
                     className="p-1.5 hover:bg-amber-100 rounded-lg transition-colors text-amber-800 shrink-0"
                   >
@@ -1458,6 +1541,44 @@ const AppInner: React.FC = () => {
                     oncelik: topluUyariPriority,
                     durum: 'beklemede',
                   };
+
+                  // Run DB saves asynchronously so UI doesn't block
+                  (async () => {
+                    try {
+                      // 1. Insert to takvim_gunleri (for calendar)
+                      await supabase.from('takvim_gunleri').insert({
+                        company_id: profile.company_id,
+                        tarih: newEv.tarih,
+                        ad: newEv.baslik,
+                        tur: 'firma_ozel',
+                        aciklama: newEv.aciklama,
+                        calisma_gunu_mu: true,
+                        yil: new Date(newEv.tarih).getFullYear()
+                      });
+
+                      // 2. Fetch all profiles in the company
+                      const { data: companyProfiles } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .eq('company_id', profile.company_id);
+
+                      // 3. Insert notification for each company profile
+                      if (companyProfiles && companyProfiles.length > 0) {
+                        const notifications = companyProfiles.map(p => ({
+                          company_id: profile.company_id,
+                          user_id: p.id,
+                          baslik: newEv.baslik,
+                          mesaj: newEv.aciklama,
+                          tur: 'uyari',
+                          oncelik: newEv.oncelik || 'normal',
+                          okundu_mu: false
+                        }));
+                        await supabase.from('bildirimler').insert(notifications);
+                      }
+                    } catch (dbErr) {
+                      console.error('Failed to sync bulk alert to database:', dbErr);
+                    }
+                  })();
 
                   try {
                     const saved = localStorage.getItem('humanius_custom_events');

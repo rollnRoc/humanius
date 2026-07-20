@@ -23,6 +23,13 @@ import {
   EGITIM_SURELERI
 } from '../utils/takvimUtils';
 
+const formatDateToYYYYMMDD = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 interface TakvimYonetimiProps {
   employees: Employee[];
   izinTalepleri: IzinTalebi[];
@@ -130,18 +137,18 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
 
   // Belirli bir günün etkinliklerini getir
   const getEventsForDate = (date: Date): TakvimEtkinlik[] => {
-    const dateString = date.toISOString().split('T')[0];
+    const dayStr = formatDateToYYYYMMDD(date);
     return filteredEvents.filter(etkinlik => {
-      const etkinlikTarihi = new Date(etkinlik.tarih);
-      const etkinlikBitis = etkinlik.bitisTarihi ? new Date(etkinlik.bitisTarihi) : etkinlikTarihi;
-      return date >= etkinlikTarihi && date <= etkinlikBitis;
+      const startStr = etkinlik.tarih;
+      const endStr = etkinlik.bitisTarihi || startStr;
+      return dayStr >= startStr && dayStr <= endStr;
     });
   };
 
   // Resmi tatil kontrolü
   const isResmiTatil = (date: Date): ResmiTatil | null => {
-    const dateString = date.toISOString().split('T')[0];
-    return getResmiTatillerForYear(date.getFullYear()).find(tatil => tatil.tarih === dateString) || null;
+    const dayStr = formatDateToYYYYMMDD(date);
+    return getResmiTatillerForYear(date.getFullYear()).find(tatil => tatil.tarih === dayStr) || null;
   };
 
   const tabs = [
@@ -186,11 +193,12 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                   className="bg-white border border-gray-200 text-gray-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
                   <option value="all">Tüm Etkinlikler</option>
-                  <option value="izin_talebi">İzin Talepleri</option>
-                  <option value="bordro_hazirlik">Bordro İşlemleri</option>
-                  <option value="sgk_bildirimi">SGK İşlemleri</option>
-                  <option value="egitim">Eğitimler</option>
-                  <option value="dogum_gunu">Doğum Günleri</option>
+                  <option value="izin">İzin Talepleri & Bildirimleri</option>
+                  <option value="bordro">Bordro İşlemleri</option>
+                  <option value="tatil">Resmi Tatiller & İzin Günleri</option>
+                  <option value="egitim">Eğitimler & Seminerler</option>
+                  <option value="sgk">SGK İşlemleri</option>
+                  <option value="diger">Diğer / Duyurular</option>
                 </select>
 
                 <select
@@ -257,7 +265,7 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                   {calendarDays.map((date, index) => {
                     const isCurrentMonth = date.getMonth() === currentDate.getMonth();
                     const isToday = date.toDateString() === new Date().toDateString();
-                    const dateString = date.toISOString().split('T')[0];
+                    const dateString = formatDateToYYYYMMDD(date);
                     const dayEvents = getEventsForDate(date);
                     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                     const resmiTatil = isResmiTatil(date);
