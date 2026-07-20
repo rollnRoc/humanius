@@ -975,7 +975,6 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
                   <p className="text-sm font-semibold text-gray-800 mb-2">{e.kurs}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">{e.sure}</span>
-                    <button className="flex items-center gap-1 text-xs text-indigo-600 font-medium hover:underline">Ata <ArrowRight className="w-3 h-3" /></button>
                   </div>
                 </div>
               ))}

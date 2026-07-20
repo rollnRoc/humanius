@@ -37,14 +37,14 @@ const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
       { yilAlt: 5, yilUst: 15, gunHak: 20 },
       { yilAlt: 15, yilUst: null, gunHak: 26 },
     ],
-    aciklama: 'İş Kanunu Madde 53 kapsamında yıllık ücretli izin.',
+    aciklama: 'İş Kanunu Madde 53 kapsamında yıllık ücretli izin. Çalışanların kıdemine göre belirlenir.',
   },
   {
     id: 'mazeret',
     ad: 'Mazeret İzni',
     kod: 'MZ',
     renk: '#f59e0b',
-    ucretli: false,
+    ucretli: true,
     yillikHak: false,
     devirHakki: false,
     devirLimiti: null,
@@ -53,14 +53,14 @@ const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
     maksBekleme: 3,
     kademeli: false,
     kademe: [{ yilAlt: 0, yilUst: null, gunHak: 3 }],
-    aciklama: 'Acil ve beklenmedik durumlarda kısa süreli izin.',
+    aciklama: 'İş Kanunu kapsamında çalışanın mazereti nedeniyle verilen ücretli izin.',
   },
   {
     id: 'hastalik',
     ad: 'Hastalık İzni',
     kod: 'HA',
     renk: '#ef4444',
-    ucretli: false,
+    ucretli: true,
     yillikHak: false,
     devirHakki: false,
     devirLimiti: null,
@@ -69,7 +69,7 @@ const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
     maksBekleme: 0,
     kademeli: false,
     kademe: [{ yilAlt: 0, yilUst: null, gunHak: 30 }],
-    aciklama: '3 günü aşan durumlarda doktor raporu zorunludur.',
+    aciklama: 'Doktor raporu ile belgelenen hastalık durumlarında verilen ücretli istirahat izni.',
   },
   {
     id: 'dogum',
@@ -85,14 +85,14 @@ const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
     maksBekleme: 0,
     kademeli: false,
     kademe: [{ yilAlt: 0, yilUst: null, gunHak: 112 }],
-    aciklama: 'Doğum öncesi 8 hafta + sonrası 8 hafta toplamda 16 hafta.',
+    aciklama: 'Doğum öncesi 8 ve sonrası 8 hafta olmak üzere 16 haftadır. Ücreti SGK tarafından geçici iş göremezlik ödeneği olarak karşılanır.',
   },
   {
     id: 'babalik',
     ad: 'Babalık İzni',
     kod: 'BA',
     renk: '#3b82f6',
-    ucretli: false,
+    ucretli: true,
     yillikHak: false,
     devirHakki: false,
     devirLimiti: null,
@@ -101,14 +101,14 @@ const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
     maksBekleme: 0,
     kademeli: false,
     kademe: [{ yilAlt: 0, yilUst: null, gunHak: 5 }],
-    aciklama: 'Çocuğun doğumu halinde babaya tanınan ücretli izin.',
+    aciklama: 'İş Kanunu Ek Madde 2 uyarınca eşi doğum yapan erkek çalışana tanınan 5 günlük ücretli izin.',
   },
   {
     id: 'evlilik',
     ad: 'Evlilik İzni',
     kod: 'EV',
     renk: '#a855f7',
-    ucretli: false,
+    ucretli: true,
     yillikHak: false,
     devirHakki: false,
     devirLimiti: null,
@@ -117,14 +117,14 @@ const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
     maksBekleme: 0,
     kademeli: false,
     kademe: [{ yilAlt: 0, yilUst: null, gunHak: 3 }],
-    aciklama: 'Evlilik töreni dolayısıyla tanınan ücretli izin.',
+    aciklama: 'İş Kanunu Ek Madde 2 uyarınca evlenen çalışana tanınan 3 günlük ücretli izin.',
   },
   {
     id: 'olum',
     ad: 'Ölüm İzni',
     kod: 'OL',
     renk: '#6b7280',
-    ucretli: false,
+    ucretli: true,
     yillikHak: false,
     devirHakki: false,
     devirLimiti: null,
@@ -133,7 +133,7 @@ const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
     maksBekleme: 0,
     kademeli: false,
     kademe: [{ yilAlt: 0, yilUst: null, gunHak: 3 }],
-    aciklama: 'Birinci veya ikinci derece yakın kaybı halinde.',
+    aciklama: 'İş Kanunu Ek Madde 2 uyarınca anne, baba, eş, çocuk veya kardeş kaybında verilen 3 günlük ücretli izin.',
   },
   {
     id: 'ucretsiz',
@@ -149,7 +149,7 @@ const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
     maksBekleme: 14,
     kademeli: false,
     kademe: [{ yilAlt: 0, yilUst: null, gunHak: 0 }],
-    aciklama: 'Tarafların mutabakatıyla belirlenen sürede ücretsiz izin.',
+    aciklama: 'Çalışan ve işverenin karşılıklı yazılı mutabakatıyla kullanılan ücretsiz izin.',
   },
 ];
 
@@ -258,18 +258,6 @@ const IzinTanimlari: React.FC = () => {
             İzin türlerini, hak günlerini ve devir kurallarını yapılandırın
           </p>
         </div>
-        <button
-          onClick={() => {
-            setForm({ ad: '', kod: '', renk: '#6366f1', ucretli: true, yillikHak: false, devirHakki: false, devirLimiti: '', borclanma: false, belgeGerekli: false, maksBekleme: '0', kademeli: false, kademe1gun: '0', kademe2gun: '', kademe3gun: '', aciklama: '' });
-            setSecili(null);
-            setYeniEkleme(true);
-            setDuzenleme(true);
-          }}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700"
-        >
-          <Plus className="w-4 h-4" />
-          Yeni İzin Türü
-        </button>
       </div>
 
       {/* Başarı bildirimi */}
@@ -314,7 +302,7 @@ const IzinTanimlari: React.FC = () => {
         <div className="flex-1">
           {!secili && !yeniEkleme && (
             <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center text-gray-400">
-              <p className="text-sm">Düzenlemek için bir izin türü seçin veya yeni ekleyin</p>
+              <p className="text-sm">Düzenlemek veya detaylarını incelemek için sol listeden bir izin türü seçin</p>
             </div>
           )}
 
@@ -336,13 +324,6 @@ const IzinTanimlari: React.FC = () => {
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     Düzenle
-                  </button>
-                  <button
-                    onClick={() => setSilOnay(seciliTur.id)}
-                    className="flex items-center gap-1.5 border border-red-200 text-red-500 px-3 py-1.5 rounded-xl text-xs hover:bg-red-50"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Sil
                   </button>
                 </div>
               </div>
