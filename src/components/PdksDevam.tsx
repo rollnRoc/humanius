@@ -650,7 +650,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                         <td className="px-4 py-3.5 font-medium text-gray-800">{item.tarih}</td>
                         <td className="px-4 py-3.5 text-center text-gray-700 font-medium">{item.giris}</td>
                         <td className="px-4 py-3.5 text-center text-gray-700 font-medium">{item.cikis || '-'}</td>
-                        <td className="px-4 py-3.5 text-center text-gray-600">{item.sure} Saat</td>
+                        <td className="px-4 py-3.5 text-center text-gray-600">{item.sure}</td>
                         <td className="px-4 py-3.5 text-right">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                             item.durum.includes('Zamanında') || item.durum === 'Normal'
