@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   FolderOpen, Upload, Download, Trash2, FileText, User, Calendar,
   AlertTriangle, Briefcase, Clock, RefreshCw, Plus, X, ChevronDown, Lock,
-  Building2, Phone, Mail, MapPin, Shield, FileBadge, ClipboardList, CheckCircle,
+  Building2, Phone, Mail, MapPin, Shield, FileBadge, ClipboardList, CheckCircle, Eye
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ozlukDosyasiService, OzlukDosya } from '../services/ozlukDosyasiService';
@@ -12,8 +12,7 @@ import PasscodeVerificationModal from './PasscodeVerificationModal';
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
 import type { BordroItem } from '../types/bordro';
-import BordroOnay from './BordroOnay';
-import GorevTanimiOnay from './GorevTanimiOnay';
+import BordroViewModal from './BordroViewModal';
 import BordroList from './BordroList';
 import { bordroService } from '../services/bordroService';
 import { QRCodeSVG } from 'qrcode.react';
@@ -172,13 +171,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   // Yedekleme
   const [showBackupModal, setShowBackupModal] = useState(false);
 
-  // Bordro Onay
-  const [bordroApprovals, setBordroApprovals] = useState<any[]>([]);
-  const [bordroApprovalsLoading, setBordroApprovalsLoading] = useState(true);
   const [showBordroOnay, setShowBordroOnay] = useState<BordroItem | null>(null);
-
-  // Görev Tanımı Onay
-  const [activeOnayGorevTanimi, setActiveOnayGorevTanimi] = useState<GorevTanimi | null>(null);
 
   const selectedEmp = companyEmployees.find((e) => e.id === selectedEmpId) ?? null;
 
@@ -209,27 +202,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
     loadGorevTanimlari();
   }, [selectedEmpId, effectiveCompanyId]);
 
-  // Bordro Onayları yükle
-  const loadBordroApprovals = async () => {
-    if (!selectedEmpId) {
-      setBordroApprovals([]);
-      setBordroApprovalsLoading(false);
-      return;
-    }
-    setBordroApprovalsLoading(true);
-    try {
-      const approvals = await bordroService.getEmployeeApprovals(selectedEmpId);
-      setBordroApprovals(approvals || []);
-    } catch (error) {
-      console.error('Bordro onayları yüklenemedi:', error);
-    } finally {
-      setBordroApprovalsLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    loadBordroApprovals();
-  }, [selectedEmpId]);
 
   // Belge yükle
   useEffect(() => {
@@ -756,42 +729,28 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                             <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Dönem</th>
                             <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500">Brüt Ücret</th>
                             <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500">Net Ücret</th>
-                            <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500">Durum</th>
+                            <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500">İşlemler</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {empBordrolar.map((b) => {
-                              const approval = bordroApprovals.find(a => a.bordro_id === b.id);
                               return (
                             <tr key={b.id} className="hover:bg-gray-50 transition-colors">
                               <td className="px-4 py-2.5 font-medium text-gray-800">{b.period}</td>
                               <td className="px-4 py-2.5 text-right text-gray-700">
-                                {Number(b.brut_maas).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                                 {Number(b.brut_maas).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                               </td>
                               <td className="px-4 py-2.5 text-right font-semibold text-green-700">
                                 {Number(b.net_maas).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                               </td>
-                              <td className="px-4 py-2.5 text-right">
-                                {bordroApprovalsLoading ? (
-                                  <span className="text-xs text-gray-400">Yükleniyor...</span>
-                                ) : approval ? (
-                                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
-                                    approval.approval_status === 'onaylandi' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                  }`}>
-                                    <CheckCircle className="w-3.5 h-3.5" />
-                                    {approval.approval_status === 'onaylandi' ? 'Onaylandı' : 'Reddedildi'}
-                                  </span>
-                                ) : b.approval_status === 'beklemede' ? (
-                                  <button
-                                    onClick={() => setShowBordroOnay(b)}
-                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
-                                  >
-                                    <Shield className="w-4 h-4" />
-                                    Bordroyu Onayla
-                                  </button>
-                                ) : (
-                                  <span className="text-xs text-gray-400">Onay Beklenmiyor</span>
-                                )}
+                              <td className="px-4 py-2.5 text-center">
+                                <button
+                                  onClick={() => setShowBordroOnay(b)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  Görüntüle
+                                </button>
                               </td>
                             </tr>
                           )})}
@@ -880,38 +839,16 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                     </div>
                   ) : (
                     gorevTanimlari.map((g) => {
-                      const isApproved = g.onay_durumu === 'onaylandi';
-                      const isRejected = g.onay_durumu === 'reddedildi';
-                      const containerClass = isApproved 
-                        ? 'border-green-200 bg-green-50/50' 
-                        : isRejected 
-                        ? 'border-red-200 bg-red-50/50' 
-                        : 'border-yellow-200 bg-yellow-50/50';
-                      
-                      const StatusIcon = isApproved ? CheckCircle : isRejected ? AlertTriangle : Clock;
-                      const iconColor = isApproved ? 'text-green-600' : isRejected ? 'text-red-600' : 'text-yellow-600';
-                      
-                      const badgeClass = isApproved 
-                        ? 'bg-green-100 text-green-700 border-green-200' 
-                        : isRejected 
-                        ? 'bg-red-100 text-red-700 border-red-200' 
-                        : 'bg-yellow-100 text-yellow-700 border-yellow-200';
-                      
-                      const badgeText = isApproved ? 'Onaylandı' : isRejected ? 'Reddedildi' : 'Onay Bekliyor';
-                      const itemBorderClass = isApproved 
-                        ? 'border-green-100' 
-                        : isRejected 
-                        ? 'border-red-100' 
-                        : 'border-yellow-100';
-                      const dotColor = isApproved ? 'text-green-500' : isRejected ? 'text-red-500' : 'text-yellow-500';
+                      const itemBorderClass = 'border-gray-100';
+                      const dotColor = 'text-blue-500';
 
                       return (
-                        <div key={g.id} className={`rounded-xl border p-4 space-y-4 ${containerClass}`}>
+                        <div key={g.id} className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-4">
                           {/* Başlık */}
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <div className="flex items-center gap-2">
-                                <StatusIcon className={`w-4 h-4 shrink-0 ${iconColor}`} />
+                                <ClipboardList className="w-4 h-4 shrink-0 text-blue-600" />
                                 <h3 className="text-base font-semibold text-gray-900">{g.gorev_adi}</h3>
                               </div>
                               <p className="text-xs text-gray-500 mt-0.5 ml-6">
@@ -920,22 +857,10 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                               </p>
                             </div>
                             <div className="shrink-0 text-right">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}`}>
-                                {badgeText}
-                              </span>
-                              {g.onay_tarihi && (
+                              {g.created_at && (
                                 <p className="text-xs text-gray-400 mt-1">
-                                  {new Date(g.onay_tarihi).toLocaleDateString('tr-TR')}
+                                  Kayıt: {new Date(g.created_at).toLocaleDateString('tr-TR')}
                                 </p>
-                              )}
-                              {!isApproved && !isRejected && isSelf && (
-                                <button
-                                  onClick={() => setActiveOnayGorevTanimi(g)}
-                                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
-                                >
-                                  <Shield className="w-3.5 h-3.5" />
-                                  Oku ve Onayla
-                                </button>
                               )}
                             </div>
                           </div>
@@ -1052,28 +977,12 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
         </div>
       )}
       {showBordroOnay && selectedEmp && (
-        <BordroOnay
+        <BordroViewModal
           bordro={showBordroOnay}
           employeeId={selectedEmp.id}
           employeeName={selectedEmp.name}
-          initialShowModal={true}
-          onApprovalComplete={() => {
-            setShowBordroOnay(null);
-            loadBordroApprovals();
-          }}
-        />
-      )}
-      {activeOnayGorevTanimi && selectedEmp && (
-        <GorevTanimiOnay
-          gorevTanimiId={activeOnayGorevTanimi.id || ''}
-          employeeId={selectedEmp.id}
-          employeeName={selectedEmp.name}
-          documentName={activeOnayGorevTanimi.gorev_adi}
-          onClose={() => setActiveOnayGorevTanimi(null)}
-          onSuccess={() => {
-            setActiveOnayGorevTanimi(null);
-            loadGorevTanimlari();
-          }}
+          onClose={() => setShowBordroOnay(null)}
+          isEmployeeView={true}
         />
       )}
     </div>

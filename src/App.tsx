@@ -1037,27 +1037,8 @@ const AppInner: React.FC = () => {
         {currentView === 'bordro' && (
           ['employee', 'user'].includes(effectiveAppRole) ? (
             <div className="space-y-6">
-              {bordrolar
-                .filter(b => b.approval_status === 'beklemede')
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                .slice(0, 1)
-                .map(pendingBordro => (
-                <div key={pendingBordro.id} className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-yellow-800">Onay Bekleyen Bordro</h3>
-                    <p className="text-sm text-yellow-700">{pendingBordro.period} dönemi bordronuz onayınızı bekliyor.</p>
-                  </div>
-                  <button
-                    onClick={() => setSelectedBordro(pendingBordro)}
-                    className="w-full sm:w-auto text-center px-4 py-2.5 bg-yellow-600 text-white rounded-xl text-sm font-semibold hover:bg-yellow-700 transition-colors whitespace-nowrap shrink-0"
-                  >
-                    Görüntüle ve Onayla
-                  </button>
-                </div>
-              ))}
-              
               <BordroList
-                bordrolar={bordrolar.filter(b => b.approval_status === 'onaylandi')}
+                bordrolar={bordrolar}
                 onView={setSelectedBordro}
                 isEmployeeView={true}
                 onEdit={() => {}}
@@ -1068,27 +1049,6 @@ const AppInner: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-6">
-              {(() => {
-                const selfEmp = employees.find(e => e.email?.toLowerCase() === profile?.email?.toLowerCase());
-                const pendingSelfBordro = selfEmp ? bordrolar.find(b => b.employee_id === selfEmp.id && b.approval_status === 'beklemede') : null;
-                if (pendingSelfBordro) {
-                  return (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-lg font-bold text-yellow-800">Kendi Onay Bekleyen Bordronuz</h3>
-                        <p className="text-sm text-yellow-700">{pendingSelfBordro.period} dönemi bordronuz onayınızı bekliyor.</p>
-                      </div>
-                      <button
-                        onClick={() => setSelectedBordro(pendingSelfBordro)}
-                        className="w-full sm:w-auto text-center px-4 py-2.5 bg-yellow-600 text-white rounded-xl text-sm font-semibold hover:bg-yellow-700 transition-colors whitespace-nowrap shrink-0"
-                      >
-                        Görüntüle ve Onayla
-                      </button>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
               <BordroMain
                 employees={employees}
                 onSaveBordro={handleSaveBordro}
@@ -1096,7 +1056,6 @@ const AppInner: React.FC = () => {
                 onEdit={handleEditBordro}
                 onDelete={handleDeleteBordro}
                 onView={handleViewBordro}
-                onSendForApproval={handleSendBordroForApproval}
               />
             </div>
           )
@@ -1396,9 +1355,7 @@ const AppInner: React.FC = () => {
             'Personel'
           }
           onClose={() => setSelectedBordro(null)}
-          onApprovalComplete={loadData}
           isEmployeeView={['employee', 'user'].includes(effectiveAppRole)}
-          onSendForApproval={handleSendBordroForApproval}
         />
       )}
 

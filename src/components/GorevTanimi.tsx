@@ -5,7 +5,6 @@ import { employeeService } from '../services/employeeService';
 import { gorevTanimiService } from '../services/gorevTanimiService';
 import { useAuth } from '../contexts/AuthContext';
 import { emailService } from '../services/emailService';
-import GorevTanimiOnay from './GorevTanimiOnay';
 
 interface Task {
   surec: string;
@@ -50,7 +49,6 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
   const [companyId, setCompanyId] = useState('');
-  const [showOnayModal, setShowOnayModal] = useState(false);
   const [savedGorevTanimiId, setSavedGorevTanimiId] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -280,7 +278,9 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       calismalar: tasks.map(t => t.davranis).filter(Boolean),
       performans_kriterleri: kpis.map(k => `${k.label}: ${k.value}`),
       bagli_oldugu_pozisyon: idariUst,
-      is_birimi: isBirimi
+      is_birimi: isBirimi,
+      onay_durumu: 'onaylandi',
+      onay_tarihi: new Date().toISOString()
     };
 
     try {
@@ -301,45 +301,6 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       );
       setSaveSuccess(false);
       return;
-    }
-  };
-
-  const handleOnaySuccess = () => {
-    setShowOnayModal(false);
-    alert('Görev tanımı başarıyla onaylandı!');
-    loadRecords();
-  };
-
-  const handleDirectApprove = async (recordId: string, employeeId: string, employeeName: string, gorevAdi: string) => {
-    try {
-      const approval = {
-        gorev_tanimi_id: recordId,
-        employee_id: employeeId,
-        employee_name: employeeName || 'Personel',
-        verification_method: 'direct_manager',
-        passcode_hash: 'manager_approved',
-        approval_status: 'onaylandi',
-        ip_address: '',
-        user_agent: navigator.userAgent
-      };
-
-      await gorevTanimiService.createApproval(approval);
-
-      // E-posta bildirimi gönder
-      const employee = await employeeService.getById(employeeId);
-      if (employee && employee.email) {
-        await emailService.sendGorevTanimiEmail(
-          employee.email,
-          employeeName || 'Personel',
-          `${gorevAdi} - Görev Tanımı`
-        );
-      }
-
-      alert('Görev tanımı başarıyla onaylandı!');
-      loadRecords();
-    } catch (err: any) {
-      console.error('Doğrudan onay hatası:', err);
-      alert('Onaylanırken bir hata oluştu: ' + (err.message || err));
     }
   };
 
@@ -422,81 +383,36 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
             ) : filteredRecords.length === 0 ? (
               <div className="px-6 py-10 text-sm text-slate-500">Gösterilecek görev tanım kaydı bulunamadı.</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px]">
+                <table className="w-full min-w-[700px]">
                   <thead className="bg-slate-100 border-y border-slate-200">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Personel</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Görev Adı</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">İş Birimi</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Bağlı Pozisyon</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Onay Durumu</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Kayıt Tarihi</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">İşlemler</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredRecords.map((record) => {
-                      const durum = String(record.onay_durumu || 'beklemede');
-                      const badgeClass =
-                        durum === 'onaylandi'
-                          ? 'bg-green-100 text-green-700 border-green-200'
-                          : durum === 'reddedildi'
-                          ? 'bg-red-100 text-red-700 border-red-200'
-                          : 'bg-yellow-100 text-yellow-700 border-yellow-200';
-
                       return (
                         <tr key={record.id} className="border-b border-slate-100 hover:bg-slate-50">
                           <td className="px-4 py-3 text-sm text-slate-800">{record.employee_name || '-'}</td>
                           <td className="px-4 py-3 text-sm text-slate-700">{record.gorev_adi || '-'}</td>
                           <td className="px-4 py-3 text-sm text-slate-700">{record.is_birimi || '-'}</td>
                           <td className="px-4 py-3 text-sm text-slate-700">{record.bagli_oldugu_pozisyon || '-'}</td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass}`}>
-                              {durum === 'onaylandi' ? 'Onaylandı' : durum === 'reddedildi' ? 'Reddedildi' : 'Beklemede'}
-                            </span>
-                          </td>
                           <td className="px-4 py-3 text-sm text-slate-600">
                             {record.created_at ? new Date(record.created_at).toLocaleString('tr-TR') : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {durum === 'beklemede' ? (
-                              <button
-                                onClick={() => {
-                                  handleDirectApprove(
-                                    record.id,
-                                    record.employee_id,
-                                    record.employee_name,
-                                    record.gorev_adi
-                                  );
-                                }}
-                                className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded-lg text-xs transition-colors shadow-sm"
-                              >
-                                Onayla
-                              </button>
-                            ) : (
-                              <span className="text-xs text-slate-400">-</span>
-                            )}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-              </div>
             )}
           </div>
         </div>
-        {showOnayModal && selectedEmployee && (
-          <GorevTanimiOnay
-            gorevTanimiId={savedGorevTanimiId}
-            employeeId={selectedEmployeeId}
-            employeeName={selectedEmployee.name}
-            documentName={`${savedRecords.find(r => r.id === savedGorevTanimiId)?.gorev_adi || 'Pozisyon'} - Görev Tanımı`}
-            onClose={() => setShowOnayModal(false)}
-            onSuccess={handleOnaySuccess}
-          />
-        )}
+
       </div>
     );
   }
@@ -596,7 +512,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
           {saveSuccess && (
             <div className="mx-6 mt-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3 text-green-700">
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <p className="text-sm font-medium">Görev tanımı başarıyla kaydedildi ve personelin onayına sunuldu.</p>
+              <p className="text-sm font-medium">Görev tanımı başarıyla kaydedildi.</p>
             </div>
           )}
           {saveError && (
@@ -993,19 +909,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
         </div>
       </div>
 
-      {showOnayModal && selectedEmployee && (
-        <>
-          {console.log('GorevTanimi - Passing to modal:', { savedGorevTanimiId, selectedEmployeeId, employeeName: selectedEmployee.name })}
-          <GorevTanimiOnay
-            gorevTanimiId={savedGorevTanimiId}
-            employeeId={selectedEmployeeId}
-            employeeName={selectedEmployee.name}
-            documentName={`${pozisyonAdi} - Görev Tanımı`}
-            onClose={() => setShowOnayModal(false)}
-            onSuccess={handleOnaySuccess}
-          />
-        </>
-      )}
+
     </div>
   );
 }

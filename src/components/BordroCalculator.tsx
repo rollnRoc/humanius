@@ -178,6 +178,8 @@ const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBo
         yillik_toplam_kesinti: calculatedBordro.toplamKesinti || 0,
         yillik_toplam_net: calculatedBordro.netMaas || 0,
         aciklama: '',
+        approval_status: 'onaylandi',
+        approval_date: new Date().toISOString(),
       };
 
       const saved = await bordroService.create(bordroInsertPayload);
@@ -391,15 +393,6 @@ const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBo
           <h2 className="text-xl font-bold text-gray-800">{t('bordro.calculator')}</h2>
         </div>
         <div className="flex items-center gap-2">
-          {onSendForApproval && savedBordro && (
-            <button
-              onClick={() => onSendForApproval(savedBordro)}
-              className="flex items-center gap-2 bg-yellow-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-yellow-600 transition-colors"
-            >
-              <User className="w-4 h-4" />
-              Onaya Gönder
-            </button>
-          )}
           <button
             onClick={handleSave}
             disabled={!calculatedBordro}
