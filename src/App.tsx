@@ -1244,7 +1244,7 @@ const AppInner: React.FC = () => {
         )}
 
         {/* İŞ AKIŞI ve Operasyon */}
-        {currentView === 'pdks-devam' && <PdksDevam employees={employees} />}
+        {currentView === 'pdks-devam' && <PdksDevam employees={employees} izinTalepleri={izinTalepleri} />}
         {currentView === 'is-akisi' && <IsAkisi companyId={profile?.company_id} />}
 
         {/* PDKS (Eski) */}

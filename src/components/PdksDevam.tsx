@@ -11,6 +11,7 @@ import type { Employee } from '../types';
 
 interface PdksDevamProps {
   employees: Employee[];
+  izinTalepleri?: any[];
 }
 
 // Haversine formula to compute distance between two coordinates in meters
@@ -49,7 +50,7 @@ function formatCompanyAddressWithCoords(lat: number, lng: number, addressText: s
   return `[${lat},${lng}] ${addressText || ''}`.trim();
 }
 
-const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
+const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) => {
   const { profile, appRole } = useAuth();
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
 
@@ -78,6 +79,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
   const [distanceToCompany, setDistanceToCompany] = useState<number | null>(null);
   const [locationStatus, setLocationStatus] = useState<'pending' | 'success' | 'denied' | 'error'>('pending');
   const [locationErrorMsg, setLocationErrorMsg] = useState('');
+  const [allShiftRecords, setAllShiftRecords] = useState<any[]>([]);
   
   // Geolocation watch ID ref
   const watchIdRef = useRef<number | null>(null);
@@ -124,6 +126,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
       if (currentEmployee?.id) {
         try {
           const allVardiyalar = await pdksService.getVardiyalar();
+          setAllShiftRecords(allVardiyalar || []);
           // Filter to only include records for the current employee
           const myVardiyalar = allVardiyalar.filter(v => v.employee_id === currentEmployee.id);
           // Map to localHistory format
@@ -422,17 +425,82 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees }) => {
 
   // -------------------------------------------------------------
   // TEAM MONITORING (MANAGER VIEW) DATA
-  const mockPdksData = employees.map(emp => {
-    const isLate = Math.random() > 0.8;
-    const isAbsent = Math.random() > 0.95;
-    return {
-      employee: emp,
-      giris: isAbsent ? '-' : (isLate ? '09:15' : '08:50'),
-      cikis: isAbsent ? '-' : '18:05',
-      durum: isAbsent ? 'Devamsız' : (isLate ? 'Geç Kaldı' : 'Zamanında'),
-      mesai: isAbsent ? 0 : 9,
-    };
-  });
+  const mockPdksData = React.useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    return employees.map(emp => {
+      // 1. Try to find a real record in allShiftRecords for today
+      const realRecord = allShiftRecords.find(r => r.employee_id === emp.id && r.tarih === todayStr);
+      
+      if (realRecord) {
+        const checkIn = realRecord.giris_saati;
+        const checkOut = realRecord.cikis_saati;
+        
+        let status = 'Zamanında';
+        if (checkIn) {
+          const [hours, minutes] = checkIn.split(':').map(Number);
+          if (hours > 9 || (hours === 9 && minutes > 0)) {
+            status = 'Geç Kaldı';
+          }
+        }
+        
+        let mesai = 0;
+        if (checkIn && checkOut) {
+          const [gH, gM] = checkIn.split(':').map(Number);
+          const [cH, cM] = checkOut.split(':').map(Number);
+          mesai = parseFloat(((cH * 60 + cM - (gH * 60 + gM)) / 60).toFixed(1));
+        } else if (checkIn) {
+          mesai = 8.0;
+        }
+        
+        return {
+          employee: emp,
+          giris: checkIn || '-',
+          cikis: checkOut || '-',
+          durum: status,
+          mesai,
+        };
+      }
+      
+      // 2. Try to find if they are on approved leave today
+      const today = new Date();
+      const isOnLeave = (izinTalepleri || []).some(t => {
+        if (t.employeeId !== emp.id || t.durum !== 'onaylandi') return false;
+        const start = new Date(t.baslangicTarihi);
+        const end = new Date(t.bitisTarihi);
+        return today >= start && today <= end;
+      });
+      
+      if (isOnLeave) {
+        return {
+          employee: emp,
+          giris: '-',
+          cikis: '-',
+          durum: 'İzinli',
+          mesai: 0,
+        };
+      }
+      
+      // 3. Fallback to deterministic check-in status based on employee ID hash
+      // to make the demo view look realistic and stable without random shifts on render
+      const charCodeSum = emp.name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+      const isLate = charCodeSum % 7 === 0;
+      const isAbsent = charCodeSum % 13 === 0;
+      
+      const giris = isAbsent ? '-' : (isLate ? '09:15' : '08:50');
+      const cikis = isAbsent ? '-' : '18:00';
+      const durum = isAbsent ? 'Devamsız' : (isLate ? 'Geç Kaldı' : 'Zamanında');
+      const mesai = isAbsent ? 0 : 9;
+      
+      return {
+        employee: emp,
+        giris,
+        cikis,
+        durum,
+        mesai,
+      };
+    });
+  }, [employees, allShiftRecords, izinTalepleri]);
 
   const filteredData = mockPdksData.filter(d =>
     !searchTerm || d.employee.name.toLowerCase().includes(searchTerm.toLowerCase())
