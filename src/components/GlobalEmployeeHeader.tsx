@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { Shield, User, AlertTriangle, Lock, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Shield, User, AlertTriangle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Employee } from '../types';
-import PasscodeVerificationModal from './PasscodeVerificationModal';
-import bcrypt from 'bcryptjs';
 
 interface GlobalEmployeeHeaderProps {
   employee: Employee;
@@ -16,28 +14,7 @@ export const GlobalEmployeeHeader: React.FC<GlobalEmployeeHeaderProps> = ({
   isAccessGranted,
   onAccessGranted
 }) => {
-  const [showAccessModal, setShowAccessModal] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-
-  const handleAccessVerify = async (passcode: string): Promise<boolean> => {
-    const stored = employee.approval_passcode;
-    if (!stored) { onAccessGranted(); return true; }
-    
-    let isValid = false;
-    try {
-      isValid = bcrypt.compareSync(passcode, stored);
-    } catch (e) {
-      isValid = false;
-    }
-    
-    if (!isValid && stored === passcode) {
-      isValid = true;
-    }
-
-    if (!isValid) return false;
-    onAccessGranted();
-    return true;
-  };
 
   if (isMinimized) {
     return (
@@ -103,10 +80,10 @@ export const GlobalEmployeeHeader: React.FC<GlobalEmployeeHeaderProps> = ({
             </div>
           </div>
 
-          {/* SAĞ PANEL: GÜVENLİ ERİŞİM (QR) */}
+          {/* SAĞ PANEL: GÜVENLİ ERİŞİM VE KONTROL (QR) */}
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col">
             <h3 className="text-sm font-bold text-gray-500 mb-4 border-b border-gray-100 pb-3 flex items-center gap-2">
-              <Shield className="w-4 h-4" /> GÜVENLİ ERİŞİM (QR)
+              <Shield className="w-4 h-4" /> GÜVENLİ ERİŞİM VE KONTROL (QR)
             </h3>
             <div className="flex-1 flex items-center justify-center gap-8">
               <div className="p-3 bg-white rounded-xl shadow-sm border border-gray-100">
@@ -117,27 +94,14 @@ export const GlobalEmployeeHeader: React.FC<GlobalEmployeeHeaderProps> = ({
                   includeMargin={true}
                 />
               </div>
-              <div className="flex flex-col items-start gap-4">
-                {isAccessGranted ? (
-                  <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2 font-bold w-full">
-                    <CheckCircle className="w-5 h-5" />
-                    Erişim Açık
-                  </div>
-                ) : (
-                  <>
-                    <button 
-                      onClick={() => setShowAccessModal(true)}
-                      className="bg-gray-800 text-white px-5 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-700 transition-colors w-full justify-center shadow-md"
-                    >
-                      <Lock className="w-5 h-5" />
-                      Bordro & Talepler
-                    </button>
-                    <p className="text-xs text-red-600 font-semibold flex items-center gap-1.5 bg-red-50 px-3 py-2 rounded-lg border border-red-100">
-                      <AlertTriangle className="w-4 h-4" /> 
-                      Okutulduğunda şifre ister.
-                    </p>
-                  </>
-                )}
+              <div className="flex flex-col items-start gap-2">
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2.5 rounded-xl flex items-center gap-2 font-bold w-full text-sm">
+                  <CheckCircle className="w-5 h-5" />
+                  Evrak Doğrulama Aktif
+                </div>
+                <p className="text-xs text-gray-500 max-w-[200px]">
+                  Bu QR kodu okutarak personelin resmi evraklarını ve zimmet kayıtlarını güvenli bir şekilde kontrol edebilirsiniz.
+                </p>
               </div>
             </div>
           </div>
@@ -145,19 +109,6 @@ export const GlobalEmployeeHeader: React.FC<GlobalEmployeeHeaderProps> = ({
 
       </div>
 
-      {showAccessModal && (
-        <PasscodeVerificationModal
-          isOpen={showAccessModal}
-          onClose={() => setShowAccessModal(false)}
-          onVerify={handleAccessVerify}
-          employeeName={employee.name}
-          title="Güvenli Belge Onayı"
-          actionLabel="Dosyaya Eriş"
-          actionDescription="Özlük dosyasına erişmek için kimliğinizi doğrulayın."
-          actionColor="blue"
-          tcNo={employee.tc_no ?? undefined}
-        />
-      )}
     </div>
   );
 };

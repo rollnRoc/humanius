@@ -8,7 +8,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { ozlukDosyasiService, OzlukDosya } from '../services/ozlukDosyasiService';
 import { gorevTanimiService, type GorevTanimi } from '../services/gorevTanimiService';
 import { employeeService } from '../services/employeeService';
-import PasscodeVerificationModal from './PasscodeVerificationModal';
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
 import type { BordroItem } from '../types/bordro';
@@ -168,8 +167,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   const [yeniYazi, setYeniYazi] = useState<Record<string, string>>({});
   const [yaziKaydediliyor, setYaziKaydediliyor] = useState<Record<string, boolean>>({});
 
-  // Yedekleme
-  const [showBackupModal, setShowBackupModal] = useState(false);
+
 
   const [showBordroOnay, setShowBordroOnay] = useState<BordroItem | null>(null);
 
@@ -219,14 +217,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
       .finally(() => setDosyaLoading(false));
   }, [selectedEmpId]);
 
-  // Yedekleme doxrulama
-  const handleBackupVerify = async (passcode: string): Promise<boolean> => {
-    if (!selectedEmp) return false;
-    const stored = selectedEmp.approval_passcode;
-    if (stored && stored !== passcode) return false;
-    performBackup();
-    return true;
-  };
+
 
   const reloadDosyalar = async () => {
     if (!selectedEmpId) return;
@@ -511,14 +502,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
               </div>
             </div>
             <button
-              onClick={() => {
-                if (selectedEmp?.approval_passcode) {
-                  setShowBackupModal(true);
-                } else {
-                  // Şifre tanımlı değil, direkt yedekle
-                  performBackup();
-                }
-              }}
+              onClick={performBackup}
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 active:scale-95 transition-all shadow-sm"
               title="Özlük dosyasını yerel depoya yedekle"
             >
@@ -561,20 +545,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
         </div>
       )}
 
-      {/* Yedekleme Güvenli Belge Onayı modalı */}
-      {showBackupModal && selectedEmp && (
-        <PasscodeVerificationModal
-          isOpen={showBackupModal}
-          onClose={() => setShowBackupModal(false)}
-          onVerify={handleBackupVerify}
-          employeeName={selectedEmp.name}
-          title="Özlük Dosyası Yedekleme"
-          actionLabel="Yedekle"
-          actionDescription="Personelin tüm özlük bilgileri (belgeler, bordro, izin, görev tanımı, tutanaklar) yerel depolamaya kaydedilecek."
-          actionColor="indigo"
-          tcNo={selectedEmp.tc_no ?? undefined}
-        />
-      )}
+
 
       {selectedEmp && (
         <div className="animate-fade-in">

@@ -4,7 +4,6 @@ import { Employee } from '../types';
 import { IzinTalebi, IzinHakki, IzinTuru } from '../types/izin';
 import { calculateWorkingDays, izinTuruLabels, getMaxIzinSureleri, validateIzinTuru } from '../utils/izinCalculations';
 import { useScrollLock } from '../hooks/useScrollLock';
-import PasscodeVerificationModal from './PasscodeVerificationModal';
 
 interface TopluIzinFormProps {
   employees: Employee[];
