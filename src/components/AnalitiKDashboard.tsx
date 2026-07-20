@@ -761,7 +761,7 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
               <p className="text-xs text-red-600 mt-0.5">Model girdileri: Son 6 ay izin sikligi, Performans trendi, Egitim eksikligi, Maas artis orani, Kidem</p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { label: 'Yuksek Risk (70+)', count: flightRiskler.filter((r) => r.puan >= 70).length, renk: 'bg-red-100 text-red-700' },
               { label: 'Orta Risk (45-69)', count: flightRiskler.filter((r) => r.puan >= 45 && r.puan < 70).length, renk: 'bg-orange-100 text-orange-700' },

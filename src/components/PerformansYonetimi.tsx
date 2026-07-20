@@ -795,7 +795,7 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
 
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Geri Bildirim Türü</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {(['olumlu', 'gelistirici', 'nötr'] as const).map((tip) => (
                     <button
                       key={tip}

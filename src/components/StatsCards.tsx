@@ -11,9 +11,9 @@ const StatsCards: React.FC<StatsCardsProps> = ({ stats }) => {
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl mb-4 shadow-sm">
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-gray-200">
         <h2 className="font-bold text-gray-800">{t('stats.employeeList')}</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <span className="flex items-center gap-2 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full text-sm">
             <span className="text-green-700">{t('stats.active')}:</span>
             <strong className="text-green-700">{stats.active}</strong>

@@ -760,7 +760,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                       </div>
                     </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-3">
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                     <div className="bg-gray-50 rounded-xl p-2.5 text-center">
                       <p className="text-[10px] text-gray-400">Tolerans</p>
                       <p className="text-sm font-semibold text-gray-700">{v.toleransDk} dk</p>
@@ -790,7 +790,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {[
                 ['parmakizi', 'Parmak Izi'],
                 ['rfid', 'RFID Kart'],

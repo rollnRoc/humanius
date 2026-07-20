@@ -94,7 +94,7 @@ const BordroList: React.FC<BordroListProps> = ({
                 <th className="px-4 py-3 text-right">Brüt Ücret</th>
                 <th className="px-4 py-3 text-right">Net Ücret</th>
                 <th className="px-4 py-3 text-right">Toplam Kesinti</th>
-                {!isEmployeeView && <th className="px-4 py-3 text-left">İşlemler</th>}
+                <th className="px-4 py-3 text-left">İşlemler</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">

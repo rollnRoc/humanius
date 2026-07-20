@@ -247,7 +247,7 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
               )}
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
               <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
                 <p className="text-[11px] text-emerald-700">Kullanılan</p>
                 <p className="mt-1 text-lg font-bold text-emerald-800">{kullanilanUcretliToplam}</p>

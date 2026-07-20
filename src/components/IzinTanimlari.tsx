@@ -492,7 +492,7 @@ const IzinTanimlari: React.FC = () => {
               {form.kademeli ? (
                 <div>
                   <p className="text-xs font-medium text-gray-600 mb-2">Kıdeme Göre Hak Günleri</p>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                     {[
                       { label: '1-5 yıl arası', key: 'kademe1gun' as const },
                       { label: '5-15 yıl arası', key: 'kademe2gun' as const },

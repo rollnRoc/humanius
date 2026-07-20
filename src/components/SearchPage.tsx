@@ -184,11 +184,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  const handleApprovalPasswordShortcut = () => {
-    setQuery(QUICK_APPROVAL_QUERY);
-    setActiveTab('all');
-    onNavigate('ayar');
-  };
+
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -532,19 +528,6 @@ export const SearchPage: React.FC<SearchPageProps> = ({
             </div>
           )}
 
-          {/* Shortcut */}
-          {['superadmin', 'admin', 'hr'].includes(effectiveRole) && (
-            <div>
-              <button
-                onClick={handleApprovalPasswordShortcut}
-                className="inline-flex items-center gap-2 rounded-xl border border-violet-300 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
-              >
-                <span className="text-base">🔑</span>
-                <span>Personel onay ve doğrulama şifresi al</span>
-              </button>
-            </div>
-          )}
-
           {/* Input */}
           <div className="relative">
             <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-xl border-2 border-gray-200 focus-within:border-blue-400 hover:border-blue-300 shadow-sm transition-all">
@@ -554,7 +537,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Birden fazla kelime yazabilirsiniz: &quot;Ahmet yıllık izin&quot;, &quot;Muhasebe bordro&quot;..."
+                placeholder="Aramak istediğinizi yazın: 'Ahmet yıllık izin'..."
                 className="flex-1 outline-none text-sm text-gray-800 placeholder-gray-300 bg-transparent"
               />
               {query && (
@@ -658,7 +641,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
               </div>
             </section>
 
-            <section className="grid grid-cols-3 gap-4">
+            <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               {[
                 { label: 'Personel',    count: employees.length,     cat: 'personel' as Category },
                 { label: 'İzin Talebi', count: izinTalepleri.length, cat: 'izin'     as Category },
