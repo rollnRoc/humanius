@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
+import { demoService } from './demoService';
 
 export type ZimmetKategori = 'bilgisayar' | 'telefon' | 'arac' | 'anahtar' | 'monitor' | 'yazici' | 'diger';
 export type ZimmetDurum = 'aktif' | 'iade-edildi' | 'kayip' | 'bakimda';
@@ -25,11 +26,51 @@ export interface Zimmet {
 export type ZimmetInsert = Omit<Zimmet, 'id' | 'created_at' | 'updated_at'>;
 
 export const zimmetService = {
-  /**
-   * Kullanıcının yetkisi dahilindeki zimmetleri getirir
-   * (Yöneticiyse şirketteki tümünü, personelse sadece kendisine atananları).
-   */
   async getAll(): Promise<Zimmet[]> {
+    if (demoService.isDemoActive()) {
+      const records = localStorage.getItem('humanius_demo_zimmetler');
+      if (!records) {
+        const initial: Zimmet[] = [
+          {
+            id: 'z-1',
+            company_id: 'demo-company-id-9999',
+            seri_no: 'SN-987654321',
+            ad: 'MacBook Pro 16"',
+            kategori: 'bilgisayar',
+            marka: 'Apple',
+            model: 'M3 Pro',
+            deger: 95000,
+            durum: 'aktif',
+            atanan_employee_id: 'emp-2',
+            atanma_tarihi: '2023-01-15',
+            iade_tarihi: null,
+            aciklama: 'Yazılım geliştirici iş bilgisayarı.',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          {
+            id: 'z-2',
+            company_id: 'demo-company-id-9999',
+            seri_no: 'SN-123456789',
+            ad: 'iPhone 15',
+            kategori: 'telefon',
+            marka: 'Apple',
+            model: '128 GB',
+            deger: 48000,
+            durum: 'aktif',
+            atanan_employee_id: 'emp-3',
+            atanma_tarihi: '2024-03-05',
+            iade_tarihi: null,
+            aciklama: 'Müşteri görüşmeleri için şirket hattı ve telefonu.',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ];
+        localStorage.setItem('humanius_demo_zimmetler', JSON.stringify(initial));
+        return initial;
+      }
+      return JSON.parse(records);
+    }
     const { data, error } = await supabase
       .from('zimmetler')
       .select('*')
@@ -39,10 +80,19 @@ export const zimmetService = {
     return data as Zimmet[];
   },
 
-  /**
-   * Yeni zimmet ekler.
-   */
   async create(zimmet: ZimmetInsert): Promise<Zimmet> {
+    if (demoService.isDemoActive()) {
+      const list = await this.getAll();
+      const newRec: Zimmet = {
+        ...zimmet,
+        id: 'z-' + Math.random().toString(36).substr(2, 9),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      list.push(newRec);
+      localStorage.setItem('humanius_demo_zimmetler', JSON.stringify(list));
+      return newRec;
+    }
     const { data, error } = await supabase
       .from('zimmetler')
       .insert(zimmet)
@@ -53,10 +103,15 @@ export const zimmetService = {
     return data as Zimmet;
   },
 
-  /**
-   * Mevcut bir zimmeti günceller.
-   */
   async update(id: string, updates: Partial<ZimmetInsert>): Promise<Zimmet> {
+    if (demoService.isDemoActive()) {
+      const list = await this.getAll();
+      const idx = list.findIndex(z => z.id === id);
+      if (idx === -1) throw new Error('Zimmet bulunamadı');
+      list[idx] = { ...list[idx], ...updates, updated_at: new Date().toISOString() } as any;
+      localStorage.setItem('humanius_demo_zimmetler', JSON.stringify(list));
+      return list[idx];
+    }
     const { data, error } = await supabase
       .from('zimmetler')
       .update(updates)
@@ -68,10 +123,13 @@ export const zimmetService = {
     return data as Zimmet;
   },
 
-  /**
-   * Bir zimmeti siler.
-   */
   async delete(id: string): Promise<void> {
+    if (demoService.isDemoActive()) {
+      const list = await this.getAll();
+      const filtered = list.filter(z => z.id !== id);
+      localStorage.setItem('humanius_demo_zimmetler', JSON.stringify(filtered));
+      return;
+    }
     const { error } = await supabase
       .from('zimmetler')
       .delete()
@@ -80,9 +138,6 @@ export const zimmetService = {
     if (error) throw error;
   },
 
-  /**
-   * Zimmeti bir personele atar (teslim eder).
-   */
   async atamaYap(zimmetId: string, employeeId: string | null): Promise<Zimmet> {
     const bugun = new Date().toISOString().split('T')[0];
     

@@ -1,13 +1,12 @@
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 import bcrypt from 'bcryptjs';
+import { demoService } from './demoService';
 
 type Employee = Database['public']['Tables']['employees']['Row'];
 type EmployeeInsert = Database['public']['Tables']['employees']['Insert'];
 type EmployeeUpdate = Database['public']['Tables']['employees']['Update'];
 
-// Public view satırı (maaş ve hassas alanlar olmadan). Tam tip oluşturmamak için
-// Employee'den Partial türü kullanıyoruz; üzerinde dönen alanlar zaten view tanımıyla sınırlı.
 type EmployeePublic = Omit<
   Employee,
   | 'salary'
@@ -21,15 +20,10 @@ type EmployeePublic = Omit<
   | 'approval_signature'
 >;
 
-// Hangi rollerin ham tabloyu (maaş dahil) görmesine izin var?
 const FULL_ACCESS_ROLES = new Set(['superadmin', 'admin', 'hr']);
 
-/**
- * Giriş yapan kullanıcının rolünü profiles tablosundan çeker.
- * Cache yok — her çağrıda RLS doğru filtrelesin diye taze okuyoruz.
- * Hata durumunda 'user' döndürür (en kısıtlı varsayım = güvenli varsayılan).
- */
 async function getCurrentRole(): Promise<string> {
+  if (demoService.isDemoActive()) return 'superadmin';
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return 'user';
   const { data } = await supabase
@@ -40,23 +34,17 @@ async function getCurrentRole(): Promise<string> {
   return data?.role ?? 'user';
 }
 
-/**
- * Role göre hangi kaynağı sorgulayalım?
- *  - admin/hr/superadmin → 'employees' (ham tablo, maaş dahil)
- *  - diğerleri          → 'employees_public' (maaşsız view)
- */
 async function pickSource(): Promise<'employees' | 'employees_public'> {
+  if (demoService.isDemoActive()) return 'employees';
   const role = await getCurrentRole();
   return FULL_ACCESS_ROLES.has(role) ? 'employees' : 'employees_public';
 }
 
 export const employeeService = {
-  /**
-   * Tüm personeli getir. Rol bazlı yönlendirme:
-   *  - HR/admin/superadmin maaş dahil tam veriyi alır.
-   *  - Manager/employee/user maaşsız public view'i alır.
-   */
   async getAll(companyId: string): Promise<Employee[] | EmployeePublic[]> {
+    if (demoService.isDemoActive()) {
+      return demoService.getEmployees() as any;
+    }
     const source = await pickSource();
     const { data, error } = await supabase
       .from(source)
@@ -67,11 +55,11 @@ export const employeeService = {
     return (data ?? []) as Employee[] | EmployeePublic[];
   },
 
-  /**
-   * Tek bir personeli getir. Yine rol bazlı kaynak.
-   * Manager personel detayını görür ama maaş alanları null/undefined olur.
-   */
   async getById(id: string): Promise<Employee | EmployeePublic | null> {
+    if (demoService.isDemoActive()) {
+      const emp = demoService.getEmployees().find(e => e.id === id);
+      return (emp ?? null) as any;
+    }
     const source = await pickSource();
     const { data, error } = await supabase
       .from(source)
@@ -82,13 +70,10 @@ export const employeeService = {
     return data as Employee | EmployeePublic | null;
   },
 
-  /**
-   * Personel oluşturma — daima ham employees tablosuna. Backend RLS sadece
-   * admin/hr/manager/superadmin'e INSERT izni veriyor; manager INSERT yapabilir
-   * ama hassas alanları (maaş, tc_no vs.) UI'da göremediği için bunları
-   * boş gönderir. Tutarlılık için kontrol BACKEND'e bırakılıyor.
-   */
   async create(employee: EmployeeInsert): Promise<Employee> {
+    if (demoService.isDemoActive()) {
+      return demoService.createEmployee(employee as any) as any;
+    }
     const { data, error } = await supabase
       .from('employees')
       .insert(employee)
@@ -98,10 +83,10 @@ export const employeeService = {
     return data;
   },
 
-  /**
-   * Personel güncelleme — ham tabloya. RLS sadece yetkili rollere izin verir.
-   */
   async update(id: string, updates: EmployeeUpdate): Promise<Employee> {
+    if (demoService.isDemoActive()) {
+      return demoService.updateEmployee(id, updates as any) as any;
+    }
     const { data, error } = await supabase
       .from('employees')
       .update(updates)
@@ -113,6 +98,10 @@ export const employeeService = {
   },
 
   async delete(id: string): Promise<void> {
+    if (demoService.isDemoActive()) {
+      demoService.deleteEmployee(id);
+      return;
+    }
     const { error } = await supabase
       .from('employees')
       .delete()
@@ -124,6 +113,9 @@ export const employeeService = {
     companyId: string,
     department: string,
   ): Promise<Employee[] | EmployeePublic[]> {
+    if (demoService.isDemoActive()) {
+      return demoService.getEmployees().filter(e => e.department === department) as any;
+    }
     const source = await pickSource();
     const { data, error } = await supabase
       .from(source)
@@ -139,6 +131,9 @@ export const employeeService = {
     companyId: string,
     status: Employee['status'],
   ): Promise<Employee[] | EmployeePublic[]> {
+    if (demoService.isDemoActive()) {
+      return demoService.getEmployees().filter(e => e.status === status) as any;
+    }
     const source = await pickSource();
     const { data, error } = await supabase
       .from(source)
@@ -154,6 +149,14 @@ export const employeeService = {
     companyId: string,
     searchTerm: string,
   ): Promise<Employee[] | EmployeePublic[]> {
+    if (demoService.isDemoActive()) {
+      const s = searchTerm.toLowerCase();
+      return demoService.getEmployees().filter(e => 
+        e.name.toLowerCase().includes(s) || 
+        e.email.toLowerCase().includes(s) || 
+        e.position.toLowerCase().includes(s)
+      ) as any;
+    }
     const source = await pickSource();
     const { data, error } = await supabase
       .from(source)
@@ -165,11 +168,15 @@ export const employeeService = {
     return (data ?? []) as Employee[] | EmployeePublic[];
   },
 
-  /**
-   * İstatistik — sadece status sütununa bakıyor, view'de bu kolon var.
-   * Rol bazlı yönlendirme yapmaya gerek yok; view yeterli.
-   */
   async getStats(companyId: string) {
+    if (demoService.isDemoActive()) {
+      const list = demoService.getEmployees();
+      return {
+        active: list.filter(e => e.status === 'active').length,
+        onLeave: list.filter(e => e.status === 'onLeave').length,
+        inactive: list.filter(e => e.status === 'inactive').length
+      };
+    }
     const source = await pickSource();
     const { data, error } = await supabase
       .from(source)
@@ -188,11 +195,12 @@ export const employeeService = {
     return Math.floor(100000 + Math.random() * 900000).toString();
   },
 
-  /**
-   * Passcode operasyonları — hassas alan. View'de yok, ham tabloya gider.
-   * RLS sadece admin/hr/superadmin'e erişim verir.
-   */
   async setEmployeePasscode(employeeId: string, passcode: string | null) {
+    if (demoService.isDemoActive()) {
+      let hashedPasscode = passcode;
+      if (passcode) hashedPasscode = bcrypt.hashSync(passcode, 10);
+      return demoService.updateEmployee(employeeId, { approval_passcode: hashedPasscode } as any) as any;
+    }
     let hashedPasscode = passcode;
     if (passcode) {
       hashedPasscode = bcrypt.hashSync(passcode, 10);
@@ -208,6 +216,10 @@ export const employeeService = {
   },
 
   async getEmployeePasscode(employeeId: string): Promise<string | undefined> {
+    if (demoService.isDemoActive()) {
+      const emp = demoService.getEmployees().find(e => e.id === employeeId);
+      return emp?.approval_passcode ?? undefined;
+    }
     const { data, error } = await supabase
       .from('employees')
       .select('approval_passcode')

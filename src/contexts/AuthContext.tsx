@@ -4,9 +4,31 @@ import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 import { canAccessView, normalizeRole, type AppRole } from '../auth/roles';
 import type { View } from '../types';
+import { demoService } from '../services/demoService';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
+const mockDemoUser: User = {
+  id: 'demo-user-id-9999',
+  aud: 'authenticated',
+  role: 'authenticated',
+  email: 'demo@humanius.com.tr',
+  created_at: new Date().toISOString(),
+  app_metadata: {},
+  user_metadata: { full_name: 'Demo Yönetici' },
+  audits: []
+} as any;
+
+const mockDemoProfile: Profile = {
+  id: 'demo-user-id-9999',
+  email: 'demo@humanius.com.tr',
+  full_name: 'Demo Yönetici (Kurucu)',
+  company_id: 'demo-company-id-9999',
+  role: 'superadmin',
+  avatar_url: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+};
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +41,8 @@ interface AuthContextType {
   isManager: boolean;
   isUser: boolean;
   loading: boolean;
+  isDemo: boolean;
+  startDemoSession: () => void;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
@@ -34,9 +58,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
+    // 1. Önce Demo Modu Kontrolü
+    const isDemoActive = localStorage.getItem('humanius_demo_mode') === 'true';
+    if (isDemoActive) {
+      const startTime = parseInt(localStorage.getItem('humanius_demo_start_time') || '0', 10);
+      const isExpired = Date.now() - startTime > 2 * 24 * 60 * 60 * 1000; // 48 Saat limit
+
+      if (isExpired) {
+        demoService.clearDatabase();
+        setIsDemo(false);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+      } else {
+        setIsDemo(true);
+        setUser(mockDemoUser);
+        setProfile(mockDemoProfile);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // 2. Normal Giriş Akışı (Demo Aktif Değilse)
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (localStorage.getItem('humanius_demo_mode') === 'true') return; // Demo başladıysa çakışma olmasın
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -48,16 +96,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-          setLoading(false);
-        }
-      })();
+      if (localStorage.getItem('humanius_demo_mode') === 'true') return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -87,6 +134,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const startDemoSession = () => {
+    localStorage.setItem('humanius_demo_mode', 'true');
+    localStorage.setItem('humanius_demo_start_time', Date.now().toString());
+    demoService.seedDatabase();
+    
+    setIsDemo(true);
+    setUser(mockDemoUser);
+    setProfile(mockDemoProfile);
+    setLoading(false);
+  };
+
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -96,7 +154,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (isDemo) {
+      demoService.clearDatabase();
+      setIsDemo(false);
+    } else {
+      await supabase.auth.signOut();
+    }
     setUser(null);
     setProfile(null);
     setSession(null);
@@ -118,6 +181,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
+    if (isDemo) {
+      // Demo modunda profil güncellemesini yerel simüle et
+      if (profile) {
+        setProfile({ ...profile, ...updates });
+      }
+      return { error: null };
+    }
+
     if (!user) return { error: new Error('No user logged in') };
 
     try {
@@ -148,6 +219,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isManager: appRole === 'manager',
     isUser: appRole === 'user' || appRole === 'employee',
     loading,
+    isDemo,
+    startDemoSession,
     signIn,
     signOut,
     resetPassword,

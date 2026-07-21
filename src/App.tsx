@@ -32,6 +32,7 @@ import IzinOzetKartlari from './components/IzinOzetKartlari';
 import IzinliKisiler from './components/IzinliKisiler';
 import PdksDevam from './components/PdksDevam';
 import IsAkisi from './components/IsAkisi';
+import DemoBanner from './components/DemoBanner';
 
 import { IzinWorkflowListesi } from './components/IzinWorkflow';
 import AIBrowserPage from './browser/AIBrowserPage';
@@ -1348,7 +1349,9 @@ const AppInner: React.FC = () => {
   return (
     <GuideContextMenu onNavigate={(v) => setCurrentView(v as View)}>
     <ContextualHelp />
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
+      <DemoBanner />
+      <div className="flex flex-1 overflow-hidden">
             {!isEmployeeOnly && (
         <div className={`md:block ${mobileMenuOpen ? 'block fixed inset-0 z-50' : 'hidden md:relative z-40'}`}>
           {mobileMenuOpen && <div className="fixed inset-0 bg-black/50 md:hidden" onClick={() => setMobileMenuOpen(false)} />}
@@ -1648,6 +1651,7 @@ const AppInner: React.FC = () => {
           onClose={() => setEditingIzin(null)}
         />
       )}
+      </div>
     </div>
     </GuideContextMenu>
   );

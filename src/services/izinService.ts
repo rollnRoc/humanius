@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
+import { demoService } from './demoService';
 
 type IzinTalebi = Database['public']['Tables']['izin_talepleri']['Row'];
 type IzinTalebiInsert = Database['public']['Tables']['izin_talepleri']['Insert'];
@@ -10,6 +11,9 @@ type IzinHakkiUpdate = Database['public']['Tables']['izin_haklari']['Update'];
 
 export const izinService = {
   async getAllTalepler(companyId: string) {
+    if (demoService.isDemoActive()) {
+      return demoService.getIzinTalepleri();
+    }
     const { data, error } = await supabase
       .from('izin_talepleri')
       .select('*, employees(name, department, position)')
@@ -21,6 +25,9 @@ export const izinService = {
   },
 
   async getTalepById(id: string) {
+    if (demoService.isDemoActive()) {
+      return demoService.getIzinTalepleri().find(t => t.id === id) || null;
+    }
     const { data, error } = await supabase
       .from('izin_talepleri')
       .select('*, employees(name, department, position)')
@@ -32,6 +39,9 @@ export const izinService = {
   },
 
   async createTalep(talep: IzinTalebiInsert) {
+    if (demoService.isDemoActive()) {
+      return demoService.createIzinTalebi(talep as any) as any;
+    }
     const { data, error } = await supabase
       .from('izin_talepleri')
       .insert(talep)
@@ -43,6 +53,9 @@ export const izinService = {
   },
 
   async updateTalep(id: string, updates: IzinTalebiUpdate) {
+    if (demoService.isDemoActive()) {
+      return demoService.updateIzinTalebi(id, updates as any) as any;
+    }
     const { data, error } = await supabase
       .from('izin_talepleri')
       .update(updates)
@@ -55,6 +68,11 @@ export const izinService = {
   },
 
   async deleteTalep(id: string) {
+    if (demoService.isDemoActive()) {
+      const list = demoService.getIzinTalepleri();
+      demoService.saveIzinTalepleri(list.filter(t => t.id !== id));
+      return;
+    }
     const { error } = await supabase
       .from('izin_talepleri')
       .delete()
@@ -64,6 +82,13 @@ export const izinService = {
   },
 
   async approveTalep(id: string, onaylayanId: string) {
+    if (demoService.isDemoActive()) {
+      return demoService.updateIzinTalebi(id, {
+        durum: 'onaylandi',
+        onaylayan_id: onaylayanId,
+        onay_tarihi: new Date().toISOString()
+      } as any) as any;
+    }
     const { data, error } = await supabase
       .from('izin_talepleri')
       .update({
@@ -80,6 +105,14 @@ export const izinService = {
   },
 
   async rejectTalep(id: string, onaylayanId: string, redNedeni: string) {
+    if (demoService.isDemoActive()) {
+      return demoService.updateIzinTalebi(id, {
+        durum: 'reddedildi',
+        onaylayan_id: onaylayanId,
+        onay_tarihi: new Date().toISOString(),
+        red_nedeni: redNedeni
+      } as any) as any;
+    }
     const { data, error } = await supabase
       .from('izin_talepleri')
       .update({
@@ -97,6 +130,9 @@ export const izinService = {
   },
 
   async getTaleplerByStatus(companyId: string, durum: IzinTalebi['durum']) {
+    if (demoService.isDemoActive()) {
+      return demoService.getIzinTalepleri().filter(t => t.durum === durum);
+    }
     const { data, error } = await supabase
       .from('izin_talepleri')
       .select('*, employees(name, department)')
@@ -109,6 +145,29 @@ export const izinService = {
   },
 
   async getEmployeeHakki(employeeId: string, yil: number) {
+    if (demoService.isDemoActive()) {
+      const emp = demoService.getEmployees().find(e => e.id === employeeId);
+      if (!emp) return null;
+      const hakedis = await this.calculateIzinHakki(emp.join_date);
+      
+      // Calculate approved/used annual leaves
+      const used = demoService.getIzinTalepleri()
+        .filter(t => t.employee_id === employeeId && t.durum === 'onaylandi' && t.izin_turu === 'yillik' && new Date(t.baslangic_tarihi).getFullYear() === yil)
+        .reduce((sum, t) => sum + (t.gun_sayisi || 0) + (t.yol_izni_talep ? (t.yol_izni_gun || 0) : 0), 0);
+
+      return {
+        id: 'hak-' + employeeId,
+        company_id: 'demo-company-id-9999',
+        employee_id: employeeId,
+        yil,
+        toplam_hak: hakedis,
+        kullanilan_izin: used,
+        kalan_izin: Math.max(0, hakedis - used),
+        calisma_yili: Math.max(0, new Date().getFullYear() - new Date(emp.join_date).getFullYear()),
+        ise_giris_tarihi: emp.join_date,
+        hesaplama_tarihi: new Date().toISOString()
+      };
+    }
     const { data, error } = await supabase
       .from('izin_haklari')
       .select('*')
@@ -121,6 +180,9 @@ export const izinService = {
   },
 
   async createOrUpdateHakki(hakki: IzinHakkiInsert) {
+    if (demoService.isDemoActive()) {
+      return hakki as any;
+    }
     const { data, error } = await supabase
       .from('izin_haklari')
       .upsert(hakki)
@@ -132,6 +194,17 @@ export const izinService = {
   },
 
   async getAllHaklari(companyId: string, yil: number) {
+    if (demoService.isDemoActive()) {
+      const employees = demoService.getEmployees();
+      const haklarPromises = employees.map(async emp => {
+        const hak = await this.getEmployeeHakki(emp.id, yil);
+        return {
+          ...hak,
+          employees: { name: emp.name, department: emp.department }
+        };
+      });
+      return Promise.all(haklarPromises);
+    }
     const { data, error } = await supabase
       .from('izin_haklari')
       .select('*, employees(name, department)')

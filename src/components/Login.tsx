@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
-  const { signIn } = useAuth();
+  const { signIn, startDemoSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -217,6 +217,21 @@ export default function Login() {
                     Parolamı unuttum
                   </button>
                 </div>
+
+                <div className="relative flex py-2 items-center">
+                  <div className="flex-grow border-t border-gray-100"></div>
+                  <span className="flex-shrink mx-4 text-gray-300 text-xs uppercase tracking-wider">veya</span>
+                  <div className="flex-grow border-t border-gray-100"></div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={startDemoSession}
+                  className="w-full bg-gradient-to-r from-cyan-50 via-teal-50 to-blue-50 hover:from-cyan-100 hover:to-teal-100 border border-cyan-100 text-cyan-800 py-3 rounded-xl font-semibold hover:shadow-sm transition-all flex items-center justify-center gap-2"
+                >
+                  <span>✨</span>
+                  <span>Üye Olmadan Keşfet: Demo Sürümü</span>
+                </button>
               </form>
             </>
           )}

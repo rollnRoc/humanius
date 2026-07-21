@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import bcrypt from 'bcryptjs';
+import { demoService } from './demoService';
 
 export interface GorevTanimi {
   id?: string;
@@ -37,6 +38,18 @@ export interface GorevTanimiApproval {
 
 export const gorevTanimiService = {
   async createGorevTanimi(data: GorevTanimi) {
+    if (demoService.isDemoActive()) {
+      const list = await this.getGorevTanimlari(data.company_id);
+      const newRec = {
+        ...data,
+        id: 'g-' + Math.random().toString(36).substr(2, 9),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      list.push(newRec);
+      localStorage.setItem('humanius_demo_gorev_tanimlari', JSON.stringify(list));
+      return newRec;
+    }
     const { data: result, error } = await supabase
       .from('gorev_tanimlari')
       .insert([data])
@@ -48,6 +61,34 @@ export const gorevTanimiService = {
   },
 
   async getGorevTanimlari(companyId: string) {
+    if (demoService.isDemoActive()) {
+      const records = localStorage.getItem('humanius_demo_gorev_tanimlari');
+      if (!records) {
+        const initial: GorevTanimi[] = [
+          {
+            id: 'g-1',
+            company_id: 'demo-company-id-9999',
+            employee_id: 'emp-2',
+            employee_name: 'Ahmet Yılmaz',
+            gorev_adi: 'Yazılım Geliştirici Görev Tanımı',
+            gorev_aciklama: 'Şirketin web ve mobil projelerinin geliştirilmesi ve bakımı.',
+            sorumluluklar: ['Kullanıcı arayüzlerinin geliştirilmesi', 'API entegrasyonlarının yapılması', 'Veritabanı optimizasyonu'],
+            yetki_ve_sorumluluklar: ['Geliştirme dalları oluşturmak', 'Kodu test ortamına yüklemek'],
+            calismalar: ['Geliştirme', 'Hata Ayıklama', 'Kod Gözden Geçirme'],
+            performans_kriterleri: ['Zamanında kod teslimatı', 'Düşük hata oranı'],
+            bagli_oldugu_pozisyon: 'Yazılım Müdürü',
+            is_birimi: 'Teknoloji',
+            onay_durumu: 'onaylandi',
+            onay_tarihi: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ];
+        localStorage.setItem('humanius_demo_gorev_tanimlari', JSON.stringify(initial));
+        return initial;
+      }
+      return JSON.parse(records);
+    }
     const { data, error } = await supabase
       .from('gorev_tanimlari')
       .select('*')
@@ -59,6 +100,10 @@ export const gorevTanimiService = {
   },
 
   async getGorevTanimiById(id: string) {
+    if (demoService.isDemoActive()) {
+      const list = await this.getGorevTanimlari('demo-company-id-9999');
+      return list.find(g => g.id === id) || null;
+    }
     const { data, error } = await supabase
       .from('gorev_tanimlari')
       .select('*')
@@ -70,6 +115,14 @@ export const gorevTanimiService = {
   },
 
   async updateGorevTanimi(id: string, updates: Partial<GorevTanimi>) {
+    if (demoService.isDemoActive()) {
+      const list = await this.getGorevTanimlari('demo-company-id-9999');
+      const idx = list.findIndex(g => g.id === id);
+      if (idx === -1) throw new Error('Görev tanımı bulunamadı');
+      list[idx] = { ...list[idx], ...updates, updated_at: new Date().toISOString() };
+      localStorage.setItem('humanius_demo_gorev_tanimlari', JSON.stringify(list));
+      return list[idx];
+    }
     const { data, error } = await supabase
       .from('gorev_tanimlari')
       .update(updates)
@@ -82,6 +135,23 @@ export const gorevTanimiService = {
   },
 
   async createApproval(approval: GorevTanimiApproval) {
+    if (demoService.isDemoActive()) {
+      const approvals = JSON.parse(localStorage.getItem('humanius_demo_gorev_approvals') || '[]');
+      const newApp = {
+        ...approval,
+        id: 'app-' + Math.random().toString(36).substr(2, 9),
+        timestamp: new Date().toISOString()
+      };
+      approvals.push(newApp);
+      localStorage.setItem('humanius_demo_gorev_approvals', JSON.stringify(approvals));
+
+      await this.updateGorevTanimi(approval.gorev_tanimi_id, {
+        onay_durumu: approval.approval_status === 'onaylandi' ? 'onaylandi' : 'reddedildi',
+        onay_tarihi: new Date().toISOString()
+      });
+
+      return newApp;
+    }
     const { data, error } = await supabase
       .from('gorev_tanimi_approvals')
       .insert([approval])
@@ -102,6 +172,10 @@ export const gorevTanimiService = {
   },
 
   async getApprovals(gorevTanimiId: string) {
+    if (demoService.isDemoActive()) {
+      const approvals = JSON.parse(localStorage.getItem('humanius_demo_gorev_approvals') || '[]');
+      return approvals.filter((a: any) => a.gorev_tanimi_id === gorevTanimiId);
+    }
     const { data, error } = await supabase
       .from('gorev_tanimi_approvals')
       .select('*')
@@ -113,6 +187,9 @@ export const gorevTanimiService = {
   },
 
   async setEmployeePasscode(employeeId: string, passcodeHash: string) {
+    if (demoService.isDemoActive()) {
+      return demoService.updateEmployee(employeeId, { approval_passcode: passcodeHash } as any) as any;
+    }
     const { data, error } = await supabase
       .from('employees')
       .update({ approval_passcode: passcodeHash })
@@ -125,6 +202,22 @@ export const gorevTanimiService = {
   },
 
   async verifyEmployeePasscode(employeeId: string, passcode: string): Promise<boolean> {
+    if (demoService.isDemoActive()) {
+      const emp = demoService.getEmployees().find(e => e.id === employeeId);
+      if (!emp) return false;
+      if (!emp.approval_passcode) return true;
+
+      let isValid = false;
+      try {
+        isValid = bcrypt.compareSync(passcode, emp.approval_passcode);
+      } catch (e) {
+        isValid = false;
+      }
+      if (!isValid && emp.approval_passcode === passcode) {
+        isValid = true;
+      }
+      return isValid;
+    }
     const { data, error } = await supabase
       .from('employees')
       .select('approval_passcode')
@@ -132,7 +225,7 @@ export const gorevTanimiService = {
       .maybeSingle();
 
     if (error || !data) return false;
-    if (!data.approval_passcode) return true; // Şifre tanımlanmamışsa doğrudan onaylanabilsin
+    if (!data.approval_passcode) return true;
 
     let isValid = false;
     try {
