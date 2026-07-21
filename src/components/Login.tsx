@@ -70,7 +70,18 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,116,144,0.18),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(20,184,166,0.18),_transparent_28%),linear-gradient(135deg,_#0f172a,_#1e293b_45%,_#111827)] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,116,144,0.18),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(20,184,166,0.18),_transparent_28%),linear-gradient(135deg,_#0f172a,_#1e293b_45%,_#111827)] flex items-center justify-center p-4 relative">
+      
+      {/* Floating Demo Button in the top-right corner */}
+      <button
+        type="button"
+        onClick={startDemoSession}
+        className="absolute top-6 right-6 bg-slate-900/40 hover:bg-slate-900/60 border border-white/10 hover:border-white/20 text-slate-300 hover:text-white px-4 py-2 rounded-full text-xs font-semibold shadow-lg backdrop-blur-md transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 cursor-pointer z-50"
+      >
+        <span>✨</span>
+        <span>Demoyu Dene</span>
+      </button>
+
       <div className="w-full max-w-sm">
 
         {/* Logo */}
@@ -217,21 +228,6 @@ export default function Login() {
                     Parolamı unuttum
                   </button>
                 </div>
-
-                <div className="relative flex py-2 items-center">
-                  <div className="flex-grow border-t border-gray-100"></div>
-                  <span className="flex-shrink mx-4 text-gray-300 text-xs uppercase tracking-wider">veya</span>
-                  <div className="flex-grow border-t border-gray-100"></div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={startDemoSession}
-                  className="w-full bg-gradient-to-r from-cyan-50 via-teal-50 to-blue-50 hover:from-cyan-100 hover:to-teal-100 border border-cyan-100 text-cyan-800 py-3 rounded-xl font-semibold hover:shadow-sm transition-all flex items-center justify-center gap-2"
-                >
-                  <span>✨</span>
-                  <span>Üye Olmadan Keşfet: Demo Sürümü</span>
-                </button>
               </form>
             </>
           )}
