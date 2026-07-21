@@ -44,6 +44,124 @@ Deno.serve(async (req: Request) => {
   const method = req.method;
 
   try {
+    // Body'yi bir kere okuyup parse ediyoruz (akış kilidi hatası olmaması için)
+    const body = await req.json().catch(() => ({}));
+
+    // -------------------------------------------------------------
+    // SUPABASE DB WEBHOOK FORWARDER (Humanius ➡️ Portal)
+    // -------------------------------------------------------------
+    // Eğer gelen istek bir Supabase Database Webhook tetikleyicisi ise (table, type ve record içerir)
+    const isWebhook = body.table && body.type && body.record;
+    if (isWebhook) {
+      const table = body.table;
+      const type = body.type; // INSERT, UPDATE, DELETE
+      const record = body.record;
+      const oldRecord = body.old_record;
+      
+      const portalBaseUrl = "https://portal.bigsafer.com/api/sync";
+      
+      console.log(`Database Webhook algılandı. Tablo: ${table}, İşlem: ${type}`);
+
+      // 1. Şirket Güncellemesi (Humanius ➡️ Portal)
+      if (table === 'companies') {
+        const idParam = record.tax_number || record.name;
+        if (type === 'DELETE') {
+          try {
+            const res = await fetch(`${portalBaseUrl}/company/${idParam}`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Api-Key': SYNC_API_KEY
+              }
+            });
+            return jsonResponse({ success: true, forward: 'company_delete', status: res.status });
+          } catch (e: any) {
+            return jsonResponse({ success: false, error: `Portal DELETE /company çağrısı başarısız: ${e.message}` }, 500);
+          }
+        } else {
+          // INSERT veya UPDATE
+          const portalPayload = {
+            name: record.name,
+            yetkili: record.phone || 'İK Yöneticisi',
+            email: record.email || '',
+            vergino: record.tax_number || ''
+          };
+          
+          try {
+            const res = await fetch(`${portalBaseUrl}/company/${idParam}`, {
+              method: type === 'INSERT' ? 'POST' : 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Api-Key': SYNC_API_KEY
+              },
+              body: JSON.stringify(portalPayload)
+            });
+            return jsonResponse({ success: true, forward: 'company_upsert', status: res.status });
+          } catch (e: any) {
+            return jsonResponse({ success: false, error: `Portal POST/PUT /company çağrısı başarısız: ${e.message}` }, 500);
+          }
+        }
+      }
+      
+      // 2. Personel Güncellemesi (Humanius ➡️ Portal)
+      if (table === 'employees') {
+        const idParam = record.tc_no || record.email;
+        if (type === 'DELETE') {
+          try {
+            const res = await fetch(`${portalBaseUrl}/user/${idParam}`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Api-Key': SYNC_API_KEY
+              }
+            });
+            return jsonResponse({ success: true, forward: 'user_delete', status: res.status });
+          } catch (e: any) {
+            return jsonResponse({ success: false, error: `Portal DELETE /user çağrısı başarısız: ${e.message}` }, 500);
+          }
+        } else {
+          // INSERT veya UPDATE
+          // Ad ve soyadı ayır
+          const nameParts = (record.name || '').trim().split(' ');
+          const name = nameParts[0] || '';
+          const lastname = nameParts.slice(1).join(' ') || '';
+          
+          const portalPayload = {
+            user: {
+              companyId: 1, // Portal varsayılan şirket ID'si
+              name,
+              lastname,
+              email: record.email,
+              tel: record.phone || '',
+              username: record.email ? record.email.split('@')[0] : 'user',
+              password: 'PortalSecretPassword123!'
+            },
+            userDetails: {
+              tcNo: record.tc_no || '',
+              cinsiyet: 'Belirtilmemiş',
+              adres: record.address || ''
+            }
+          };
+          
+          try {
+            const res = await fetch(`${portalBaseUrl}/user/${idParam}`, {
+              method: type === 'INSERT' ? 'POST' : 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Api-Key': SYNC_API_KEY
+              },
+              body: JSON.stringify(portalPayload)
+            });
+            return jsonResponse({ success: true, forward: 'user_upsert', status: res.status, portal_url: `${portalBaseUrl}/user/${idParam}` });
+          } catch (e: any) {
+            return jsonResponse({ success: false, error: `Portal POST/PUT /user çağrısı başarısız: ${e.message}` }, 500);
+          }
+        }
+      }
+      
+      return jsonResponse({ success: true, message: 'Senkronizasyon gerektirmeyen tablo güncellemesi, pas geçildi.' });
+    }
+
     // -------------------------------------------------------------
     // FIRMA SENKRONİZASYONU (/company veya /api/sync/company)
     // -------------------------------------------------------------
@@ -53,7 +171,7 @@ Deno.serve(async (req: Request) => {
       const paramId = isParamId ? pathParts[pathParts.length - 1] : null;
 
       if (method === 'DELETE') {
-        const idToDelete = paramId || (await req.json().catch(() => ({}))).id;
+        const idToDelete = paramId || body.id;
         if (!idToDelete) {
           return jsonResponse({ success: false, error: 'Silinecek firma id bilgisi bulunamadı' }, 400);
         }
@@ -71,11 +189,9 @@ Deno.serve(async (req: Request) => {
       }
 
       if (method === 'POST' || method === 'PUT') {
-        const body = await req.json();
         const name = body.name || '';
         const email = body.email || '';
         const vergino = body.vergino || body.tax_number || '';
-        const yetkili = body.yetkili || '';
 
         if (!name) {
           return jsonResponse({ success: false, error: 'Firma adı (name) zorunludur' }, 400);
@@ -158,7 +274,7 @@ Deno.serve(async (req: Request) => {
       const paramId = isParamId ? pathParts[pathParts.length - 1] : null;
 
       if (method === 'DELETE') {
-        const idToDelete = paramId || (await req.json().catch(() => ({}))).id;
+        const idToDelete = paramId || body.id;
         if (!idToDelete) {
           return jsonResponse({ success: false, error: 'Silinecek kullanıcı id/tcNo/email bilgisi bulunamadı' }, 400);
         }
@@ -189,13 +305,10 @@ Deno.serve(async (req: Request) => {
       }
 
       if (method === 'POST' || method === 'PUT') {
-        const body = await req.json();
-
         // Esnek Model Parsing (Portal modelini destekler)
         const userObj = body.user || body;
         const detailsObj = body.userDetails || body.user_details || {};
 
-        const portalCompanyId = userObj.companyId || userObj.companiyid || 1;
         const firstName = userObj.name || userObj.first_name || '';
         const lastName = userObj.lastname || userObj.last_name || '';
         const fullName = `${firstName} ${lastName}`.trim() || userObj.full_name || 'Portal Kullanıcısı';
@@ -204,7 +317,6 @@ Deno.serve(async (req: Request) => {
         const phone = userObj.tel || userObj.phone || '';
 
         const tcNo = detailsObj.tcNo || detailsObj.tc_no || '';
-        const cinsiyet = detailsObj.cinsiyet || '';
         const adres = detailsObj.adres || detailsObj.address || '';
 
         if (!email) {
