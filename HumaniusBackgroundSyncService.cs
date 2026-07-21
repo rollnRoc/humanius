@@ -13,8 +13,8 @@ namespace BigsaferPortal.Sync
     /// </summary>
     public class HumaniusBackgroundSyncService
     {
-        private readonly string _sqlConnStr = "Server=YOUR_SQL_SERVER;Database=BigsaferPortal;User Id=YOUR_USER;Password=YOUR_PASSWORD;";
-        private readonly string _pgConnStr = "Host=aws-0-eu-central-1.pooler.supabase.com;Database=postgres;Username=postgres.gfbtjdedaoleqhrlebof;Password=.Humanius123;Port=6543;";
+        private readonly string _sqlConnStr = "Server=YOUR_SQL_SERVER;Database=YOUR_PORTAL_DATABASE;User Id=YOUR_SQL_USER;Password=YOUR_SQL_PASSWORD;";
+        private readonly string _pgConnStr = "Host=YOUR_SUPABASE_HOST;Database=postgres;Username=postgres.YOUR_PROJECT_ID;Password=YOUR_SUPABASE_PASSWORD;Port=6543;";
 
         // Son senkronizasyon zamanını saklamak için (Bellekte veya SQL Server'da bir tabloda tutulabilir)
         private DateTime _lastSyncTime = DateTime.UtcNow.AddDays(-1); 
