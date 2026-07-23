@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { BookOpen, Award, CheckCircle, Clock, Users, Plus, Search, Lock, ChevronRight, X, Trash2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import type { Employee } from '../types';
 
 interface Egitim {
@@ -60,6 +61,17 @@ interface EgitimLMSProps {
 }
 
 const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' }) => {
+  const { profile, appRole } = useAuth();
+  const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
+
+  const currentEmployee = useMemo(() => {
+    return employees.find(
+      (emp) =>
+        emp.email?.toLowerCase() === profile?.email?.toLowerCase() ||
+        emp.name?.toLowerCase() === profile?.full_name?.toLowerCase()
+    ) || employees[0];
+  }, [employees, profile]);
+
   const [aktifSekme, setAktifSekme] = useState<'katalog' | 'durumlar' | 'sertifikalar'>('katalog');
   const [aramaMetni, setAramaMetni] = useState('');
   const [secilenKategori, setSecilenKategori] = useState('all');
@@ -78,6 +90,16 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
     const saved = localStorage.getItem(`humanius_sertifikalar_${companyId}`);
     return saved ? JSON.parse(saved) : []; // Empty by default
   });
+
+  const goruntulenenSertifikalar = useMemo(() => {
+    if (isManagement) return sertifikalar;
+    if (!currentEmployee) return [];
+    return sertifikalar.filter(
+      (sc) =>
+        sc.employeeId === currentEmployee.id ||
+        sc.employeeName?.toLowerCase() === currentEmployee.name?.toLowerCase()
+    );
+  }, [sertifikalar, isManagement, currentEmployee]);
 
   // Form states
   const [newEgitimForm, setNewEgitimForm] = useState({
@@ -281,15 +303,17 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
           <h2 className="text-xl font-bold text-gray-800">Eğitim ve Gelişim (LMS)</h2>
           <p className="text-sm text-gray-500 mt-0.5">Online eğitimler, sertifika yönetimi ve çalışan gelişim takibi</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowNewEgitim(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Yeni Eğitim Ekle
-          </button>
-        </div>
+        {isManagement && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowNewEgitim(true)}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Yeni Eğitim Ekle
+            </button>
+          </div>
+        )}
       </div>
 
       {/* SkillBridge Integration Banner */}
@@ -309,7 +333,7 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
       </div>
 
       {/* Özet Kartlar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
@@ -338,19 +362,8 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
               <Award className="w-5 h-5 text-yellow-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Sertifikalar</p>
-              <p className="text-xl font-bold text-gray-800">{sertifikalar.length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
-              <Users className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Zorunlu Bitiren</p>
-              <p className="text-xl font-bold text-gray-800">{toplamZorunluTamamlama}</p>
+              <p className="text-xs text-gray-500">{isManagement ? 'Sertifikalar' : 'Sertifikalarım'}</p>
+              <p className="text-xl font-bold text-gray-800">{goruntulenenSertifikalar.length}</p>
             </div>
           </div>
         </div>
@@ -358,7 +371,7 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
 
       {/* Sekmeler */}
       <div className="flex gap-2 border-b border-gray-200">
-        {(['katalog', 'durumlar', 'sertifikalar'] as const).map((sekme) => (
+        {(isManagement ? (['katalog', 'durumlar', 'sertifikalar'] as const) : (['katalog', 'sertifikalar'] as const)).map((sekme) => (
           <button
             key={sekme}
             onClick={() => setAktifSekme(sekme)}
@@ -366,7 +379,7 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
               aktifSekme === sekme ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {sekme === 'katalog' ? 'Eğitim Kataloğu' : sekme === 'durumlar' ? 'Personel Durumları' : 'Sertifikalar / Tamamlananlar'}
+            {sekme === 'katalog' ? 'Eğitim Kataloğu' : sekme === 'durumlar' ? 'Personel Durumları' : isManagement ? 'Sertifikalar / Tamamlananlar' : 'Eğitimlerim & Sertifikalarım'}
           </button>
         ))}
       </div>
@@ -404,20 +417,21 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
             <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-500">
               <BookOpen className="w-12 h-12 mx-auto text-gray-300 mb-3" />
               <p className="font-semibold">Kayıtlı Eğitim Bulunmamaktadır</p>
-              <p className="text-xs text-gray-400 mt-1">Sağ üstteki "Yeni Eğitim Ekle" butonuna tıklayarak ilk eğitimi tanımlayabilirsiniz.</p>
+              {isManagement && <p className="text-xs text-gray-400 mt-1">Sağ üstteki "Yeni Eğitim Ekle" butonuna tıklayarak ilk eğitimi tanımlayabilirsiniz.</p>}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {filtreliEgitimler.map((eg) => {
-                const pct = eg.toplam > 0 ? Math.round((eg.tamamlayanSayisi / eg.toplam) * 100) : 0;
                 return (
                   <div key={eg.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-blue-300 transition-colors relative group">
-                    <button
-                      onClick={() => deleteEgitim(eg.id)}
-                      className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {isManagement && (
+                      <button
+                        onClick={() => deleteEgitim(eg.id)}
+                        className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -446,17 +460,18 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
                         {eg.tamamlayanSayisi}/{eg.toplam} tamamladı
                       </span>
                     </div>
-
-                    <button
-                      onClick={() => {
-                        setNewSertifikaForm((prev) => ({ ...prev, egitimId: eg.id }));
-                        setShowNewSertifika(true);
-                      }}
-                      className="w-full mt-2 flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs py-2 rounded-xl border border-blue-200 transition-colors"
-                    >
-                      <Award className="w-3.5 h-3.5" />
-                      Eğitimi Personele Ata / Kaydet
-                    </button>
+                    {isManagement && (
+                      <button
+                        onClick={() => {
+                          setNewSertifikaForm((prev) => ({ ...prev, egitimId: eg.id }));
+                          setShowNewSertifika(true);
+                        }}
+                        className="w-full mt-2 flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs py-2 rounded-xl border border-blue-200 transition-colors"
+                      >
+                        <Award className="w-3.5 h-3.5" />
+                        Eğitimi Personele Ata / Kaydet
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -466,7 +481,7 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
       )}
 
       {/* Personel Durumları */}
-      {aktifSekme === 'durumlar' && (
+      {aktifSekme === 'durumlar' && isManagement && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -523,14 +538,16 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
       {/* Sertifikalar */}
       {aktifSekme === 'sertifikalar' && (
         <div className="space-y-3">
-          {sertifikalar.length === 0 ? (
+          {goruntulenenSertifikalar.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-500">
               <Award className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-              <p className="font-semibold">Kayıtlı Sertifika Bulunmamaktadır</p>
-              <p className="text-xs text-gray-400 mt-1">Eğitimlerin tamamlanma kayıtlarını ve sertifikalarını yukarıdaki "Sertifika Ekle" butonu ile girebilirsiniz.</p>
+              <p className="font-semibold">{isManagement ? 'Kayıtlı Sertifika Bulunmamaktadır' : 'Atanan veya Tamamlanan Eğitim Bulunmamaktadır'}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {isManagement ? 'Eğitimlerin tamamlanma kayıtlarını ve sertifikalarını yukarıdaki "Sertifika Ekle" butonu ile girebilirsiniz.' : 'Size henüz atanmış veya tamamladığınız bir eğitim bulunmamaktadır.'}
+              </p>
             </div>
           ) : (
-            sertifikalar.map((sc) => {
+            goruntulenenSertifikalar.map((sc) => {
               const gecerlilikTarihi = sc.gecerlilikSuresi
                 ? new Date(new Date(sc.tamamlanmaTarihi).setMonth(new Date(sc.tamamlanmaTarihi).getMonth() + sc.gecerlilikSuresi)).toISOString().split('T')[0]
                 : null;
@@ -538,12 +555,14 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
 
               return (
                 <div key={sc.id} className="bg-white rounded-2xl border border-gray-200 p-5 relative group">
-                  <button
-                    onClick={() => deleteSertifika(sc.id)}
-                    className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {isManagement && (
+                    <button
+                      onClick={() => deleteSertifika(sc.id)}
+                      className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                   <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
