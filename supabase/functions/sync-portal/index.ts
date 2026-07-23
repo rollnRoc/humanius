@@ -189,9 +189,10 @@ Deno.serve(async (req: Request) => {
       }
 
       if (method === 'POST' || method === 'PUT') {
-        const name = body.name || '';
-        const email = body.email || '';
-        const vergino = body.vergino || body.tax_number || '';
+        const compObj = body.company || body;
+        const name = compObj.name || compObj.companyName || body.name || '';
+        const email = compObj.email || body.email || '';
+        const vergino = compObj.vergino || compObj.tax_number || compObj.taxNumber || body.vergino || body.tax_number || '';
 
         if (!name) {
           return jsonResponse({ success: false, error: 'Firma adı (name) zorunludur' }, 400);

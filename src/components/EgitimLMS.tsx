@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { BookOpen, Award, CheckCircle, Clock, Users, Plus, Search, Lock, ChevronRight, X } from 'lucide-react';
+import { BookOpen, Award, CheckCircle, Clock, Users, Plus, Search, Lock, ChevronRight, X, Trash2 } from 'lucide-react';
 import type { Employee } from '../types';
 
 interface Egitim {

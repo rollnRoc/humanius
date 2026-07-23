@@ -47,11 +47,20 @@ const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees,
 
   const months = useMemo(() => {
     const mSet = new Set<string>();
+    const currentYear = new Date().getFullYear();
+    for (let m = 1; m <= 12; m++) {
+      mSet.add(`${currentYear}-${String(m).padStart(2, '0')}`);
+    }
     approvedLeaves.forEach(l => {
       const d = new Date(l.baslangicTarihi);
       mSet.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     });
-    return Array.from(mSet).sort().reverse();
+    return Array.from(mSet).sort().reverse().map(val => {
+      const [y, m] = val.split('-');
+      const dateObj = new Date(parseInt(y), parseInt(m) - 1, 1);
+      const label = dateObj.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+      return { val, label };
+    });
   }, [approvedLeaves]);
 
   return (
@@ -95,7 +104,7 @@ const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees,
           </select>
         </div>
 
-        <div className="flex items-center gap-2 min-w-[150px]">
+        <div className="flex items-center gap-2 min-w-[180px]">
           <CalendarIcon className="w-5 h-5 text-gray-400" />
           <select
             value={selectedMonth}
@@ -104,7 +113,7 @@ const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees,
           >
             <option value="all">Tüm Aylar</option>
             {months.map(m => (
-              <option key={m} value={m}>{m}</option>
+              <option key={m.val} value={m.val}>{m.label}</option>
             ))}
           </select>
         </div>

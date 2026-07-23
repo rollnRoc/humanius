@@ -57,7 +57,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
   const [ilkYayinTarihi, setIlkYayinTarihi] = useState('');
   const [revizyonTarihi, setRevizyonTarihi] = useState('');
   const [revizyonNo, setRevizyonNo] = useState('0');
-  const [pozisyonAdi, setPozisyonAdi] = useState('Tedarik Zinciri Müdürü');
+  const [pozisyonAdi, setPozisyonAdi] = useState('');
   const [sirketAdi, setSirketAdi] = useState('Varsayılan Şirket');
   const [isBirimi, setIsBirimi] = useState('Tedarik Zinciri Bölümü / Operasyonlar');
   const [lokasyon, setLokasyon] = useState('Merkez Ofis');
@@ -425,7 +425,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
             <div className="flex flex-wrap items-center gap-3">
               <FileText className="h-8 w-8" />
               <h1 className="text-3xl font-semibold">GÖREV TANIMI</h1>
-              <span className="rounded-full bg-green-600 px-4 py-2 text-base shadow-sm">Tedarik Zinciri Müdürü</span>
+              <span className="rounded-full bg-green-600 px-4 py-2 text-base shadow-sm">{pozisyonAdi || 'Görev Tanımı'}</span>
             </div>
             <div className="mt-4 flex flex-wrap gap-6 text-base font-medium text-slate-200">
               <div className="flex items-center gap-2">

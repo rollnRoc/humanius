@@ -29,10 +29,6 @@ const UpcomingEvents: React.FC = () => {
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <h3 className="font-bold text-gray-800">{t('upcomingEvents.title')}</h3>
-        <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-xl text-sm font-medium hover:border-blue-300 hover:bg-blue-50 transition-colors">
-          <Plus className="w-4 h-4" />
-          {t('upcomingEvents.add')}
-        </button>
       </div>
       <div className="p-4">
         <div className="space-y-3">
