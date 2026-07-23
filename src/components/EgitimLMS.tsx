@@ -22,9 +22,11 @@ interface SertifikaKaydi {
   egitimAdi: string;
   employeeId: string;
   employeeName: string;
+  durum?: 'tamamlandi' | 'devam_ediyor';
   tamamlanmaTarihi: string;
+  hedefTarih?: string;
   gecerlilikSuresi: number | null; // ay
-  puan: number;
+  puan?: number | null;
 }
 
 interface PersonelEgitimDurumu {
@@ -92,8 +94,11 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
   const [newSertifikaForm, setNewSertifikaForm] = useState({
     egitimId: '',
     employeeId: '',
+    durum: 'tamamlandi' as 'tamamlandi' | 'devam_ediyor',
     tamamlanmaTarihi: new Date().toISOString().split('T')[0],
+    hedefTarih: '',
     gecerlilikSuresi: '',
+    puanEkle: false,
     puan: 85
   });
 
@@ -149,38 +154,47 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
     const selectedEmp = employees.find((emp) => emp.id === newSertifikaForm.employeeId);
     if (!selectedCourse || !selectedEmp) return;
 
+    const isTamamlandi = newSertifikaForm.durum === 'tamamlandi';
+
     const newCert: SertifikaKaydi = {
       id: `sc-${Date.now()}`,
       egitimId: newSertifikaForm.egitimId,
       egitimAdi: selectedCourse.baslik,
       employeeId: newSertifikaForm.employeeId,
       employeeName: selectedEmp.name,
-      tamamlanmaTarihi: newSertifikaForm.tamamlanmaTarihi,
+      durum: newSertifikaForm.durum,
+      tamamlanmaTarihi: isTamamlandi ? newSertifikaForm.tamamlanmaTarihi : '',
+      hedefTarih: !isTamamlandi ? (newSertifikaForm.hedefTarih || newSertifikaForm.tamamlanmaTarihi) : undefined,
       gecerlilikSuresi: newSertifikaForm.gecerlilikSuresi ? Number(newSertifikaForm.gecerlilikSuresi) : null,
-      puan: Number(newSertifikaForm.puan) || 85
+      puan: (isTamamlandi && newSertifikaForm.puanEkle) ? Number(newSertifikaForm.puan) : null
     };
 
     saveSertifikalar([...sertifikalar, newCert]);
 
-    // Update completion count in course
-    const updatedEgitimler = egitimler.map((eg) => {
-      if (eg.id === newSertifikaForm.egitimId) {
-        const alreadyCompleted = sertifikalar.some((sc) => sc.egitimId === eg.id && sc.employeeId === newSertifikaForm.employeeId);
-        return {
-          ...eg,
-          tamamlayanSayisi: alreadyCompleted ? eg.tamamlayanSayisi : eg.tamamlayanSayisi + 1
-        };
-      }
-      return eg;
-    });
-    saveEgitimler(updatedEgitimler);
+    // Update completion count in course if completed
+    if (isTamamlandi) {
+      const updatedEgitimler = egitimler.map((eg) => {
+        if (eg.id === newSertifikaForm.egitimId) {
+          const alreadyCompleted = sertifikalar.some((sc) => sc.egitimId === eg.id && sc.employeeId === newSertifikaForm.employeeId && sc.durum === 'tamamlandi');
+          return {
+            ...eg,
+            tamamlayanSayisi: alreadyCompleted ? eg.tamamlayanSayisi : eg.tamamlayanSayisi + 1
+          };
+        }
+        return eg;
+      });
+      saveEgitimler(updatedEgitimler);
+    }
 
     setShowNewSertifika(false);
     setNewSertifikaForm({
       egitimId: '',
       employeeId: '',
+      durum: 'tamamlandi',
       tamamlanmaTarihi: new Date().toISOString().split('T')[0],
+      hedefTarih: '',
       gecerlilikSuresi: '',
+      puanEkle: false,
       puan: 85
     });
   };
@@ -565,21 +579,38 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
                   </button>
                   <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0">
-                        <Award className="w-6 h-6 text-yellow-600" />
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                        sc.durum === 'devam_ediyor' ? 'bg-amber-100' : 'bg-yellow-100'
+                      }`}>
+                        <Award className={`w-6 h-6 ${sc.durum === 'devam_ediyor' ? 'text-amber-600' : 'text-yellow-600'}`} />
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-800">{sc.egitimAdi}</p>
-                        <p className="text-sm text-gray-500">{sc.employeeName} • Tamamlandı: {sc.tamamlanmaTarihi}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-gray-800">{sc.egitimAdi}</p>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            sc.durum === 'devam_ediyor' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          }`}>
+                            {sc.durum === 'devam_ediyor' ? '🟡 Devam Ediyor / Atandı' : '🟢 Tamamlandı'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          {sc.employeeName} • {sc.durum === 'devam_ediyor' ? `Hedef Tarih: ${sc.hedefTarih || '-'}` : `Tamamlandı: ${sc.tamamlanmaTarihi}`}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4 ml-auto">
-                      <div className="text-right">
-                        <p className="text-xs text-gray-400">Başarı Puanı</p>
-                        <p className={`text-lg font-bold ${sc.puan >= 85 ? 'text-green-600' : sc.puan >= 70 ? 'text-yellow-600' : 'text-red-500'}`}>
-                          {sc.puan}/100
-                        </p>
-                      </div>
+                      {sc.durum !== 'devam_ediyor' && (
+                        <div className="text-right">
+                          <p className="text-xs text-gray-400">Başarı Puanı</p>
+                          {typeof sc.puan === 'number' && sc.puan !== null ? (
+                            <p className={`text-lg font-bold ${sc.puan >= 85 ? 'text-green-600' : sc.puan >= 70 ? 'text-yellow-600' : 'text-red-500'}`}>
+                              %{sc.puan}
+                            </p>
+                          ) : (
+                            <p className="text-xs font-semibold text-gray-500">Puanlama Yok</p>
+                          )}
+                        </div>
+                      )}
                       {gecerlilikTarihi ? (
                         <div className={`text-right px-3 py-1.5 rounded-xl ${yakindaGececek ? 'bg-red-50' : 'bg-green-50'}`}>
                           <p className="text-[10px] text-gray-400">Sertifika Geçerlilik</p>
@@ -742,8 +773,37 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
             </div>
 
             <form onSubmit={handleAddSertifika} className="space-y-4">
+              {/* Eğitim Durumu Seçimi */}
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Tamamlanan Eğitim</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Atama Türü / Durumu</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewSertifikaForm({ ...newSertifikaForm, durum: 'tamamlandi' })}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                      newSertifikaForm.durum === 'tamamlandi'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    🟢 Tamamlanan Eğitim (Sertifikalı)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewSertifikaForm({ ...newSertifikaForm, durum: 'devam_ediyor' })}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                      newSertifikaForm.durum === 'devam_ediyor'
+                        ? 'bg-amber-50 border-amber-500 text-amber-700 shadow-sm'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    🟡 Tamamlanacak / Devam Eden (Atandı)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitim Seçin</label>
                 <select
                   required
                   value={newSertifikaForm.egitimId}
@@ -758,7 +818,7 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitimi Tamamlayan Personel</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">İlgili Personel</label>
                 <select
                   required
                   value={newSertifikaForm.employeeId}
@@ -774,40 +834,65 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Tamamlanma Tarihi</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">
+                    {newSertifikaForm.durum === 'tamamlandi' ? 'Tamamlanma Tarihi' : 'Hedef Tamamlama Tarihi'}
+                  </label>
                   <input
                     type="date"
                     required
-                    value={newSertifikaForm.tamamlanmaTarihi}
-                    onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, tamamlanmaTarihi: e.target.value })}
+                    value={newSertifikaForm.durum === 'tamamlandi' ? newSertifikaForm.tamamlanmaTarihi : newSertifikaForm.hedefTarih}
+                    onChange={(e) => {
+                      if (newSertifikaForm.durum === 'tamamlandi') {
+                        setNewSertifikaForm({ ...newSertifikaForm, tamamlanmaTarihi: e.target.value });
+                      } else {
+                        setNewSertifikaForm({ ...newSertifikaForm, hedefTarih: e.target.value });
+                      }
+                    }}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Başarı Puanı (0 - 100)</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Geçerlilik Süresi (Ay)</label>
                   <input
                     type="number"
-                    min="0"
-                    max="100"
-                    required
-                    value={newSertifikaForm.puan}
-                    onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, puan: Number(e.target.value) })}
+                    min="1"
+                    value={newSertifikaForm.gecerlilikSuresi}
+                    onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, gecerlilikSuresi: e.target.value })}
+                    placeholder="Örn: 12, 24 (Süresiz ise boş)"
                     className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Geçerlilik Süresi (Ay - Boş bırakılırsa Süresiz)</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={newSertifikaForm.gecerlilikSuresi}
-                  onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, gecerlilikSuresi: e.target.value })}
-                  placeholder="Örn: 12, 24..."
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              {/* Başarı Puanı Tickbox */}
+              {newSertifikaForm.durum === 'tamamlandi' && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={newSertifikaForm.puanEkle}
+                      onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, puanEkle: e.target.checked })}
+                      className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
+                    />
+                    <span className="text-xs font-semibold text-gray-700">Başarı Puanı / Sınav Notu Ekle</span>
+                  </label>
+                  
+                  {newSertifikaForm.puanEkle && (
+                    <div className="pt-1">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        required
+                        value={newSertifikaForm.puan}
+                        onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, puan: Number(e.target.value) })}
+                        placeholder="Başarı puanı (0-100)"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-3 mt-6">
                 <button

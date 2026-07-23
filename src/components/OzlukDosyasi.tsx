@@ -931,18 +931,21 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                 const saved = localStorage.getItem(`humanius_sertifikalar_${effectiveCompanyId}`);
                 const allCerts = saved ? JSON.parse(saved) : [];
                 const empCerts = allCerts.filter((c: any) => c.employeeId === selectedEmp.id || c.employeeName === selectedEmp.name);
+                const tamamlananlar = empCerts.filter((c: any) => c.durum !== 'devam_ediyor');
+                const atananlar = empCerts.filter((c: any) => c.durum === 'devam_ediyor');
+
                 return (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
                           <BookOpen className="w-5 h-5 text-blue-600" />
-                          Tamamlanan Eğitimler & Sertifikalar
+                          Eğitimler & Sertifikalar
                         </h3>
-                        <p className="text-xs text-gray-500 mt-0.5">Personelin katıldığı, tamamladığı ve hak kazandığı eğitim sertifikaları.</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Personelin katıldığı, tamamladığı ve devam eden eğitim süreçleri.</p>
                       </div>
                       <span className="bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full border border-blue-200">
-                        {empCerts.length} Kayıtlı Eğitim
+                        {empCerts.length} Toplam Eğitim Kaydı
                       </span>
                     </div>
 
@@ -953,24 +956,67 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                         <p className="text-xs text-gray-400 mt-1">Sol menüdeki "Eğitim & Gelişim (LMS)" modülünden yeni bir eğitim atayabilir veya sertifika kaydı ekleyebilirsiniz.</p>
                       </div>
                     ) : (
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {empCerts.map((cert: any) => (
-                          <div key={cert.id} className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-start justify-between">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <Award className="w-4 h-4 text-yellow-500 shrink-0" />
-                                <h4 className="font-bold text-sm text-gray-800">{cert.egitimAdi}</h4>
-                              </div>
-                              <p className="text-xs text-gray-500">Tamamlanma Tarihi: {cert.tamamlanmaTarihi}</p>
-                              {cert.gecerlilikSuresi && (
-                                <p className="text-xs text-blue-600 font-medium">Geçerlilik: {cert.gecerlilikSuresi} Ay</p>
-                              )}
+                      <div className="space-y-5">
+                        {/* Atanan / Devam Eden Eğitimler */}
+                        {atananlar.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                              <Clock className="w-4 h-4 text-amber-600" />
+                              Devam Eden / Atanan Eğitimler ({atananlar.length})
+                            </h4>
+                            <div className="grid gap-3 md:grid-cols-2">
+                              {atananlar.map((cert: any) => (
+                                <div key={cert.id} className="bg-amber-50/50 border border-amber-200 rounded-2xl p-4 shadow-sm flex items-start justify-between">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <Award className="w-4 h-4 text-amber-600 shrink-0" />
+                                      <h5 className="font-bold text-sm text-gray-800">{cert.egitimAdi}</h5>
+                                    </div>
+                                    <p className="text-xs text-amber-800 font-medium">Hedef Tamamlama Tarihi: {cert.hedefTarih || cert.tamamlanmaTarihi || '-'}</p>
+                                  </div>
+                                  <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2.5 py-1 rounded-full border border-amber-300">
+                                    🟡 Devam Ediyor
+                                  </span>
+                                </div>
+                              ))}
                             </div>
-                            <span className="bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full border border-green-200">
-                              %{cert.puan || 100} Başarı
-                            </span>
                           </div>
-                        ))}
+                        )}
+
+                        {/* Tamamlanan Eğitimler */}
+                        {tamamlananlar.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                              <CheckCircle className="w-4 h-4 text-emerald-600" />
+                              Tamamlanan Eğitimler & Sertifikalar ({tamamlananlar.length})
+                            </h4>
+                            <div className="grid gap-3 md:grid-cols-2">
+                              {tamamlananlar.map((cert: any) => (
+                                <div key={cert.id} className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-start justify-between">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <Award className="w-4 h-4 text-yellow-500 shrink-0" />
+                                      <h5 className="font-bold text-sm text-gray-800">{cert.egitimAdi}</h5>
+                                    </div>
+                                    <p className="text-xs text-gray-500">Tamamlanma Tarihi: {cert.tamamlanmaTarihi || '-'}</p>
+                                    {cert.gecerlilikSuresi && (
+                                      <p className="text-xs text-blue-600 font-medium">Geçerlilik: {cert.gecerlilikSuresi} Ay</p>
+                                    )}
+                                  </div>
+                                  {typeof cert.puan === 'number' && cert.puan !== null ? (
+                                    <span className="bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full border border-green-200">
+                                      %{cert.puan} Başarı
+                                    </span>
+                                  ) : (
+                                    <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2.5 py-1 rounded-full border border-blue-200">
+                                      ✓ Tamamlandı
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
