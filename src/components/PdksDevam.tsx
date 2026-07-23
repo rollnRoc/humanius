@@ -77,6 +77,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
   const [companyCoords, setCompanyCoords] = useState({ lat: 39.92077, lng: 32.85411 });
   const [geofenceRadius, setGeofenceRadius] = useState(200); // 200 meters geofence
   const [distanceToCompany, setDistanceToCompany] = useState<number | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'pending' | 'success' | 'denied' | 'error'>('pending');
+  const [locationErrorMsg, setLocationErrorMsg] = useState('');
   const [allShiftRecords, setAllShiftRecords] = useState<any[]>([]);
   
   // Edit Employee PDKS Modal states
