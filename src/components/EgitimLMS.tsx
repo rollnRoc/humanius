@@ -477,8 +477,7 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tamamlanan</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Zorunlu Eğitimler</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Sertifika</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Son Aktivite</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Durum</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Son Aktivite</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -519,18 +518,7 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
                           {pd.sertifikaAdedi}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{pd.sonAktivite}</td>
-                      <td className="px-4 py-3 text-center">
-                        {pd.toplam > 0 ? (
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            oran >= 75 ? 'bg-green-100 text-green-700' : oran >= 40 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600'
-                          }`}>
-                            {oran >= 75 ? 'İyi' : oran >= 40 ? 'Orta' : 'Düşük'}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">-</span>
-                        )}
-                      </td>
+                      <td className="px-4 py-3 text-center text-gray-500 text-xs">{pd.sonAktivite}</td>
                     </tr>
                   );
                 })}
