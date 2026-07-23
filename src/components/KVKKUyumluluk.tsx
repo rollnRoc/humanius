@@ -682,10 +682,11 @@ const KVKKUyumluluk: React.FC<KVKKUyumlulukProps> = ({ employees = [] }) => {
                       </div>
                       <button
                         onClick={() => handlePrint(metin.id)}
-                        className="p-2 border border-gray-200 hover:bg-gray-50 rounded-xl text-gray-600 transition-colors"
-                        title="Yazdır / Çıkar"
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 hover:bg-gray-100 rounded-xl text-xs font-semibold text-gray-700 transition-colors shadow-sm"
+                        title="Yazdır / PDF İndir (Islak İmza Belgesi)"
                       >
-                        <Printer className="w-4 h-4" />
+                        <Printer className="w-4 h-4 text-indigo-600" />
+                        <span>Yazdır / PDF İndir (Islak İmza)</span>
                       </button>
                     </div>
 

@@ -265,6 +265,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
   const [checkInModal, setCheckInModal] = useState(false);
   const [checkInTur, setCheckInTur] = useState<KaynakTip>('mobil-qr');
   const [duzeltmeModal, setDuzeltmeModal] = useState<PDKSKaydi | null>(null);
+  const [duzeltmeGirisSaati, setDuzeltmeGirisSaati] = useState('');
   const [duzeltmeSaati, setDuzeltmeSaati] = useState('');
   const [vardiyaModal, setVardiyaModal] = useState(false);
   const [vardiyalar, setVardiyalar] = useState<VardiyaTanimi[]>(DEMO_VARDIYALAR);
@@ -427,29 +428,36 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
   }
 
   async function duzeltmeKaydet() {
-    if (!duzeltmeModal || !duzeltmeSaati) return;
+    if (!duzeltmeModal) return;
     try {
-      await pdksService.updateVardiya(duzeltmeModal.id, { cikis_saati: duzeltmeSaati + ':00' });
-      const hesap = hesaplaKayit(duzeltmeModal.girisZamani, duzeltmeSaati, DEMO_VARDIYALAR[0]);
-      if (hesap.gunlukFazlaMesaiDk > 0) {
-         await pdksService.createFazlaMesai({
-           company_id: profile?.company_id,
-           employee_id: duzeltmeModal.employeeId,
-           tarih: duzeltmeModal.tarih,
-           baslangic_saati: DEMO_VARDIYALAR[0].cikis + ':00',
-           bitis_saati: duzeltmeSaati + ':00',
-           toplam_saat: hesap.gunlukFazlaMesaiDk / 60,
-           aciklama: 'Otomatik duzeltme',
-           onay_durumu: 'bekliyor',
-           onaylayan_id: null,
-           onay_tarihi: null
-         });
-      }
+      const updatedGiris = duzeltmeGirisSaati || duzeltmeModal.girisZamani;
+      const updatedCikis = duzeltmeSaati || duzeltmeModal.cikisZamani;
+      
+      await pdksService.updateVardiya(duzeltmeModal.id, {
+        giris_saati: updatedGiris ? updatedGiris + ':00' : undefined,
+        cikis_saati: updatedCikis ? updatedCikis + ':00' : undefined
+      });
+
+      // Update local state record dynamically
+      setAllKayitlar(prev => prev.map(item => {
+        if (item.id === duzeltmeModal.id) {
+          const hesap = hesaplaKayit(updatedGiris, updatedCikis, DEMO_VARDIYALAR[0]);
+          return {
+            ...item,
+            girisZamani: updatedGiris,
+            cikisZamani: updatedCikis,
+            ...hesap
+          };
+        }
+        return item;
+      }));
+
       await loadData();
     } catch(err) {
       console.error(err);
     }
     setDuzeltmeModal(null);
+    setDuzeltmeGirisSaati('');
     setDuzeltmeSaati('');
   }
 
@@ -592,13 +600,18 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                           {DURUM_ETIKETI[effectiveDurum(k)]}
                         </span>
                       </td>
-      <td className="px-4 py-3">
+                      <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
-                          {effectiveDurum(k) === 'eksik-cikis' && (
-                            <button onClick={() => setDuzeltmeModal(k)} className="text-xs text-pink-600 hover:underline font-medium">
-                              Duzelt
-                            </button>
-                          )}
+                          <button
+                            onClick={() => {
+                              setDuzeltmeModal(k);
+                              setDuzeltmeGirisSaati(k.girisZamani || '');
+                              setDuzeltmeSaati(k.cikisZamani || '');
+                            }}
+                            className="text-xs text-blue-600 hover:underline font-semibold flex items-center gap-1"
+                          >
+                            ✏️ Düzenle
+                          </button>
                           {k.gunlukFazlaMesaiDk > 0 && k.fazlaMesaiOnayDurum === 'beklemede' && (
                             <div className="flex gap-1">
                               <button
@@ -856,20 +869,34 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-800">Cikis Saati Duzelt</h3>
+              <h3 className="text-lg font-bold text-gray-800">Giriş / Çıkış Saati Düzenle</h3>
               <button onClick={() => setDuzeltmeModal(null)}>
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
-            <p className="text-xs text-gray-500">
-              {duzeltmeModal.employeeName} | {duzeltmeModal.tarih} | Giris: {duzeltmeModal.girisZamani}
+            <p className="text-xs text-gray-500 font-medium">
+              {duzeltmeModal.employeeName} • {duzeltmeModal.tarih}
             </p>
-            <input
-              type="time"
-              value={duzeltmeSaati}
-              onChange={(e) => setDuzeltmeSaati(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Giriş Saati</label>
+                <input
+                  type="time"
+                  value={duzeltmeGirisSaati}
+                  onChange={(e) => setDuzeltmeGirisSaati(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Çıkış Saati</label>
+                <input
+                  type="time"
+                  value={duzeltmeSaati}
+                  onChange={(e) => setDuzeltmeSaati(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
             <div className="flex gap-3">
               <button onClick={() => setDuzeltmeModal(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600">
                 Iptal

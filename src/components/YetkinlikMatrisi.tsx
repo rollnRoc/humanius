@@ -76,6 +76,11 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees, companyI
   const [secilenEmployee, setSecilenEmployee] = useState<string>('');
   const [aktifSekme, setAktifSekme] = useState<'matris' | 'gap' | 'takdir'>('matris');
 
+  const tumPozisyonlar = useMemo(() => {
+    const list = new Set([...DEMO_POZISYON_GEREKSINIM.map(p => p.pozisyon), ...employees.map(e => e.position).filter(Boolean)]);
+    return Array.from(list);
+  }, [employees]);
+
   const [yetkinlikler] = useState<Yetkinlik[]>(DEMO_YETKINLIKLER);
 
   // Load personelYetkinlikler from localStorage or default to 0 for all pairs
@@ -276,7 +281,7 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees, companyI
               <select value={secilenPozisyon} onChange={(e) => setSecilenPozisyon(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
                 <option value="">Mevcut pozisyon</option>
-                {DEMO_POZISYON_GEREKSINIM.map((p) => <option key={p.pozisyon} value={p.pozisyon}>{p.pozisyon}</option>)}
+                {tumPozisyonlar.map((pos) => <option key={pos} value={pos}>{pos}</option>)}
               </select>
             </div>
           </div>
