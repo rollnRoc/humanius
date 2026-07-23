@@ -529,62 +529,6 @@ const SistemAyarlari: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">Oturum ve Yetki</h2>
-            <p className="mt-1 text-sm text-gray-600">Aktif kullanıcı: {profile?.full_name || 'Kullanıcı'} • {getRoleLabel(appRole)}</p>
-          </div>
-        </div>
-
-        <form onSubmit={handlePasswordSubmit} className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Yeni Şifre</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              placeholder="En az 6 karakter"
-              minLength={6}
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Yeni Şifre Tekrar</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              placeholder="Şifreyi tekrar yazın"
-              minLength={6}
-              required
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={passwordLoading}
-              className="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-            >
-              {passwordLoading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
-            </button>
-          </div>
-        </form>
-
-        {passwordError && (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {passwordError}
-          </div>
-        )}
-
-        {passwordMessage && (
-          <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {passwordMessage}
-          </div>
-        )}
-      </div>
 
       {/* Header */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">

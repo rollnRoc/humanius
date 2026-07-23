@@ -677,15 +677,6 @@ const KullanicilarPage: React.FC = () => {
           >
             <RefreshCw size={16} />
           </button>
-          {canManageUsers(appRole) && (
-            <button
-              onClick={() => { setEditTarget(null); setModalMode('create'); }}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-            >
-              <UserPlus size={16} />
-              Yeni Kullanıcı
-            </button>
-          )}
         </div>
       </div>
 

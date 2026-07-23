@@ -451,16 +451,27 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Kategori</label>
-                <select value={form.kategori} onChange={(e) => setForm({ ...form, kategori: e.target.value as ZimmetKategori })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                <input
+                  type="text"
+                  list="zimmet-kategorileri"
+                  value={form.kategori}
+                  onChange={(e) => setForm({ ...form, kategori: e.target.value as any })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                  placeholder="Kategori yazın veya seçin (Örn: Kulaklık, Yazıcı...)"
+                />
+                <datalist id="zimmet-kategorileri">
                   <option value="bilgisayar">Bilgisayar</option>
                   <option value="telefon">Telefon</option>
                   <option value="arac">Araç</option>
                   <option value="anahtar">Anahtar</option>
                   <option value="monitor">Monitör</option>
                   <option value="yazici">Yazıcı</option>
+                  <option value="kulaklik">Kulaklık</option>
+                  <option value="tablet">Tablet</option>
+                  <option value="mobilya">Mobilya / Masa</option>
+                  <option value="yazilim">Yazılım Lisansı</option>
                   <option value="diger">Diğer</option>
-                </select>
+                </datalist>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Marka</label>
