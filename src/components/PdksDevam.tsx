@@ -77,9 +77,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
   const [companyCoords, setCompanyCoords] = useState({ lat: 39.92077, lng: 32.85411 });
   const [geofenceRadius, setGeofenceRadius] = useState(200); // 200 meters geofence
   const [distanceToCompany, setDistanceToCompany] = useState<number | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'pending' | 'success' | 'denied' | 'error'>('pending');
-  const [locationErrorMsg, setLocationErrorMsg] = useState('');
   const [allShiftRecords, setAllShiftRecords] = useState<any[]>([]);
+  
+  // Edit Employee PDKS Modal states
+  const [editEmpModal, setEditEmpModal] = useState<any | null>(null);
+  const [editGiris, setEditGiris] = useState('');
+  const [editCikis, setEditCikis] = useState('');
+
+  // Company Work Hours Config Modal state
+  const [showShiftConfig, setShowShiftConfig] = useState(false);
+  const [shiftConfig, setShiftConfig] = useState(() => {
+    const saved = localStorage.getItem('humanius_company_shift_config');
+    return saved ? JSON.parse(saved) : { giris: '08:30', cikis: '18:00', tolerans: 15, mola: 60 };
+  });
   
   // Geolocation watch ID ref
   const watchIdRef = useRef<number | null>(null);
@@ -461,6 +471,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           mesai,
         };
       }
+
+      // Check if there is an explicit admin override in localStorage for this employee today
+      const savedOverride = localStorage.getItem(`humanius_pdks_override_${emp.id}`);
+      if (savedOverride) {
+        const parsed = JSON.parse(savedOverride);
+        return {
+          employee: emp,
+          giris: parsed.giris,
+          cikis: parsed.cikis,
+          durum: parsed.durum,
+          mesai: parsed.mesai,
+        };
+      }
       
       // 2. Try to find if they are on approved leave today
       const today = new Date();
@@ -482,13 +505,12 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       }
       
       // 3. Fallback to deterministic check-in status based on employee ID hash
-      // to make the demo view look realistic and stable without random shifts on render
       const charCodeSum = emp.name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
       const isLate = charCodeSum % 7 === 0;
       const isAbsent = charCodeSum % 13 === 0;
       
       const giris = isAbsent ? '-' : (isLate ? '09:15' : '08:50');
-      const cikis = isAbsent ? '-' : '18:00';
+      const cikis = isAbsent ? '-' : shiftConfig.cikis;
       const durum = isAbsent ? 'Devamsız' : (isLate ? 'Geç Kaldı' : 'Zamanında');
       const mesai = isAbsent ? 0 : 9;
       
@@ -766,7 +788,31 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         </div>
       ) : (
         /* Team Monitoring Tab (Only visible to Management) */
-        <div className="space-y-6">
+        <div className="space-y-4">
+          {/* Company Shift Config Banner */}
+          <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shrink-0">
+                ⏰
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-indigo-950">Şirket Mesai & Çalışma Saatleri</h4>
+                <p className="text-xs text-indigo-700 mt-0.5">
+                  Standart Vardiya: <strong className="text-indigo-900 font-mono">{shiftConfig.giris} - {shiftConfig.cikis}</strong> • Tolerans: <strong>{shiftConfig.tolerans} dk</strong> • Mola: <strong>{shiftConfig.mola} dk</strong>
+                </p>
+              </div>
+            </div>
+            {isManagement && (
+              <button
+                onClick={() => setShowShiftConfig(true)}
+                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                ⚙️ Mesai Saatlerini Yönet
+              </button>
+            )}
+          </div>
+
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
             <div className="flex-1 relative">
               <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -775,10 +821,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                 placeholder="Personel ara..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none"
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none text-sm"
               />
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600">
+            <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 text-sm">
               <Filter className="w-4 h-4" />
               Filtrele
             </button>
@@ -793,35 +839,224 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   <th className="px-6 py-4 text-center">Giriş Saati</th>
                   <th className="px-6 py-4 text-center">Çıkış Saati</th>
                   <th className="px-6 py-4 text-center">Çalışma Süresi</th>
-                  <th className="px-6 py-4 text-right">Durum</th>
+                  <th className="px-6 py-4 text-center">Durum</th>
+                  {isManagement && <th className="px-6 py-4 text-right">İşlemler</th>}
                 </tr>
               </thead>
               <tbody>
                 {filteredData.map((d, i) => (
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium text-gray-900">{d.employee.name}</td>
-                    <td className="px-6 py-4 text-gray-600">{d.employee.department}</td>
-                    <td className="px-6 py-4 text-center font-medium text-gray-800">{d.giris}</td>
-                    <td className="px-6 py-4 text-center font-medium text-gray-800">{d.cikis}</td>
-                    <td className="px-6 py-4 text-center text-gray-600">{d.mesai} Saat</td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-gray-600">{d.employee.department || 'Genel'}</td>
+                    <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">{d.giris}</td>
+                    <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">{d.cikis}</td>
+                    <td className="px-6 py-4 text-center text-gray-600 font-medium">{d.mesai} Saat</td>
+                    <td className="px-6 py-4 text-center">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                         d.durum === 'Zamanında' ? 'bg-green-100 text-green-700' :
                         d.durum === 'Geç Kaldı' ? 'bg-yellow-100 text-yellow-700' :
+                        d.durum === 'İzinli' ? 'bg-blue-100 text-blue-700' :
                         'bg-red-100 text-red-700'
                       }`}>
                         {d.durum}
                       </span>
                     </td>
+                    {isManagement && (
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => {
+                            setEditEmpModal(d);
+                            setEditGiris(d.giris === '-' ? shiftConfig.giris : d.giris);
+                            setEditCikis(d.cikis === '-' ? shiftConfig.cikis : d.cikis);
+                          }}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
+                        >
+                          ✏️ Düzenle
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Kayıt bulunamadı.</td>
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">Kayıt bulunamadı.</td>
                   </tr>
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Individual Employee Shift Modal */}
+      {editEmpModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800">Giriş / Çıkış Saati Düzenle</h3>
+              <button onClick={() => setEditEmpModal(null)} className="text-gray-400 hover:text-gray-600">
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 font-medium">
+              {editEmpModal.employee.name} ({editEmpModal.employee.department || 'Genel'})
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Giriş Saati</label>
+                <input
+                  type="time"
+                  value={editGiris}
+                  onChange={(e) => setEditGiris(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Çıkış Saati</label>
+                <input
+                  type="time"
+                  value={editCikis}
+                  onChange={(e) => setEditCikis(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditEmpModal(null)}
+                className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!editEmpModal) return;
+                  // Calculate new status
+                  const [gH, gM] = editGiris.split(':').map(Number);
+                  const [cH, cM] = editCikis.split(':').map(Number);
+                  const [sGh, sGm] = shiftConfig.giris.split(':').map(Number);
+                  
+                  const actualMin = gH * 60 + gM;
+                  const shiftMin = sGh * 60 + sGm;
+                  const lateDiff = actualMin - shiftMin;
+                  
+                  const newDurum = lateDiff > shiftConfig.tolerans ? 'Geç Kaldı' : 'Zamanında';
+                  const diffHours = parseFloat((((cH * 60 + cM) - actualMin) / 60).toFixed(1));
+
+                  const overrideObj = {
+                    giris: editGiris,
+                    cikis: editCikis,
+                    durum: newDurum,
+                    mesai: diffHours > 0 ? diffHours : 0
+                  };
+
+                  localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
+                  
+                  // Also record shift to pdksService if possible
+                  if (profile?.company_id && editEmpModal.employee.id) {
+                    pdksService.createVardiya({
+                      company_id: profile.company_id,
+                      employee_id: editEmpModal.employee.id,
+                      tarih: new Date().toISOString().split('T')[0],
+                      giris_saati: editGiris + ':00',
+                      cikis_saati: editCikis + ':00',
+                      vardiya_tipi: 'sabah',
+                      durum: newDurum === 'Zamanında' ? 'normal' : 'gec'
+                    }).catch(console.error);
+                  }
+
+                  setEditEmpModal(null);
+                }}
+                className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 shadow-sm"
+              >
+                Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Company Shift Configuration Modal */}
+      {showShiftConfig && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800">Şirket Mesai Saatlerini Yönet</h3>
+              <button onClick={() => setShowShiftConfig(false)} className="text-gray-400 hover:text-gray-600">
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Şirketinizin varsayılan çalışma saatlerini, geç kalma toleransını ve yemek molasını tanımlayın.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Standard Giriş Saati</label>
+                <input
+                  type="time"
+                  value={shiftConfig.giris}
+                  onChange={(e) => setShiftConfig({ ...shiftConfig, giris: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Standard Çıkış Saati</label>
+                <input
+                  type="time"
+                  value={shiftConfig.cikis}
+                  onChange={(e) => setShiftConfig({ ...shiftConfig, cikis: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Geç Kalma Toleransı (Dk)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={shiftConfig.tolerans}
+                  onChange={(e) => setShiftConfig({ ...shiftConfig, tolerans: Number(e.target.value) })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Yemek / Mola Süresi (Dk)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={shiftConfig.mola}
+                  onChange={(e) => setShiftConfig({ ...shiftConfig, mola: Number(e.target.value) })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowShiftConfig(false)}
+                className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.setItem('humanius_company_shift_config', JSON.stringify(shiftConfig));
+                  setShowShiftConfig(false);
+                }}
+                className="flex-1 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 shadow-sm"
+              >
+                Değişiklikleri Kaydet
+              </button>
+            </div>
           </div>
         </div>
       )}
