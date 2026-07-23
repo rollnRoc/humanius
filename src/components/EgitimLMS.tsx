@@ -281,7 +281,10 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
   }, [employees, egitimler, sertifikalar]);
 
   const kategoriler = useMemo(() => {
-    return ['all', ...Array.from(new Set(egitimler.map((e) => e.kategori)))];
+    const cats = Array.from(new Set(egitimler.map((e) => e.kategori))).filter(
+      (c) => c && c.trim().toLowerCase() !== 'bilgi'
+    );
+    return ['all', ...cats];
   }, [egitimler]);
 
   const filtreliEgitimler = useMemo(() => {
@@ -427,7 +430,7 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-600">Zorunlu</span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500">{eg.egitmen} • {eg.kategori}</p>
+                        <p className="text-xs text-gray-500">{eg.egitmen}{eg.kategori && eg.kategori.toLowerCase() !== 'bilgi' ? ` • ${eg.kategori}` : ''}</p>
                       </div>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${seviyeRenk[eg.seviye]}`}>
                         {eg.seviye === 'baslangic' ? 'Başlangıç' : eg.seviye === 'orta' ? 'Orta' : 'İleri'}
