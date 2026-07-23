@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   FolderOpen, Upload, Download, Trash2, FileText, User, Calendar,
   AlertTriangle, Briefcase, Clock, RefreshCw, Plus, X, ChevronDown, Lock,
-  Building2, Phone, Mail, MapPin, Shield, FileBadge, ClipboardList, CheckCircle, Eye
+  Building2, Phone, Mail, MapPin, Shield, FileBadge, ClipboardList, CheckCircle, Eye,
+  BookOpen, Award
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ozlukDosyasiService, OzlukDosya } from '../services/ozlukDosyasiService';
@@ -28,7 +29,7 @@ const BELGE_KATEGORILER = [
 
 type KategoriId = typeof BELGE_KATEGORILER[number]['id'];
 
-type TabId = 'genel' | 'belgeler' | 'bordro' | 'izin' | 'gorev-tanimi' | 'tutanaklar' | 'sikayetler';
+type TabId = 'genel' | 'belgeler' | 'bordro' | 'izin' | 'gorev-tanimi' | 'egitimler' | 'tutanaklar' | 'sikayetler';
 
 const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'genel', label: 'Genel Bilgiler', icon: User },
@@ -36,6 +37,7 @@ const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: 
   { id: 'bordro', label: 'Bordro Özeti', icon: Briefcase },
   { id: 'izin', label: 'İzin Durumu', icon: Calendar },
   { id: 'gorev-tanimi', label: 'Görev Tanımı', icon: ClipboardList },
+  { id: 'egitimler', label: 'Eğitimler & Sertifikalar', icon: BookOpen },
   { id: 'tutanaklar', label: 'Tutanaklar', icon: FileText },
   { id: 'sikayetler', label: 'Şikayetler', icon: AlertTriangle },
 ];
@@ -923,6 +925,57 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                   onDownload={handleDownload}
                 />
               )}
+
+              {/*    Eğitimler & Sertifikalar                    */}
+              {activeTab === 'egitimler' && (() => {
+                const saved = localStorage.getItem(`humanius_sertifikalar_${effectiveCompanyId}`);
+                const allCerts = saved ? JSON.parse(saved) : [];
+                const empCerts = allCerts.filter((c: any) => c.employeeId === selectedEmp.id || c.employeeName === selectedEmp.name);
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                          <BookOpen className="w-5 h-5 text-blue-600" />
+                          Tamamlanan Eğitimler & Sertifikalar
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-0.5">Personelin katıldığı, tamamladığı ve hak kazandığı eğitim sertifikaları.</p>
+                      </div>
+                      <span className="bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full border border-blue-200">
+                        {empCerts.length} Kayıtlı Eğitim
+                      </span>
+                    </div>
+
+                    {empCerts.length === 0 ? (
+                      <div className="bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-8 text-center text-gray-500">
+                        <Award className="w-10 h-10 mx-auto text-gray-300 mb-2" />
+                        <p className="font-semibold text-sm">Henüz Kayıtlı Eğitim Bulunmuyor</p>
+                        <p className="text-xs text-gray-400 mt-1">Sol menüdeki "Eğitim & Gelişim (LMS)" modülünden yeni bir eğitim atayabilir veya sertifika kaydı ekleyebilirsiniz.</p>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {empCerts.map((cert: any) => (
+                          <div key={cert.id} className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-start justify-between">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <Award className="w-4 h-4 text-yellow-500 shrink-0" />
+                                <h4 className="font-bold text-sm text-gray-800">{cert.egitimAdi}</h4>
+                              </div>
+                              <p className="text-xs text-gray-500">Tamamlanma Tarihi: {cert.tamamlanmaTarihi}</p>
+                              {cert.gecerlilikSuresi && (
+                                <p className="text-xs text-blue-600 font-medium">Geçerlilik: {cert.gecerlilikSuresi} Ay</p>
+                              )}
+                            </div>
+                            <span className="bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full border border-green-200">
+                              %{cert.puan || 100} Başarı
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/*    Şikayetler                                   */}
               {activeTab === 'sikayetler' && (
