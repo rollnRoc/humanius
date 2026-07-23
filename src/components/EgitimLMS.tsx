@@ -447,19 +447,6 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
                       </span>
                     </div>
 
-                    <div className="mb-3">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>Tamamlanma Oranı</span>
-                        <span>%{pct}</span>
-                      </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${pct >= 85 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-400' : 'bg-blue-500'}`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-
                     <button
                       onClick={() => {
                         setNewSertifikaForm((prev) => ({ ...prev, egitimId: eg.id }));
