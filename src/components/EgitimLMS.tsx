@@ -433,7 +433,7 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
                       </span>
                     </div>
 
-                    <div>
+                    <div className="mb-3">
                       <div className="flex justify-between text-xs text-gray-500 mb-1">
                         <span>Tamamlanma Oranı</span>
                         <span>%{pct}</span>
@@ -445,6 +445,17 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
                         />
                       </div>
                     </div>
+
+                    <button
+                      onClick={() => {
+                        setNewSertifikaForm((prev) => ({ ...prev, egitimId: eg.id }));
+                        setShowNewSertifika(true);
+                      }}
+                      className="w-full mt-2 flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs py-2 rounded-xl border border-blue-200 transition-colors"
+                    >
+                      <Award className="w-3.5 h-3.5" />
+                      Eğitimi Personele Ata / Kaydet
+                    </button>
                   </div>
                 );
               })}
