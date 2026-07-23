@@ -65,8 +65,17 @@ const PuanYildizlari: React.FC<{ puan: number; max?: number }> = ({ puan, max = 
 );
 
 const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, userRole = 'employee' }) => {
-  const { profile } = useAuth();
+  const { profile, appRole } = useAuth();
+  const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
   const companyId = profile?.company_id || 'default';
+
+  const currentEmployee = useMemo(() => {
+    return employees.find(
+      (emp) =>
+        emp.email?.toLowerCase() === profile?.email?.toLowerCase() ||
+        emp.name?.toLowerCase() === profile?.full_name?.toLowerCase()
+    ) || employees[0];
+  }, [employees, profile]);
 
   const [aktifSekme, setAktifSekme] = useState<'degerlendirme' | 'okr' | 'geri-bildirim'>('degerlendirme');
   const [secilenEmployee, setSecilenEmployee] = useState<string | null>(null);
@@ -93,37 +102,6 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
   const [okrListesi, setOkrListesi] = useState<OKR[]>([]);
   const [geriBildirimler, setGeriBildirimler] = useState<GeriBildirim[]>([]);
 
-  // Yeni Değerlendirme Formu State
-  const [yeniDeg, setYeniDeg] = useState({
-    employeeId: '',
-    donem: guncelDonem,
-    teknikYetkinlik: 3,
-    iletisim: 3,
-    takim: 3,
-    liderlik: 3,
-    uyum: 3,
-    yorumlar: '',
-    gelisimAlanlari: '',
-    hedefler: ''
-  });
-
-  // Yeni OKR Formu State
-  const [yeniOkr, setYeniOkr] = useState({
-    employeeId: '',
-    hedef: '',
-    donem: guncelDonem,
-    kr1: '',
-    kr2: '',
-    kr3: ''
-  });
-
-  // Yeni Geri Bildirim Formu State
-  const [yeniFb, setYeniFb] = useState({
-    aliciEmployeeId: '',
-    mesaj: '',
-    tip: 'olumlu' as 'olumlu' | 'gelistirici' | 'nötr'
-  });
-
   // LocalStorage'dan yükleme
   useEffect(() => {
     const storedDeg = localStorage.getItem(`humanius_performances_${companyId}`);
@@ -148,14 +126,46 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
     }
   }, [companyId]);
 
+  // Role-filtered data lists
+  const goruntulenenDegerlendirmeler = useMemo(() => {
+    if (isManagement) return degerlendirmeler;
+    if (!currentEmployee) return [];
+    return degerlendirmeler.filter(
+      (deg) =>
+        deg.employeeId === currentEmployee.id ||
+        deg.employeeName?.toLowerCase() === currentEmployee.name?.toLowerCase()
+    );
+  }, [degerlendirmeler, isManagement, currentEmployee]);
+
+  const goruntulenenOkrs = useMemo(() => {
+    if (isManagement) return okrListesi;
+    if (!currentEmployee) return [];
+    return okrListesi.filter(
+      (okr) =>
+        okr.employeeId === currentEmployee.id ||
+        okr.employeeName?.toLowerCase() === currentEmployee.name?.toLowerCase()
+    );
+  }, [okrListesi, isManagement, currentEmployee]);
+
+  const goruntulenenFeedbacks = useMemo(() => {
+    if (isManagement) return geriBildirimler;
+    if (!currentEmployee) return [];
+    return geriBildirimler.filter(
+      (gb) =>
+        gb.alici === currentEmployee.name ||
+        gb.gonderen === currentEmployee.name ||
+        gb.alici === profile?.full_name
+    );
+  }, [geriBildirimler, isManagement, currentEmployee, profile?.full_name]);
+
   // Dinamik Hesaplamalar
-  const genelOrtalama = degerlendirmeler.length
-    ? (degerlendirmeler.reduce((s, d) => s + d.genelPuan, 0) / degerlendirmeler.length).toFixed(1)
+  const genelOrtalama = goruntulenenDegerlendirmeler.length
+    ? (goruntulenenDegerlendirmeler.reduce((s, d) => s + d.genelPuan, 0) / goruntulenenDegerlendirmeler.length).toFixed(1)
     : '—';
 
-  const tamamlananCount = degerlendirmeler.filter((d) => d.durum !== 'taslak').length;
-  const okrTamamlanan = okrListesi.filter((o) => o.genel_ilerleme >= 100).length;
-  const aktifOkr = okrListesi.filter((o) => o.durum === 'aktif').length;
+  const tamamlananCount = goruntulenenDegerlendirmeler.filter((d) => d.durum !== 'taslak').length;
+  const okrTamamlanan = goruntulenenOkrs.filter((o) => o.genel_ilerleme >= 100).length;
+  const aktifOkr = goruntulenenOkrs.filter((o) => o.durum === 'aktif').length;
 
   // Yeni Değerlendirme Kaydet
   const handleSaveEvaluation = () => {
@@ -299,7 +309,7 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
           <h2 className="text-xl font-bold text-gray-800">Performans & Geri Bildirim</h2>
           <p className="text-sm text-gray-500 mt-0.5">360° değerlendirme, OKR/KPI takibi ve sürekli geri bildirim</p>
         </div>
-        {!['employee', 'user'].includes(userRole) && (
+        {isManagement && (
           <div className="flex gap-2">
             {aktifSekme === 'degerlendirme' && (
               <button
@@ -322,34 +332,18 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
           </div>
         )}
       </div>
-      
-      {/* SkillBridge Integration Banner */}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-2xl p-5 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center border border-indigo-50">
-            <Target className="w-6 h-6 text-indigo-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-indigo-900">SkillBridge Performance Entegrasyonu</h3>
-            <p className="text-sm text-indigo-700 mt-0.5">Tüm performans verileri ve raporları SkillBridge LMS altyapısı üzerinden İK tarafından yönetilmektedir.</p>
-          </div>
-        </div>
-        <a href="https://skillbridge.com.tr" target="_blank" rel="noopener noreferrer" className="bg-white border border-indigo-200 text-indigo-700 font-semibold px-4 py-2 rounded-xl text-sm hover:bg-indigo-50 transition-colors">
-          SkillBridge'e Git
-        </a>
-      </div>
 
       {/* Özet Kartlar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">Genel Ortalama</p>
-          <p className={`text-2xl font-bold ${puanRengi(Number(genelOrtalama) || 0)}`}>{genelOrtalama} {degerlendirmeler.length > 0 ? '/ 5' : ''}</p>
-          {degerlendirmeler.length > 0 ? <PuanYildizlari puan={Number(genelOrtalama)} /> : <span className="text-[10px] text-gray-400">Veri bulunmuyor</span>}
+          <p className={`text-2xl font-bold ${puanRengi(Number(genelOrtalama) || 0)}`}>{genelOrtalama} {goruntulenenDegerlendirmeler.length > 0 ? '/ 5' : ''}</p>
+          {goruntulenenDegerlendirmeler.length > 0 ? <PuanYildizlari puan={Number(genelOrtalama)} /> : <span className="text-[10px] text-gray-400">Veri bulunmuyor</span>}
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">Tamamlanan Değerlendirme</p>
           <p className="text-2xl font-bold text-gray-800">{tamamlananCount}</p>
-          <p className="text-xs text-gray-400">{degerlendirmeler.length} toplam</p>
+          <p className="text-xs text-gray-400">{goruntulenenDegerlendirmeler.length} toplam</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">Aktif OKR</p>
@@ -358,7 +352,7 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">Geri Bildirim</p>
-          <p className="text-2xl font-bold text-purple-600">{geriBildirimler.length}</p>
+          <p className="text-2xl font-bold text-purple-600">{goruntulenenFeedbacks.length}</p>
           <p className="text-xs text-gray-400">bu dönem</p>
         </div>
       </div>
@@ -383,14 +377,16 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
       {/* 360° Değerlendirme */}
       {aktifSekme === 'degerlendirme' && (
         <div className="space-y-3">
-          {degerlendirmeler.length === 0 ? (
+          {goruntulenenDegerlendirmeler.length === 0 ? (
             <div className="text-center p-12 bg-white rounded-2xl border border-gray-200 text-gray-400">
               <Award className="w-12 h-12 mx-auto mb-2 text-gray-300" />
               <p className="font-semibold text-gray-500">Değerlendirme Verisi Bulunmuyor</p>
-              <p className="text-xs mt-1">Henüz girilmiş bir performans değerlendirmesi yok. Sağ üstten yeni bir tane ekleyebilirsiniz.</p>
+              <p className="text-xs mt-1">
+                {isManagement ? 'Henüz girilmiş bir performans değerlendirmesi yok. Sağ üstten yeni bir tane ekleyebilirsiniz.' : 'Size ait henüz girilmiş bir performans değerlendirmesi bulunmamaktadır.'}
+              </p>
             </div>
           ) : (
-            degerlendirmeler.map((deg) => (
+            goruntulenenDegerlendirmeler.map((deg) => (
               <div
                 key={deg.id}
                 className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-blue-300 transition-colors cursor-pointer relative group"
@@ -414,7 +410,7 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-100">
                       Tamamlandı
                     </span>
-                    {!['employee', 'user'].includes(userRole) && (
+                    {isManagement && (
                       <button
                         onClick={(e) => handleDeleteEvaluation(deg.id, e)}
                         className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
@@ -469,14 +465,16 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
       {/* OKR / KPI */}
       {aktifSekme === 'okr' && (
         <div className="space-y-4">
-          {okrListesi.length === 0 ? (
+          {goruntulenenOkrs.length === 0 ? (
             <div className="text-center p-12 bg-white rounded-2xl border border-gray-200 text-gray-400">
               <Target className="w-12 h-12 mx-auto mb-2 text-gray-300" />
               <p className="font-semibold text-gray-500">Hedef (OKR) Bulunmuyor</p>
-              <p className="text-xs mt-1">Henüz eklenmiş bir hedef yok. Sağ üstten yeni bir OKR oluşturabilirsiniz.</p>
+              <p className="text-xs mt-1">
+                {isManagement ? 'Henüz eklenmiş bir hedef yok. Sağ üstten yeni bir OKR oluşturabilirsiniz.' : 'Size tanımlanmış aktif bir hedef (OKR) bulunmamaktadır.'}
+              </p>
             </div>
           ) : (
-            okrListesi.map((okr) => (
+            goruntulenenOkrs.map((okr) => (
               <div key={okr.id} className="bg-white rounded-2xl border border-gray-200 p-5">
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -501,7 +499,7 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
                         />
                       </svg>
                     </div>
-                    {!['employee', 'user'].includes(userRole) && (
+                    {isManagement && (
                       <button
                         onClick={() => handleDeleteOkr(okr.id)}
                         className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors ml-2"
@@ -541,24 +539,28 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
       {/* Geri Bildirim */}
       {aktifSekme === 'geri-bildirim' && (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <button
-              onClick={() => setShowFeedbackForm(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-sm"
-            >
-              <MessageSquare className="w-4 h-4" />
-              Geri Bildirim Gönder
-            </button>
-          </div>
+          {isManagement && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowFeedbackForm(true)}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-sm"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Geri Bildirim Gönder
+              </button>
+            </div>
+          )}
           
-          {geriBildirimler.length === 0 ? (
+          {goruntulenenFeedbacks.length === 0 ? (
             <div className="text-center p-12 bg-white rounded-2xl border border-gray-200 text-gray-400">
               <MessageSquare className="w-12 h-12 mx-auto mb-2 text-gray-300" />
               <p className="font-semibold text-gray-500">Geri Bildirim Bulunmuyor</p>
-              <p className="text-xs mt-1">Henüz gönderilmiş bir geri bildirim yok. İlkini siz yazabilirsiniz!</p>
+              <p className="text-xs mt-1">
+                {isManagement ? 'Henüz gönderilmiş bir geri bildirim yok. İlkini siz yazabilirsiniz!' : 'Size verilmiş veya gönderdiğiniz bir geri bildirim bulunmamaktadır.'}
+              </p>
             </div>
           ) : (
-            geriBildirimler.map((gb) => (
+            goruntulenenFeedbacks.map((gb) => (
               <div key={gb.id} className={`bg-white rounded-2xl border p-5 relative group ${
                 gb.tip === 'olumlu' ? 'border-l-4 border-l-green-400 border-gray-200' :
                 gb.tip === 'gelistirici' ? 'border-l-4 border-l-orange-400 border-gray-200' :
@@ -582,13 +584,15 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-400">{gb.tarih}</span>
-                    <button
-                      onClick={() => handleDeleteFeedback(gb.id)}
-                      className="p-1 text-gray-300 hover:text-red-600 rounded transition-colors opacity-0 group-hover:opacity-100"
-                      title="Sil"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {isManagement && (
+                      <button
+                        onClick={() => handleDeleteFeedback(gb.id)}
+                        className="p-1 text-gray-300 hover:text-red-600 rounded transition-colors opacity-0 group-hover:opacity-100"
+                        title="Sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

@@ -316,21 +316,7 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
         )}
       </div>
 
-      {/* SkillBridge Integration Banner */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center border border-purple-50 shrink-0">
-            <BookOpen className="w-6 h-6 text-purple-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-purple-900">SkillBridge LMS Entegrasyonu Aktif</h3>
-            <p className="text-sm text-purple-700 mt-0.5">Tüm eğitim planlamaları, materyalleri ve sertifikasyon süreçleri SkillBridge LMS üzerinden İK tarafından yönetilmektedir.</p>
-          </div>
-        </div>
-        <a href="https://skillbridge.com.tr" target="_blank" rel="noopener noreferrer" className="bg-white border border-purple-200 text-purple-700 font-medium px-4 py-2 rounded-xl text-sm hover:bg-purple-50 transition-colors whitespace-nowrap">
-          SkillBridge LMS'e Git
-        </a>
-      </div>
+
 
       {/* Özet Kartlar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
