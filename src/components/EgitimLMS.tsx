@@ -234,11 +234,11 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
   const personelDurumlari = useMemo<PersonelEgitimDurumu[]>(() => {
     return employees.map((emp) => {
       const empSerts = sertifikalar.filter((sc) => sc.employeeId === emp.id);
-      const tamamlanan = empSerts.length;
+      const tamamlanan = empSerts.filter((sc) => sc.durum !== 'devam_ediyor').length;
       const zorunluToplam = egitimler.filter((e) => e.zorunlu).length;
       const zorunluTamamlanan = egitimler
         .filter((e) => e.zorunlu)
-        .filter((e) => empSerts.some((sc) => sc.egitimId === e.id)).length;
+        .filter((e) => empSerts.some((sc) => sc.egitimId === e.id && sc.durum !== 'devam_ediyor')).length;
 
       const lastActivity = empSerts.reduce((max, sc) => {
         return !max || sc.tamamlanmaTarihi > max ? sc.tamamlanmaTarihi : max;
@@ -489,16 +489,8 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
                     <tr key={pd.employeeId} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-medium text-gray-800">{pd.employeeName}</td>
                       <td className="px-4 py-3 text-gray-500">{pd.department}</td>
-                      <td className="px-4 py-3 text-center">
-                        <div>
-                          <span className="font-semibold">{pd.tamamlanan}</span>
-                          <span className="text-gray-400">/{pd.toplam}</span>
-                          {pd.toplam > 0 && (
-                            <div className="h-1 bg-gray-100 rounded-full mt-1 w-16 mx-auto">
-                              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${oran}%` }} />
-                            </div>
-                          )}
-                        </div>
+                      <td className="px-4 py-3 text-center font-bold text-gray-800 text-sm">
+                        {pd.tamamlanan}
                       </td>
                       <td className="px-4 py-3 text-center">
                         {hasZorunlu ? (
