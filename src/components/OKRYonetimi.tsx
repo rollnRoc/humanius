@@ -468,13 +468,13 @@ const OKRYonetimi: React.FC<OKRYonetimiProps> = ({ employees }) => {
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">Üst Hedef (isteğe bağlı)</label>
-              <select value={yeniUstId} onChange={(e) => setYeniUstId(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                <option value="">Üst hedef yok</option>
-                {hedefler.filter((h) => h.donem === secilenDonem).map((h) => (
-                  <option key={h.id} value={h.id}>{h.baslik}</option>
-                ))}
-              </select>
+              <input
+                type="text"
+                value={yeniUstId}
+                onChange={(e) => setYeniUstId(e.target.value)}
+                placeholder="Örn: 2026 Yıllık Satış ve Büyüme Hedefi"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+              />
             </div>
             <div className="flex gap-2 pt-1">
               <button onClick={() => setYeniModal(false)} className="flex-1 border border-gray-200 rounded-xl py-2 text-sm text-gray-600 hover:bg-gray-50">İptal</button>

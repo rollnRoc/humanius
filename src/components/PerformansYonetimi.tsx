@@ -102,6 +102,37 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
   const [okrListesi, setOkrListesi] = useState<OKR[]>([]);
   const [geriBildirimler, setGeriBildirimler] = useState<GeriBildirim[]>([]);
 
+  // Yeni Değerlendirme Formu State
+  const [yeniDeg, setYeniDeg] = useState({
+    employeeId: '',
+    donem: guncelDonem,
+    teknikYetkinlik: 3,
+    iletisim: 3,
+    takim: 3,
+    liderlik: 3,
+    uyum: 3,
+    yorumlar: '',
+    gelisimAlanlari: '',
+    hedefler: ''
+  });
+
+  // Yeni OKR Formu State
+  const [yeniOkr, setYeniOkr] = useState({
+    employeeId: '',
+    hedef: '',
+    donem: guncelDonem,
+    kr1: '',
+    kr2: '',
+    kr3: ''
+  });
+
+  // Yeni Geri Bildirim Formu State
+  const [yeniFb, setYeniFb] = useState({
+    aliciEmployeeId: '',
+    mesaj: '',
+    tip: 'olumlu' as 'olumlu' | 'gelistirici' | 'nötr'
+  });
+
   // LocalStorage'dan yükleme
   useEffect(() => {
     const storedDeg = localStorage.getItem(`humanius_performances_${companyId}`);
