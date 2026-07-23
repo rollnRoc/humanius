@@ -509,10 +509,10 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
 
       <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
         {[
-          { id: 'devam' as Sekme, label: 'Devam Takibi' },
+          { id: 'devam' as Sekme, label: 'Devam Takibi (Giriş/Çıkış Saatleri)' },
+          { id: 'vardiya' as Sekme, label: 'Vardiya & Çalışma Saatleri Yönetimi' },
           { id: 'motor' as Sekme, label: 'Hesaplama Motoru' },
           (isAdmin ? { id: 'onay' as Sekme, label: `Fazla Mesai Onay${bekleyenOnaySayisi ? ` (${bekleyenOnaySayisi})` : ''}` } : null),
-          (isAdmin ? { id: 'vardiya' as Sekme, label: 'Vardiya Yonetimi' } : null),
         ].filter(Boolean).map((sekme: any) => (
           <button
             key={sekme.id}
