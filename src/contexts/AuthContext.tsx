@@ -84,24 +84,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 2. Normal Giriş Akışı (Demo Aktif Değilse)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (localStorage.getItem('humanius_demo_mode') === 'true') return; // Demo başladıysa çakışma olmasın
-      setSession(session);
-      setUser(session?.user ?? null);
       if (session?.user) {
+        localStorage.removeItem('humanius_demo_mode');
+        localStorage.removeItem('humanius_demo_start_time');
+        setIsDemo(false);
+        setSession(session);
+        setUser(session.user);
         fetchProfile(session.user.id);
+      } else if (isDemoActive) {
+        setIsDemo(true);
+        setUser(mockDemoUser);
+        setProfile(mockDemoProfile);
+        setLoading(false);
       } else {
+        setSession(null);
+        setUser(null);
         setProfile(null);
         setLoading(false);
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (localStorage.getItem('humanius_demo_mode') === 'true') return;
-      setSession(session);
-      setUser(session?.user ?? null);
       if (session?.user) {
+        localStorage.removeItem('humanius_demo_mode');
+        localStorage.removeItem('humanius_demo_start_time');
+        setIsDemo(false);
+        setSession(session);
+        setUser(session.user);
         fetchProfile(session.user.id);
-      } else {
+      } else if (localStorage.getItem('humanius_demo_mode') !== 'true') {
+        setSession(null);
+        setUser(null);
         setProfile(null);
         setLoading(false);
       }
