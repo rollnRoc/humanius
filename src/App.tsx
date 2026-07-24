@@ -245,6 +245,24 @@ const AppInner: React.FC = () => {
     const isSuper = effectiveAppRole === 'superadmin' || profile?.role === 'superadmin';
     const targetCompanyId = isSuper ? undefined : (profile?.company_id || undefined);
     try {
+      let companyMap = new Map<string, string>();
+      try {
+        const allComps = await companyService.getCompanies();
+        setCompanies((allComps ?? []).map((c) => c.name));
+        (allComps ?? []).forEach((c) => companyMap.set(c.id, c.name));
+      } catch {}
+
+      if (!isSuper && profile?.company_id) {
+        try {
+          const compData = await companyService.getById(profile.company_id);
+          if (compData) {
+            setCompanies([compData.name]);
+            companyMap.set(compData.id, compData.name);
+            setCompanyLogoUrl(compData.logo_url ?? null);
+          }
+        } catch {}
+      }
+
       const [empData, empStats] = await Promise.all([
         employeeService.getAll(targetCompanyId),
         employeeService.getStats(targetCompanyId),
@@ -257,7 +275,7 @@ const AppInner: React.FC = () => {
         name: e.name ?? '',
         tc_no: e.tc_no,
         sicil_no: e.sicil_no,
-        company: e.company_id ?? '',
+        company: companyMap.get(e.company_id) ?? (e.company_id === 'aaaaaaaa-0000-0000-0000-000000000001' ? 'Humanius Demo Şirketi' : (e.company_id ?? 'Humanius Demo Şirketi')),
         department: e.department ?? '',
         position: e.position ?? '',
         level: e.level ?? 'Junior',
