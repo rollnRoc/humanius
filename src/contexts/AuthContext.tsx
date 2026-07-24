@@ -146,8 +146,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
+    localStorage.removeItem('humanius_demo_mode');
+    localStorage.removeItem('humanius_demo_start_time');
+    setIsDemo(false);
+
+    const cleanEmail = email.trim().toLowerCase();
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: cleanEmail,
       password
     });
     return { error };
