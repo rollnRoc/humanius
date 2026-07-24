@@ -24,6 +24,7 @@ import { userManagementService } from '../services/userManagementService';
 import { companyService } from '../services/companyService';
 import { useAuth } from '../contexts/AuthContext';
 import { getRoleLabel, canManageUsers } from '../auth/roles';
+import { supabase } from '../lib/supabase';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
