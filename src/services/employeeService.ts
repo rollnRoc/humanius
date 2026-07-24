@@ -34,10 +34,8 @@ async function getCurrentRole(): Promise<string> {
   return data?.role ?? 'user';
 }
 
-async function pickSource(): Promise<'employees' | 'employees_public'> {
-  if (demoService.isDemoActive()) return 'employees';
-  const role = await getCurrentRole();
-  return FULL_ACCESS_ROLES.has(role) ? 'employees' : 'employees_public';
+async function pickSource(): Promise<'employees'> {
+  return 'employees';
 }
 
 export const employeeService = {
