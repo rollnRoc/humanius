@@ -27,6 +27,24 @@ if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
 
 const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+function toAsciiEmail(email: string): string {
+  return String(email ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/ı/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .replace(/İ/g, 'i')
+    .replace(/Ğ/g, 'g')
+    .replace(/Ü/g, 'u')
+    .replace(/Ş/g, 's')
+    .replace(/Ö/g, 'o')
+    .replace(/Ç/g, 'c');
+}
+
 function jsonResponse(body: Record<string, unknown>, status: number = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -182,7 +200,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const fullName = String(payload.fullName ?? '').trim();
-      const email = String(payload.email ?? '').trim().toLowerCase();
+      const email = toAsciiEmail(payload.email);
       const password = String(payload.password ?? '').trim();
       const requestedRole = String(payload.role ?? 'employee').trim() as ProfileRole;
 

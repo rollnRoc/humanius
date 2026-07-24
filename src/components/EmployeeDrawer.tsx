@@ -191,13 +191,27 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="employee-name" className="block text-sm font-medium text-gray-700 mb-2">Ad Soyad</label>
+                    <label htmlFor="employee-name" className="block text-sm font-medium text-gray-700 mb-2">Ad Soyad *</label>
                     <input
                       id="employee-name"
                       type="text"
                       value={formData.name}
                       onChange={(e) => handleInputChange('name', e.target.value)}
+                      placeholder="Örn: Metin Turgut"
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="employee-email" className="block text-sm font-medium text-gray-700 mb-2">
+                      E-posta Adresi (Giriş Hesabı İçin) <span className="text-blue-600 font-normal text-xs">(Zorunlu)</span>
+                    </label>
+                    <input
+                      id="employee-email"
+                      type="email"
+                      value={formData.email || ''}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      placeholder="Örn: metin.turgut@toyota.com.tr"
+                      className="w-full bg-white border border-blue-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
                   <div>
