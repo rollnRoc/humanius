@@ -604,20 +604,6 @@ const AppInner: React.FC = () => {
           sicil_no: emp.sicil_no ?? '',
           join_date: emp.joinDate ?? emp.join_date ?? null,
         });
-
-        if (emp.email && emp.email.trim()) {
-          try {
-            await userManagementService.createCompanyUser({
-              companyId: targetCompanyId,
-              fullName: emp.name,
-              email: emp.email.trim(),
-              password: '987654',
-              role: (emp.role as any) || 'employee',
-            });
-          } catch (authErr) {
-            console.warn('Oturum kaydı uyarısı:', authErr);
-          }
-        }
       } else {
         await employeeService.update(emp.id, {
           name: emp.name,
@@ -635,6 +621,20 @@ const AppInner: React.FC = () => {
           sicil_no: emp.sicil_no ?? '',
           join_date: emp.joinDate ?? emp.join_date ?? null,
         });
+      }
+
+      if (emp.email && emp.email.trim()) {
+        try {
+          await userManagementService.createCompanyUser({
+            companyId: targetCompanyId,
+            fullName: emp.name,
+            email: emp.email.trim(),
+            password: '987654',
+            role: (emp.role as any) || 'employee',
+          });
+        } catch (authErr) {
+          console.warn('Oturum kaydı uyarısı (zaten kayıtlı olabilir):', authErr);
+        }
       }
       setDrawerOpen(false);
       await loadData();
