@@ -220,6 +220,44 @@ Deno.serve(async (req: Request) => {
 
       if (profileError) throw profileError;
 
+      // Upsert into employees table using adminClient to bypass RLS completely
+      try {
+        const department = String(payload.department ?? 'Genel').trim();
+        const position = String(payload.position ?? 'Personel').trim();
+        const employeeType = String(payload.employeeType ?? 'normal').trim();
+        const salary = Number(payload.salary ?? 0);
+
+        const { data: existingEmp } = await adminClient
+          .from('employees')
+          .select('id')
+          .eq('company_id', companyId)
+          .eq('email', email)
+          .maybeSingle();
+
+        if (!existingEmp) {
+          await adminClient.from('employees').insert({
+            company_id: companyId,
+            name: fullName,
+            email: email,
+            department: department,
+            position: position,
+            employee_type: employeeType,
+            salary: salary,
+            status: 'active',
+          });
+        } else {
+          await adminClient.from('employees').update({
+            name: fullName,
+            department: department,
+            position: position,
+            employee_type: employeeType,
+            salary: salary,
+          }).eq('id', existingEmp.id);
+        }
+      } catch (empErr) {
+        console.warn('Employees table upsert warning:', empErr);
+      }
+
       return jsonResponse({ message: 'Kullanıcı hesabı oluşturuldu.', userId: managedUser.id });
     }
 

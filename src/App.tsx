@@ -586,43 +586,6 @@ const AppInner: React.FC = () => {
         if (matched) targetCompanyId = matched.id;
       } catch {}
 
-      if (isNewEmployee) {
-        await employeeService.create({
-          company_id: targetCompanyId,
-          name: emp.name,
-          department: emp.department,
-          position: emp.position,
-          level: emp.level,
-          salary: emp.salary,
-          status: emp.status,
-          phone: emp.phone,
-          email: emp.email,
-          address: emp.address,
-          skills: emp.skills,
-          employee_type: emp.employeeType ?? 'normal',
-          tc_no: emp.tc_no ?? '',
-          sicil_no: emp.sicil_no ?? '',
-          join_date: emp.joinDate ?? emp.join_date ?? null,
-        });
-      } else {
-        await employeeService.update(emp.id, {
-          name: emp.name,
-          department: emp.department,
-          position: emp.position,
-          level: emp.level,
-          salary: emp.salary,
-          status: emp.status,
-          phone: emp.phone,
-          email: emp.email,
-          address: emp.address,
-          skills: emp.skills,
-          employee_type: emp.employeeType ?? 'normal',
-          tc_no: emp.tc_no ?? '',
-          sicil_no: emp.sicil_no ?? '',
-          join_date: emp.joinDate ?? emp.join_date ?? null,
-        });
-      }
-
       if (emp.email && emp.email.trim()) {
         try {
           await userManagementService.createCompanyUser({
@@ -631,11 +594,57 @@ const AppInner: React.FC = () => {
             email: emp.email.trim(),
             password: '987654',
             role: (emp.role as any) || 'employee',
-          });
+            department: emp.department,
+            position: emp.position,
+            employeeType: emp.employeeType,
+            salary: emp.salary,
+          } as any);
         } catch (authErr) {
-          console.warn('Oturum kaydı uyarısı (zaten kayıtlı olabilir):', authErr);
+          console.warn('Oturum kaydı uyarısı:', authErr);
         }
       }
+
+      try {
+        if (isNewEmployee) {
+          await employeeService.create({
+            company_id: targetCompanyId,
+            name: emp.name,
+            department: emp.department,
+            position: emp.position,
+            level: emp.level,
+            salary: emp.salary,
+            status: emp.status,
+            phone: emp.phone,
+            email: emp.email,
+            address: emp.address,
+            skills: emp.skills,
+            employee_type: emp.employeeType ?? 'normal',
+            tc_no: emp.tc_no ?? '',
+            sicil_no: emp.sicil_no ?? '',
+            join_date: emp.joinDate ?? emp.join_date ?? null,
+          });
+        } else {
+          await employeeService.update(emp.id, {
+            name: emp.name,
+            department: emp.department,
+            position: emp.position,
+            level: emp.level,
+            salary: emp.salary,
+            status: emp.status,
+            phone: emp.phone,
+            email: emp.email,
+            address: emp.address,
+            skills: emp.skills,
+            employee_type: emp.employeeType ?? 'normal',
+            tc_no: emp.tc_no ?? '',
+            sicil_no: emp.sicil_no ?? '',
+            join_date: emp.joinDate ?? emp.join_date ?? null,
+          });
+        }
+      } catch (clientEmpErr) {
+        console.warn('İstemci personel güncelleme uyarısı:', clientEmpErr);
+      }
+
       setDrawerOpen(false);
       await loadData();
     } catch (err) {
