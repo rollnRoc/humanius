@@ -285,55 +285,46 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         <meta charset="UTF-8">
         <title>Humanius HRMS - Kurumsal Resmi Organizasyon Şeması Belgesi</title>
         <style>
-          @page { size: A4 landscape; margin: 10mm; }
+          @page { size: A4 landscape; margin: 6mm 8mm; }
           * { box-sizing: border-box; }
-          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 15px; background: #ffffff; }
+          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 10px; background: #ffffff; }
           
-          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
-          .audit-table td { border: 1px solid #cbd5e1; padding: 6px 10px; }
+          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 10px; }
+          .audit-table td { border: 1px solid #cbd5e1; padding: 4px 8px; }
           .audit-bg { background: #f8fafc; font-weight: 600; color: #475569; }
 
-          /* Kart Görünüm Stilleri */
-          .dept-section { margin-bottom: 20px; page-break-inside: avoid; }
-          .dept-header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; color: #0f172a; padding: 7px 12px; background: #f8fafc; border-left: 4px solid #2563eb; border-radius: 6px; margin-bottom: 10px; }
-          .dept-badge { font-size: 10px; font-weight: 600; color: #64748b; background: #e2e8f0; padding: 2px 8px; border-radius: 12px; }
-          .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-          .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between; }
-          .emp-name { font-size: 12px; font-weight: 700; color: #0f172a; margin: 0 0 2px 0; }
-          .emp-pos { font-size: 11px; font-weight: 600; color: #2563eb; margin: 0 0 4px 0; }
-          .emp-level { font-size: 9px; color: #475569; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; display: inline-block; margin-top: 2px; font-weight: 500; }
-          .status-row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; padding-top: 4px; border-top: 1px solid #f1f5f9; font-size: 9px; color: #64748b; }
-          .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; }
-          .dot-active { background: #10b981; }
-          .dot-leave { background: #f59e0b; }
+          /* Hiyerarşik Ağaç Görünüm Stilleri (Sıkıştırılmış & Düzenli) */
+          .tree-root { text-align: center; margin-bottom: 12px; }
+          .tree-root-box { display: inline-block; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; padding: 6px 18px; border-radius: 8px; font-weight: 800; font-size: 12px; }
+          
+          .dept-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+          .dept-card { border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; overflow: hidden; page-break-inside: avoid; }
+          .dept-card-header { padding: 5px 10px; background: #f8fafc; font-weight: 700; font-size: 11px; color: #0f172a; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+          .dept-badge { font-size: 9px; font-weight: 600; color: #475569; background: #e2e8f0; padding: 1px 6px; border-radius: 10px; }
 
-          /* Hiyerarşik Ağaç Şema Stilleri */
-          .tree-root { text-align: center; margin-bottom: 18px; }
-          .tree-root-box { display: inline-block; background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white; padding: 10px 24px; border-radius: 10px; font-weight: 800; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-          .tree-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
-          .tree-branch { border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; overflow: hidden; page-break-inside: avoid; }
-          .tree-branch-head { padding: 8px 12px; background: #f8fafc; font-weight: 700; font-size: 12px; color: #0f172a; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-          .tree-node-list { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-          .tree-node-item { border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; background: #fafafa; position: relative; }
-          .tree-node-item::before { content: ''; position: absolute; left: -10px; top: 50%; width: 10px; height: 1px; background: #cbd5e1; }
+          /* Personel Izgara / Micro Grid */
+          .emp-micro-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px; }
+          .emp-pill { border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 8px; background: #f9fafb; font-size: 10px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+          .emp-name { font-weight: 700; color: #0f172a; }
+          .emp-pos { font-weight: 600; color: #2563eb; font-size: 9.5px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 
-          .legal-note { margin-top: 18px; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 10px; color: #475569; line-height: 1.4; page-break-inside: avoid; }
-          .sig-container { display: flex; justify-content: space-between; margin-top: 26px; padding: 0 60px; page-break-inside: avoid; }
-          .sig-box { text-align: center; width: 220px; font-size: 11px; color: #334155; border-top: 1.5px dashed #cbd5e1; padding-top: 8px; font-weight: 600; }
-          .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; }
+          .legal-note { margin-top: 10px; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 9px; color: #475569; line-height: 1.3; page-break-inside: avoid; }
+          .sig-container { display: flex; justify-content: space-between; margin-top: 14px; padding: 0 40px; page-break-inside: avoid; }
+          .sig-box { text-align: center; width: 180px; font-size: 10px; color: #334155; border-top: 1px dashed #cbd5e1; padding-top: 4px; font-weight: 600; }
+          .footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 8.5px; color: #94a3b8; }
         </style>
       </head>
       <body>
         <!-- ISO 9001 / ISG Kurumsal Denetim Başlık Tablosu -->
         <table class="audit-table">
           <tr>
-            <td rowspan="2" style="width:22%; text-align:center; vertical-align:middle; background:linear-gradient(135deg, #1e3a8a, #3b82f6); color:white;">
-              <div style="font-size:18px; font-weight:900; tracking-tight: -0.5px;">HUMANİUS HRMS</div>
-              <div style="font-size:8px; font-weight:600; opacity:0.9; margin-top:2px;">İK Yönetim Sistemleri</div>
+            <td rowspan="2" style="width:20%; text-align:center; vertical-align:middle; background:linear-gradient(135deg, #1e3a8a, #2563eb); color:white;">
+              <div style="font-size:15px; font-weight:900;">HUMANİUS HRMS</div>
+              <div style="font-size:7.5px; font-weight:600; opacity:0.9;">İK Yönetim Sistemleri</div>
             </td>
-            <td rowspan="2" style="width:48%; text-align:center; vertical-align:middle;">
-              <div style="font-size:15px; font-weight:800; color:#0f172a;">KURUMSAL ORGANİZASYON ŞEMASI BELGESİ</div>
-              <div style="font-size:10px; color:#64748b; margin-top:3px;">İdari ve Teşkilat Yapısı · ${targetMode === 'agac' ? 'Hiyerarşik Ağaç Formatı' : 'Departman Kart Formatı'}</div>
+            <td rowspan="2" style="width:50%; text-align:center; vertical-align:middle;">
+              <div style="font-size:13px; font-weight:800; color:#0f172a;">KURUMSAL ORGANİZASYON ŞEMASI BELGESİ</div>
+              <div style="font-size:9px; color:#64748b; margin-top:1px;">İdari ve Teşkilat Yapısı · ${targetMode === 'agac' ? 'Hiyerarşik Ağaç Şeması' : 'Departman Şeması'}</div>
             </td>
             <td class="audit-bg" style="width:15%;">Doküman No:</td>
             <td style="width:15%; font-weight:600; color:#1e293b;">FR-IK-012</td>
@@ -345,90 +336,54 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         </table>
 
         <!-- Summary Bar -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; font-size:11px; color:#475569;">
-          <span><strong>Kurum Adı:</strong> HİZEL OTOMOTİV İNŞ.A.Ş / Humanius HRMS</span>
-          <span><strong>Kapsam:</strong> ${employees.length} Çalışan · ${depts.size} Departman</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:10px; color:#475569;">
+          <span><strong>Kurum:</strong> HİZEL OTOMOTİV İNŞ.A.Ş / Humanius HRMS</span>
+          <span><strong>Toplam Kadro:</strong> ${employees.length} Çalışan · ${depts.size} Departman</span>
         </div>
 
-        ${targetMode === 'agac' ? `
-          <!-- HİYERARŞİK AĞAÇ FORMATI -->
-          <div class="tree-root">
-            <div class="tree-root-box">
-              🏢 Şirket Genel Yönetim Kurulu
-              <div style="font-size:10px; font-weight:normal; opacity:0.9; margin-top:2px;">Top. ${employees.length} Çalışan · ${depts.size} Departman</div>
-            </div>
+        <!-- HİYERARŞİK AĞAÇ ŞEMASI (COMPACT SIKIŞTIRILMIŞ DÜZEN) -->
+        <div class="tree-root">
+          <div class="tree-root-box">
+            🏢 Şirket Genel Yönetimi
+            <span style="font-size:9px; font-weight:normal; opacity:0.9; margin-left:6px;">(${employees.length} Personel)</span>
           </div>
+        </div>
 
-          <div class="tree-grid">
-            ${Array.from(depts.entries()).map(([dept, emps]) => `
-              <div class="tree-branch">
-                <div class="tree-branch-head" style="border-top: 3.5px solid ${getColor(dept)};">
-                  <span>🏢 ${dept}</span>
-                  <span class="dept-badge">${emps.length} Çalışan</span>
-                </div>
-                <div class="tree-node-list">
-                  ${emps.map(e => `
-                    <div class="tree-node-item">
-                      <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="emp-name">${e.name}</span>
-                        <span class="dot ${e.status === 'active' ? 'dot-active' : 'dot-leave'}"></span>
-                      </div>
-                      <div class="emp-pos">${e.position || 'Personel'}</div>
-                      ${e.level && e.level !== 'Junior' ? `<span class="emp-level">${e.level}</span>` : ''}
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        ` : `
-          <!-- DEPARTMAN KART FORMATI -->
+        <div class="dept-container">
           ${Array.from(depts.entries()).map(([dept, emps]) => `
-            <div class="dept-section">
-              <div class="dept-header" style="border-left-color: ${getColor(dept)};">
+            <div class="dept-card">
+              <div class="dept-card-header" style="border-top: 3px solid ${getColor(dept)};">
                 <span>🏢 ${dept}</span>
                 <span class="dept-badge">${emps.length} Çalışan</span>
               </div>
-              <div class="grid">
+              <div class="emp-micro-grid">
                 ${emps.map(e => `
-                  <div class="card">
-                    <div>
-                      <div class="emp-name">${e.name}</div>
-                      <div class="emp-pos">${e.position || 'Personel'}</div>
-                      ${e.level && e.level !== 'Junior' ? `<div class="emp-level">${e.level}</div>` : ''}
-                    </div>
-                    <div>
-                      <div class="status-row">
-                        <span>
-                          <span class="dot ${e.status === 'active' ? 'dot-active' : 'dot-leave'}"></span>
-                          ${e.status === 'active' ? 'Aktif' : 'İzinde'}
-                        </span>
-                        ${e.phone ? `<span>${e.phone}</span>` : ''}
-                      </div>
-                    </div>
+                  <div class="emp-pill">
+                    <span class="emp-name">${e.name}</span>
+                    <span class="emp-pos">${e.position || 'Personel'}</span>
                   </div>
                 `).join('')}
               </div>
             </div>
           `).join('')}
-        `}
+        </div>
 
         <!-- Yasal Beyan & Uyum Metni -->
         <div class="legal-note">
-          <strong>Resmi Beyan & Uyumluluk:</strong> İşbu Organizasyon Şeması Belgesi, 4857 sayılı İş Kanunu, 6331 sayılı İş Sağlığı ve Güvenliği Kanunu ve ISO 9001 Kalite Yönetim Sistemi standartlarına uygun olarak tanzim edilmiş olup, şirketin güncel teşkilat yapısını gösterir resmi evraktır.
+          <strong>Resmi Beyan & Uyumluluk:</strong> İşbu Organizasyon Şeması Belgesi, 4857 sayılı İş Kanunu, 6331 sayılı İş Sağlığı ve Güvenliği Kanunu ve ISO 9001 Kalite Yönetim Sistemi standartlarına uygun tanzim edilmiş resmi evraktır.
         </div>
 
         <!-- Islak İmza & Mühür Kutuları -->
         <div class="sig-container">
           <div class="sig-box">
             Hazırlayan & Kontrol Eden<br>
-            <div style="font-weight:normal; font-size:10px; color:#64748b; margin-top:2px;">İnsan Kaynakları Yöneticisi</div>
-            <div style="margin-top:24px; font-size:9px; color:#cbd5e1;">İmza / Tarih</div>
+            <div style="font-weight:normal; font-size:9px; color:#64748b; margin-top:2px;">İnsan Kaynakları Yöneticisi</div>
+            <div style="margin-top:16px; font-size:8.5px; color:#cbd5e1;">İmza / Tarih</div>
           </div>
           <div class="sig-box">
             Onaylayan & Kaşe<br>
-            <div style="font-weight:normal; font-size:10px; color:#64748b; margin-top:2px;">Genel Müdür / Şirket Yöneticisi</div>
-            <div style="margin-top:24px; font-size:9px; color:#cbd5e1;">İmza / Kaşe / Tarih</div>
+            <div style="font-weight:normal; font-size:9px; color:#64748b; margin-top:2px;">Genel Müdür / Şirket Yöneticisi</div>
+            <div style="margin-top:16px; font-size:8.5px; color:#cbd5e1;">İmza / Kaşe / Tarih</div>
           </div>
         </div>
 
@@ -477,7 +432,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
             title="Organizasyon Şemasını PDF Olarak İndir / Yazdır"
           >
             <Printer className="w-3.5 h-3.5" />
-            PDF İndir / Yazdır ({gorunum === 'agac' ? 'Ağaç' : 'Kart'})
+            PDF İndir / Yazdır
           </button>
           <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
             {(['agac', 'kart'] as const).map((g) => (
@@ -617,31 +572,11 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
                     PDF Baskı Önizlemesi
                     <span className="text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">A4 Yatay (Landscape)</span>
                   </h3>
-                  <p className="text-xs text-gray-500">Organizasyon şemasının resmi evrak baskı önizlemesi</p>
+                  <p className="text-xs text-gray-500">Sıkıştırılmış ultra düzenli kurumsal organizasyon şeması</p>
                 </div>
               </div>
 
-              {/* Format Toggle inside Modal */}
               <div className="flex items-center gap-3">
-                <div className="flex bg-gray-200 p-1 rounded-xl">
-                  <button
-                    onClick={() => setPreviewFormat('agac')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                      previewFormat === 'agac' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600'
-                    }`}
-                  >
-                    🌳 Ağaç Hiyerarşisi
-                  </button>
-                  <button
-                    onClick={() => setPreviewFormat('kart')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                      previewFormat === 'kart' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600'
-                    }`}
-                  >
-                    🎴 Departman Kartları
-                  </button>
-                </div>
-
                 <button
                   onClick={() => { handlePrintPdf(previewFormat); setShowPdfPreview(false); }}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
@@ -660,109 +595,68 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
 
             {/* Modal Body - Paper Document Mockup */}
             <div className="flex-1 overflow-y-auto p-6 bg-gray-100/80">
-              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 max-w-4xl mx-auto space-y-6">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 max-w-4xl mx-auto space-y-5">
                 {/* Paper Header */}
-                <div className="flex items-center justify-between border-b-2 border-blue-600 pb-4">
+                <div className="flex items-center justify-between border-b-2 border-blue-600 pb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xl font-black">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-lg font-black">
                       H
                     </div>
                     <div>
-                      <h1 className="text-xl font-black text-gray-900 tracking-tight">HUMANİUS HRMS</h1>
-                      <p className="text-xs font-bold text-blue-600 tracking-wider">
-                        KURUMSAL ORGANİZASYON ŞEMASI ({previewFormat === 'agac' ? 'HİYERARŞİK AĞAÇ' : 'DEPARTMAN KARTLARI'})
-                      </p>
+                      <h1 className="text-lg font-black text-gray-900 tracking-tight">HUMANİUS HRMS</h1>
+                      <p className="text-[10px] font-bold text-blue-600 tracking-wider">KURUMSAL ORGANİZASYON ŞEMASI</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <span className="inline-block bg-blue-50 text-blue-700 border border-blue-200 font-bold text-xs px-3 py-1 rounded-full">
                       {employees.length} PERSONEL · {depts.size} DEPARTMAN
                     </span>
-                    <p className="text-xs text-gray-500 mt-1">Rapor Tarihi: {todayStr}</p>
+                    <p className="text-[10px] text-gray-500 mt-1">Rapor Tarihi: {todayStr}</p>
                   </div>
                 </div>
 
-                {/* Preview Format Content */}
-                {previewFormat === 'agac' ? (
-                  <div className="space-y-4">
-                    <div className="text-center">
-                      <div className="inline-block bg-gradient-to-r from-blue-700 to-indigo-700 text-white font-extrabold text-xs px-6 py-2 rounded-xl shadow-sm">
-                        🏢 Şirket Genel Yönetim Kurulu
-                        <span className="block text-[10px] font-normal opacity-90">Top. {employees.length} Çalışan · {depts.size} Departman</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      {Array.from(depts.entries()).map(([dept, emps]) => (
-                        <div key={dept} className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-xs">
-                          <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex justify-between items-center" style={{ borderTop: `3px solid ${getColor(dept)}` }}>
-                            <span className="font-bold text-xs text-gray-900">🏢 {dept}</span>
-                            <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-semibold">{emps.length} Çalışan</span>
-                          </div>
-                          <div className="p-2.5 space-y-1.5">
-                            {emps.map((e) => (
-                              <div key={e.id} className="border border-gray-100 rounded-lg p-2 bg-gray-50/50 text-left">
-                                <div className="flex justify-between items-center">
-                                  <span className="font-bold text-xs text-gray-900">{e.name}</span>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${e.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                </div>
-                                <p className="text-[11px] font-semibold text-blue-600">{e.position || 'Personel'}</p>
-                                {e.level && e.level !== 'Junior' && (
-                                  <span className="inline-block bg-gray-200 text-gray-700 text-[9px] px-1.5 py-0.5 rounded font-medium mt-0.5">{e.level}</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
+                {/* Sıkıştırılmış Düzenli Şema Önizlemesi */}
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="inline-block bg-gradient-to-r from-blue-700 to-indigo-700 text-white font-extrabold text-xs px-6 py-1.5 rounded-lg shadow-sm">
+                      🏢 Şirket Genel Yönetim Kurulu
+                      <span className="block text-[9px] font-normal opacity-90">Top. {employees.length} Personel · {depts.size} Departman</span>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-5">
+                  <div className="space-y-3">
                     {Array.from(depts.entries()).map(([dept, emps]) => (
-                      <div key={dept} className="space-y-2">
-                        <div className="flex items-center justify-between bg-gray-50 border-l-4 border-blue-600 px-3 py-1.5 rounded-r-lg">
-                          <span className="font-bold text-xs text-gray-800">🏢 {dept}</span>
-                          <span className="text-[10px] font-semibold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">{emps.length} Çalışan</span>
+                      <div key={dept} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-xs">
+                        <div className="bg-gray-50 px-3 py-1.5 border-b border-gray-200 flex justify-between items-center" style={{ borderTop: `3px solid ${getColor(dept)}` }}>
+                          <span className="font-bold text-xs text-gray-900">🏢 {dept}</span>
+                          <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-semibold">{emps.length} Çalışan</span>
                         </div>
-                        <div className="grid grid-cols-4 gap-2.5">
+                        <div className="p-2 grid grid-cols-3 gap-2">
                           {emps.map((e) => (
-                            <div key={e.id} className="border border-gray-200 rounded-lg p-2.5 bg-gray-50/50 flex flex-col justify-between text-left">
-                              <div>
-                                <p className="font-bold text-xs text-gray-900 truncate">{e.name}</p>
-                                <p className="text-[11px] font-semibold text-blue-600 truncate">{e.position || 'Personel'}</p>
-                                {e.level && e.level !== 'Junior' && (
-                                  <span className="inline-block bg-gray-200 text-gray-700 text-[9px] px-1.5 py-0.5 rounded font-medium mt-1">{e.level}</span>
-                                )}
-                              </div>
-                              <div className="mt-2 pt-1.5 border-t border-gray-200 flex items-center justify-between text-[10px] text-gray-500">
-                                <span className="flex items-center gap-1">
-                                  <span className={`w-1.5 h-1.5 rounded-full ${e.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                  {e.status === 'active' ? 'Aktif' : 'İzinde'}
-                                </span>
-                                {e.phone && <span className="truncate max-w-[80px] text-[9px]">{e.phone}</span>}
-                              </div>
+                            <div key={e.id} className="border border-gray-200 rounded-md p-1.5 bg-gray-50/50 flex justify-between items-center text-left">
+                              <span className="font-bold text-[11px] text-gray-900 truncate">{e.name}</span>
+                              <span className="font-semibold text-[10px] text-blue-600 ml-2 truncate">{e.position || 'Personel'}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     ))}
                   </div>
-                )}
+                </div>
 
                 {/* Signatures Preview */}
-                <div className="flex justify-between pt-8 px-12 border-t border-gray-200">
-                  <div className="text-center w-40 border-t border-dashed border-gray-400 pt-2">
+                <div className="flex justify-between pt-6 px-12 border-t border-gray-200">
+                  <div className="text-center w-40 border-t border-dashed border-gray-400 pt-1.5">
                     <p className="font-bold text-xs text-gray-800">Hazırlayan</p>
-                    <p className="text-[10px] text-gray-500">İnsan Kaynakları Yönetimi</p>
+                    <p className="text-[9px] text-gray-500">İnsan Kaynakları Yönetimi</p>
                   </div>
-                  <div className="text-center w-40 border-t border-dashed border-gray-400 pt-2">
+                  <div className="text-center w-40 border-t border-dashed border-gray-400 pt-1.5">
                     <p className="font-bold text-xs text-gray-800">Onaylayan</p>
-                    <p className="text-[10px] text-gray-500">Şirket Genel Müdürü</p>
+                    <p className="text-[9px] text-gray-500">Şirket Genel Müdürü</p>
                   </div>
                 </div>
 
                 {/* Paper Footer */}
-                <div className="border-t border-gray-200 pt-3 flex items-center justify-between text-[10px] text-gray-400">
+                <div className="border-t border-gray-200 pt-2 flex items-center justify-between text-[9px] text-gray-400">
                   <span>Humanius İnsan Kaynakları Yönetim Sistemi © {new Date().getFullYear()}</span>
                   <span>Gizli ve Kuruma Özel Belge · Otomatik Üretilmiştir.</span>
                 </div>
