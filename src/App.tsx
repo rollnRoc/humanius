@@ -264,40 +264,52 @@ const AppInner: React.FC = () => {
         } catch {}
       }
 
-      const [empData, empStats] = await Promise.all([
+      const [empData, empStats, profDataRes] = await Promise.all([
         employeeService.getAll(targetCompanyId),
         employeeService.getStats(targetCompanyId),
+        supabase.from('profiles').select('email, role').catch(() => ({ data: [] })),
       ]);
 
+      const profileRoleMap = new Map<string, string>();
+      ((profDataRes as any)?.data ?? []).forEach((p: any) => {
+        if (p?.email) {
+          profileRoleMap.set(p.email.toLowerCase().trim(), p.role);
+        }
+      });
+
       // Map DB rows → frontend Employee shape
-      const mapped: Employee[] = (empData ?? []).map((e: any) => ({
-        id: e.id,
-        company_id: e.company_id,
-        name: e.name ?? '',
-        tc_no: e.tc_no,
-        sicil_no: e.sicil_no,
-        company: companyMap.get(e.company_id) ?? (e.company_id === 'aaaaaaaa-0000-0000-0000-000000000001' ? 'Humanius Demo Şirketi' : (e.company_id ?? 'Humanius Demo Şirketi')),
-        department: e.department ?? '',
-        position: e.position ?? '',
-        level: e.level ?? 'Junior',
-        salary: Number(e.salary ?? 0),
-        status: e.status ?? 'active',
-        phone: e.phone ?? '',
-        email: e.email ?? '',
-        joinDate: e.join_date,
-        join_date: e.join_date,
-        address: e.address ?? '',
-        avatar_url: e.avatar_url,
-        skills: e.skills ?? [],
-        medeni_durum: e.medeni_durum,
-        cocuk_sayisi: e.cocuk_sayisi,
-        engelli_durumu: e.engelli_durumu,
-        employeeType: e.employee_type ?? 'normal',
-        employee_type: e.employee_type,
-        approval_passcode: e.approval_passcode,
-        created_at: e.created_at,
-        updated_at: e.updated_at,
-      }));
+      const mapped: Employee[] = (empData ?? []).map((e: any) => {
+        const empEmail = (e.email ?? '').toLowerCase().trim();
+        return {
+          id: e.id,
+          company_id: e.company_id,
+          name: e.name ?? '',
+          tc_no: e.tc_no,
+          sicil_no: e.sicil_no,
+          company: companyMap.get(e.company_id) ?? (e.company_id === 'aaaaaaaa-0000-0000-0000-000000000001' ? 'Humanius Demo Şirketi' : (e.company_id ?? 'Humanius Demo Şirketi')),
+          department: e.department ?? '',
+          position: e.position ?? '',
+          level: e.level ?? 'Junior',
+          salary: Number(e.salary ?? 0),
+          status: e.status ?? 'active',
+          phone: e.phone ?? '',
+          email: e.email ?? '',
+          role: profileRoleMap.get(empEmail) ?? e.role ?? 'employee',
+          joinDate: e.join_date,
+          join_date: e.join_date,
+          address: e.address ?? '',
+          avatar_url: e.avatar_url,
+          skills: e.skills ?? [],
+          medeni_durum: e.medeni_durum,
+          cocuk_sayisi: e.cocuk_sayisi,
+          engelli_durumu: e.engelli_durumu,
+          employeeType: e.employee_type ?? 'normal',
+          employee_type: e.employee_type,
+          approval_passcode: e.approval_passcode,
+          created_at: e.created_at,
+          updated_at: e.updated_at,
+        };
+      });
 
       let filteredMapped = mapped;
       let currentUserEmpId: string | null = null;
@@ -650,6 +662,13 @@ const AppInner: React.FC = () => {
             salary: emp.salary,
             tc_no: emp.tc_no ?? '',
           } as any);
+
+          if (emp.role) {
+            try {
+              await userManagementService.updateUserProfile(targetEmail, targetCompanyId, emp.role as any);
+            } catch {}
+          }
+
           edgeHandled = true;
         } catch (authErr) {
           console.warn('Oturum kaydı uyarısı:', authErr);
