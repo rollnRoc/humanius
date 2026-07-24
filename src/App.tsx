@@ -242,11 +242,12 @@ const AppInner: React.FC = () => {
 
   // ── Data loading ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
-    if (!profile?.company_id) return;
+    const isSuper = effectiveAppRole === 'superadmin' || profile?.role === 'superadmin';
+    const targetCompanyId = isSuper ? undefined : (profile?.company_id || undefined);
     try {
       const [empData, empStats] = await Promise.all([
-        employeeService.getAll(profile.company_id),
-        employeeService.getStats(profile.company_id),
+        employeeService.getAll(targetCompanyId),
+        employeeService.getStats(targetCompanyId),
       ]);
 
       // Map DB rows → frontend Employee shape
@@ -310,11 +311,16 @@ const AppInner: React.FC = () => {
       const depts = [...new Set(filteredMapped.map((e) => e.department).filter(Boolean))];
       setDepartments(depts);
 
-      // Şirket listesi — sadece giriş yapan kullanıcının şirketi
+      // Şirket listesi — superadmin ise tüm şirketler, değilse kullanıcının şirketi
       try {
-        const compData = await companyService.getById(profile.company_id);
-        setCompanies(compData ? [compData.name] : []);
-        setCompanyLogoUrl(compData?.logo_url ?? null);
+        if (isSuper) {
+          const allComps = await companyService.getCompanies();
+          setCompanies((allComps ?? []).map((c) => c.name));
+        } else if (profile?.company_id) {
+          const compData = await companyService.getById(profile.company_id);
+          setCompanies(compData ? [compData.name] : []);
+          setCompanyLogoUrl(compData?.logo_url ?? null);
+        }
       } catch {}
 
       // İzin talepleri

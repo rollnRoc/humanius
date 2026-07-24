@@ -41,16 +41,16 @@ async function pickSource(): Promise<'employees' | 'employees_public'> {
 }
 
 export const employeeService = {
-  async getAll(companyId: string): Promise<Employee[] | EmployeePublic[]> {
+  async getAll(companyId?: string): Promise<Employee[] | EmployeePublic[]> {
     if (demoService.isDemoActive()) {
       return demoService.getEmployees() as any;
     }
     const source = await pickSource();
-    const { data, error } = await supabase
-      .from(source)
-      .select('*')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
+    let query = supabase.from(source).select('*');
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+    const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
     return (data ?? []) as Employee[] | EmployeePublic[];
   },
@@ -168,7 +168,7 @@ export const employeeService = {
     return (data ?? []) as Employee[] | EmployeePublic[];
   },
 
-  async getStats(companyId: string) {
+  async getStats(companyId?: string) {
     if (demoService.isDemoActive()) {
       const list = demoService.getEmployees();
       return {
@@ -178,10 +178,11 @@ export const employeeService = {
       };
     }
     const source = await pickSource();
-    const { data, error } = await supabase
-      .from(source)
-      .select('status')
-      .eq('company_id', companyId);
+    let query = supabase.from(source).select('status');
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     const stats = {
       active:   (data ?? []).filter((e) => e.status === 'active').length,
