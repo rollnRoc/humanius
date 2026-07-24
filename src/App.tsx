@@ -643,6 +643,7 @@ const AppInner: React.FC = () => {
           });
         } else {
           await employeeService.update(emp.id, {
+            company_id: targetCompanyId,
             name: emp.name,
             department: emp.department,
             position: emp.position,
