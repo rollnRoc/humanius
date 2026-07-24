@@ -636,8 +636,14 @@ const KullanicilarPage: React.FC = () => {
     if (!deleteTarget) return;
     setDeleteLoading(true);
     try {
-      // Supabase client-side cannot delete auth users — inform user
-      showToast('error', 'Kullanıcı silme işlemi Supabase yönetici panelinden yapılabilir.');
+      await userManagementService.deleteUserAndEmployee({
+        userId: deleteTarget.id,
+        email: deleteTarget.email,
+      });
+      showToast('success', 'Kullanıcı hesabı ve bağlı personel kartı başarıyla silindi.');
+      await loadData();
+    } catch (err: any) {
+      showToast('error', `Silme işlemi başarısız: ${err.message}`);
     } finally {
       setDeleteLoading(false);
       setDeleteTarget(null);
