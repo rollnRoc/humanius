@@ -250,16 +250,19 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
   const [aramaMetni, setAramaMetni] = useState('');
   const [gorunum, setGorunum] = useState<'agac' | 'kart'>('agac');
   const [showPdfPreview, setShowPdfPreview] = useState(false);
-  const [previewFormat, setPreviewFormat] = useState<'agac' | 'kart'>('agac');
 
   const tree = useMemo(() => buildOrgTree(employees), [employees]);
 
-  const depts = useMemo(() => {
-    const map = new Map<string, Employee[]>();
+  // Departman -> Pozisyon -> Personel Hiyerarşik Yapısı
+  const deptPosMap = useMemo(() => {
+    const map = new Map<string, Map<string, Employee[]>>();
     for (const emp of employees) {
-      const d = emp.department || 'Belirsiz';
-      if (!map.has(d)) map.set(d, []);
-      map.get(d)!.push(emp);
+      const dept = emp.department || 'Belirsiz';
+      const pos = emp.position || 'Personel';
+      if (!map.has(dept)) map.set(dept, new Map());
+      const posMap = map.get(dept)!;
+      if (!posMap.has(pos)) posMap.set(pos, []);
+      posMap.get(pos)!.push(emp);
     }
     return map;
   }, [employees]);
@@ -273,8 +276,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
 
   const todayStr = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-  const handlePrintPdf = (modeOverride?: 'agac' | 'kart') => {
-    const targetMode = modeOverride ?? previewFormat ?? gorunum;
+  const handlePrintPdf = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -283,30 +285,35 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
       <html lang="tr">
       <head>
         <meta charset="UTF-8">
-        <title>Humanius HRMS - Kurumsal Resmi Organizasyon Şeması Belgesi</title>
+        <title>Humanius HRMS - Yatay Hiyerarşik Organizasyon Şeması Belgesi</title>
         <style>
           @page { size: A4 landscape; margin: 6mm 8mm; }
           * { box-sizing: border-box; }
           body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 10px; background: #ffffff; }
           
-          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 10px; }
+          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px; }
           .audit-table td { border: 1px solid #cbd5e1; padding: 4px 8px; }
           .audit-bg { background: #f8fafc; font-weight: 600; color: #475569; }
 
-          /* Hiyerarşik Ağaç Görünüm Stilleri (Sıkıştırılmış & Düzenli) */
-          .tree-root { text-align: center; margin-bottom: 12px; }
-          .tree-root-box { display: inline-block; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; padding: 6px 18px; border-radius: 8px; font-weight: 800; font-size: 12px; }
+          /* YATAY HİYERARŞİK AĞAÇ ŞEMASI (HORIZONTAL TREE FLOWCHART) */
+          .tree-root { display: flex; align-items: center; margin-bottom: 12px; }
+          .tree-root-box { background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; padding: 8px 18px; border-radius: 8px; font-weight: 800; font-size: 12px; }
           
-          .dept-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
-          .dept-card { border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; overflow: hidden; page-break-inside: avoid; }
-          .dept-card-header { padding: 5px 10px; background: #f8fafc; font-weight: 700; font-size: 11px; color: #0f172a; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-          .dept-badge { font-size: 9px; font-weight: 600; color: #475569; background: #e2e8f0; padding: 1px 6px; border-radius: 10px; }
+          .htree-wrapper { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+          .htree-dept-block { display: flex; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; overflow: hidden; page-break-inside: avoid; }
+          
+          .htree-dept-sidebar { width: 140px; padding: 10px; background: #f8fafc; border-right: 3px solid #2563eb; display: flex; flex-direction: column; justify-content: center; }
+          .htree-dept-title { font-weight: 800; font-size: 11px; color: #0f172a; }
+          .htree-dept-count { font-size: 9px; font-weight: 600; color: #64748b; background: #e2e8f0; padding: 1px 6px; border-radius: 10px; margin-top: 4px; display: inline-block; width: fit-content; }
 
-          /* Personel Izgara / Micro Grid */
-          .emp-micro-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px; }
-          .emp-pill { border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 8px; background: #f9fafb; font-size: 10px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-          .emp-name { font-weight: 700; color: #0f172a; }
-          .emp-pos { font-weight: 600; color: #2563eb; font-size: 9.5px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+          .htree-positions-container { flex: 1; padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; background: #ffffff; justify-content: center; }
+
+          .htree-pos-row { display: flex; align-items: center; gap: 8px; position: relative; }
+          .htree-pos-badge { min-width: 120px; max-width: 150px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-weight: 700; font-size: 9.5px; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
+          .htree-arrow { color: #3b82f6; font-weight: 900; font-size: 10px; flex-shrink: 0; }
+
+          .htree-emp-group { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; padding-left: 6px; border-left: 2px solid #e2e8f0; }
+          .htree-emp-box { background: #f9fafb; border: 1px solid #e2e8f0; border-radius: 5px; padding: 3px 8px; font-weight: 600; font-size: 9.5px; color: #0f172a; white-space: nowrap; }
 
           .legal-note { margin-top: 10px; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 9px; color: #475569; line-height: 1.3; page-break-inside: avoid; }
           .sig-container { display: flex; justify-content: space-between; margin-top: 14px; padding: 0 40px; page-break-inside: avoid; }
@@ -323,8 +330,8 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
               <div style="font-size:7.5px; font-weight:600; opacity:0.9;">İK Yönetim Sistemleri</div>
             </td>
             <td rowspan="2" style="width:50%; text-align:center; vertical-align:middle;">
-              <div style="font-size:13px; font-weight:800; color:#0f172a;">KURUMSAL ORGANİZASYON ŞEMASI BELGESİ</div>
-              <div style="font-size:9px; color:#64748b; margin-top:1px;">İdari ve Teşkilat Yapısı · ${targetMode === 'agac' ? 'Hiyerarşik Ağaç Şeması' : 'Departman Şeması'}</div>
+              <div style="font-size:13px; font-weight:800; color:#0f172a;">YATAY HİYERARŞİK ORGANİZASYON ŞEMASI BELGESİ</div>
+              <div style="font-size:9px; color:#64748b; margin-top:1px;">Departman ➔ Pozisyon ➔ Personel Akış Şeması</div>
             </td>
             <td class="audit-bg" style="width:15%;">Doküman No:</td>
             <td style="width:15%; font-weight:600; color:#1e293b;">FR-IK-012</td>
@@ -338,29 +345,34 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         <!-- Summary Bar -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:10px; color:#475569;">
           <span><strong>Kurum:</strong> HİZEL OTOMOTİV İNŞ.A.Ş / Humanius HRMS</span>
-          <span><strong>Toplam Kadro:</strong> ${employees.length} Çalışan · ${depts.size} Departman</span>
+          <span><strong>Kadro Yapısı:</strong> ${employees.length} Çalışan · ${deptPosMap.size} Departman</span>
         </div>
 
-        <!-- HİYERARŞİK AĞAÇ ŞEMASI (COMPACT SIKIŞTIRILMIŞ DÜZEN) -->
+        <!-- YATAY HİYERARŞİK AĞAÇ MODELİ -->
         <div class="tree-root">
           <div class="tree-root-box">
-            🏢 Şirket Genel Yönetimi
-            <span style="font-size:9px; font-weight:normal; opacity:0.9; margin-left:6px;">(${employees.length} Personel)</span>
+            🏢 Şirket Genel Yönetim Kurulu <span style="font-size:9.5px; font-weight:normal; opacity:0.9;">(${employees.length} Çalışan)</span>
           </div>
         </div>
 
-        <div class="dept-container">
-          ${Array.from(depts.entries()).map(([dept, emps]) => `
-            <div class="dept-card">
-              <div class="dept-card-header" style="border-top: 3px solid ${getColor(dept)};">
-                <span>🏢 ${dept}</span>
-                <span class="dept-badge">${emps.length} Çalışan</span>
+        <div class="htree-wrapper">
+          ${Array.from(deptPosMap.entries()).map(([dept, posMap]) => `
+            <div class="htree-dept-block">
+              <div class="htree-dept-sidebar" style="border-right-color: ${getColor(dept)};">
+                <div class="htree-dept-title">🏢 ${dept}</div>
+                <div class="htree-dept-count">${Array.from(posMap.values()).flat().length} Çalışan</div>
               </div>
-              <div class="emp-micro-grid">
-                ${emps.map(e => `
-                  <div class="emp-pill">
-                    <span class="emp-name">${e.name}</span>
-                    <span class="emp-pos">${e.position || 'Personel'}</span>
+              <div class="htree-positions-container">
+                ${Array.from(posMap.entries()).map(([pos, emps]) => `
+                  <div class="htree-pos-row">
+                    <div class="htree-pos-badge">
+                      <span>💼 ${pos}</span>
+                      <span style="font-size:8.5px; opacity:0.8;">(${emps.length})</span>
+                    </div>
+                    <span class="htree-arrow">➔</span>
+                    <div class="htree-emp-group">
+                      ${emps.map(e => `<div class="htree-emp-box">${e.name}</div>`).join('')}
+                    </div>
                   </div>
                 `).join('')}
               </div>
@@ -370,7 +382,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
 
         <!-- Yasal Beyan & Uyum Metni -->
         <div class="legal-note">
-          <strong>Resmi Beyan & Uyumluluk:</strong> İşbu Organizasyon Şeması Belgesi, 4857 sayılı İş Kanunu, 6331 sayılı İş Sağlığı ve Güvenliği Kanunu ve ISO 9001 Kalite Yönetim Sistemi standartlarına uygun tanzim edilmiş resmi evraktır.
+          <strong>Resmi Beyan & Uyumluluk:</strong> İşbu Yatay Hiyerarşik Organizasyon Şeması Belgesi, 4857 sayılı İş Kanunu, 6331 sayılı İş Sağlığı ve Güvenliği Kanunu ve ISO 9001 Kalite Yönetim Sistemi standartlarına uygun tanzim edilmiş resmi evraktır.
         </div>
 
         <!-- Islak İmza & Mühür Kutuları -->
@@ -414,12 +426,12 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         <div>
           <h2 className="text-xl font-bold text-gray-800">Organizasyon Şeması</h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            {employees.length} personel · {depts.size} departman
+            {employees.length} personel · {deptPosMap.size} departman
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => { setPreviewFormat(gorunum); setShowPdfPreview(true); }}
+            onClick={() => setShowPdfPreview(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs font-semibold border border-indigo-200 transition-colors"
             title="Şema Baskı Önizlemesi"
           >
@@ -427,12 +439,12 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
             PDF Önizleme
           </button>
           <button
-            onClick={() => handlePrintPdf(gorunum)}
+            onClick={handlePrintPdf}
             className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
-            title="Organizasyon Şemasını PDF Olarak İndir / Yazdır"
+            title="Yatay Hiyerarşik Ağaç Şemasını PDF Olarak İndir / Yazdır"
           >
             <Printer className="w-3.5 h-3.5" />
-            PDF İndir / Yazdır
+            PDF İndir / Yazdır (Yatay Ağaç)
           </button>
           <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
             {(['agac', 'kart'] as const).map((g) => (
@@ -501,7 +513,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
 
       {gorunum === 'kart' && (
         <div className="space-y-6">
-          {Array.from(depts.entries()).map(([dept, emps]) => (
+          {Array.from(deptPosMap.entries()).map(([dept, posMap]) => (
             <div key={dept}>
               <div className="flex items-center gap-2 mb-3">
                 <div
@@ -509,10 +521,10 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
                   style={{ backgroundColor: getColor(dept) }}
                 />
                 <p className="font-semibold text-gray-700 text-sm">{dept}</p>
-                <span className="text-xs text-gray-400">({emps.length} kişi)</span>
+                <span className="text-xs text-gray-400">({Array.from(posMap.values()).flat().length} kişi)</span>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {emps.map((emp) => (
+                {Array.from(posMap.values()).flat().map((emp) => (
                   <div
                     key={emp.id}
                     onClick={() => setSecilenNode({
@@ -569,16 +581,16 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                    PDF Baskı Önizlemesi
+                    Yatay Hiyerarşik Ağaç Şeması Önizlemesi
                     <span className="text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">A4 Yatay (Landscape)</span>
                   </h3>
-                  <p className="text-xs text-gray-500">Sıkıştırılmış ultra düzenli kurumsal organizasyon şeması</p>
+                  <p className="text-xs text-gray-500">Departman ➔ Pozisyon ➔ Personel bağlantılı akış şeması</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => { handlePrintPdf(previewFormat); setShowPdfPreview(false); }}
+                  onClick={() => { handlePrintPdf(); setShowPdfPreview(false); }}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
                 >
                   <Printer size={15} />
@@ -604,37 +616,48 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
                     </div>
                     <div>
                       <h1 className="text-lg font-black text-gray-900 tracking-tight">HUMANİUS HRMS</h1>
-                      <p className="text-[10px] font-bold text-blue-600 tracking-wider">KURUMSAL ORGANİZASYON ŞEMASI</p>
+                      <p className="text-[10px] font-bold text-blue-600 tracking-wider">YATAY HİYERARŞİK ORGANİZASYON ŞEMASI</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <span className="inline-block bg-blue-50 text-blue-700 border border-blue-200 font-bold text-xs px-3 py-1 rounded-full">
-                      {employees.length} PERSONEL · {depts.size} DEPARTMAN
+                      {employees.length} PERSONEL · {deptPosMap.size} DEPARTMAN
                     </span>
                     <p className="text-[10px] text-gray-500 mt-1">Rapor Tarihi: {todayStr}</p>
                   </div>
                 </div>
 
-                {/* Sıkıştırılmış Düzenli Şema Önizlemesi */}
+                {/* Yatay Ağaç Hiyerarşisi Önizlemesi */}
                 <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="inline-block bg-gradient-to-r from-blue-700 to-indigo-700 text-white font-extrabold text-xs px-6 py-1.5 rounded-lg shadow-sm">
-                      🏢 Şirket Genel Yönetim Kurulu
-                      <span className="block text-[9px] font-normal opacity-90">Top. {employees.length} Personel · {depts.size} Departman</span>
-                    </div>
+                  <div className="inline-block bg-gradient-to-r from-blue-700 to-indigo-700 text-white font-extrabold text-xs px-5 py-1.5 rounded-lg shadow-sm">
+                    🏢 Şirket Genel Yönetim Kurulu <span className="text-[10px] font-normal opacity-90">({employees.length} Çalışan)</span>
                   </div>
+
                   <div className="space-y-3">
-                    {Array.from(depts.entries()).map(([dept, emps]) => (
-                      <div key={dept} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-xs">
-                        <div className="bg-gray-50 px-3 py-1.5 border-b border-gray-200 flex justify-between items-center" style={{ borderTop: `3px solid ${getColor(dept)}` }}>
+                    {Array.from(deptPosMap.entries()).map(([dept, posMap]) => (
+                      <div key={dept} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-xs flex">
+                        <div className="w-36 bg-gray-50 p-2.5 border-r-4 flex flex-col justify-center" style={{ borderRightColor: getColor(dept) }}>
                           <span className="font-bold text-xs text-gray-900">🏢 {dept}</span>
-                          <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-semibold">{emps.length} Çalışan</span>
+                          <span className="text-[9px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full font-semibold mt-1 w-fit">
+                            {Array.from(posMap.values()).flat().length} Çalışan
+                          </span>
                         </div>
-                        <div className="p-2 grid grid-cols-3 gap-2">
-                          {emps.map((e) => (
-                            <div key={e.id} className="border border-gray-200 rounded-md p-1.5 bg-gray-50/50 flex justify-between items-center text-left">
-                              <span className="font-bold text-[11px] text-gray-900 truncate">{e.name}</span>
-                              <span className="font-semibold text-[10px] text-blue-600 ml-2 truncate">{e.position || 'Personel'}</span>
+
+                        <div className="flex-1 p-2.5 flex flex-col gap-2 justify-center">
+                          {Array.from(posMap.entries()).map(([pos, emps]) => (
+                            <div key={pos} className="flex items-center gap-2">
+                              <div className="bg-blue-50 border border-blue-200 text-blue-800 font-bold text-[10px] px-2.5 py-1 rounded-md flex-shrink-0 flex items-center justify-between min-w-[120px]">
+                                <span>💼 {pos}</span>
+                                <span className="text-[9px] text-blue-500 font-normal ml-1">({emps.length})</span>
+                              </div>
+                              <span className="text-blue-500 font-black text-xs">➔</span>
+                              <div className="flex flex-wrap gap-1.5 flex-1 pl-1 border-l-2 border-gray-200">
+                                {emps.map((e) => (
+                                  <span key={e.id} className="bg-gray-50 border border-gray-200 text-gray-900 font-semibold text-[10px] px-2 py-0.5 rounded">
+                                    {e.name}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           ))}
                         </div>
