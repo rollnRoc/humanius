@@ -72,4 +72,8 @@ export const userManagementService = {
   updateManagedPassword(payload: UpdateManagedPasswordPayload) {
     return invokeFunction<{ message: string }>('update_password', payload);
   },
+
+  deleteUserAndEmployee(payload: { employeeId?: string; email?: string; userId?: string }) {
+    return invokeFunction<{ message: string }>('delete_employee_and_user', payload);
+  },
 };

@@ -671,8 +671,18 @@ const AppInner: React.FC = () => {
   };
 
   const handleDeleteEmployee = async (id: string) => {
-    if (!window.confirm('Bu personeli silmek istediğinize emin misiniz?')) return;
+    const targetEmp = employees.find((e) => e.id === id);
+    if (!window.confirm('Bu personeli ve sisteme bağlı kullanıcı hesabını tamamen silmek istediğinize emin misiniz?')) return;
     try {
+      try {
+        await userManagementService.deleteUserAndEmployee({
+          employeeId: id,
+          email: targetEmp?.email,
+        });
+      } catch (authDeleteErr) {
+        console.warn('Oturum hesabı silme uyarısı:', authDeleteErr);
+      }
+
       await employeeService.delete(id);
       setDrawerOpen(false);
       await loadData();

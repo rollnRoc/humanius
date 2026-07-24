@@ -311,6 +311,40 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ message: 'Profil güncellendi.' });
     }
 
+    if (operation === 'delete_user_by_email' || operation === 'delete_employee_and_user') {
+      const email = String(payload.email ?? '').trim().toLowerCase();
+      const employeeId = String(payload.employeeId ?? '').trim();
+      const userId = String(payload.userId ?? '').trim();
+
+      if (employeeId) {
+        await adminClient.from('employees').delete().eq('id', employeeId);
+      }
+      if (email) {
+        await adminClient.from('employees').delete().eq('email', email);
+      }
+
+      let targetUserId = userId;
+      if (!targetUserId && email) {
+        const { data: prof } = await adminClient
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+        if (prof?.id) targetUserId = prof.id;
+      }
+
+      if (targetUserId) {
+        await adminClient.from('profiles').delete().eq('id', targetUserId);
+        try {
+          await adminClient.auth.admin.deleteUser(targetUserId);
+        } catch (delAuthErr) {
+          console.warn('Auth delete user warning:', delAuthErr);
+        }
+      }
+
+      return jsonResponse({ message: 'Personel ve kullanıcı hesabı tamamen silindi.' });
+    }
+
     return jsonResponse({ error: 'Bilinmeyen işlem.' }, 400);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu';
