@@ -161,6 +161,21 @@ export const userService = {
       });
       if (error) throw error;
     }
+
+    // Eşzamanlı olarak employees tablosunu da güncelle
+    try {
+      const { data: prof } = await supabase.from('profiles').select('email').eq('id', targetId).maybeSingle();
+      if (prof?.email) {
+        const empUpdates: Record<string, any> = {};
+        if (updates.full_name) empUpdates.name = updates.full_name;
+        if (updates.company_id) empUpdates.company_id = updates.company_id;
+        if (Object.keys(empUpdates).length > 0) {
+          await supabase.from('employees').update(empUpdates).ilike('email', prof.email);
+        }
+      }
+    } catch (empSyncErr) {
+      console.warn('Employees sync error from updateProfile:', empSyncErr);
+    }
   },
 
   /**
