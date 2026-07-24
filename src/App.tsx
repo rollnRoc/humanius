@@ -264,10 +264,14 @@ const AppInner: React.FC = () => {
         } catch {}
       }
 
-      const [empData, empStats, profDataRes] = await Promise.all([
+      let profDataRes: any = { data: [] };
+      try {
+        profDataRes = await supabase.from('profiles').select('email, role');
+      } catch {}
+
+      const [empData, empStats] = await Promise.all([
         employeeService.getAll(targetCompanyId),
         employeeService.getStats(targetCompanyId),
-        supabase.from('profiles').select('email, role').catch(() => ({ data: [] })),
       ]);
 
       const profileRoleMap = new Map<string, string>();
@@ -574,8 +578,10 @@ const AppInner: React.FC = () => {
 
     const matchCompany =
       selectedCompany === 'all' ||
+      !selectedCompany ||
       emp.company === selectedCompany ||
       emp.company_id === selectedCompany ||
+      (emp.company && selectedCompany && emp.company.toLowerCase().trim() === selectedCompany.toLowerCase().trim()) ||
       (isToyotaSelected && isEmpToyota);
 
     return matchSearch && matchDept && matchCompany;
