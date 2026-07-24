@@ -48,7 +48,7 @@ export interface Employee {
   company: string;
   department: string;
   position: string;
-  level: 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'Manager';
+  level: string;
   salary: number;
   status: 'active' | 'onLeave' | 'inactive';
   phone: string;
