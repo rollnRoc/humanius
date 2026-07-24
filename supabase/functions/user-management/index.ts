@@ -230,19 +230,35 @@ Deno.serve(async (req: Request) => {
         const position = String(payload.position ?? 'Personel').trim();
         const employeeType = String(payload.employeeType ?? 'normal').trim();
         const salary = Number(payload.salary ?? 0);
+        const tcNo = String(payload.tc_no || payload.tcNo || '').trim();
 
-        const { data: existingEmp } = await adminClient
-          .from('employees')
-          .select('id')
-          .eq('company_id', companyId)
-          .eq('email', email)
-          .maybeSingle();
+        // TC No veya E-posta ile mükerrer kontrolü yap
+        let existingEmp = null;
+        if (tcNo) {
+          const { data: tcMatch } = await adminClient
+            .from('employees')
+            .select('id')
+            .eq('company_id', companyId)
+            .eq('tc_no', tcNo)
+            .maybeSingle();
+          existingEmp = tcMatch;
+        }
+        if (!existingEmp) {
+          const { data: emailMatch } = await adminClient
+            .from('employees')
+            .select('id')
+            .eq('company_id', companyId)
+            .eq('email', email)
+            .maybeSingle();
+          existingEmp = emailMatch;
+        }
 
         if (!existingEmp) {
           await adminClient.from('employees').insert({
             company_id: companyId,
             name: fullName,
             email: email,
+            tc_no: tcNo || null,
             department: department,
             position: position,
             employee_type: employeeType,
@@ -251,7 +267,10 @@ Deno.serve(async (req: Request) => {
           });
         } else {
           await adminClient.from('employees').update({
+            company_id: companyId,
             name: fullName,
+            email: email,
+            tc_no: tcNo || null,
             department: department,
             position: position,
             employee_type: employeeType,

@@ -647,6 +647,7 @@ const AppInner: React.FC = () => {
             position: emp.position,
             employeeType: emp.employeeType,
             salary: emp.salary,
+            tc_no: emp.tc_no ?? '',
           } as any);
           edgeHandled = true;
         } catch (authErr) {
