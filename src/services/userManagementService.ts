@@ -21,7 +21,7 @@ export interface CreateCompanyUserPayload {
   fullName: string;
   email: string;
   password: string;
-  role: 'admin' | 'manager' | 'employee' | 'hr' | 'user';
+  role: 'admin' | 'manager' | 'employee' | 'hr' | 'user' | 'superadmin' | string;
 }
 
 export interface UpdateManagedPasswordPayload {

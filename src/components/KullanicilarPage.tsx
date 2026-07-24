@@ -481,11 +481,9 @@ const UserModal: React.FC<UserModalProps> = ({
             >
               {ROLE_OPTIONS
                 .filter((opt) => {
-                  // superadmin hiçbir formdan oluşturulamaz
+                  if (creatorRole === 'superadmin') return true;
                   if (opt.value === 'superadmin') return false;
-                  // admin yalnızca superadmin tarafından atanabilir
                   if (opt.value === 'admin' && creatorRole !== 'superadmin') return false;
-                  // hr; admin atayamaz (kendine eşit hr ve altını atayabilir)
                   if (opt.value === 'admin' && creatorRole === 'hr') return false;
                   return true;
                 })
