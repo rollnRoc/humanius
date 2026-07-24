@@ -63,6 +63,7 @@ export interface Employee {
   engelli_durumu?: 'yok' | 'birinci' | 'ikinci' | 'ucuncu';
   employeeType?: 'normal' | 'emekli';
   employee_type?: 'normal' | 'emekli';
+  role?: string;
   approval_passcode?: string | null;
   created_at?: string;
   updated_at?: string;
