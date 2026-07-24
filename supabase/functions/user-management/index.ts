@@ -420,6 +420,51 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ message: 'Profil güncellendi.' });
     }
 
+    if (operation === 'update_employee_details') {
+      const email = String(payload.email ?? '').trim().toLowerCase();
+      const companyId = String(payload.companyId ?? '').trim();
+      const role = payload.role ? String(payload.role).trim() as ProfileRole : undefined;
+      const level = payload.level !== undefined ? String(payload.level).trim() : undefined;
+      const position = payload.position !== undefined ? String(payload.position).trim() : undefined;
+      const department = payload.department !== undefined ? String(payload.department).trim() : undefined;
+      const fullName = payload.fullName !== undefined ? String(payload.fullName).trim() : undefined;
+
+      if (!email) {
+        return jsonResponse({ error: 'email zorunludur.' }, 400);
+      }
+
+      if (role || companyId || fullName) {
+        const profUpdates: Record<string, unknown> = {};
+        if (role) profUpdates.role = role;
+        if (companyId) profUpdates.company_id = companyId;
+        if (fullName) profUpdates.full_name = fullName;
+
+        await adminClient.from('profiles').update(profUpdates).eq('email', email);
+      }
+
+      const empUpdates: Record<string, unknown> = {};
+      if (companyId) empUpdates.company_id = companyId;
+      if (fullName) empUpdates.name = fullName;
+      if (department !== undefined) empUpdates.department = department;
+      if (position !== undefined) empUpdates.position = position;
+      if (level !== undefined) {
+        const validCheckLevels = ['Junior', 'Mid', 'Senior', 'Lead', 'Manager'];
+        empUpdates.level = validCheckLevels.includes(level) ? level : (level ? level : null);
+      }
+      if (payload.phone !== undefined) empUpdates.phone = String(payload.phone);
+      if (payload.salary !== undefined) empUpdates.salary = Number(payload.salary);
+      if (payload.status !== undefined) empUpdates.status = String(payload.status);
+
+      if (Object.keys(empUpdates).length > 0) {
+        await adminClient.from('employees').update(empUpdates).eq('email', email);
+        if (payload.employeeId) {
+          await adminClient.from('employees').update(empUpdates).eq('id', String(payload.employeeId));
+        }
+      }
+
+      return jsonResponse({ message: 'Personel bilgileri ve rolü başarıyla güncellendi.' });
+    }
+
     if (operation === 'delete_user_by_email' || operation === 'delete_employee_and_user') {
       const email = String(payload.email ?? '').trim().toLowerCase();
       const employeeId = String(payload.employeeId ?? '').trim();

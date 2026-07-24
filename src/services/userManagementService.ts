@@ -76,4 +76,20 @@ export const userManagementService = {
   deleteUserAndEmployee(payload: { employeeId?: string; email?: string; userId?: string }) {
     return invokeFunction<{ message: string }>('delete_employee_and_user', payload);
   },
+
+  updateEmployeeDetails(payload: {
+    email: string;
+    employeeId?: string;
+    companyId?: string;
+    fullName?: string;
+    role?: string;
+    level?: string;
+    position?: string;
+    department?: string;
+    phone?: string;
+    salary?: number;
+    status?: string;
+  }) {
+    return invokeFunction<{ message: string }>('update_employee_details', payload);
+  },
 };

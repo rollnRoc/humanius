@@ -684,11 +684,19 @@ const AppInner: React.FC = () => {
             tc_no: emp.tc_no ?? '',
           } as any);
 
-          if (emp.role) {
-            try {
-              await userManagementService.updateUserProfile(targetEmail, targetCompanyId, emp.role as any);
-            } catch {}
-          }
+          await userManagementService.updateEmployeeDetails({
+            email: targetEmail,
+            employeeId: emp.id || undefined,
+            companyId: targetCompanyId,
+            fullName: emp.name,
+            role: emp.role,
+            level: emp.level,
+            position: emp.position,
+            department: emp.department,
+            phone: emp.phone,
+            salary: emp.salary,
+            status: emp.status,
+          });
         } catch (authErr) {
           console.warn('Oturum kaydı uyarısı:', authErr);
         }
