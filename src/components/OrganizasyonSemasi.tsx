@@ -280,51 +280,61 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
       <html lang="tr">
       <head>
         <meta charset="UTF-8">
-        <title>Humanius HRMS - Kurumsal Organizasyon Şeması</title>
+        <title>Humanius HRMS - Kurumsal Resmi Organizasyon Şeması Belgesi</title>
         <style>
           @page { size: A4 landscape; margin: 10mm; }
           * { box-sizing: border-box; }
-          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 20px; background: #ffffff; }
-          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #2563eb; padding-bottom: 14px; margin-bottom: 24px; }
-          .logo-box { display: flex; align-items: center; gap: 12px; }
-          .logo-badge { width: 44px; height: 44px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: white; border-radius: 12px; font-size: 24px; font-weight: 900; display: flex; align-items: center; justify-content: center; font-family: sans-serif; }
-          .title-group { display: flex; flex-direction: column; justify-content: center; }
-          .company-title { font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; margin: 0; }
-          .doc-subtitle { font-size: 11px; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
-          .meta-box { text-align: right; }
-          .stat-pill { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-block; }
-          .date-txt { font-size: 11px; color: #64748b; margin-top: 6px; }
+          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 15px; background: #ffffff; }
+          
+          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
+          .audit-table td { border: 1px solid #cbd5e1; padding: 6px 10px; }
+          .audit-bg { background: #f8fafc; font-weight: 600; color: #475569; }
+
           .dept-section { margin-bottom: 22px; page-break-inside: avoid; }
-          .dept-header { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; color: #0f172a; padding: 8px 12px; background: #f8fafc; border-left: 4px solid #2563eb; border-radius: 6px; margin-bottom: 12px; }
+          .dept-header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; color: #0f172a; padding: 7px 12px; background: #f8fafc; border-left: 4px solid #2563eb; border-radius: 6px; margin-bottom: 12px; }
           .dept-badge { font-size: 11px; font-weight: 600; color: #64748b; background: #e2e8f0; padding: 2px 8px; border-radius: 12px; }
-          .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-          .card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between; }
-          .emp-name { font-size: 13px; font-weight: 700; color: #0f172a; margin: 0 0 2px 0; }
-          .emp-pos { font-size: 11px; font-weight: 600; color: #2563eb; margin: 0 0 6px 0; }
-          .emp-level { font-size: 10px; color: #475569; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 6px; font-weight: 500; }
-          .emp-email { font-size: 10px; color: #64748b; margin: 0; word-break: break-all; }
-          .status-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 6px; border-top: 1px solid #f1f5f9; font-size: 10px; color: #64748b; }
-          .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+          .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+          .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between; }
+          .emp-name { font-size: 12px; font-weight: 700; color: #0f172a; margin: 0 0 2px 0; }
+          .emp-pos { font-size: 11px; font-weight: 600; color: #2563eb; margin: 0 0 4px 0; }
+          .emp-level { font-size: 9px; color: #475569; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; display: inline-block; margin-bottom: 4px; font-weight: 500; }
+          .emp-email { font-size: 9px; color: #64748b; margin: 0; word-break: break-all; }
+          .status-row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; padding-top: 4px; border-top: 1px solid #f1f5f9; font-size: 9px; color: #64748b; }
+          .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; }
           .dot-active { background: #10b981; }
           .dot-leave { background: #f59e0b; }
-          .sig-container { display: flex; justify-content: space-between; margin-top: 36px; padding: 0 60px; page-break-inside: avoid; }
-          .sig-box { text-align: center; width: 200px; font-size: 11px; color: #475569; border-top: 1.5px dashed #cbd5e1; padding-top: 8px; font-weight: 600; }
-          .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; }
+
+          .legal-note { margin-top: 20px; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 10px; color: #475569; line-height: 1.4; page-break-inside: avoid; }
+          .sig-container { display: flex; justify-content: space-between; margin-top: 30px; padding: 0 60px; page-break-inside: avoid; }
+          .sig-box { text-align: center; width: 220px; font-size: 11px; color: #334155; border-top: 1.5px dashed #cbd5e1; padding-top: 8px; font-weight: 600; }
+          .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; }
         </style>
       </head>
       <body>
-        <div class="header">
-          <div class="logo-box">
-            <div class="logo-badge">H</div>
-            <div class="title-group">
-              <h1 class="company-title">HUMANİUS HRMS</h1>
-              <div class="doc-subtitle">KURUMSAL ORGANİZASYON ŞEMASI</div>
-            </div>
-          </div>
-          <div class="meta-box">
-            <span class="stat-pill">${employees.length} PERSONEL · ${depts.size} DEPARTMAN</span>
-            <div class="date-txt">Rapor Tarihi: ${todayStr}</div>
-          </div>
+        <!-- ISO 9001 / ISG Kurumsal Denetim Başlık Tablosu -->
+        <table class="audit-table">
+          <tr>
+            <td rowspan="2" style="width:22%; text-align:center; vertical-align:middle; background:linear-gradient(135deg, #1e3a8a, #3b82f6); color:white;">
+              <div style="font-size:18px; font-weight:900; tracking-tight: -0.5px;">HUMANİUS HRMS</div>
+              <div style="font-size:8px; font-weight:600; opacity:0.9; margin-top:2px;">İK Yönetim Sistemleri</div>
+            </td>
+            <td rowspan="2" style="width:48%; text-align:center; vertical-align:middle;">
+              <div style="font-size:15px; font-weight:800; color:#0f172a;">KURUMSAL ORGANİZASYON ŞEMASI BELGESİ</div>
+              <div style="font-size:10px; color:#64748b; margin-top:3px;">İdari ve Operasyonel Teşkilat Yapısı</div>
+            </td>
+            <td class="audit-bg" style="width:15%;">Doküman No:</td>
+            <td style="width:15%; font-weight:600; color:#1e293b;">FR-IK-012</td>
+          </tr>
+          <tr>
+            <td class="audit-bg">Yayın / Rev. Tarihi:</td>
+            <td style="font-weight:600; color:#1e293b;">${todayStr}</td>
+          </tr>
+        </table>
+
+        <!-- Summary Bar -->
+        <div style="display:flex; justify-between; items-center; margin-bottom:16px; font-size:11px; color:#475569;">
+          <span><strong>Kurum Adı:</strong> HİZEL OTOMOTİV İNŞ.A.Ş / Humanius HRMS</span>
+          <span><strong>Kapsam:</strong> ${employees.length} Çalışan · ${depts.size} Departman</span>
         </div>
 
         ${Array.from(depts.entries()).map(([dept, emps]) => `
@@ -357,20 +367,28 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
           </div>
         `).join('')}
 
+        <!-- Yasal Beyan & Uyum Metni -->
+        <div class="legal-note">
+          <strong>Resmi Beyan & Uyumluluk:</strong> İşbu Organizasyon Şeması Belgesi, 4857 sayılı İş Kanunu, 6331 sayılı İş Sağlığı ve Güvenliği Kanunu ve ISO 9001 Kalite Yönetim Sistemi standartlarına uygun olarak tanzim edilmiş olup, şirketin güncel teşkilat yapısını gösterir resmi evraktır.
+        </div>
+
+        <!-- Islak İmza & Mühür Kutuları -->
         <div class="sig-container">
           <div class="sig-box">
-            Hazırlayan<br>
-            <span style="font-weight:normal; font-size:10px; color:#64748b;">İnsan Kaynakları Yönetimi</span>
+            Hazırlayan & Kontrol Eden<br>
+            <div style="font-weight:normal; font-size:10px; color:#64748b; margin-top:2px;">İnsan Kaynakları Yöneticisi</div>
+            <div style="margin-top:24px; font-size:9px; color:#cbd5e1;">İmza / Tarih</div>
           </div>
           <div class="sig-box">
-            Onaylayan<br>
-            <span style="font-weight:normal; font-size:10px; color:#64748b;">Şirket Genel Müdürü</span>
+            Onaylayan & Kaşe<br>
+            <div style="font-weight:normal; font-size:10px; color:#64748b; margin-top:2px;">Genel Müdür / Şirket Yöneticisi</div>
+            <div style="margin-top:24px; font-size:9px; color:#cbd5e1;">İmza / Kaşe / Tarih</div>
           </div>
         </div>
 
         <div class="footer">
           <span>Humanius İnsan Kaynakları Yönetim Sistemi © ${new Date().getFullYear()}</span>
-          <span>Gizli ve Kuruma Özel Belge · Bu çıktı sistem tarafından otomatik oluşturulmuştur.</span>
+          <span>Gizli ve Kuruma Özel Belge · Bu evrak resmi denetimler için geçerlidir.</span>
         </div>
 
         <script>
