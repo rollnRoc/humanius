@@ -138,7 +138,7 @@ const OrgKart: React.FC<{
           <p className={`text-sm font-medium truncate ${seçildi ? 'text-indigo-800' : 'text-gray-800'}`}>
             {node.label}
           </p>
-          {node.altBaslik && (
+          {node.altBaslik && node.tip !== 'personel' && (
             <p className="text-[10px] text-gray-400 truncate">{node.altBaslik}</p>
           )}
         </div>
@@ -187,6 +187,7 @@ const PersonelDetay: React.FC<{ node: OrgNode | null }> = ({ node }) => {
   }
 
   const emp = node.employee;
+  const levelDisplay = emp?.level && emp.level !== 'Junior' ? emp.level : undefined;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
@@ -208,7 +209,7 @@ const PersonelDetay: React.FC<{ node: OrgNode | null }> = ({ node }) => {
           {[
             { etiket: 'Departman', deger: emp.department },
             { etiket: 'Pozisyon', deger: emp.position },
-            { etiket: 'Seviye', deger: emp.level },
+            { etiket: 'Seviye', deger: levelDisplay },
             { etiket: 'E-posta', deger: emp.email },
             { etiket: 'Telefon', deger: emp.phone },
             { etiket: 'Durum', deger: emp.status === 'active' ? '✓ Aktif' : emp.status === 'on-leave' ? '⏸ İzinde' : '✗ Pasif' },
@@ -249,6 +250,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
   const [aramaMetni, setAramaMetni] = useState('');
   const [gorunum, setGorunum] = useState<'agac' | 'kart'>('agac');
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [previewFormat, setPreviewFormat] = useState<'agac' | 'kart'>('agac');
 
   const tree = useMemo(() => buildOrgTree(employees), [employees]);
 
@@ -271,7 +273,8 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
 
   const todayStr = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-  const handlePrintPdf = () => {
+  const handlePrintPdf = (modeOverride?: 'agac' | 'kart') => {
+    const targetMode = modeOverride ?? previewFormat ?? gorunum;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -286,28 +289,38 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
           * { box-sizing: border-box; }
           body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 15px; background: #ffffff; }
           
-          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
+          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
           .audit-table td { border: 1px solid #cbd5e1; padding: 6px 10px; }
           .audit-bg { background: #f8fafc; font-weight: 600; color: #475569; }
 
-          .dept-section { margin-bottom: 22px; page-break-inside: avoid; }
-          .dept-header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; color: #0f172a; padding: 7px 12px; background: #f8fafc; border-left: 4px solid #2563eb; border-radius: 6px; margin-bottom: 12px; }
-          .dept-badge { font-size: 11px; font-weight: 600; color: #64748b; background: #e2e8f0; padding: 2px 8px; border-radius: 12px; }
+          /* Kart Görünüm Stilleri */
+          .dept-section { margin-bottom: 20px; page-break-inside: avoid; }
+          .dept-header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; color: #0f172a; padding: 7px 12px; background: #f8fafc; border-left: 4px solid #2563eb; border-radius: 6px; margin-bottom: 10px; }
+          .dept-badge { font-size: 10px; font-weight: 600; color: #64748b; background: #e2e8f0; padding: 2px 8px; border-radius: 12px; }
           .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
           .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between; }
           .emp-name { font-size: 12px; font-weight: 700; color: #0f172a; margin: 0 0 2px 0; }
           .emp-pos { font-size: 11px; font-weight: 600; color: #2563eb; margin: 0 0 4px 0; }
-          .emp-level { font-size: 9px; color: #475569; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; display: inline-block; margin-bottom: 4px; font-weight: 500; }
-          .emp-email { font-size: 9px; color: #64748b; margin: 0; word-break: break-all; }
+          .emp-level { font-size: 9px; color: #475569; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; display: inline-block; margin-top: 2px; font-weight: 500; }
           .status-row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; padding-top: 4px; border-top: 1px solid #f1f5f9; font-size: 9px; color: #64748b; }
           .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; }
           .dot-active { background: #10b981; }
           .dot-leave { background: #f59e0b; }
 
-          .legal-note { margin-top: 20px; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 10px; color: #475569; line-height: 1.4; page-break-inside: avoid; }
-          .sig-container { display: flex; justify-content: space-between; margin-top: 30px; padding: 0 60px; page-break-inside: avoid; }
+          /* Hiyerarşik Ağaç Şema Stilleri */
+          .tree-root { text-align: center; margin-bottom: 18px; }
+          .tree-root-box { display: inline-block; background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white; padding: 10px 24px; border-radius: 10px; font-weight: 800; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+          .tree-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+          .tree-branch { border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; overflow: hidden; page-break-inside: avoid; }
+          .tree-branch-head { padding: 8px 12px; background: #f8fafc; font-weight: 700; font-size: 12px; color: #0f172a; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+          .tree-node-list { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+          .tree-node-item { border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; background: #fafafa; position: relative; }
+          .tree-node-item::before { content: ''; position: absolute; left: -10px; top: 50%; width: 10px; height: 1px; background: #cbd5e1; }
+
+          .legal-note { margin-top: 18px; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 10px; color: #475569; line-height: 1.4; page-break-inside: avoid; }
+          .sig-container { display: flex; justify-content: space-between; margin-top: 26px; padding: 0 60px; page-break-inside: avoid; }
           .sig-box { text-align: center; width: 220px; font-size: 11px; color: #334155; border-top: 1.5px dashed #cbd5e1; padding-top: 8px; font-weight: 600; }
-          .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; }
+          .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; }
         </style>
       </head>
       <body>
@@ -320,7 +333,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
             </td>
             <td rowspan="2" style="width:48%; text-align:center; vertical-align:middle;">
               <div style="font-size:15px; font-weight:800; color:#0f172a;">KURUMSAL ORGANİZASYON ŞEMASI BELGESİ</div>
-              <div style="font-size:10px; color:#64748b; margin-top:3px;">İdari ve Operasyonel Teşkilat Yapısı</div>
+              <div style="font-size:10px; color:#64748b; margin-top:3px;">İdari ve Teşkilat Yapısı · ${targetMode === 'agac' ? 'Hiyerarşik Ağaç Formatı' : 'Departman Kart Formatı'}</div>
             </td>
             <td class="audit-bg" style="width:15%;">Doküman No:</td>
             <td style="width:15%; font-weight:600; color:#1e293b;">FR-IK-012</td>
@@ -332,40 +345,73 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         </table>
 
         <!-- Summary Bar -->
-        <div style="display:flex; justify-between; items-center; margin-bottom:16px; font-size:11px; color:#475569;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; font-size:11px; color:#475569;">
           <span><strong>Kurum Adı:</strong> HİZEL OTOMOTİV İNŞ.A.Ş / Humanius HRMS</span>
           <span><strong>Kapsam:</strong> ${employees.length} Çalışan · ${depts.size} Departman</span>
         </div>
 
-        ${Array.from(depts.entries()).map(([dept, emps]) => `
-          <div class="dept-section">
-            <div class="dept-header" style="border-left-color: ${getColor(dept)};">
-              <span>🏢 ${dept}</span>
-              <span class="dept-badge">${emps.length} Çalışan</span>
-            </div>
-            <div class="grid">
-              ${emps.map(e => `
-                <div class="card">
-                  <div>
-                    <div class="emp-name">${e.name}</div>
-                    <div class="emp-pos">${e.position || 'Personel'}</div>
-                    ${e.level ? `<div class="emp-level">${e.level}</div>` : ''}
-                  </div>
-                  <div>
-                    <p class="emp-email">${e.email || '-'}</p>
-                    <div class="status-row">
-                      <span>
-                        <span class="dot ${e.status === 'active' ? 'dot-active' : 'dot-leave'}"></span>
-                        ${e.status === 'active' ? 'Aktif' : 'İzinde'}
-                      </span>
-                      ${e.phone ? `<span>${e.phone}</span>` : ''}
-                    </div>
-                  </div>
-                </div>
-              `).join('')}
+        ${targetMode === 'agac' ? `
+          <!-- HİYERARŞİK AĞAÇ FORMATI -->
+          <div class="tree-root">
+            <div class="tree-root-box">
+              🏢 Şirket Genel Yönetim Kurulu
+              <div style="font-size:10px; font-weight:normal; opacity:0.9; margin-top:2px;">Top. ${employees.length} Çalışan · ${depts.size} Departman</div>
             </div>
           </div>
-        `).join('')}
+
+          <div class="tree-grid">
+            ${Array.from(depts.entries()).map(([dept, emps]) => `
+              <div class="tree-branch">
+                <div class="tree-branch-head" style="border-top: 3.5px solid ${getColor(dept)};">
+                  <span>🏢 ${dept}</span>
+                  <span class="dept-badge">${emps.length} Çalışan</span>
+                </div>
+                <div class="tree-node-list">
+                  ${emps.map(e => `
+                    <div class="tree-node-item">
+                      <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="emp-name">${e.name}</span>
+                        <span class="dot ${e.status === 'active' ? 'dot-active' : 'dot-leave'}"></span>
+                      </div>
+                      <div class="emp-pos">${e.position || 'Personel'}</div>
+                      ${e.level && e.level !== 'Junior' ? `<span class="emp-level">${e.level}</span>` : ''}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <!-- DEPARTMAN KART FORMATI -->
+          ${Array.from(depts.entries()).map(([dept, emps]) => `
+            <div class="dept-section">
+              <div class="dept-header" style="border-left-color: ${getColor(dept)};">
+                <span>🏢 ${dept}</span>
+                <span class="dept-badge">${emps.length} Çalışan</span>
+              </div>
+              <div class="grid">
+                ${emps.map(e => `
+                  <div class="card">
+                    <div>
+                      <div class="emp-name">${e.name}</div>
+                      <div class="emp-pos">${e.position || 'Personel'}</div>
+                      ${e.level && e.level !== 'Junior' ? `<div class="emp-level">${e.level}</div>` : ''}
+                    </div>
+                    <div>
+                      <div class="status-row">
+                        <span>
+                          <span class="dot ${e.status === 'active' ? 'dot-active' : 'dot-leave'}"></span>
+                          ${e.status === 'active' ? 'Aktif' : 'İzinde'}
+                        </span>
+                        ${e.phone ? `<span>${e.phone}</span>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+        `}
 
         <!-- Yasal Beyan & Uyum Metni -->
         <div class="legal-note">
@@ -418,7 +464,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowPdfPreview(true)}
+            onClick={() => { setPreviewFormat(gorunum); setShowPdfPreview(true); }}
             className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs font-semibold border border-indigo-200 transition-colors"
             title="Şema Baskı Önizlemesi"
           >
@@ -426,12 +472,12 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
             PDF Önizleme
           </button>
           <button
-            onClick={handlePrintPdf}
+            onClick={() => handlePrintPdf(gorunum)}
             className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
             title="Organizasyon Şemasını PDF Olarak İndir / Yazdır"
           >
             <Printer className="w-3.5 h-3.5" />
-            PDF İndir / Yazdır
+            PDF İndir / Yazdır ({gorunum === 'agac' ? 'Ağaç' : 'Kart'})
           </button>
           <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
             {(['agac', 'kart'] as const).map((g) => (
@@ -571,12 +617,33 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
                     PDF Baskı Önizlemesi
                     <span className="text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">A4 Yatay (Landscape)</span>
                   </h3>
-                  <p className="text-xs text-gray-500">Organizasyon şemasının yüksek çözünürlüklü resmi belge görünümü</p>
+                  <p className="text-xs text-gray-500">Organizasyon şemasının resmi evrak baskı önizlemesi</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+
+              {/* Format Toggle inside Modal */}
+              <div className="flex items-center gap-3">
+                <div className="flex bg-gray-200 p-1 rounded-xl">
+                  <button
+                    onClick={() => setPreviewFormat('agac')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      previewFormat === 'agac' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600'
+                    }`}
+                  >
+                    🌳 Ağaç Hiyerarşisi
+                  </button>
+                  <button
+                    onClick={() => setPreviewFormat('kart')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      previewFormat === 'kart' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600'
+                    }`}
+                  >
+                    🎴 Departman Kartları
+                  </button>
+                </div>
+
                 <button
-                  onClick={() => { handlePrintPdf(); setShowPdfPreview(false); }}
+                  onClick={() => { handlePrintPdf(previewFormat); setShowPdfPreview(false); }}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
                 >
                   <Printer size={15} />
@@ -602,7 +669,9 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
                     </div>
                     <div>
                       <h1 className="text-xl font-black text-gray-900 tracking-tight">HUMANİUS HRMS</h1>
-                      <p className="text-xs font-bold text-blue-600 tracking-wider">KURUMSAL ORGANİZASYON ŞEMASI</p>
+                      <p className="text-xs font-bold text-blue-600 tracking-wider">
+                        KURUMSAL ORGANİZASYON ŞEMASI ({previewFormat === 'agac' ? 'HİYERARŞİK AĞAÇ' : 'DEPARTMAN KARTLARI'})
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -613,35 +682,72 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
                   </div>
                 </div>
 
-                {/* Departments & Employee Grid Preview */}
-                <div className="space-y-5">
-                  {Array.from(depts.entries()).map(([dept, emps]) => (
-                    <div key={dept} className="space-y-2">
-                      <div className="flex items-center justify-between bg-gray-50 border-l-4 border-blue-600 px-3 py-1.5 rounded-r-lg">
-                        <span className="font-bold text-xs text-gray-800">🏢 {dept}</span>
-                        <span className="text-[10px] font-semibold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">{emps.length} Çalışan</span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-2.5">
-                        {emps.map((e) => (
-                          <div key={e.id} className="border border-gray-200 rounded-lg p-2.5 bg-gray-50/50 flex flex-col justify-between text-left">
-                            <div>
-                              <p className="font-bold text-xs text-gray-900 truncate">{e.name}</p>
-                              <p className="text-[11px] font-semibold text-blue-600 truncate">{e.position || 'Personel'}</p>
-                              {e.level && <span className="inline-block bg-gray-200 text-gray-700 text-[9px] px-1.5 py-0.5 rounded font-medium mt-1">{e.level}</span>}
-                            </div>
-                            <div className="mt-2 pt-1.5 border-t border-gray-200 flex items-center justify-between text-[10px] text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <span className={`w-1.5 h-1.5 rounded-full ${e.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                {e.status === 'active' ? 'Aktif' : 'İzinde'}
-                              </span>
-                              <span className="truncate max-w-[80px] text-[9px]">{e.phone || e.email}</span>
-                            </div>
-                          </div>
-                        ))}
+                {/* Preview Format Content */}
+                {previewFormat === 'agac' ? (
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <div className="inline-block bg-gradient-to-r from-blue-700 to-indigo-700 text-white font-extrabold text-xs px-6 py-2 rounded-xl shadow-sm">
+                        🏢 Şirket Genel Yönetim Kurulu
+                        <span className="block text-[10px] font-normal opacity-90">Top. {employees.length} Çalışan · {depts.size} Departman</span>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      {Array.from(depts.entries()).map(([dept, emps]) => (
+                        <div key={dept} className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                          <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex justify-between items-center" style={{ borderTop: `3px solid ${getColor(dept)}` }}>
+                            <span className="font-bold text-xs text-gray-900">🏢 {dept}</span>
+                            <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-semibold">{emps.length} Çalışan</span>
+                          </div>
+                          <div className="p-2.5 space-y-1.5">
+                            {emps.map((e) => (
+                              <div key={e.id} className="border border-gray-100 rounded-lg p-2 bg-gray-50/50 text-left">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold text-xs text-gray-900">{e.name}</span>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${e.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                </div>
+                                <p className="text-[11px] font-semibold text-blue-600">{e.position || 'Personel'}</p>
+                                {e.level && e.level !== 'Junior' && (
+                                  <span className="inline-block bg-gray-200 text-gray-700 text-[9px] px-1.5 py-0.5 rounded font-medium mt-0.5">{e.level}</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    {Array.from(depts.entries()).map(([dept, emps]) => (
+                      <div key={dept} className="space-y-2">
+                        <div className="flex items-center justify-between bg-gray-50 border-l-4 border-blue-600 px-3 py-1.5 rounded-r-lg">
+                          <span className="font-bold text-xs text-gray-800">🏢 {dept}</span>
+                          <span className="text-[10px] font-semibold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">{emps.length} Çalışan</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2.5">
+                          {emps.map((e) => (
+                            <div key={e.id} className="border border-gray-200 rounded-lg p-2.5 bg-gray-50/50 flex flex-col justify-between text-left">
+                              <div>
+                                <p className="font-bold text-xs text-gray-900 truncate">{e.name}</p>
+                                <p className="text-[11px] font-semibold text-blue-600 truncate">{e.position || 'Personel'}</p>
+                                {e.level && e.level !== 'Junior' && (
+                                  <span className="inline-block bg-gray-200 text-gray-700 text-[9px] px-1.5 py-0.5 rounded font-medium mt-1">{e.level}</span>
+                                )}
+                              </div>
+                              <div className="mt-2 pt-1.5 border-t border-gray-200 flex items-center justify-between text-[10px] text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${e.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                  {e.status === 'active' ? 'Aktif' : 'İzinde'}
+                                </span>
+                                {e.phone && <span className="truncate max-w-[80px] text-[9px]">{e.phone}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Signatures Preview */}
                 <div className="flex justify-between pt-8 px-12 border-t border-gray-200">

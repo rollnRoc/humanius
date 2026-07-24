@@ -58,7 +58,7 @@ async function ensureEmployeeFromUser(input: EmployeeSeedInput): Promise<EnsureE
     name: input.full_name,
     department: 'Genel',
     position: 'Personel',
-    level: 'Junior',
+    level: '',
     salary: 0,
     status: 'active',
     phone: '',

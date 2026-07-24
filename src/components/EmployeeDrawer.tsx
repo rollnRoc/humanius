@@ -352,9 +352,9 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     <input
                       id="employee-level"
                       type="text"
-                      value={formData.level || ''}
+                      value={formData.level === 'Junior' ? '' : (formData.level || '')}
                       onChange={(e) => handleInputChange('level', e.target.value)}
-                      placeholder="Örn: Uzman, Kıdemli Uzman, Junior, Lider..."
+                      placeholder="Örn: Uzman, Kıdemli Uzman, Lider..."
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>

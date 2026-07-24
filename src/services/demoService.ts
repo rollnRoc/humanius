@@ -291,7 +291,7 @@ export const demoService = {
       sicil_no: data.sicil_no || 'SICIL-' + Math.floor(1000 + Math.random() * 9000),
       department: data.department || 'Genel',
       position: data.position || 'Personel',
-      level: data.level || 'Junior',
+      level: data.level || '',
       salary: data.salary || 30000,
       status: data.status || 'active',
       phone: data.phone || '',
