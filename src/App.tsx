@@ -622,6 +622,7 @@ const AppInner: React.FC = () => {
         targetEmail = `${slug}@${domain}`;
       }
 
+      let edgeHandled = false;
       if (targetEmail) {
         try {
           await userManagementService.createCompanyUser({
@@ -635,13 +636,14 @@ const AppInner: React.FC = () => {
             employeeType: emp.employeeType,
             salary: emp.salary,
           } as any);
+          edgeHandled = true;
         } catch (authErr) {
           console.warn('Oturum kaydı uyarısı:', authErr);
         }
       }
 
       try {
-        if (isNewEmployee) {
+        if (isNewEmployee && !edgeHandled) {
           await employeeService.create({
             company_id: targetCompanyId,
             name: emp.name,
@@ -659,7 +661,7 @@ const AppInner: React.FC = () => {
             sicil_no: emp.sicil_no ?? '',
             join_date: emp.joinDate ?? emp.join_date ?? null,
           });
-        } else {
+        } else if (!isNewEmployee && emp.id) {
           await employeeService.update(emp.id, {
             company_id: targetCompanyId,
             name: emp.name,
