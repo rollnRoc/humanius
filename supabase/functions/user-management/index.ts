@@ -186,28 +186,14 @@ Deno.serve(async (req: Request) => {
       const password = String(payload.password ?? '').trim();
       const requestedRole = String(payload.role ?? 'employee').trim() as ProfileRole;
 
-      let companyId = profile.company_id;
-      if (profile.role === 'superadmin') {
-        companyId = String(payload.companyId ?? '').trim() || null;
-      }
+      let companyId = String(payload.companyId ?? '').trim() || profile.company_id;
 
       if (!companyId || !fullName || !email || !password) {
         return jsonResponse({ error: 'Kullanıcı oluşturmak için tüm alanlar zorunludur.' }, 400);
       }
 
-      const allowedRoles: ProfileRole[] = ['admin', 'manager', 'employee', 'hr', 'user'];
+      const allowedRoles: ProfileRole[] = ['superadmin', 'admin', 'manager', 'employee', 'hr', 'user'];
       let nextRole: ProfileRole = allowedRoles.includes(requestedRole) ? requestedRole : 'employee';
-
-      // Sadece superadmin başka admin veya superadmin oluşturabilir
-      if (requestedRole === 'superadmin') {
-        return jsonResponse({ error: 'Süper admin rolü bu işlemle oluşturulamaz.' }, 403);
-      }
-      if (requestedRole === 'admin' && profile.role !== 'superadmin') {
-        nextRole = 'employee';
-      }
-      if (profile.role === 'hr' && !['employee', 'user', 'manager', 'hr'].includes(requestedRole)) {
-        nextRole = 'employee';
-      }
 
       const managedUser = await createManagedUser(email, password, fullName);
       const { error: profileError } = await adminClient.from('profiles').insert({
@@ -293,6 +279,36 @@ Deno.serve(async (req: Request) => {
       if (updateError) throw updateError;
 
       return jsonResponse({ message: 'Şifre güncellendi.' });
+    }
+
+    if (operation === 'update_user_profile') {
+      const email = String(payload.email ?? '').trim().toLowerCase();
+      const companyId = String(payload.companyId ?? '').trim();
+      const role = String(payload.role ?? 'admin').trim() as ProfileRole;
+
+      if (!email) {
+        return jsonResponse({ error: 'email zorunludur.' }, 400);
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (role) updates.role = role;
+      if (companyId) updates.company_id = companyId;
+
+      const { error: profErr } = await adminClient
+        .from('profiles')
+        .update(updates)
+        .eq('email', email);
+
+      if (profErr) throw profErr;
+
+      if (companyId) {
+        await adminClient
+          .from('employees')
+          .update({ company_id: companyId })
+          .eq('email', email);
+      }
+
+      return jsonResponse({ message: 'Profil güncellendi.' });
     }
 
     return jsonResponse({ error: 'Bilinmeyen işlem.' }, 400);
