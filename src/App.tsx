@@ -522,7 +522,23 @@ const AppInner: React.FC = () => {
   }, [profile?.company_id, profile?.role, profile?.email, profile?.full_name]);
 
   useEffect(() => {
-    if (user && profile?.company_id) loadData();
+    if (user && profile?.company_id) {
+      loadData();
+
+      const channel = supabase
+        .channel('app-realtime-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => {
+          loadData();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+          loadData();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [user, profile?.company_id, loadData]);
 
   // Automatically select the logged in employee in the profile/details view
@@ -647,7 +663,6 @@ const AppInner: React.FC = () => {
         targetEmail = `${slug}@${domain}`;
       }
 
-      let edgeHandled = false;
       if (targetEmail) {
         try {
           await userManagementService.createCompanyUser({
@@ -668,15 +683,13 @@ const AppInner: React.FC = () => {
               await userManagementService.updateUserProfile(targetEmail, targetCompanyId, emp.role as any);
             } catch {}
           }
-
-          edgeHandled = true;
         } catch (authErr) {
           console.warn('Oturum kaydı uyarısı:', authErr);
         }
       }
 
       try {
-        if (isNewEmployee && !edgeHandled) {
+        if (isNewEmployee) {
           await employeeService.create({
             company_id: targetCompanyId,
             name: emp.name,
