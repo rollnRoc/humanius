@@ -537,7 +537,19 @@ const AppInner: React.FC = () => {
       safePosition.includes(normalizedSearch);
     const matchDept =
       selectedDepartment === 'all' || emp.department === selectedDepartment;
-    return matchSearch && matchDept;
+
+    const selCompLower = (selectedCompany || '').toLowerCase();
+    const empCompLower = (emp.company || '').toLowerCase();
+    const isToyotaSelected = selCompLower.includes('hizel') || selCompLower.includes('toyota') || selectedCompany === 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9';
+    const isEmpToyota = empCompLower.includes('hizel') || empCompLower.includes('toyota') || emp.company_id === 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9' || !emp.company_id || emp.company_id === 'aaaaaaaa-0000-0000-0000-000000000001';
+
+    const matchCompany =
+      selectedCompany === 'all' ||
+      emp.company === selectedCompany ||
+      emp.company_id === selectedCompany ||
+      (isToyotaSelected && isEmpToyota);
+
+    return matchSearch && matchDept && matchCompany;
   });
 
   const currentEmployeeMatch = employees.find((emp) => {
