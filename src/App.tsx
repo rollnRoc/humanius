@@ -598,18 +598,36 @@ const AppInner: React.FC = () => {
   const handleSaveEmployee = async (emp: Employee) => {
     try {
       let targetCompanyId = profile?.company_id || 'default';
+      let matchedCompName = emp.company;
       try {
         const allComps = await companyService.getCompanies();
         const matched = allComps.find(c => c.name === emp.company || c.id === emp.company_id || c.id === emp.company);
-        if (matched) targetCompanyId = matched.id;
+        if (matched) {
+          targetCompanyId = matched.id;
+          matchedCompName = matched.name;
+        }
       } catch {}
 
-      if (emp.email && emp.email.trim()) {
+      // E-posta girilmemişse ad.soyad üzerinden otomatik kurumsal e-posta üret
+      let targetEmail = emp.email ? emp.email.trim() : '';
+      if (!targetEmail && emp.name) {
+        const slug = emp.name
+          .toLowerCase()
+          .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
+          .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+          .replace(/[^a-z0-9]/g, '.');
+        const domain = (matchedCompName || '').toLowerCase().includes('toyota') || targetCompanyId === 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9'
+          ? 'hizel.toyota.com.tr'
+          : 'humanius.com.tr';
+        targetEmail = `${slug}@${domain}`;
+      }
+
+      if (targetEmail) {
         try {
           await userManagementService.createCompanyUser({
             companyId: targetCompanyId,
             fullName: emp.name,
-            email: emp.email.trim(),
+            email: targetEmail,
             password: '987654',
             role: (emp.role as any) || 'employee',
             department: emp.department,
@@ -633,7 +651,7 @@ const AppInner: React.FC = () => {
             salary: emp.salary,
             status: emp.status,
             phone: emp.phone,
-            email: emp.email,
+            email: targetEmail || emp.email,
             address: emp.address,
             skills: emp.skills,
             employee_type: emp.employeeType ?? 'normal',
@@ -651,7 +669,7 @@ const AppInner: React.FC = () => {
             salary: emp.salary,
             status: emp.status,
             phone: emp.phone,
-            email: emp.email,
+            email: targetEmail || emp.email,
             address: emp.address,
             skills: emp.skills,
             employee_type: emp.employeeType ?? 'normal',
