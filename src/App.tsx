@@ -578,11 +578,17 @@ const AppInner: React.FC = () => {
   };
 
   const handleSaveEmployee = async (emp: Employee) => {
-    if (!profile?.company_id) return;
     try {
+      let targetCompanyId = profile?.company_id || 'default';
+      try {
+        const allComps = await companyService.getCompanies();
+        const matched = allComps.find(c => c.name === emp.company || c.id === emp.company_id || c.id === emp.company);
+        if (matched) targetCompanyId = matched.id;
+      } catch {}
+
       if (isNewEmployee) {
         await employeeService.create({
-          company_id: profile.company_id,
+          company_id: targetCompanyId,
           name: emp.name,
           department: emp.department,
           position: emp.position,
@@ -598,6 +604,20 @@ const AppInner: React.FC = () => {
           sicil_no: emp.sicil_no ?? '',
           join_date: emp.joinDate ?? emp.join_date ?? null,
         });
+
+        if (emp.email && emp.email.trim()) {
+          try {
+            await userManagementService.createCompanyUser({
+              companyId: targetCompanyId,
+              fullName: emp.name,
+              email: emp.email.trim(),
+              password: '987654',
+              role: (emp.role as any) || 'employee',
+            });
+          } catch (authErr) {
+            console.warn('Oturum kaydı uyarısı:', authErr);
+          }
+        }
       } else {
         await employeeService.update(emp.id, {
           name: emp.name,
