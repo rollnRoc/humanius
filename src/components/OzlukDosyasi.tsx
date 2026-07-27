@@ -406,9 +406,45 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   };
 
   // İzin verileri
-  const empIzinHakki = selectedEmpId
+  const rawIzinHakki = selectedEmpId
     ? izinHaklari.find((h) => h.employeeId === selectedEmpId)
     : undefined;
+
+  const empIzinHakki = React.useMemo(() => {
+    if (rawIzinHakki && rawIzinHakki.toplamHak !== undefined && rawIzinHakki.toplamHak !== null) {
+      return rawIzinHakki;
+    }
+    if (!selectedEmp) return undefined;
+
+    const joinDateStr = selectedEmp.join_date || (selectedEmp as any).ise_giris_tarihi || (selectedEmp as any).created_at;
+    let calismaYili = 0;
+    let toplamHak = 14;
+
+    if (joinDateStr) {
+      const joinDate = new Date(joinDateStr);
+      if (!isNaN(joinDate.getTime())) {
+        const now = new Date();
+        calismaYili = Math.max(0, now.getFullYear() - joinDate.getFullYear());
+        if (calismaYili < 5) toplamHak = 14;
+        else if (calismaYili < 15) toplamHak = 20;
+        else toplamHak = 26;
+      }
+    }
+
+    const empTalepleri = izinTalepleri.filter(t => t.employeeId === selectedEmp.id && t.durum === 'onaylandi' && t.izinTuru === 'yillik');
+    const kullanilanIzin = empTalepleri.reduce((sum, t) => sum + (t.gunSayisi || 0) + (t.yolIzniTalep ? (t.yolIzniGun || 0) : 0), 0);
+    const kalanIzin = Math.max(0, toplamHak - kullanilanIzin);
+
+    return {
+      id: `dynamic-${selectedEmp.id}`,
+      employeeId: selectedEmp.id,
+      toplamHak,
+      kullanilanIzin,
+      kalanIzin,
+      calismaYili,
+    } as IzinHakki;
+  }, [rawIzinHakki, selectedEmp, izinTalepleri]);
+
   const empIzinTalepleri = selectedEmpId
     ? izinTalepleri
         .filter((t) => t.employeeId === selectedEmpId)
