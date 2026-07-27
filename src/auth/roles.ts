@@ -83,9 +83,9 @@ export function canManageUsers(role: AppRole): boolean {
   return role === 'superadmin' || role === 'admin' || role === 'hr';
 }
 
-// Kullanıcı veya personel kartı silme yetkisi (Sadece Admin & Süper Admin)
+// Kullanıcı veya personel kartı silme yetkisi (Süper Admin, Admin & İK Uzmanı)
 export function canDeleteUsers(role: AppRole): boolean {
-  return role === 'superadmin' || role === 'admin';
+  return role === 'superadmin' || role === 'admin' || role === 'hr';
 }
 
 // Başka kullanıcılara rol ve yetki seviyesi atama yetkisi (Sadece Admin & Süper Admin)
