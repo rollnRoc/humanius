@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, RefreshCw, Search, Plus, X, Save, CheckCircle, History, AlertTriangle } from 'lucide-react';
+import { FileText, Download, RefreshCw, Search, Plus, X, Save, CheckCircle, History, AlertTriangle, Sparkles, BookOpen, Layers } from 'lucide-react';
 import { companyService } from '../services/companyService';
 import { employeeService } from '../services/employeeService';
 import { gorevTanimiService } from '../services/gorevTanimiService';
 import { useAuth } from '../contexts/AuthContext';
 import { emailService } from '../services/emailService';
+import { JOB_TEMPLATES, type JobTemplate } from '../data/jobTemplates';
 
 interface Task {
   surec: string;
@@ -67,6 +68,31 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
   const [pozisyonAmaci, setPozisyonAmaci] = useState('Satın alma, depo, sevkiyat/lojistik süreçlerini baştan sona yönetir, koordine eder. Satış sözleşmelerinde belirtilen termin tarihi ve bütçe ile Proje ve Ürün departmanlarından gelen bilgiler doğrultusunda tedarik planlarını oluşturur, yürütülen tedarik süreçlerini koordine eder. Tedarik planını ve revizyonları/gecikmeleri ilgili kişilerle paylaşır. Satın alma teslimat takvimini takip eder. Tedarikte yaşanan gecikmelerin en aza indirilmesi konusunda iyileştirmeler yapılmasını sağlar. Tedarikçileri optimum hizmet kalitesi ve fiyat açısından değerlendirir ve seçer. Tedarikçi seçimiyle ilgili kurumsal prosedürleri tanımlar ve uygulanmasını sağlar. Tedarikçi performans takibi yaparak iyileştirilmesi gereken noktaları belirler ve bu iyileştirmelerin uygulanmasını sağlar. Gümrük işlemleri, ithalat ve ihracat süreçlerini koordine eder ve yönetir. Depo ve lojistik süreçlerinde stratejik planlama yaparak teslim tarihlerini doğru şekilde yönetir ve opere edilmesini sağlar. Sevkiyat süreçlerini planlar ve koordine eder. Envanter yönetimi yapar, stok seviyelerinin optimize edilmesi konusunda çalışmalar yapar. İş emirlerinin ve teslim tarihlerinin ERP sistemi üzerinden kolayca izlenebilmesini sağlar. Potansiyel riskleri ve fırsatları sürekli olarak analiz eder ve belirler, bunları ölçer ve metrik verilere dönüştürür. Ürün maliyetlerini takip eder, yapılan revize işler ile ilgili olarak Finans ve Satış birimlerini bilgilendirerek gerektiğinde ilgili satış sözleşmesinin revize edilmesini sağlar. Gerçekçi bütçe tahminleri hazırlar ve gerçek maliyetlerle karşılaştırır, şeffaf bir şekilde raporlar. Operasyonel ve finansal verimliliğin takip eder, gerektiğinde düzeltici önleyici faaliyetlerin yürütülmesini sağlar. Satış, Finans, Proje, Üretim ve diğer dahili paydaşlarla yakın bir şekilde çalışır. Bu birimler arasındaki iş akış süreçlerinin iyileştirilmesi için çalışmalar yapar. Dahili ve harici denetimler sırasında yönetimi altındaki departmanların sorumluluğunu üstlenir. Departmanın daha verimli hale gelebilmesi için gerekli araştırma ve iyileştirmeleri yapar. Yöneticisi tarafından istenen, beklenen her türlü araştırma, periyodik raporlama ve ilerleme raporlarını sunar. Yönetim desteği ile ekibinin entegre yönetim sistemine katılımını destekler, öncülük eder. Sistemin iyileştirilmesi ve geliştirilmesini destekler. Ekibinin sisteme katılımı ve görüşlerinin alınması ile ilgili gerekli önlemleri alır, çalışmalar yapar. Bu konuda teşvik edici olur.');
   const [projePortfoy, setProjePortfoy] = useState('zaman/bütçe/kalite, müşteri memnuniyeti, ekip kapasite planı ve sürekli iyileştirme çıktılarından sorumludur.');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // ── Template Library State ────────────────────────────────────────────────
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [templateSearch, setTemplateSearch] = useState('');
+
+  const applyTemplate = (template: JobTemplate) => {
+    setPozisyonAdi(template.title);
+    setIsBirimi(template.department);
+    setIdariUst(template.reportsTo);
+    setFonksiyonelUst(template.reportsTo);
+    setPozisyonAmaci(template.summary);
+    setTasks(template.tasks);
+    setKpis(template.kpis);
+    setYonetselYetkinlikler(template.yonetselYetkinlikler);
+    setTeknikBeceriler(template.teknikBeceriler);
+    setShowTemplateModal(false);
+  };
+
+  const filteredTemplates = JOB_TEMPLATES.filter((tpl) => {
+    const matchesCategory = selectedCategory === 'all' || tpl.category === selectedCategory;
+    const term = templateSearch.toLowerCase().trim();
+    const matchesSearch = !term || tpl.title.toLowerCase().includes(term) || tpl.category.toLowerCase().includes(term) || tpl.summary.toLowerCase().includes(term);
+    return matchesCategory && matchesSearch;
+  });
 
   useEffect(() => {
     const init = async () => {
@@ -484,6 +510,14 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                   </select>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowTemplateModal(true)}
+                className="flex items-center gap-2 rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-amber-600"
+              >
+                <Sparkles className="h-4 w-4" />
+                Hazır Şablondan Yükle
+              </button>
               <button
                 onClick={handleSaveGorevTanimi}
                 disabled={!selectedEmployeeId}
@@ -910,6 +944,82 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       </div>
 
 
+      {showTemplateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-amber-500 text-white">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <Sparkles className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">Standart Görev Tanımı Kütüphanesi</h2>
+                  <p className="text-xs text-amber-100">ISO/MYK uyumlu hazır şablonlardan 1 tıkla yükleyin</p>
+                </div>
+              </div>
+              <button onClick={() => setShowTemplateModal(false)} className="p-2 text-white/80 hover:text-white rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="p-4 border-b border-gray-100 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
+              <div className="relative flex-1 min-w-[220px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={templateSearch}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
+                  placeholder="Pozisyon veya anahtar kelime ara (örn. Boyacı, İK, Muhasebe)..."
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div className="flex gap-2 overflow-x-auto">
+                {['all', 'İnsan Kaynakları', 'Muhasebe & Finans', 'Üretim & İmalat', 'Depo & Lojistik', 'Satış & Pazarlama', 'Yazılım & IT'].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+                      selectedCategory === cat ? 'bg-amber-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {cat === 'all' ? 'Tüm Kategoriler' : cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Templates List Grid */}
+            <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 bg-gray-50/50">
+              {filteredTemplates.map((tpl) => (
+                <div key={tpl.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:border-amber-400 hover:shadow-md transition-all flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">{tpl.category}</span>
+                      <span className="text-xs text-gray-400">{tpl.department}</span>
+                    </div>
+                    <h3 className="text-base font-bold text-gray-900 mb-1">{tpl.title}</h3>
+                    <p className="text-xs text-gray-600 line-clamp-3 mb-3">{tpl.summary}</p>
+                    <div className="text-xs text-gray-500 space-y-1 mb-3">
+                      <p>🔹 <span className="font-semibold">{tpl.tasks.length} Sorumluluk Maddesi</span></p>
+                      <p>🔹 <span className="font-semibold">{tpl.kpis.length} KPI / Performans Göstergesi</span></p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => applyTemplate(tpl)}
+                    className="w-full mt-2 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Bu Şablonu Forma Yükle
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
