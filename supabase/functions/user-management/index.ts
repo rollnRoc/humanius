@@ -466,6 +466,29 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ message: 'Personel bilgileri ve rolü başarıyla güncellendi.' });
     }
 
+    if (operation === 'flag_force_password_change') {
+      const email = String(payload.email ?? '').trim().toLowerCase();
+      const userId = String(payload.userId ?? '').trim();
+      const forceState = payload.forceState !== false;
+
+      let targetId = userId;
+      if (!targetId && email) {
+        const { data: prof } = await adminClient.from('profiles').select('id').eq('email', email).maybeSingle();
+        if (prof?.id) targetId = prof.id;
+      }
+
+      if (targetId) {
+        await adminClient.auth.admin.updateUserById(targetId, {
+          user_metadata: { must_change_password: forceState }
+        });
+        try {
+          await adminClient.from('profiles').update({ must_change_password: forceState } as any).eq('id', targetId);
+        } catch {}
+      }
+
+      return jsonResponse({ message: `Kullanıcı şifre değiştirme zorunluluğu (${forceState}) yapıldı.` });
+    }
+
     if (operation === 'delete_user_by_email' || operation === 'delete_employee_and_user') {
       const email = String(payload.email ?? '').trim().toLowerCase();
       const employeeId = String(payload.employeeId ?? '').trim();
