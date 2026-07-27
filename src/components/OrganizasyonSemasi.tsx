@@ -209,7 +209,6 @@ const PersonelDetay: React.FC<{ node: OrgNode | null }> = ({ node }) => {
           {[
             { etiket: 'Departman', deger: emp.department },
             { etiket: 'Pozisyon', deger: emp.position },
-            { etiket: 'Seviye', deger: levelDisplay },
             { etiket: 'E-posta', deger: emp.email },
             { etiket: 'Telefon', deger: emp.phone },
             { etiket: 'Durum', deger: emp.status === 'active' ? '✓ Aktif' : emp.status === 'on-leave' ? '⏸ İzinde' : '✗ Pasif' },

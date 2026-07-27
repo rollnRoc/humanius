@@ -75,7 +75,6 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.department')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.position')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çalışan Tipi</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.level')}</th>
               {showSalary && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.salary')}</th>}
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.status')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.mobile')}</th>
@@ -151,7 +150,6 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                     {employee.employeeType === 'emekli' ? 'Emekli' : 'Normal Çalışan'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-600">{employee.level}</td>
                 {showSalary && (
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">
                     {employee.salary.toLocaleString('tr-TR')} ₺

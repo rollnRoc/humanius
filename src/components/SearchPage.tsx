@@ -205,7 +205,6 @@ export const SearchPage: React.FC<SearchPageProps> = ({
         { label: 'Adres',     value: safe(emp.address) },
         { label: 'Sicil No',  value: safe(emp.sicil_no) },
         { label: 'TC No',     value: safe(emp.tc_no) },
-        { label: 'Seviye',    value: safe(emp.level) },
         { label: 'Durum',     value: statusLabel },
         { label: 'Tür',       value: typeLabel },
         ...(emp.skills ?? []).map(s => ({ label: 'Yetkinlik', value: safe(s) })),
