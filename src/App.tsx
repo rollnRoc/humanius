@@ -59,7 +59,7 @@ import { employeeService } from './services/employeeService';
 import { companyService } from './services/companyService';
 import { izinService } from './services/izinService';
 import { bordroService } from './services/bordroService';
-import { canAccessView, getDefaultViewForRole } from './auth/roles';
+import { canAccessView, getDefaultViewForRole, canDeleteUsers } from './auth/roles';
 import { supabase } from './lib/supabase';
 import Login from './components/Login';
 import type { Employee, View, Stats, Company, Department } from './types';
@@ -762,6 +762,10 @@ const AppInner: React.FC = () => {
   };
 
   const handleDeleteEmployee = async (id: string) => {
+    if (!canDeleteUsers(effectiveAppRole)) {
+      alert('Personel ve kullanıcı hesabı silme yetkisi sadece Şirket Yöneticisindedir (Admin).');
+      return;
+    }
     const targetEmp = employees.find((e) => e.id === id);
     if (!window.confirm('Bu personeli ve sisteme bağlı kullanıcı hesabını tamamen silmek istediğinize emin misiniz?')) return;
     try {

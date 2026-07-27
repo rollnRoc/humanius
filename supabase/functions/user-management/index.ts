@@ -490,6 +490,10 @@ Deno.serve(async (req: Request) => {
     }
 
     if (operation === 'delete_user_by_email' || operation === 'delete_employee_and_user') {
+      if (profile.role !== 'superadmin' && profile.role !== 'admin') {
+        return jsonResponse({ error: 'Kullanıcı ve personel silme yetkisi sadece Şirket Yöneticisindedir (Admin).' }, 403);
+      }
+
       const email = String(payload.email ?? '').trim().toLowerCase();
       const employeeId = String(payload.employeeId ?? '').trim();
       const userId = String(payload.userId ?? '').trim();

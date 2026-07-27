@@ -23,7 +23,7 @@ import { userService, type UserProfile } from '../services/userService';
 import { userManagementService } from '../services/userManagementService';
 import { companyService } from '../services/companyService';
 import { useAuth } from '../contexts/AuthContext';
-import { getRoleLabel, canManageUsers } from '../auth/roles';
+import { getRoleLabel, canManageUsers, canDeleteUsers, canAssignUserRoles, type AppRole } from '../auth/roles';
 import { supabase } from '../lib/supabase';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -32,9 +32,8 @@ const ROLE_OPTIONS = [
   { value: 'superadmin', label: 'Süper Yönetici', icon: Crown, color: 'text-violet-600 bg-violet-50 border-violet-200' },
   { value: 'admin',      label: 'Şirket Yöneticisi', icon: Shield, color: 'text-blue-600 bg-blue-50 border-blue-200' },
   { value: 'hr',         label: 'İK Uzmanı', icon: UserCheck, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-  { value: 'manager',    label: 'Müdür', icon: UserCheck, color: 'text-amber-600 bg-amber-50 border-amber-200' },
+  { value: 'manager',    label: 'Birim / Departman Amiri', icon: UserCheck, color: 'text-amber-600 bg-amber-50 border-amber-200' },
   { value: 'employee',   label: 'Personel', icon: User, color: 'text-gray-600 bg-gray-50 border-gray-200' },
-  { value: 'user',       label: 'Kullanıcı', icon: User, color: 'text-gray-600 bg-gray-50 border-gray-200' },
 ];
 
 function getRoleConfig(role: string) {
@@ -864,11 +863,11 @@ const KullanicilarPage: React.FC = () => {
                             >
                               <Edit2 size={14} />
                             </button>
-                            {!isCurrentUser && appRole === 'superadmin' && (
+                            {!isCurrentUser && canDeleteUsers(appRole) && (
                               <button
                                 onClick={() => setDeleteTarget(u)}
                                 className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Sil"
+                                title="Kullanıcıyı Sil"
                               >
                                 <Trash2 size={14} />
                               </button>

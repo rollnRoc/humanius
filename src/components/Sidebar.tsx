@@ -201,7 +201,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       { id: 'performans' as View, label: 'Performans ve Geri Bildirim' },
       { id: 'okr' as View, label: 'OKR Hedefler' },
     ]},
-    { id: 'form-builder' as View, label: 'Dinamik Form', icon: FileText },
     { id: 'kullanim-kilavuzu' as View, label: 'Kullanım Kılavuzu', icon: BookOpen },
   ];
 
