@@ -90,6 +90,7 @@ async function createManagedUser(email: string, password: string, fullName: stri
     email_confirm: true,
     user_metadata: {
       full_name: fullName,
+      must_change_password: true,
     },
   });
 

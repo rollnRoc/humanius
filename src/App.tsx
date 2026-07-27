@@ -54,6 +54,7 @@ import IzinCakismaKontrol from './components/IzinCakismaKontrol';
 import DinamikFormBuilder from './components/DinamikFormBuilder';
 import KullanımKilavuzu from './components/KullanımKilavuzu';
 import { OnboardingModal } from './components/OnboardingModal';
+import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
 import { employeeService } from './services/employeeService';
 import { companyService } from './services/companyService';
 import { izinService } from './services/izinService';
@@ -111,9 +112,18 @@ class AppSectionErrorBoundary extends React.Component<
 }
 
 const AppInner: React.FC = () => {
-  const { user, profile, appRole, loading: authLoading } = useAuth();
+  const { user, profile, appRole, loading: authLoading, isDemo } = useAuth();
   const effectiveAppRole = user ? appRole : 'admin';
   const isEmployeeOnly = ['employee', 'user'].includes(effectiveAppRole);
+
+  const isForcePasswordChangeRequired = Boolean(
+    !isDemo &&
+    user &&
+    (
+      user?.user_metadata?.must_change_password === true ||
+      (profile as any)?.must_change_password === true
+    )
+  );
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [currentView, setCurrentView] = useState<View>('arama');
@@ -1750,6 +1760,10 @@ const AppInner: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {isForcePasswordChangeRequired && (
+        <ForcePasswordChangeModal onSuccess={loadData} />
       )}
 
       {showOnboarding && (
