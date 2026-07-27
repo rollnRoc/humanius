@@ -3,6 +3,7 @@ import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle } from '
 import { Employee, Company, Department } from '../types';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useAuth } from '../contexts/AuthContext';
+import { canDeleteUsers } from '../auth/roles';
 
 interface EmployeeDrawerProps {
   isOpen: boolean;
@@ -168,7 +169,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
               >
                 {isNew ? 'Personel Ekle' : 'Değişiklikleri Kaydet'}
               </button>
-              {!isNew && (
+              {!isNew && canDeleteUsers(appRole) && (
                 <button
                   onClick={() => onDelete(formData.id)}
                   className="w-full bg-red-600 text-white py-2.5 rounded-xl font-bold hover:bg-red-700 transition-colors"
