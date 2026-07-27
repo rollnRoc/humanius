@@ -38,6 +38,15 @@ async function pickSource(): Promise<'employees'> {
   return 'employees';
 }
 
+const VALID_CHECK_LEVELS = new Set(['Junior', 'Mid', 'Senior', 'Lead', 'Manager']);
+
+function sanitizeLevel(level?: string | null): string | null {
+  if (!level) return null;
+  const trimmed = String(level).trim();
+  if (VALID_CHECK_LEVELS.has(trimmed)) return trimmed;
+  return null;
+}
+
 export const employeeService = {
   async getAll(companyId?: string): Promise<Employee[] | EmployeePublic[]> {
     if (demoService.isDemoActive()) {
@@ -72,9 +81,13 @@ export const employeeService = {
     if (demoService.isDemoActive()) {
       return demoService.createEmployee(employee as any) as any;
     }
+    const payload = {
+      ...employee,
+      level: sanitizeLevel(employee.level)
+    };
     const { data, error } = await supabase
       .from('employees')
-      .insert(employee)
+      .insert(payload)
       .select()
       .single();
     if (error) throw error;
@@ -85,9 +98,13 @@ export const employeeService = {
     if (demoService.isDemoActive()) {
       return demoService.updateEmployee(id, updates as any) as any;
     }
+    const payload = {
+      ...updates,
+      ...(updates.level !== undefined ? { level: sanitizeLevel(updates.level) } : {})
+    };
     const { data, error } = await supabase
       .from('employees')
-      .update(updates)
+      .update(payload)
       .eq('id', id)
       .select()
       .single();
