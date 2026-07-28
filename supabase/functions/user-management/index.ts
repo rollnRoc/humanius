@@ -455,6 +455,13 @@ Deno.serve(async (req: Request) => {
       if (payload.phone !== undefined) empUpdates.phone = String(payload.phone);
       if (payload.salary !== undefined) empUpdates.salary = Number(payload.salary);
       if (payload.status !== undefined) empUpdates.status = String(payload.status);
+      if (payload.join_date !== undefined) empUpdates.join_date = payload.join_date || null;
+      if (payload.joinDate !== undefined) empUpdates.join_date = payload.joinDate || null;
+      if (payload.tc_no !== undefined) empUpdates.tc_no = String(payload.tc_no);
+      if (payload.sicil_no !== undefined) empUpdates.sicil_no = String(payload.sicil_no);
+      if (payload.address !== undefined) empUpdates.address = String(payload.address);
+      if (payload.employee_type !== undefined) empUpdates.employee_type = String(payload.employee_type);
+      if (payload.employeeType !== undefined) empUpdates.employee_type = String(payload.employeeType);
 
       if (Object.keys(empUpdates).length > 0) {
         await adminClient.from('employees').update(empUpdates).eq('email', email);

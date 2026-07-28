@@ -96,7 +96,12 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
   useEffect(() => {
     if (employee) {
-      setFormData({ ...employee });
+      const jd = employee.joinDate || employee.join_date || (employee as any).ise_giris_tarihi || '';
+      setFormData({
+        ...employee,
+        joinDate: jd,
+        join_date: jd,
+      });
     }
   }, [employee]);
 
@@ -107,7 +112,11 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   };
 
   const handleInputChange = (field: keyof Employee, value: any) => {
-    setFormData({ ...formData, [field]: value });
+    if (field === 'joinDate' || field === 'join_date') {
+      setFormData({ ...formData, joinDate: value, join_date: value });
+    } else {
+      setFormData({ ...formData, [field]: value });
+    }
   };
 
   const tabs = [

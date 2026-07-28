@@ -707,6 +707,11 @@ const AppInner: React.FC = () => {
             phone: emp.phone,
             salary: emp.salary,
             status: emp.status,
+            join_date: emp.joinDate ?? emp.join_date ?? null,
+            tc_no: emp.tc_no ?? '',
+            sicil_no: emp.sicil_no ?? '',
+            employee_type: emp.employeeType ?? emp.employee_type ?? 'normal',
+            address: emp.address ?? '',
           });
         } catch (authErr) {
           console.warn('Oturum kaydı uyarısı:', authErr);

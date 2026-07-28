@@ -89,6 +89,13 @@ export const userManagementService = {
     phone?: string;
     salary?: number;
     status?: string;
+    join_date?: string | null;
+    joinDate?: string | null;
+    tc_no?: string;
+    sicil_no?: string;
+    address?: string;
+    employee_type?: string;
+    employeeType?: string;
   }) {
     return invokeFunction<{ message: string }>('update_employee_details', payload);
   },
