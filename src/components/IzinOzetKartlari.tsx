@@ -116,7 +116,22 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
         .filter((t) => UCRETLI_IZIN_TURLERI.has(t.izinTuru))
         .reduce((sum, t) => sum + (t.gunSayisi || 0) + (t.yolIzniTalep ? (t.yolIzniGun || 0) : 0), 0);
 
-      const toplamHak = hak?.toplamHak ?? 0;
+      // ── Dynamic Fallback (4857 Sayılı İş Kanunu Madde 53) ─────────────────
+      let calculatedToplamHak = 14;
+      let calismaYili = 0;
+      const joinDateStr = emp.joinDate || (emp as any).join_date || (emp as any).ise_giris_tarihi || (emp as any).created_at;
+      if (joinDateStr) {
+        const joinDate = new Date(joinDateStr);
+        if (!isNaN(joinDate.getTime())) {
+          const now = new Date();
+          calismaYili = Math.max(0, now.getFullYear() - joinDate.getFullYear());
+          if (calismaYili < 5) calculatedToplamHak = 14;
+          else if (calismaYili < 15) calculatedToplamHak = 20;
+          else calculatedToplamHak = 26;
+        }
+      }
+
+      const toplamHak = (hak && hak.toplamHak !== undefined && hak.toplamHak !== null) ? hak.toplamHak : calculatedToplamHak;
       const kalanYillik = Math.max(0, toplamHak - kullanilanYillik);
       const pct = toplamHak > 0 ? Math.round((kullanilanYillik / toplamHak) * 100) : 0;
 
