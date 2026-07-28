@@ -617,15 +617,6 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                   />
                 </div>
               </div>
-              <div className="mt-4">
-                <label className="mb-1 block text-sm font-semibold text-slate-600">İştirakler</label>
-                <textarea
-                  value={istirakler}
-                  onChange={(e) => setIstirakler(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition focus:border-green-500 focus:outline-none"
-                />
-              </div>
             </div>
 
             <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
