@@ -19,7 +19,6 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
 }) => {
   const { t } = useLanguage();
   const { appRole } = useAuth();
-  const showSalary = appRole !== 'manager';
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -75,7 +74,6 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.department')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.position')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çalışan Tipi</th>
-              {showSalary && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.salary')}</th>}
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.status')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.mobile')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.actions')}</th>
@@ -150,11 +148,6 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                     {employee.employeeType === 'emekli' ? 'Emekli' : 'Normal Çalışan'}
                   </span>
                 </td>
-                {showSalary && (
-                  <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                    {employee.salary.toLocaleString('tr-TR')} ₺
-                  </td>
-                )}
                 <td className="px-4 py-3">
                   {getStatusBadge(employee.status)}
                 </td>
