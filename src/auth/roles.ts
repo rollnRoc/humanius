@@ -10,7 +10,7 @@ export function normalizeRole(role: RawProfileRole): AppRole {
   if (role === 'hr') return 'hr';
   if (role === 'manager') return 'manager';
   if (role === 'employee') return 'employee';
-  return 'user';
+  return 'admin';
 }
 
 export function getRoleLabel(role: AppRole): string {
@@ -20,12 +20,12 @@ export function getRoleLabel(role: AppRole): string {
     case 'hr':         return 'İK Uzmanı';
     case 'manager':    return 'Birim / Departman Amiri';
     case 'employee':   return 'Personel';
-    default:           return 'Personel';
+    default:           return 'Şirket Yöneticisi';
   }
 }
 
 export function getDefaultViewForRole(role: AppRole): View {
-  if (role === 'employee' || role === 'user') {
+  if (role === 'employee') {
     return 'ozluk-dosyasi';
   }
   return 'arama';
