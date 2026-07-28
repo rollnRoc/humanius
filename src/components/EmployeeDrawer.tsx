@@ -348,18 +348,6 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       <option value="emekli">Emekli</option>
                     </select>
                   </div>
-                  {appRole !== 'manager' && (
-                  <div>
-                    <label htmlFor="employee-salary" className="block text-sm font-medium text-gray-700 mb-2">Maaş (₺)</label>
-                    <input
-                      id="employee-salary"
-                      type="number"
-                      value={formData.salary === 0 ? '' : formData.salary}
-                      onChange={(e) => handleInputChange('salary', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </div>
-                  )}
                   <div>
                     <label htmlFor="employee-status" className="block text-sm font-medium text-gray-700 mb-2">Durum</label>
                     <select
