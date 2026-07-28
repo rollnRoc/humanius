@@ -12,339 +12,138 @@ export interface JobTemplate {
 }
 
 export const JOB_TEMPLATES: JobTemplate[] = [
-  // ─── 1. SATIŞ & SHOWROOM GÖREV TANIMLARI ────────────────────────────────────
-  {
-    id: 'satis-danismani',
-    category: 'Satış',
-    title: 'Satış Danışmanı',
-    department: 'Satış',
-    reportsTo: 'Satış Müdürü',
-    summary: 'Şirketin satış hedefleri doğrultusunda müşterileri güler yüzle karşılamak, ihtiyaç analizi yaparak uygun araç ve donanım seçeneklerini sunmak, test sürüşü ve teklif süreçlerini yönetmektir. Müşteri memnuniyetini en üst düzeyde tutarak müşteri portföyünü geliştirmek ve satış sonrası takip adımlarını eksiksiz yürütmekten sorumludur.',
-    tasks: [
-      { surec: 'Müşteri Karşılama ve İhtiyaç Analizi', yetkinlik: 'İletişim & Dinleme Becerisi', davranis: 'Güler Yüzlü ve Çözüm Odaklı', raci: 'Sorumlu', kpi: 'Müşteri karşılama memnuniyet puanı (> %95)' },
-      { surec: 'Araç Tanıtımı ve Test Sürüşü', yetkinlik: 'Ürün ve Teknik Donanım Bilgisi', davranis: 'İkna Edici ve Emniyetli', raci: 'Sorumlu', kpi: 'Test sürüşü dönüşüm oranı (> %40)' },
-      { surec: 'Fiyat Teklifi ve Satış Kapama', yetkinlik: 'Müzakere ve Finansal Teklif', davranis: 'Sonuç Odaklı', raci: 'Sorumlu', kpi: 'Aylık araç satış hedefi tutturma (%100)' },
-      { surec: 'Satış Sonrası Takip & Müşteri Bağlılığı', yetkinlik: 'CRM Takibi', davranis: 'Düzenli İletişim', raci: 'Sorumlu', kpi: 'Müşteri bağlılığı ve tavsiye oranı' }
-    ],
-    kpis: [
-      { label: 'Aylık Araç Satış Adet Hedefi', value: '%100 Uyum' },
-      { label: 'Test Sürüşü Satışa Dönüşüm Oranı', value: '> %40' },
-      { label: 'Müşteri Memnuniyeti (CSI/NPS) Puanı', value: '> %95' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'İkna ve Müzakere', aciklama: 'Müşteri itirazlarını doğru karşılayarak katma değerli satış kapama.' },
-      { baslik: 'Müşteri Odaklılık', aciklama: 'Müşteri ihtiyaçlarını en ince detayına kadar analiz etme ve yönlendirme.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'Araç Teknik ve Donanım Bilgisi', aciklama: 'Marka araç modelleri, opsiyon paketleri ve teknolojik donanımlara tam hakimiyet.' },
-      { baslik: 'CRM ve Satış Sistemleri', aciklama: 'Müşteri kayıt, teklif ve sipariş takip yazılımları.' }
-    ]
-  },
-  {
-    id: 'ikinci-el-satis-danismani',
-    category: 'Satış',
-    title: '2.El Satış Danışmanı',
-    department: '2.El Satış',
-    reportsTo: '2.El Müdürü',
-    summary: 'İkinci el araç tedarik, ekspertiz, değerleme, sergileme ve satış süreçlerini yönetmektir. İkinci el piyasası trendlerini takip ederek doğru fiyatlama ve ekspertiz standartlarına uygun olarak aracı satın alma ve müşteriye şeffaf bir şekilde satmaktan sorumludur.',
-    tasks: [
-      { surec: 'Ekspertiz ve Araç Değerleme', yetkinlik: 'Piyasa ve Ekspertiz Bilgisi', davranis: 'Orijinallik ve Şeffaflık', raci: 'Sorumlu', kpi: 'Doğru ekspertiz değerleme oranı (%100)' },
-      { surec: '2.El Araç Satışı ve Takas', yetkinlik: 'Takas Analizi ve İkna Becerisi', davranis: 'Güven Verici', raci: 'Sorumlu', kpi: 'Aylık 2.El satış kotası' },
-      { surec: 'Noter ve Ruhsat Takibi', yetkinlik: 'Devir ve İdari Prosedürler', davranis: 'Titiz ve Hızlı', raci: 'Sorumlu', kpi: 'Noter devir süresi (< 24 saat)' }
-    ],
-    kpis: [
-      { label: 'Aylık 2.El Araç Satış Adedi', value: '%100 Uyum' },
-      { label: 'Ekspertiz Doğruluk Oranı', value: '%100' },
-      { label: 'Stokta Kalma Süresi (Turn-over)', value: '< 30 Gün' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Piyasa Analizi ve Risk Yönetimi', aciklama: 'İkinci el araç piyasasındaki fiyat dalgalanmalarını öngörme.' }
-    ],
-    teknikBeceriler: [
-      { baslik: '2.El Araç Ekspertiz Yazılımları', aciklama: 'Tramer, hasar kaydı, ekspertiz ve değerleme araçları.' }
-    ]
-  },
-  {
-    id: 'filo-satis-uzmani',
-    category: 'Satış',
-    title: 'Filo Satış Uzmanı',
-    department: 'Satış',
-    reportsTo: 'Satış Müdürü',
-    summary: 'Kurumsal firmalar, filo kiralama şirketleri ve kamu idareleri ile ilişkileri yürütmek, toplu araç satışı ve ihale süreçlerini yönetmektir. Kurumsal müşteri portföyünü genişletmek ve uzun vadeli filo tedarik sözleşmelerini imzalamaktan sorumludur.',
-    tasks: [
-      { surec: 'Kurumsal Müşteri Ziyareti ve Portföy', yetkinlik: 'B2B Satış ve Kurumsal İletişim', davranis: 'Profesyonel ve Stratejik', raci: 'Sorumlu', kpi: 'Yeni kurumsal müşteri adedi' },
-      { surec: 'Filo Teklif & İhale Hazırlığı', yetkinlik: 'Bütçeleme & İhale Mevzuatı', davranis: 'Titiz ve Zamanında', raci: 'Sorumlu', kpi: 'İhale kazanma başarı oranı' }
-    ],
-    kpis: [
-      { label: 'Yıllık Filo Satış Adet Hedefi', value: '%100 Uyum' },
-      { label: 'Kurumsal Müşteri Portföy Büyümesi', value: '> %20' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Stratejik B2B İlişki Yönetimi', aciklama: 'Kurumsal karar vericiler ile güvene dayalı ilişkiler kurma.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'Filo Kiralama & İhale Yazılımları', aciklama: 'Toplu satış maliyet analiz tabloları ve ihale dosyaları.' }
-    ]
-  },
-  {
-    id: 'dijital-deneyim-danismani',
-    category: 'Satış',
-    title: 'Dijital Deneyim Danışmanı',
-    department: 'Satış',
-    reportsTo: 'Satış Müdürü',
-    summary: 'Online kanallardan, web sitesinden ve sosyal medyadan gelen dijital satış taleplerini (Lead) anında karşılamak, dijital showroom deneyimi sunmak ve müşteriyi fiziki test sürüşü veya çevrimiçi araç konfigürasyonuna yönlendirmektir.',
-    tasks: [
-      { surec: 'Dijital Lead Karşılama ve Dönüşüm', yetkinlik: 'Hızlı İletişim & Dijital Satış', davranis: 'Hızlı ve Etkileşimli', raci: 'Sorumlu', kpi: 'İlk yanıt süresi (< 15 dakika)' },
-      { surec: 'Online Araç Konfigürasyon ve Sunum', yetkinlik: 'Dijital Araç Tanıtımı', davranis: 'Yenilikçi', raci: 'Sorumlu', kpi: 'Lead satışa dönüşüm oranı' }
-    ],
-    kpis: [
-      { label: 'Lead İlk Temas Süresi', value: '< 15 Dakika' },
-      { label: 'Dijital Müşteri Dönüşüm Oranı', value: '> %25' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Dijital Uyum ve Hız', aciklama: 'Yeni nesil iletişim kanallarını en verimli şekilde kullanma.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'Omnichannel CRM & Chat Araçları', aciklama: 'Dijital pazarlama ve sohbet/çağrı entegrasyonları.' }
-    ]
-  },
-
-  // ─── 2. SERVİS & TEKNİK GÖREV TANIMLARI ────────────────────────────────────
-  {
-    id: 'servis-danismani',
-    category: 'Servis',
-    title: 'Servis Danışmanı',
-    department: 'Servis',
-    reportsTo: 'Servis Müdürü',
-    summary: 'Servise gelen araç sahiplerini güler yüzle karşılamak, araç şikayet ve bakım taleplerini dinleyerek iş emri açmak, tahmini maliyet ve teslim süresini bildirmek, atölye ile araç sahibi arasında köprü kurarak aracın zamanında ve sorunsuz teslim edilmesini sağlamaktır.',
-    tasks: [
-      { surec: 'Müşteri Karşılama ve İş Emri Açma', yetkinlik: 'Otomotiv Mekanik/Servis Bilgisi', davranis: 'Güler Yüzlü ve Empatik', raci: 'Sorumlu', kpi: 'Eksiksiz iş emri açma oranı (%100)' },
-      { surec: 'Maliyet ve Zaman Bilgilendirmesi', yetkinlik: 'Fiyatlandırma & Paket Hesaplama', davranis: 'Şeffaf', raci: 'Sorumlu', kpi: 'Sürpriz maliyet şikayeti olmaması' },
-      { surec: 'Araç Teslimat ve Açıklama', yetkinlik: 'Teknik Anlatım ve İletişim', davranis: 'Çözüm Odaklı', raci: 'Sorumlu', kpi: 'Servis memnuniyet (CSI) puanı (> %95)' }
-    ],
-    kpis: [
-      { label: 'Servis Müşteri Memnuniyeti (CSI)', value: '> %95' },
-      { label: 'Zamanında Teslimat Oranı', value: '> %98' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Müşteri İlişkileri ve İletişim', aciklama: 'Teknik detayları müşterinin anlayacağı sadelikte anlatabilme.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'DMS Servis Yazılımları', aciklama: 'İş emri, yedek parça ve işçilik modülü kullanımı.' }
-    ]
-  },
-  {
-    id: 'kaporta-boya-servis-danismani',
-    category: 'Servis',
-    title: 'Kaporta ve Boya Servis Danışmanı',
-    department: 'Servis',
-    reportsTo: 'Servis Müdürü',
-    summary: 'Hasarlı araçların kabulü, sigorta ve kasko ekspertiz süreçlerinin takibi, onarım iş emrinin hazırlanması, kaporta ve boya atölyesindeki adımların izlenmesi ve hasarsız teslimatın gerçekleştirilmesidir.',
-    tasks: [
-      { surec: 'Hasar Kabul ve Ekspertiz Takibi', yetkinlik: 'Sigorta & Ekspertiz Prosedürleri', davranis: 'Titiz ve Takipçi', raci: 'Sorumlu', kpi: 'Ekspertiz dosya açım süresi' },
-      { surec: 'Onarım Süreç Takibi ve Teslimat', yetkinlik: 'Kaporta/Boya İşçilik Bilgisi', davranis: 'Şeffaf', raci: 'Sorumlu', kpi: 'Kusursuz teslimat oranı' }
-    ],
-    kpis: [
-      { label: 'Sigorta Dosya Onay Süresi', value: '< 48 Saat' },
-      { label: 'Hasar Onarım Müşteri Memnuniyeti', value: '> %95' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Sigorta Şirketi İlişki Yönetimi', aciklama: 'Eksperler ve sigorta yetkilileri ile koordinasyon.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'Audatex / Eurotax Hasar Yazılımları', aciklama: 'Hasar parça ve işçilik hesaplama sistemleri.' }
-    ]
-  },
-  {
-    id: 'mekanik-teknisyeni',
-    category: 'Servis',
-    title: 'Mekanik Teknisyeni',
-    department: 'Servis',
-    reportsTo: 'Mekanik Formen',
-    summary: 'Araçların periyodik bakımlarını, motor, şanzıman, fren, süspansiyon ve elektronik sistem arızalarının teşhis ve onarımlarını imalatçı standartlarına ve güvenlik kurallarına uygun olarak gerçekleştirmektir.',
-    tasks: [
-      { surec: 'Periyodik Bakım ve Onarım', yetkinlik: 'Mekanik & Otomotiv Elektroniği', davranis: 'Titiz ve Kaliteli', raci: 'Sorumlu', kpi: 'Bakım standart süresine uyum' },
-      { surec: 'Arıza Teşhis ve Test', yetkinlik: 'Diagnostik Cihaz Kullanımı', davranis: 'Analitik', raci: 'Sorumlu', kpi: 'İlk seferde doğru teşhis ve tamir (%100)' }
-    ],
-    kpis: [
-      { label: 'Tekrarlayan Arıza (Re-fix) Oranı', value: '< %1' },
-      { label: 'İş Emri Kapatma Zamanlaması', value: '%95 Uyum' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'İSG ve Atölye Düzeni', aciklama: 'Koruyucu ekipman ve temiz çalışma prensibi.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'Diagnostik Arıza Tespit Cihazları', aciklama: 'Orijinal arıza tespit yazılımları ve el aletleri.' }
-    ]
-  },
-  {
-    id: 'boya-teknisyeni',
-    category: 'Servis',
-    title: 'Boya Teknisyeni',
-    department: 'Servis',
-    reportsTo: 'Boya Formeni',
-    summary: 'Hasarlı veya yenilenen araç parçalarının yüzey zımparalama, macun, astar, renk kodlama ve kabin içi boyama ile fırınlama adımlarını hatasız bir şekilde tamamlamaktır.',
-    tasks: [
-      { surec: 'Yüzey Hazırlığı ve Astar', yetkinlik: 'Zımpara ve Macun Uygulama', davranis: 'Pürüzsüz İmalat', raci: 'Sorumlu', kpi: 'Yüzey hazırlık kalitesi' },
-      { surec: 'Renk Karışımı ve Kabin Boyama', yetkinlik: 'Renk Skalası & HVLP Tabanca', davranis: 'Titiz', raci: 'Sorumlu', kpi: 'Sıfır renk farkı ve pürüzsüz boya' }
-    ],
-    kpis: [
-      { label: 'Boya Kalite Onay Oranı', value: '> %98' },
-      { label: 'Yeniden Boyama (Tekrar) Oranı', value: '< %2' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Ustalık ve Estetik Görüş', aciklama: 'Mikron düzeyinde pürüzsüzlük elde etme.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'Boya Kabini ve Fırınlama', aciklama: 'Kabin iklimlendirme, tiner ve renk karıştırma.' }
-    ]
-  },
-  {
-    id: 'boya-formeni',
-    category: 'Servis',
-    title: 'Boya Formeni',
-    department: 'Servis',
-    reportsTo: 'Servis Müdürü',
-    summary: 'Boya atölyesindeki iş akışını, boya teknisyenlerinin iş dağılımını, malzeme kullanımını ve çıkan boya kalitesini denetlemek, atölye verimliliğini ve emniyetini sağlamaktır.',
-    tasks: [
-      { surec: 'Atölye İş Dağılımı ve Kalite Denetimi', yetkinlik: 'Atölye Sevk ve İdare', davranis: 'Lider ve Denetçi', raci: 'Hesap Veren', kpi: 'Atölye zamanında teslimat oranı' },
-      { surec: 'Sarf Malzeme ve Stok Kontrolü', yetkinlik: 'Maliyet & Malzeme Takibi', davranis: 'Tasarruflu', raci: 'Sorumlu', kpi: 'Boya sarfiyat bütçesine uyum' }
-    ],
-    kpis: [
-      { label: 'Boya Atölye Verimlilik Puanı', value: '> %90' },
-      { label: 'Boya Hata / Tekrar Oranı', value: '< %1.5' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Ekip Sevk ve İdaresi', aciklama: 'Teknisyenlerin günlük iş bölümünü adil yönetme.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'İleri Seviye Boya Teknolojileri', aciklama: 'Renk tutturma, spektrofotometre kullanımı.' }
-    ]
-  },
-  {
-    id: 'govde-teknisyeni',
-    category: 'Servis',
-    title: 'Gövde (Kaporta) Teknisyeni',
-    department: 'Servis',
-    reportsTo: 'Gövde Formeni',
-    summary: 'Kazalı araçların şasi, kaporta, sac düzeltme, parça değişimi ve çektirme işlemlerini imalatçı şasi tolerans ölçülerine uygun olarak gerçekleştirmektir.',
-    tasks: [
-      { surec: 'Şasi ve Sac Düzeltme', yetkinlik: 'Şasi Tezgahı & Çektirme', davranis: 'Emniyetli', raci: 'Sorumlu', kpi: 'Milimetrik şasi ölçüm uyumu' },
-      { surec: 'Parça Değişim ve Kaynak', yetkinlik: 'Punta & Gazaltı Kaynağı', davranis: 'Sağlam ve Titiz', raci: 'Sorumlu', kpi: 'Kaynak mukavemet kalitesi' }
-    ],
-    kpis: [
-      { label: 'Şasi Tolerans Ölçüm Hassasiyeti', value: '%100 Uyum' },
-      { label: 'Kaporta Onarım Süre Uyum Oranı', value: '> %95' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Güvenlik Bilinci', aciklama: 'Araç yapısının güvenliğini bozmadan onarma.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'Punta ve Punto Kaynak Cihazları', aciklama: 'Alüminyum ve çelik sac doğrultma tezgâhları.' }
-    ]
-  },
-  {
-    id: 'yikamaci',
-    category: 'Servis',
-    title: 'Yıkamacı / Araç Temizlik Elemanı',
-    department: 'Servis',
-    reportsTo: 'Servis Müdürü',
-    summary: 'Servisten veya satıştan çıkan araçların iç ve dış temizliğini, kuaför ve cilalama işlemlerini özenle yaparak müşteriye pırıl pırıl teslim edilmesini sağlamaktır.',
-    tasks: [
-      { surec: 'İç ve Dış Araç Yıkama', yetkinlik: 'Oto Temizlik Malzemeleri', davranis: 'Özenli ve Hızlı', raci: 'Sorumlu', kpi: 'Aracın lekesiz teslim edilmesi' },
-      { surec: 'Detaylı Temizlik & Kuaför', yetkinlik: 'Döşeme Temizleme ve Cila', davranis: 'Titiz', raci: 'Sorumlu', kpi: 'Müşteri temizlik memnuniyeti' }
-    ],
-    kpis: [
-      { label: 'Araç Başı Temizlik Süresi', value: '< 20 Dakika' },
-      { label: 'Temizlik Kusursuzluk Puanı', value: '> %98' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Özen ve Hizmet Anlayışı', aciklama: 'Müşterinin aracına kendi aracı gibi özen gösterme.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'Basınçlı Yıkama ve Süpürge', aciklama: 'Oto bakım ve detaylı temizlik kimyasalları.' }
-    ]
-  },
-
-  // ─── 3. YEDEK PARÇA GÖREV TANIMLARI ─────────────────────────────────────────
-  {
-    id: 'yedek-parca-uzmani',
-    category: 'Yedek Parça',
-    title: 'Yedek Parça Uzmanı',
-    department: 'Yedek Parça',
-    reportsTo: 'Yedek Parça Müdürü',
-    summary: 'Servis ve dış müşterilerin yedek parça taleplerini katalogdan sorgulamak, doğru parça kodunu tespit etmek, sipariş oluşturmak ve stok seviyelerini optimize etmektir.',
-    tasks: [
-      { surec: 'Parça Kodu Sorgulama (EPC)', yetkinlik: 'Elektronik Parça Kataloğu', davranis: 'Hatasız', raci: 'Sorumlu', kpi: 'Yanlış parça sipariş hatası (%0)' },
-      { surec: 'Servis Atölye Parça Çıkışı', yetkinlik: 'WMS / Depo Modülü', davranis: 'Hızlı', raci: 'Sorumlu', kpi: 'Atölyeye parça verme süresi (< 5 dk)' }
-    ],
-    kpis: [
-      { label: 'Parça Kodu Doğruluk Oranı', value: '%100' },
-      { label: 'Stok Bulundurma (Fill-rate) Oranı', value: '> %95' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Takip ve Düzen', aciklama: 'Parça raflarının ve stoklarının kontrolü.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'EPC (Electronic Parts Catalog)', aciklama: 'Marka orijinal yedek parça yazılımları.' }
-    ]
-  },
-  {
-    id: 'yedek-parca-muduru',
-    category: 'Yedek Parça',
-    title: 'Yedek Parça Müdürü',
-    department: 'Yedek Parça',
-    reportsTo: 'Genel Müdür',
-    summary: 'Yedek parça departmanının stok bütçesini, ciro ve kar marjlarını yönetmek, fabrikayla parça sipariş ve ikmal ilişkilerini yürütmektir.',
-    tasks: [
-      { surec: 'Stok ve Ciro Yönetimi', yetkinlik: 'Stok Bütçeleme & Finans', davranis: 'Stratejik', raci: 'Hesap Veren', kpi: 'Yedek parça ciro ve karlılık hedefi' }
-    ],
-    kpis: [
-      { label: 'Stok Devir Hızı', value: '> 6 Kez / Yıl' },
-      { label: 'Yedek Parça Kar Marjı Uyum Oranı', value: '%100' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Tedarik Zinciri Yönetimi', aciklama: 'Minimum stokla maksimum bulunabilirlik sağlama.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'ERP & Stok Devir Analitiği', aciklama: 'Öngörüsel stok sipariş yazılımları.' }
-    ]
-  },
-
-  // ─── 4. İNSAN KAYNAKLARI & İDARİ İŞLER ──────────────────────────────────────
+  // ─── 1. İNSAN KAYNAKLARI & İDARİ İŞLER ──────────────────────────────────────
   {
     id: 'hr-specialist',
-    category: 'İnsan Kaynakları',
+    category: 'İnsan Kaynakları & İdari İşler',
     title: 'İnsan Kaynakları Uzmanı',
     department: 'İnsan Kaynakları',
     reportsTo: 'İnsan Kaynakları Müdürü',
-    summary: 'Şirketin işe alım, özlük işleri, izin takibi, performans değerlendirme ve eğitim süreçlerinin mevzuata ve şirket prosedürlerine uygun şekilde yürütülmesini sağlar.',
+    summary: 'Şirketin insan kaynakları politikasını ve kurumsal kültürünü destekleyecek şekilde işe alım, aday tarama, mülakat organizasyonları, çalışan özlük dosyalarının İş Kanunu ve SGK mevzuatına uygun tutulması, izin ve devam takibi ile oryantasyon süreçlerini yürütmektir. Çalışan memnuniyetini artırıcı etkinlik ve eğitim organizasyonlarında aktif rol oynayarak iç iletişimi güçlü tutmaktan sorumludur.',
     tasks: [
-      { surec: 'Özlük İşleri Takibi', yetkinlik: 'İş Kanunu & SGK Mevzuatı', davranis: 'Titiz ve Gizliliğe Uygun', raci: 'Sorumlu', kpi: 'Özlük dosyalarının eksiksiz tutulması' },
-      { surec: 'İşe Alım ve Mülakat', yetkinlik: 'Mülakat Teknikleri', davranis: 'Tarafsız ve İletişim Odaklı', raci: 'Sorumlu', kpi: 'Pozisyon kapatma süresi (Max 30 gün)' }
+      { surec: 'Özlük İşleri & SGK Bildirimleri', yetkinlik: '4857 Sayılı İş Kanunu & SGK', davranis: 'Titiz ve Gizliliğe Uyumlu', raci: 'Sorumlu', kpi: 'Özlük dosyalarının eksiksiz tutulması (%100)' },
+      { surec: 'İşe Alım ve Mülakat Organizasyonu', yetkinlik: 'Yetkinlik Bazlı Mülakat', davranis: 'Tarafsız ve İletişim Odaklı', raci: 'Sorumlu', kpi: 'Pozisyon kapatma süresi (Max 30 gün)' },
+      { surec: 'PDKS & İzin Yönetimi', yetkinlik: 'PDKS ve İzin Takip Yazılımları', davranis: 'Düzenli ve Hızlı', raci: 'Sorumlu', kpi: 'İzin kayıtlarının %100 güncelliği' },
+      { surec: 'Oryantasyon & Eğitime Katılım', yetkinlik: 'Onboarding Programları', davranis: 'Destekleyici', raci: 'Destekleyen', kpi: 'Yeni çalışan oryantasyon memnuniyet puanı' }
     ],
     kpis: [
       { label: 'Özlük Dosyası Tamlık Oranı', value: '%100' },
-      { label: 'Ortalama İşe Alım Tamamlama Süresi', value: '< 30 Gün' }
+      { label: 'Ortalama İşe Alım Tamamlama Süresi', value: '< 30 Gün' },
+      { label: 'Çalışan Memnuniyet Puanı', value: '> %85' }
     ],
     yonetselYetkinlikler: [
-      { baslik: 'Etkili İletişim', aciklama: 'Çalışanlar ve yönetim arasında köprü kurma yeteneği.' }
+      { baslik: 'Etkili İletişim ve Empati', aciklama: 'Çalışanlar ve yönetim arasında şeffaf ve güven veren iletişim kurma.' },
+      { baslik: 'Gizlilik ve Etik Standartlar', aciklama: 'KVKK ve şirket içi gizli bilgilerin tam korunması.' }
     ],
     teknikBeceriler: [
-      { baslik: '4857 Sayılı İş Kanunu', aciklama: 'İş hukuku ve SGK mevzuat bilgisi.' }
+      { baslik: 'İş Hukuku ve SGK Mevzuatı', aciklama: '4857 sayılı İş Kanunu ve İş Sağlığı Güvenliği mevzuat bilgisi.' },
+      { baslik: 'HRMS & PDKS Sistemleri', aciklama: 'İK ve personel devam kontrol yazılımlarını aktif kullanma.' }
+    ]
+  },
+  {
+    id: 'hr-manager',
+    category: 'İnsan Kaynakları & İdari İşler',
+    title: 'İnsan Kaynakları Müdürü',
+    department: 'İnsan Kaynakları',
+    reportsTo: 'Genel Müdür',
+    summary: 'Şirketin uzun vadeli stratejik hedeflerine paralel insan kaynakları vizyonunu ve bütçesini oluşturmaktır. Organizasyonel gelişim, yetenek yönetimi, performans değerlendirme mimarisi, ücret ve yan haklar politikası ile iş hukuku ve sendikal/yasal süreçleri genel yönetim adına koordine ve sevk etmektir.',
+    tasks: [
+      { surec: 'İK Stratejileri ve Bütçeleme', yetkinlik: 'Stratejik İK Yönetimi', davranis: 'Lider ve Vizyoner', raci: 'Hesap Veren', kpi: 'Şirket İK hedeflerine ve bütçesine uyum' },
+      { surec: 'Organizasyonel Gelişim & Norm Kadro', yetkinlik: 'Yetenek Yönetimi & Yedekleme', davranis: 'Gelişim Odaklı', raci: 'Hesap Veren', kpi: 'Personel turnover (ayrılma) oranı (< %10)' },
+      { surec: 'Performans & Ücret Yönetimi', yetkinlik: 'Performans Sistem Mimarisi', davranis: 'Adil', raci: 'Hesap Veren', kpi: 'Performans değerlendirme tamamlama oranı (%100)' }
+    ],
+    kpis: [
+      { label: 'Personel Turn-Over (Ayrılma) Oranı', value: '< %10' },
+      { label: 'İK Bütçesine Uyum', value: '%98' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Liderlik ve Koçluk', aciklama: 'Ekip üyelerini geliştirme ve kurum içi liderlik etme.' },
+      { baslik: 'Kriz ve Çatışma Yönetimi', aciklama: 'İç huzur ve çalışma barışını koruma.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Stratejik İK Planlaması', aciklama: 'İnsan gücü planlama, KPI belirleme ve ücret riski analizi.' },
+      { baslik: 'İş Hukuku ve Arabuluculuk', aciklama: 'Mahkeme ve arabuluculuk süreçleri hakimiyeti.' }
+    ]
+  },
+  {
+    id: 'recruitment-specialist',
+    category: 'İnsan Kaynakları & İdari İşler',
+    title: 'İşe Alım Uzmanı (Talent Acquisition)',
+    department: 'İnsan Kaynakları',
+    reportsTo: 'İnsan Kaynakları Müdürü',
+    summary: 'Şirketin açık pozisyonları için doğru aday kaynağını bulmak, ilan yayınlamak, yetkinlik bazlı ön görüşmeler ve mülakatlar gerçekleştirmek, kişilik envanteri ve referans kontrollerini tamamlayarak şirkete en nitelikli yetenekleri kazandırmaktır.',
+    tasks: [
+      { surec: 'Aday Arama & İlan Yönetimi', yetkinlik: 'LinkedIn Recruiter & Kariyer Portalları', davranis: 'Proaktif', raci: 'Sorumlu', kpi: 'Aday havuzu çeşitliliği' },
+      { surec: 'Yetkinlik Bazlı Mülakat', yetkinlik: 'Mülakat Teknikleri', davranis: 'Tarafsız ve Analitik', raci: 'Sorumlu', kpi: 'İşe alım başarı ve uyum oranı' }
+    ],
+    kpis: [
+      { label: 'Pozisyon Kapatma Süresi', value: '< 25 Gün' },
+      { label: 'Yeni İşe Alınan 6 Aylık Tutundurma Oranı', value: '> %90' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Aday Deneyimi Yönetimi', aciklama: 'Şirket işveren markasını üst düzeyde temsil etme.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'ATS (Aday Takip Sistemleri)', aciklama: 'Kariyer.net, LinkedIn, Yetenek kapısı araçları.' }
+    ]
+  },
+  {
+    id: 'admin-affairs-specialist',
+    category: 'İnsan Kaynakları & İdari İşler',
+    title: 'İdari İşler Uzmanı',
+    department: 'İdari İşler',
+    reportsTo: 'İdari İşler Müdürü',
+    summary: 'Şirket binalarının bakımı, temizlik, güvenlik, personel servisleri, yemekhane hizmetleri, şirket araç filosu ve genel sarf malzeme tedarik operasyonlarının kesintisiz, hijyenik ve ekonomik şekilde yürütülmesini sağlamaktır.',
+    tasks: [
+      { surec: 'Filo, Servis ve Yemek Hizmetleri', yetkinlik: 'Tedarikçi Yönetimi & Saha Denetimi', davranis: 'Çözüm Odaklı', raci: 'Sorumlu', kpi: 'İdari hizmet memnuniyet puanı (> %90)' },
+      { surec: 'Bina Bakım ve Güvenlik', yetkinlik: 'Tesis Yönetimi', davranis: 'Önleyici', raci: 'Sorumlu', kpi: 'Arıza giderme süresi (< 24 saat)' }
+    ],
+    kpis: [
+      { label: 'İdari İşler Memnuniyeti', value: '> %90' },
+      { label: 'Tesis Arıza Çözüm Süresi', value: '< 24 Saat' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Saha Operasyon Takibi', aciklama: 'Fiziki şartları sürekli denetleme ve anında müdahale.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Tesis ve Bina Otomasyonu', aciklama: 'Bina güvenlik ve filo takip sistemleri.' }
+    ]
+  },
+  {
+    id: 'isg-uzmani',
+    category: 'İnsan Kaynakları & İdari İşler',
+    title: 'İş Sağlığı ve Güvenliği (İSG) Uzmanı',
+    department: 'İdari İşler & İSG',
+    reportsTo: 'Genel Müdür',
+    summary: 'Çalışma ortamındaki iş kazası ve meslek hastalığı risklerini tespit etmek, risk analizleri hazırlamak, çalışanlara yasal İSG eğitimlerini vermek, kişisel koruyucu donanım (KKD) kullanımını denetlemek ve sıfır iş kazası hedefini sağlamaktır.',
+    tasks: [
+      { surec: 'Risk Değerlendirmesi ve Saha Denetimi', yetkinlik: '6331 Sayılı İSG Kanunu', davranis: 'Tavizsiz ve Dikkatli', raci: 'Sorumlu', kpi: 'İSG uygunsuzluklarının kapatılma oranı (%100)' },
+      { surec: 'İSG Eğitimleri & Kaza İnceleme', yetkinlik: 'Kaza Kök Neden Analizi', davranis: 'Eğitici', raci: 'Sorumlu', kpi: 'İş kazası sıklık oranı (< 0.5)' }
+    ],
+    kpis: [
+      { label: 'İş Kazası Sıklık Oranı (LTIFR)', value: '0 Kaza' },
+      { label: 'Yasal İSG Eğitim Tamamlama Oranı', value: '%100' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Güvenlik Kültürü Oluşturma', aciklama: 'Tüm çalışanlarda güvenlik bilincini yerleştirme.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'İSG Mevzuatı ve Sertifikasyonu', aciklama: 'A/B/C Sınıfı İş Güvenliği Uzmanlığı belgesi.' }
     ]
   },
 
-  // ─── 5. MUHASEBE & FİNANS ───────────────────────────────────────────────────
+  // ─── 2. MUHASEBE & FİNANS ───────────────────────────────────────────────────
   {
     id: 'muhasebe-elemani',
     category: 'Muhasebe & Finans',
-    title: 'Muhasebe Elemanı',
-    department: 'Yönetim',
+    title: 'Ön Muhasebe Elemanı',
+    department: 'Muhasebe',
     reportsTo: 'Muhasebe Müdürü',
-    summary: 'Alış ve satış faturalarının işlenmesi, cari hesap mutabakatlarının yapılması, kasa/banka kayıtlarının tutulması ve günlük muhasebe evraklarının arşivlenmesinden sorumludur.',
+    summary: 'Alış ve satış faturalarının kesilmesi ve sisteme girilmesi, cari hesap mutabakatlarının yapılması, banka ekstreleri ve kasa hareketlerinin günlük işlenmesi ile evrak arşivleme süreçlerini eksiksiz yürütmektir.',
     tasks: [
-      { surec: 'Fatura Giriş & Cari Mutabakat', yetkinlik: 'e-Fatura & Genel Muhasebe', davranis: 'Hatasız ve Dikkatli', raci: 'Sorumlu', kpi: 'Fatura işleme doğruluğu (%100)' }
+      { surec: 'Fatura ve İrsaliye İşlemleri', yetkinlik: 'e-Fatura / e-Arşiv Portal Kullanımı', davranis: 'Hatasız ve Dikkatli', raci: 'Sorumlu', kpi: 'Fatura giriş hata oranı (%0)' },
+      { surec: 'Cari Hesap Mutabakatı', yetkinlik: 'Cari Takip ve Hesap Özetleri', davranis: 'İletişim Odaklı', raci: 'Sorumlu', kpi: 'Aylık mutabakat tamamlama süresi' },
+      { surec: 'Kasa ve Banka Kayıtları', yetkinlik: 'Banka Ekstre İşleme', davranis: 'Güvenilir', raci: 'Sorumlu', kpi: 'Günlük kasa denkleştirmesi' }
     ],
     kpis: [
       { label: 'Fatura İşleme Doğruluğu', value: '%100' },
@@ -354,48 +153,480 @@ export const JOB_TEMPLATES: JobTemplate[] = [
       { baslik: 'Detay Odaklılık', aciklama: 'Rakamlar ve belgeler üzerinde hassasiyet.' }
     ],
     teknikBeceriler: [
-      { baslik: 'ERP Muhasebe Modülleri', aciklama: 'Fatura ve irsaliye entegrasyonu.' }
+      { baslik: 'Logo / ERP Muhasebe Yazılımları', aciklama: 'Fatura ve irsaliye modülleri.' }
+    ]
+  },
+  {
+    id: 'genel-muhasebe-uzmani',
+    category: 'Muhasebe & Finans',
+    title: 'Genel Muhasebe Uzmanı',
+    department: 'Muhasebe',
+    reportsTo: 'Muhasebe Müdürü',
+    summary: 'Şirketin yasal defter kayıtları, KDV, Muhtasar, Geçici Vergi ve Kurumlar Vergisi beyannamelerinin kontrolü ve verilmesi, mizan denkleştirme ve dönem sonu kapanış işlemlerini kanunlara uygun yürütmektir.',
+    tasks: [
+      { surec: 'Beyanname Hazırlığı & Vergi', yetkinlik: 'VUK & Vergi Mevzuatı', davranis: 'Mevzuata Uyumlu', raci: 'Sorumlu', kpi: 'Zamanında vergi beyan ve ödeme takibi' },
+      { surec: 'Mizan ve Dönem Sonu Kapanış', yetkinlik: 'Genel Muhasebe & Kapanış', davranis: 'Analitik', raci: 'Sorumlu', kpi: 'Aylık mizan denkleştirme' }
+    ],
+    kpis: [
+      { label: 'Beyanname Zamanında Verme Oranı', value: '%100' },
+      { label: 'Mizan Hata Oranı', value: '%0' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Analitik Düşünme', aciklama: 'Mali tabloları doğru okuma ve yorumlama.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Tek Düzen Hesap Planı', aciklama: 'VUK ve hesap planı hakimiyeti.' }
     ]
   },
   {
     id: 'muhasebe-muduru',
     category: 'Muhasebe & Finans',
     title: 'Muhasebe Müdürü',
-    department: 'Yönetim',
+    department: 'Muhasebe',
     reportsTo: 'Genel Müdür',
-    summary: 'Şirketin mali tablolarının, bilanço ve gelir tablolarının hazırlanması, vergi beyannamelerinin kontrolü, finansal raporlama ve mali denetim süreçlerini yönetmektir.',
+    summary: 'Şirketin bilanço, gelir tablosu ve nakit akış tablolarının hazırlanmasını denetlemek, vergi ve bağımsız denetim süreçlerini yönetmek, mali riskleri minimize ederek yönetime doğru finansal rapor sunmaktır.',
     tasks: [
-      { surec: 'Mali Tablolar & Vergi Yönetimi', yetkinlik: 'VUK, IFRS & Vergi Mevzuatı', davranis: 'Analitik', raci: 'Hesap Veren', kpi: 'Beyanname ve raporlama %100 zamanında' }
+      { surec: 'Mali Raporlama & Bilanço', yetkinlik: 'VUK, IFRS & Mali Denetim', davranis: 'Stratejik', raci: 'Hesap Veren', kpi: 'Mali tabloların hatasız kapanışı' }
     ],
     kpis: [
       { label: 'Bilanço ve Mizan Kapanış Uyum Oranı', value: '%100' },
-      { label: 'Vergi Beyanname Zamanlaması', value: '%100' }
+      { label: 'Vergi Uyum ve Denetim Başarısı', value: '%100' }
     ],
     yonetselYetkinlikler: [
-      { baslik: 'Finansal Liderlik', aciklama: 'Şirket bütçe ve kar/zarar yönetimini yönlendirme.' }
+      { baslik: 'Finansal Liderlik', aciklama: 'Şirket mali disiplinini sağlama.' }
     ],
     teknikBeceriler: [
-      { baslik: 'İleri Seviye Mali Analiz & VUK', aciklama: 'Vergi mevzuatı ve mali denetim.' }
+      { baslik: 'İleri Seviye Mali Analiz', aciklama: 'Bilanço, P&L, IFRS standartları.' }
+    ]
+  },
+  {
+    id: 'finansal-analist',
+    category: 'Muhasebe & Finans',
+    title: 'Finansal Analist / Bütçe Uzmanı',
+    department: 'Finans',
+    reportsTo: 'Muhasebe Müdürü',
+    summary: 'Aylık bütçe-gerçekleşen sapma analizlerini yapmak, nakit akış tahminlerini hazırlamak, yatırımların geri dönüş sürelerini hesaplayarak yönetime karar destek raporları sunmaktır.',
+    tasks: [
+      { surec: 'Bütçe & Sapma Analizleri', yetkinlik: 'Finansal Model & Bütçe', davranis: 'Sorgulayıcı', raci: 'Sorumlu', kpi: 'Sapma analizi rapor zamanlaması' }
+    ],
+    kpis: [
+      { label: 'Nakit Akış Tahmin İsabeti', value: '> %95' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Raporlama ve Sunum', aciklama: 'Karmaşık verileri yönetime net sunma.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'İleri Seviye Excel & PowerBI', aciklama: 'Finansal modelleme ve dashboard.' }
     ]
   },
 
-  // ─── 6. ÜST YÖNETİM ────────────────────────────────────────────────────────
+  // ─── 3. SATIŞ & PAZARLAMA ───────────────────────────────────────────────────
+  {
+    id: 'satis-danismani',
+    category: 'Satış & Pazarlama',
+    title: 'Satış Danışmanı',
+    department: 'Satış',
+    reportsTo: 'Satış Müdürü',
+    summary: 'Şirketin satış hedefleri doğrultusunda müşterileri güler yüzle karşılamak, ihtiyaç analizi yaparak uygun ürün ve hizmet paketlerini sunmak, teklif ve sözleşme süreçlerini yönetmektir. Müşteri memnuniyetini en üst düzeyde tutarak satış sonrası takip adımlarını eksiksiz yürütmekten sorumludur.',
+    tasks: [
+      { surec: 'Müşteri Karşılama ve İhtiyaç Analizi', yetkinlik: 'İletişim & Dinleme Becerisi', davranis: 'Güler Yüzlü', raci: 'Sorumlu', kpi: 'Müşteri karşılama memnuniyet puanı (> %95)' },
+      { surec: 'Ürün Tanıtımı ve Deneyim', yetkinlik: 'Ürün Bilgisi', davranis: 'İkna Edici', raci: 'Sorumlu', kpi: 'Sunum dönüşüm oranı (> %40)' },
+      { surec: 'Teklif ve Satış Kapama', yetkinlik: 'Müzakere', davranis: 'Sonuç Odaklı', raci: 'Sorumlu', kpi: 'Aylık satış hedefi tutturma (%100)' }
+    ],
+    kpis: [
+      { label: 'Aylık Satış Adet Hedefi', value: '%100 Uyum' },
+      { label: 'Müşteri Memnuniyeti (CSI/NPS)', value: '> %95' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'İkna ve Müzakere', aciklama: 'Müşteri itirazlarını doğru karşılayarak satış kapama.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'CRM ve Satış Sistemleri', aciklama: 'Müşteri kayıt, teklif ve sipariş takip yazılımları.' }
+    ]
+  },
+  {
+    id: 'ikinci-el-satis-danismani',
+    category: 'Satış & Pazarlama',
+    title: '2.El Satış Danışmanı',
+    department: '2.El Satış',
+    reportsTo: '2.El Müdürü',
+    summary: 'İkinci el araç tedarik, ekspertiz, değerleme, sergileme ve satış süreçlerini yönetmektir. İkinci el piyasası trendlerini takip ederek doğru fiyatlama ve ekspertiz standartlarına uygun olarak aracı satın alma ve müşteriye şeffaf bir şekilde satmaktan sorumludur.',
+    tasks: [
+      { surec: 'Ekspertiz ve Değerleme', yetkinlik: 'Piyasa & Ekspertiz Bilgisi', davranis: 'Şeffaf', raci: 'Sorumlu', kpi: 'Doğru ekspertiz oranı (%100)' },
+      { surec: 'Satış ve Takas', yetkinlik: 'Takas Analizi', davranis: 'Güven Verici', raci: 'Sorumlu', kpi: 'Aylık 2.El satış kotası' }
+    ],
+    kpis: [
+      { label: 'Aylık 2.El Satış Adedi', value: '%100 Uyum' },
+      { label: 'Ekspertiz Doğruluk Oranı', value: '%100' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Piyasa Analizi', aciklama: 'İkinci el araç piyasa dinamiklerini takip etme.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Ekspertiz ve Tramer Yazılımları', aciklama: 'Değerleme ve sorgulama sistemleri.' }
+    ]
+  },
+  {
+    id: 'filo-satis-uzmani',
+    category: 'Satış & Pazarlama',
+    title: 'Filo Satış Uzmanı',
+    department: 'Satış',
+    reportsTo: 'Satış Müdürü',
+    summary: 'Kurumsal firmalar, filo kiralama şirketleri ve kamu idareleri ile ilişkileri yürütmek, toplu satış ve ihale süreçlerini yönetmektir. Kurumsal müşteri portföyünü genişletmek ve uzun vadeli tedarik sözleşmelerini imzalamaktan sorumludur.',
+    tasks: [
+      { surec: 'Kurumsal Müşteri Ziyareti', yetkinlik: 'B2B Satış', davranis: 'Profesyonel', raci: 'Sorumlu', kpi: 'Yeni kurumsal müşteri adedi' },
+      { surec: 'Filo Teklif & İhale', yetkinlik: 'Bütçeleme & İhale', davranis: 'Titiz', raci: 'Sorumlu', kpi: 'İhale kazanma oranı' }
+    ],
+    kpis: [
+      { label: 'Yıllık Filo Satış Adet Hedefi', value: '%100 Uyum' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'B2B İlişki Yönetimi', aciklama: 'Kurumsal karar vericilerle ilişkiler kurma.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Maliyet ve İhale Analiz Tabloları', aciklama: 'Toplu satış maliyet analizleri.' }
+    ]
+  },
+  {
+    id: 'dijital-deneyim-danismani',
+    category: 'Satış & Pazarlama',
+    title: 'Dijital Deneyim Danışmanı',
+    department: 'Satış',
+    reportsTo: 'Satış Müdürü',
+    summary: 'Online kanallardan ve web sitesinden gelen dijital talepleri (Lead) anında karşılamak, çevrimiçi ürün konfigürasyonu sunmak ve müşteriyi fiziki veya dijital randevuya yönlendirerek satışı kapatmaktır.',
+    tasks: [
+      { surec: 'Dijital Lead Karşılama', yetkinlik: 'Hızlı İletişim', davranis: 'Hızlı', raci: 'Sorumlu', kpi: 'İlk yanıt süresi (< 15 dakika)' }
+    ],
+    kpis: [
+      { label: 'Lead İlk Temas Süresi', value: '< 15 Dakika' },
+      { label: 'Dijital Müşteri Dönüşümü', value: '> %25' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Dijital Hız ve Uyum', aciklama: 'Yeni nesil iletişim kanallarını kullanma.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Omnichannel CRM', aciklama: 'Dijital pazarlama ve sohbet/çağrı entegrasyonları.' }
+    ]
+  },
+  {
+    id: 'dijital-pazarlama-uzmani',
+    category: 'Satış & Pazarlama',
+    title: 'Dijital Pazarlama & Sosyal Medya Uzmanı',
+    department: 'Pazarlama',
+    reportsTo: 'Satış Müdürü',
+    summary: 'Şirketin sosyal medya hesaplarını yönetmek, Google/Meta reklam kampanyalarını kurgulamak, web sitesi trafiğini ve dijital potansiyel müşteri adaylarını (Lead) artırmak ve marka imajını güçlendirmektir.',
+    tasks: [
+      { surec: 'Sosyal Medya & Reklam Kampanyaları', yetkinlik: 'Meta Ads & Google Ads', davranis: 'Yaratıcı', raci: 'Sorumlu', kpi: 'Maliyet başına edinilen lead (CPL)' }
+    ],
+    kpis: [
+      { label: 'Aylık Dijital Müşteri Adayı (Lead)', value: '> 200 Lead' },
+      { label: 'Reklam Bütçesi Geri Dönüşü (ROAS)', value: '> %350' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Kreatif İletişim', aciklama: 'Etkileyici görsel ve metin içerikleri kurgulama.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Google Analytics & Meta Business', aciklama: 'Dijital pazarlama ve reklam panoları.' }
+    ]
+  },
+
+  // ─── 4. SERVİS & HASAR GÖREV TANIMLARI ─────────────────────────────────────
+  {
+    id: 'servis-danismani',
+    category: 'Servis & Hasar',
+    title: 'Servis Danışmanı',
+    department: 'Servis',
+    reportsTo: 'Servis Müdürü',
+    summary: 'Servise gelen araç sahiplerini güler yüzle karşılamak, araç şikayet ve bakım taleplerini dinleyerek iş emri açmak, tahmini maliyet ve teslim süresini bildirmek, atölye ile araç sahibi arasında köprü kurarak aracın zamanında ve sorunsuz teslim edilmesini sağlamaktır.',
+    tasks: [
+      { surec: 'Müşteri Karşılama ve İş Emri', yetkinlik: 'Otomotiv Servis Bilgisi', davranis: 'Güler Yüzlü', raci: 'Sorumlu', kpi: 'Eksiksiz iş emri açma (%100)' },
+      { surec: 'Maliyet ve Teslimat Bilgilendirmesi', yetkinlik: 'Fiyatlandırma', davranis: 'Şeffaf', raci: 'Sorumlu', kpi: 'Servis memnuniyet (CSI) puanı (> %95)' }
+    ],
+    kpis: [
+      { label: 'Servis Müşteri Memnuniyeti (CSI)', value: '> %95' },
+      { label: 'Zamanında Teslimat Oranı', value: '> %98' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Müşteri İlişkileri', aciklama: 'Teknik detayları müşterinin anlayacağı dilde anlatma.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'DMS Servis Yazılımları', aciklama: 'İş emri ve işçilik modülü kullanımı.' }
+    ]
+  },
+  {
+    id: 'kaporta-boya-servis-danismani',
+    category: 'Servis & Hasar',
+    title: 'Kaporta ve Boya Servis Danışmanı',
+    department: 'Servis',
+    reportsTo: 'Servis Müdürü',
+    summary: 'Hasarlı araçların kabulü, sigorta ve kasko ekspertiz süreçlerinin takibi, onarım iş emrinin hazırlanması, kaporta ve boya atölyesindeki adımların izlenmesi ve hasarsız teslimatın gerçekleştirilmesidir.',
+    tasks: [
+      { surec: 'Hasar Kabul ve Ekspertiz', yetkinlik: 'Sigorta & Ekspertiz Prosedürleri', davranis: 'Titiz', raci: 'Sorumlu', kpi: 'Dosya onay süresi (< 48 saat)' }
+    ],
+    kpis: [
+      { label: 'Sigorta Dosya Onay Süresi', value: '< 48 Saat' },
+      { label: 'Hasar Onarım Müşteri Memnuniyeti', value: '> %95' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Sigorta Şirketi İlişkileri', aciklama: 'Eksperler ile koordinasyon.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Audatex / Eurotax Hasar Sistemleri', aciklama: 'Hasar parça ve işçilik hesaplama.' }
+    ]
+  },
+  {
+    id: 'musteri-iliskileri-uzmani',
+    category: 'Servis & Hasar',
+    title: 'Müşteri İlişkileri Uzmanı (CRM)',
+    department: 'Servis & Müşteri İlişkileri',
+    reportsTo: 'Servis Müdürü',
+    summary: 'Satış veya servis hizmeti alan müşterileri teslimat sonrası arayarak memnuniyet anketlerini (CSI/SSI) yapmak, şikayet ve önerileri kayıt altına alıp ilgili departmanlara ileterek hızlı çözümlenmesini sağlamaktır.',
+    tasks: [
+      { surec: 'Memnuniyet Aramaları & Şikayet Yönetimi', yetkinlik: 'Telefonda İletişim & Empati', davranis: 'Çözüm Odaklı', raci: 'Sorumlu', kpi: 'Arama tamamlama oranı (> %90)' }
+    ],
+    kpis: [
+      { label: 'Şikayet Çözüm Süresi', value: '< 24 Saat' },
+      { label: 'Genel Müşteri Tavsiye Etme Skoru (NPS)', value: '> %90' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Problem Çözme ve Empati', aciklama: 'Kızgın müşterileri sakinleştirip uzlaşma sağlama.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'CRM Çağrı Sistemleri', aciklama: 'Müşteri geribildirim ve anket panoları.' }
+    ]
+  },
+
+  // ─── 5. ÜRETİM & İMALAT (TEKNİK ATÖLYE) ──────────────────────────────────
+  {
+    id: 'mekanik-teknisyeni',
+    category: 'Üretim & İmalat',
+    title: 'Mekanik Teknisyeni',
+    department: 'Servis',
+    reportsTo: 'Mekanik Formen',
+    summary: 'Araçların periyodik bakımlarını, motor, şanzıman, fren, süspansiyon ve elektronik sistem arızalarının teşhis ve onarımlarını imalatçı standartlarına ve güvenlik kurallarına uygun olarak gerçekleştirmektir.',
+    tasks: [
+      { surec: 'Periyodik Bakım ve Onarım', yetkinlik: 'Mekanik & Otomotiv Elektroniği', davranis: 'Titiz', raci: 'Sorumlu', kpi: 'Bakım süresine uyum' },
+      { surec: 'Arıza Teşhis', yetkinlik: 'Diagnostik Cihaz', davranis: 'Analitik', raci: 'Sorumlu', kpi: 'İlk seferde doğru tamir (%100)' }
+    ],
+    kpis: [
+      { label: 'Tekrarlayan Arıza (Re-fix) Oranı', value: '< %1' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'İSG ve Atölye Düzeni', aciklama: 'Koruyucu ekipman ve temiz çalışma.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Diagnostik Cihazlar', aciklama: 'Orijinal arıza tespit yazılımları.' }
+    ]
+  },
+  {
+    id: 'boya-teknisyeni',
+    category: 'Üretim & İmalat',
+    title: 'Boya Teknisyeni / Ustası',
+    department: 'Servis & İmalat',
+    reportsTo: 'Boya Formeni',
+    summary: 'Hasarlı veya yenilenen araç parçalarının yüzey zımparalama, macun, astar, renk kodlama ve kabin içi boyama ile fırınlama adımlarını hatasız bir şekilde tamamlamaktır.',
+    tasks: [
+      { surec: 'Yüzey Hazırlığı ve Astar', yetkinlik: 'Zımpara ve Macun', davranis: 'Pürüzsüz İmalat', raci: 'Sorumlu', kpi: 'Yüzey hazırlık kalitesi' },
+      { surec: 'Renk Karışımı ve Kabin Boyama', yetkinlik: 'Renk Skalası & HVLP Tabanca', davranis: 'Titiz', raci: 'Sorumlu', kpi: 'Sıfır renk farkı ve pürüzsüzlük' }
+    ],
+    kpis: [
+      { label: 'Boya Kalite Onay Oranı', value: '> %98' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Ustalık ve Estetik', aciklama: 'Mikron düzeyinde pürüzsüzlük.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Boya Kabini ve Tabanca', aciklama: 'Kabin iklimlendirme ve tiner karıştırma.' }
+    ]
+  },
+  {
+    id: 'boya-formeni',
+    category: 'Üretim & İmalat',
+    title: 'Boya Formeni',
+    department: 'Servis & İmalat',
+    reportsTo: 'Servis Müdürü',
+    summary: 'Boya atölyesindeki iş akışını, boya teknisyenlerinin iş dağılımını, malzeme kullanımını ve çıkan boya kalitesini denetlemek, atölye verimliliğini ve emniyetini sağlamaktır.',
+    tasks: [
+      { surec: 'Atölye İş Dağılımı ve Kalite', yetkinlik: 'Atölye Sevk ve İdare', davranis: 'Lider', raci: 'Hesap Veren', kpi: 'Atölye verimliliği' }
+    ],
+    kpis: [
+      { label: 'Boya Atölye Verimliliği', value: '> %90' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Ekip Sevk ve İdaresi', aciklama: 'Teknisyenlerin günlük iş bölümünü adil yönetme.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'İleri Boya Teknolojisi', aciklama: 'Spektrofotometre ve renk ayarı.' }
+    ]
+  },
+  {
+    id: 'govde-teknisyeni',
+    category: 'Üretim & İmalat',
+    title: 'Gövde (Kaporta) Teknisyeni',
+    department: 'Servis & İmalat',
+    reportsTo: 'Gövde Formeni',
+    summary: 'Kazalı araçların şasi, kaporta, sac düzeltme, parça değişimi ve çektirme işlemlerini imalatçı şasi tolerans ölçülerine uygun olarak gerçekleştirmektir.',
+    tasks: [
+      { surec: 'Şasi ve Sac Düzeltme', yetkinlik: 'Şasi Tezgahı', davranis: 'Emniyetli', raci: 'Sorumlu', kpi: 'Milimetrik şasi uyumu' }
+    ],
+    kpis: [
+      { label: 'Şasi Tolerans Uyum Oranı', value: '%100' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Güvenlik Bilinci', aciklama: 'Araç yapısının emniyetini koruma.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Punta ve Punto Kaynağı', aciklama: 'Sac doğrultma tezgâhları.' }
+    ]
+  },
+  {
+    id: 'yikamaci',
+    category: 'Üretim & İmalat',
+    title: 'Yıkamacı / Araç Temizlik Elemanı',
+    department: 'Servis',
+    reportsTo: 'Servis Müdürü',
+    summary: 'Servisten veya satıştan çıkan araçların iç ve dış temizliğini, kuaför ve cilalama işlemlerini özenle yaparak müşteriye pırıl pırıl teslim edilmesini sağlamaktır.',
+    tasks: [
+      { surec: 'İç ve Dış Temizlik', yetkinlik: 'Oto Temizlik Malzemeleri', davranis: 'Özenli', raci: 'Sorumlu', kpi: 'Temiz teslimat' }
+    ],
+    kpis: [
+      { label: 'Temizlik Kusursuzluk Puanı', value: '> %98' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Özen ve Hizmet Anlayışı', aciklama: 'Müşteri aracına kendi aracı gibi bakma.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Oto Temizlik Cihazları', aciklama: 'Basınçlı yıkama ve süpürgeler.' }
+    ]
+  },
+  {
+    id: 'quality-control-specialist',
+    category: 'Üretim & İmalat',
+    title: 'Kalite Kontrol Uzmanı',
+    department: 'Kalite Güvence',
+    reportsTo: 'Kalite Güvence Müdürü',
+    summary: 'Gelen hammadde, üretim içi yarı mamul ve bitmiş ürünlerin teknik resim ve kalite kriterlerine uygunluğunu kumpas, mikrometre vb. ölçüm aletleriyle denetlemek ve hatasız üretimi garanti etmektir.',
+    tasks: [
+      { surec: 'Kalite Kontrol & Denetim', yetkinlik: 'Teknik Resim & Ölçüm Aletleri', davranis: 'Tarafsız', raci: 'Sorumlu', kpi: 'Hatalı parçanın sızmaması (%0)' }
+    ],
+    kpis: [
+      { label: 'Müşteri Şikayet / İade Oranı', value: '< %0.5' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Tavizsiz Kalite Anlayışı', aciklama: 'Standart dışı imalatı anında durdurma.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Teknik Resim & Hassas Ölçüm', aciklama: 'Kumpas, mikrometre ve CMM cihazları.' }
+    ]
+  },
+
+  // ─── 6. DEPO & LOJİSTİK GÖREV TANIMLARI ─────────────────────────────────────
+  {
+    id: 'yedek-parca-uzmani',
+    category: 'Depo & Lojistik',
+    title: 'Yedek Parça Uzmanı',
+    department: 'Yedek Parça',
+    reportsTo: 'Yedek Parça Müdürü',
+    summary: 'Servis ve dış müşterilerin yedek parça taleplerini katalogdan sorgulamak, doğru parça kodunu tespit etmek, sipariş oluşturmak ve stok seviyelerini optimize etmektir.',
+    tasks: [
+      { surec: 'Parça Kodu Sorgulama', yetkinlik: 'Elektronik Parça Kataloğu', davranis: 'Hatasız', raci: 'Sorumlu', kpi: 'Yanlış parça sipariş hatası (%0)' },
+      { surec: 'Servis Parça Çıkışı', yetkinlik: 'WMS / Depo Modülü', davranis: 'Hızlı', raci: 'Sorumlu', kpi: 'Atölyeye parça verme süresi (< 5 dk)' }
+    ],
+    kpis: [
+      { label: 'Parça Kodu Doğruluk Oranı', value: '%100' },
+      { label: 'Stok Bulundurma Oranı', value: '> %95' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Stok Düzeni', aciklama: 'Parça raflarının tertertip takibi.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'EPC (Electronic Parts Catalog)', aciklama: 'Marka orijinal parça yazılımları.' }
+    ]
+  },
+  {
+    id: 'warehouse-specialist',
+    category: 'Depo & Lojistik',
+    title: 'Depo ve Sevkiyat Sorumlusu',
+    department: 'Lojistik & Depo',
+    reportsTo: 'Depo Müdürü',
+    summary: 'Mal kabul, raflama, stok takibi, sipariş toplama ve sevkiyat araçlarına yükleme süreçlerini eksiksiz ve el terminali barkod sistemiyle yürütmektir.',
+    tasks: [
+      { surec: 'Mal Kabul ve Sevkiyat', yetkinlik: 'El Terminali & İrsaliye', davranis: 'Düzenli', raci: 'Sorumlu', kpi: 'Stok doğruluk oranı (> %99)' }
+    ],
+    kpis: [
+      { label: 'Stok Doğruluk Oranı', value: '> %99' },
+      { label: 'Sevkiyat Zamanında Teslimat', value: '> %98' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: '5S Depo Düzeni', aciklama: 'Depo alanının tertertip tutulması.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'WMS & Barkod Okuyucu', aciklama: 'Depo yönetim yazılımları.' }
+    ]
+  },
+
+  // ─── 7. YAZILIM & IT GÖREV TANIMLARI ────────────────────────────────────────
+  {
+    id: 'software-developer',
+    category: 'Yazılım & IT',
+    title: 'Yazılım Geliştirici / Mühendisi',
+    department: 'Bilgi Teknolojileri',
+    reportsTo: 'Yazılım / IT Müdürü',
+    summary: 'Şirketin web, mobil ve iç yazılım uygulamalarının analiz, tasarım, kodlama, test ve bakım süreçlerini modern mimarilere uygun olarak gerçekleştirmektir.',
+    tasks: [
+      { surec: 'Kod Geliştirme & Mimari', yetkinlik: 'Clean Code & Algoritma', davranis: 'Çözüm Odaklı', raci: 'Sorumlu', kpi: 'Zamanında kod teslimatı' },
+      { surec: 'API & DB Entegrasyonu', yetkinlik: 'REST API & SQL/NoSQL', davranis: 'Güvenli Kodlama', raci: 'Sorumlu', kpi: 'Düşük hata (Bug) oranı' }
+    ],
+    kpis: [
+      { label: 'Sprint Hedefini Tamamlama', value: '> %90' },
+      { label: 'Canlı Ortam Hata (Bug) Oranı', value: '< %2' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Sürekli Öğrenme', aciklama: 'Yeni teknolojileri takip etme ve uyarlama.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'React / Node.js / Python / C#', aciklama: 'Modern yazılım dilleri ve Git versiyon kontrolü.' }
+    ]
+  },
+  {
+    id: 'it-support-specialist',
+    category: 'Yazılım & IT',
+    title: 'IT / Sistem Destek Uzmanı',
+    department: 'Bilgi Teknolojileri',
+    reportsTo: 'IT Müdürü',
+    summary: 'Şirket içi bilgisayar, yazıcı, ağ (network), sunucu ve kullanıcı hesaplarının kurulum, bakım, güvenlik güncellemeleri ve teknik destek süreçlerini yürütmektir.',
+    tasks: [
+      { surec: 'Donanım & Ağ Kurulumu', yetkinlik: 'Windows/Linux & Network', davranis: 'Hızlı', raci: 'Sorumlu', kpi: 'Kullanıcı arıza çağrı kapama süresi (< 1 saat)' }
+    ],
+    kpis: [
+      { label: 'IT Arıza Çağrı Çözüm Süresi', value: '< 1 Saat' },
+      { label: 'Sistem Kesintisizlik (Uptime)', value: '> %99.5' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Problem Çözme', aciklama: 'Saha teknik arızalarına hızlı müdahale.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'Active Directory & Firewalls', aciklama: 'Ağ ve kullanıcı yetkilendirme sistemleri.' }
+    ]
+  },
+
+  // ─── 8. ÜST YÖNETİM GÖREV TANIMLARI ────────────────────────────────────────
   {
     id: 'genel-mudur',
-    category: 'Üst Yönetim',
+    category: 'Yönetim',
     title: 'Genel Müdür',
     department: 'Yönetim',
     reportsTo: 'Bayi Sahibi / Yönetim Kurulu',
     summary: 'Şirketin tüm operasyonel, finansal, satış, servis ve insan kaynakları süreçlerini şirket vizyonu ve yıllık karlılık hedefleri doğrultusunda yönetmek, markanın temsilini en üst düzeyde yapmaktır.',
     tasks: [
-      { surec: 'Şirket Stratejisi ve Karlılık Yönetimi', yetkinlik: 'Üst Düzey Yönetim & Bütçe', davranis: 'Lider ve Vizyoner', raci: 'Hesap Veren', kpi: 'Yıllık şirket ciro ve karlılık hedefleri' }
+      { surec: 'Şirket Stratejisi ve Karlılık', yetkinlik: 'Üst Düzey Yönetim & Bütçe', davranis: 'Lider', raci: 'Hesap Veren', kpi: 'Yıllık şirket ciro ve karlılık hedefleri' }
     ],
     kpis: [
       { label: 'Yıllık Şirket Karlılık Hedefi', value: '%100 Uyum' },
       { label: 'Genel Müşteri Memnuniyeti (CSI)', value: '> %96' }
     ],
     yonetselYetkinlikler: [
-      { baslik: 'Stratejik Liderlik', aciklama: 'Tüm departmanları ortak hedefe yönlendirme.' }
+      { baslik: 'Stratejik Liderlik', aciklama: 'Tüm departmanları ortak kurumsal hedefe yönlendirme.' }
     ],
     teknikBeceriler: [
       { baslik: 'Kurumsal Yönetim ve Mali Tablolar', aciklama: 'Bilanço, P&L ve finansal yatırım analitiği.' }

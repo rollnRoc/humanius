@@ -967,7 +967,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                 />
               </div>
               <div className="flex gap-2 overflow-x-auto">
-                {['all', 'İnsan Kaynakları', 'Muhasebe & Finans', 'Üretim & İmalat', 'Depo & Lojistik', 'Satış & Pazarlama', 'Yazılım & IT'].map((cat) => (
+                {['all', 'İnsan Kaynakları & İdari İşler', 'Muhasebe & Finans', 'Satış & Pazarlama', 'Servis & Hasar', 'Üretim & İmalat', 'Depo & Lojistik', 'Yazılım & IT', 'Yönetim'].map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
