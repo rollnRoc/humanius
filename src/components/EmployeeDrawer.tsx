@@ -111,27 +111,40 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       return;
     }
 
+    // If editing existing employee and email matches their current email (or .net version), it is their own valid email!
+    if (!isNew && employee?.email) {
+      const originalEmail = String(employee.email).trim().toLowerCase();
+      const originalEmailNet = originalEmail.replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
+      if (effectiveEmail === originalEmail || effectiveEmail === originalEmailNet) {
+        setEmailStatus('available');
+        return;
+      }
+    }
+
     let active = true;
     setEmailStatus('checking');
 
     const timer = setTimeout(async () => {
       try {
-        const { data: empMatch } = await supabase
-          .from('employees')
-          .select('id')
-          .eq('email', effectiveEmail)
-          .neq('id', formData?.id || '')
-          .maybeSingle();
+        const altEmailCom = effectiveEmail.replace('humanius.net', 'humanius.com');
+        const altEmailComTr = effectiveEmail.replace('humanius.net', 'humanius.com.tr');
 
-        const { data: profMatch } = await supabase
+        const { data: empMatches } = await supabase
+          .from('employees')
+          .select('id, name, email')
+          .or(`email.eq.${effectiveEmail},email.eq.${altEmailCom},email.eq.${altEmailComTr}`);
+
+        const { data: profMatches } = await supabase
           .from('profiles')
-          .select('id')
-          .eq('email', effectiveEmail)
-          .neq('id', formData?.id || '')
-          .maybeSingle();
+          .select('id, email')
+          .or(`email.eq.${effectiveEmail},email.eq.${altEmailCom},email.eq.${altEmailComTr}`);
+
+        const excludeId = formData?.id || employee?.id || '';
+        const otherEmpMatches = (empMatches || []).filter(e => e.id !== excludeId);
+        const otherProfMatches = (profMatches || []).filter(p => p.id !== excludeId);
 
         if (active) {
-          if (empMatch || profMatch) {
+          if (otherEmpMatches.length > 0 || otherProfMatches.length > 0) {
             setEmailStatus('taken');
           } else {
             setEmailStatus('available');
@@ -140,13 +153,13 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       } catch {
         if (active) setEmailStatus('idle');
       }
-    }, 350);
+    }, 300);
 
     return () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [effectiveEmail, formData?.id, isOpen]);
+  }, [effectiveEmail, formData?.id, employee?.id, employee?.email, isNew, isOpen]);
 
   useEffect(() => {
     if (employee) {

@@ -173,6 +173,36 @@ Deno.serve(async (req: Request) => {
       }
 
       return jsonResponse({ message: 'testkullanici@gmail.com başarıyla geri yüklendi.', userId: targetUserId });
+    if (operation === 'check_email_availability') {
+      const email = String(payload.email || '').trim().toLowerCase();
+      const excludeId = String(payload.excludeId || '').trim();
+
+      if (!email || email.length < 5) {
+        return jsonResponse({ available: true, isTaken: false });
+      }
+
+      const { data: emps } = await adminClient
+        .from('employees')
+        .select('id, name, email')
+        .eq('email', email);
+
+      const { data: profs } = await adminClient
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email);
+
+      const existingEmps = (emps || []).filter(e => e.id !== excludeId);
+      const existingProfs = (profs || []).filter(p => p.id !== excludeId);
+
+      const isTaken = existingEmps.length > 0 || existingProfs.length > 0;
+
+      return jsonResponse({
+        available: !isTaken,
+        isTaken: isTaken,
+        matchedName: existingEmps[0]?.name || null
+      });
+    }
+
     if (operation === 'update_all_auth_emails_to_net') {
       const { data: profs } = await adminClient.from('profiles').select('id, email, full_name');
       let count = 0;
