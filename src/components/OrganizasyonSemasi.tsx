@@ -4,7 +4,7 @@ import type { Employee } from '../types';
 import { JOB_TEMPLATES } from '../data/jobTemplates';
 
 const getPositionSummary = (positionTitle: string): string => {
-  if (!positionTitle) return 'Kurumsal operasyonel süreçlerin ve görevlerin yürütülmesi.';
+  if (!positionTitle) return 'Pozisyon kapsamındaki operasyonel süreçlerin ve kurumsal görevlerin yürütülmesini sağlamaktır.';
   const norm = positionTitle.toLowerCase().trim();
   const found = JOB_TEMPLATES.find(
     (t) =>
@@ -13,10 +13,12 @@ const getPositionSummary = (positionTitle: string): string => {
       t.title.toLowerCase().trim().includes(norm)
   );
   if (found && found.summary) {
-    const firstSentence = found.summary.split('.')[0] + '.';
-    return firstSentence.length > 140 ? firstSentence.slice(0, 137) + '...' : firstSentence;
+    const sentences = found.summary.split('.').map(s => s.trim()).filter(Boolean);
+    if (sentences.length > 0) {
+      return sentences[0] + '.';
+    }
   }
-  return `${positionTitle} pozisyonu kapsamında departman içi operasyonel süreçlerin ve kurumsal hedeflerin yürütülmesi.`;
+  return `${positionTitle} pozisyonu kapsamında departman içi operasyonel süreçlerin ve kurumsal hedeflerin eksiksiz yürütülmesini sağlamaktır.`;
 };
 
 interface OrgNode {
