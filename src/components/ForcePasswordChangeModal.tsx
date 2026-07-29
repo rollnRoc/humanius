@@ -3,6 +3,8 @@ import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ShieldAlert, LogOut, KeyR
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
+import { translateErrorMessage } from '../utils/errorTranslator';
+
 interface ForcePasswordChangeModalProps {
   onSuccess?: () => void;
 }
@@ -74,7 +76,7 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
       }, 1200);
     } catch (err: any) {
       console.error('Password change error:', err);
-      setErrorMessage(err.message || 'Şifre değiştirilirken bir hata oluştu. Lütfen tekrar deneyin.');
+      setErrorMessage(translateErrorMessage(err.message));
     } finally {
       setLoading(false);
     }

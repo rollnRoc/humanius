@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LogIn, Building2, Mail, Lock, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { translateErrorMessage } from '../utils/errorTranslator';
 
 export default function Login() {
   const { signIn, startDemoSession } = useAuth();
@@ -45,7 +46,7 @@ export default function Login() {
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Bir hata oluştu.');
+      setError(translateErrorMessage(err.message));
     } finally {
       setLoading(false);
     }
@@ -63,7 +64,7 @@ export default function Login() {
       if (resetError) throw resetError;
       setResetSent(true);
     } catch (err: any) {
-      setError(err.message || 'Sıfırlama maili gönderilemedi.');
+      setError(translateErrorMessage(err.message));
     } finally {
       setResetLoading(false);
     }

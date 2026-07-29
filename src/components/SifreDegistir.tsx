@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldAlert, Key, Eye, EyeOff, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { translateErrorMessage } from '../utils/errorTranslator';
 
 export default function SifreDegistir() {
   const { updatePassword } = useAuth();
@@ -33,7 +34,7 @@ export default function SifreDegistir() {
     setPasswordLoading(false);
 
     if (error) {
-      setPasswordError(error.message);
+      setPasswordError(translateErrorMessage(error.message));
       return;
     }
 
