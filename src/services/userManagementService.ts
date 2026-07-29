@@ -99,4 +99,8 @@ export const userManagementService = {
   }) {
     return invokeFunction<{ message: string }>('update_employee_details', payload);
   },
+
+  resetPasswordWithTcPhone(payload: { email: string; tcNo: string; phone: string }) {
+    return invokeFunction<{ message: string }>('reset_password_with_tc_phone', payload);
+  },
 };

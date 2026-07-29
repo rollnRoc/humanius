@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { LogIn, Building2, Mail, Lock, CheckCircle } from 'lucide-react';
+import { LogIn, Building2, Mail, Lock, CheckCircle, Phone, CreditCard, ShieldCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { translateErrorMessage } from '../utils/errorTranslator';
+import { userManagementService } from '../services/userManagementService';
 
 export default function Login() {
   const { signIn, startDemoSession } = useAuth();
@@ -13,6 +14,9 @@ export default function Login() {
   const [resetMode, setResetMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+
+  const [resetTcNo, setResetTcNo] = useState('');
+  const [resetPhone, setResetPhone] = useState('');
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -54,14 +58,25 @@ export default function Login() {
 
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim()) { setError('Lütfen e-posta adresinizi girin.'); return; }
+    if (!email.trim()) { setError('Lütfen giriş e-postanızı girin.'); return; }
+    if (!resetTcNo.trim() || resetTcNo.replace(/\D/g, '').length !== 11) {
+      setError('Lütfen 11 haneli TC Kimlik numaranızı girin.');
+      return;
+    }
+    if (!resetPhone.trim() || resetPhone.replace(/\D/g, '').length < 7) {
+      setError('Lütfen sistemde kayıtlı telefon numaranızı girin.');
+      return;
+    }
+
     setError('');
     setResetLoading(true);
+
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: window.location.origin,
+      await userManagementService.resetPasswordWithTcPhone({
+        email: email.trim().toLowerCase(),
+        tcNo: resetTcNo.trim(),
+        phone: resetPhone.trim(),
       });
-      if (resetError) throw resetError;
       setResetSent(true);
     } catch (err: any) {
       setError(translateErrorMessage(err.message));
@@ -98,59 +113,109 @@ export default function Login() {
         <div className="bg-white rounded-3xl shadow-2xl p-8">
 
           {resetSent ? (
-            <div className="text-center py-4">
-              <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-              <h2 className="text-lg font-bold text-gray-800 mb-2">Mail Gönderildi</h2>
-              <p className="text-sm text-gray-500 mb-6">
-                <span className="font-medium text-gray-700">{email}</span> adresine parola sıfırlama bağlantısı gönderildi. Gelen kutunuzu kontrol edin.
+            <div className="text-center py-2">
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-emerald-100 rounded-full mb-3">
+                <CheckCircle className="w-8 h-8 text-emerald-600" />
+              </div>
+              <h2 className="text-lg font-bold text-gray-800 mb-2">Parolanız Sıfırlandı!</h2>
+              <p className="text-xs text-gray-600 mb-4 leading-relaxed">
+                Kimlik ve telefon doğrulamanız başarıyla tamamlandı. Parolanız geçici başlangıç şifrenize (<strong className="text-gray-900 font-mono">987654</strong>) sıfırlanmıştır.
               </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-6 text-left">
+                <p className="text-xs text-amber-800 font-medium">
+                  ℹ️ Giriş yaptıktan sonra sistem sizi doğrudan <strong>Yeni Şifre Oluşturma</strong> ekranına yönlendirecektir.
+                </p>
+              </div>
               <button
-                onClick={() => { setResetSent(false); setResetMode(false); }}
-                className="text-sm text-cyan-600 hover:underline font-medium"
+                onClick={() => {
+                  setPassword('');
+                  setResetSent(false);
+                  setResetMode(false);
+                }}
+                className="w-full bg-slate-900 text-white py-3 rounded-xl font-semibold hover:bg-slate-800 transition-all text-sm"
               >
-                ← Giriş ekranına dön
+                Giriş Ekranına Dön & Oturum Aç
               </button>
             </div>
           ) : resetMode ? (
             <>
-              <h2 className="text-xl font-bold text-gray-800 mb-1">Parola Sıfırla</h2>
-              <p className="text-gray-500 text-sm mb-6">E-postanıza sıfırlama bağlantısı gönderilecek.</p>
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck className="w-5 h-5 text-cyan-600" />
+                <h2 className="text-xl font-bold text-gray-800">Parola Sıfırla</h2>
+              </div>
+              <p className="text-gray-500 text-xs mb-6">
+                Güvenlik doğrulaması için Giriş E-postası, TC Kimlik No ve Telefon numaranızı girin.
+              </p>
 
               {error && (
                 <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3">
-                  <p className="text-sm text-red-700">{error}</p>
+                  <p className="text-xs text-red-700 font-medium">{error}</p>
                 </div>
               )}
 
-              <form onSubmit={handleReset} className="space-y-4">
+              <form onSubmit={handleReset} className="space-y-3.5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">E-posta</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Giriş E-postası</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all text-sm"
-                      placeholder="ornek@sirket.com"
+                      className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all text-sm outline-none"
+                      placeholder="adsoyad@humanius.net"
                       required
                       autoFocus
                     />
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">TC Kimlik No</label>
+                  <div className="relative">
+                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      maxLength={11}
+                      value={resetTcNo}
+                      onChange={(e) => setResetTcNo(e.target.value.replace(/\D/g, ''))}
+                      className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all text-sm outline-none"
+                      placeholder="11 Haneli TC Kimlik No"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Kayıtlı Telefon Numarası</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="tel"
+                      value={resetPhone}
+                      onChange={(e) => setResetPhone(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all text-sm outline-none"
+                      placeholder="05321234567 veya 5321234567"
+                      required
+                    />
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    * Telefonun başındaki 0 ve boşluklar es geçilir.
+                  </p>
+                </div>
+
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="w-full bg-gradient-to-r from-slate-900 via-cyan-700 to-teal-600 text-white py-3.5 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full bg-gradient-to-r from-slate-900 via-cyan-700 to-teal-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed text-sm mt-2"
                 >
-                  {resetLoading ? 'Gönderiliyor...' : 'Sıfırlama Maili Gönder'}
+                  {resetLoading ? 'Doğrulanıyor...' : 'Parolamı Geçici Şifreye (987654) Sıfırla'}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => { setResetMode(false); setError(''); }}
-                  className="w-full text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                  className="w-full text-xs text-gray-400 hover:text-gray-600 transition-colors py-1"
                 >
                   ← Giriş ekranına dön
                 </button>
@@ -237,3 +302,4 @@ export default function Login() {
     </div>
   );
 }
+

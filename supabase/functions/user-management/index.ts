@@ -196,11 +196,85 @@ Deno.serve(async (req: Request) => {
 
       const isTaken = existingEmps.length > 0 || existingProfs.length > 0;
 
-      return jsonResponse({
-        available: !isTaken,
-        isTaken: isTaken,
-        matchedName: existingEmps[0]?.name || null
+    if (operation === 'reset_password_with_tc_phone') {
+      const email = String(payload.email || '').trim().toLowerCase();
+      const tcNo = String(payload.tcNo || payload.tc_no || '').replace(/\D/g, '').trim();
+      let phone = String(payload.phone || '').replace(/\D/g, '').trim();
+
+      if (phone.startsWith('90') && phone.length >= 11) phone = phone.slice(2);
+      if (phone.startsWith('0') && phone.length >= 10) phone = phone.slice(1);
+
+      if (!email || !tcNo || !phone) {
+        return jsonResponse({ error: 'Lütfen E-posta, TC Kimlik No ve Telefon Numarası alanlarını doldurun.' }, 400);
+      }
+
+      if (tcNo.length !== 11) {
+        return jsonResponse({ error: 'TC Kimlik numarası 11 haneli olmalıdır.' }, 400);
+      }
+
+      const altEmailCom = email.replace('humanius.net', 'humanius.com');
+      const altEmailComTr = email.replace('humanius.net', 'humanius.com.tr');
+
+      const { data: emps } = await adminClient
+        .from('employees')
+        .select('id, email, tc_no, phone, name')
+        .or(`email.eq.${email},email.eq.${altEmailCom},email.eq.${altEmailComTr},tc_no.eq.${tcNo}`);
+
+      let matchedEmp = null;
+      if (emps && emps.length > 0) {
+        for (const emp of emps) {
+          const empTc = (emp.tc_no || '').replace(/\D/g, '');
+          let empPhone = (emp.phone || '').replace(/\D/g, '');
+          if (empPhone.startsWith('90') && empPhone.length >= 11) empPhone = empPhone.slice(2);
+          if (empPhone.startsWith('0') && empPhone.length >= 10) empPhone = empPhone.slice(1);
+
+          const empEmailClean = (emp.email || '').toLowerCase().trim();
+          const emailMatches = empEmailClean === email || empEmailClean === altEmailCom || empEmailClean === altEmailComTr;
+          const phoneMatches = empPhone === phone || (empPhone.length >= 7 && (empPhone.endsWith(phone) || phone.endsWith(empPhone)));
+
+          if (emailMatches && empTc === tcNo && phoneMatches) {
+            matchedEmp = emp;
+            break;
+          }
+        }
+      }
+
+      if (!matchedEmp) {
+        return jsonResponse({ error: 'Girilen E-posta, TC Kimlik No veya Telefon numarası sistemdeki kayıtlar ile eşleşmedi. Lütfen bilgilerinizi kontrol edin.' }, 400);
+      }
+
+      const { data: profiles } = await adminClient
+        .from('profiles')
+        .select('id, email')
+        .or(`email.eq.${email},email.eq.${altEmailCom},email.eq.${altEmailComTr}`);
+
+      let authUserId = profiles && profiles.length > 0 ? profiles[0].id : null;
+
+      if (!authUserId) {
+        const { data: { users } } = await adminClient.auth.admin.listUsers();
+        const foundUser = (users || []).find(u => {
+          const uEm = (u.email || '').toLowerCase();
+          return uEm === email || uEm === altEmailCom || uEm === altEmailComTr;
+        });
+        if (foundUser) authUserId = foundUser.id;
+      }
+
+      if (!authUserId) {
+        return jsonResponse({ error: 'Eşleşen sistem hesabı bulunamadı.' }, 400);
+      }
+
+      await adminClient.auth.admin.updateUserById(authUserId, {
+        password: '987654',
+        user_metadata: { must_change_password: true }
       });
+
+      try {
+        await adminClient.from('profiles').update({ must_change_password: true }).eq('id', authUserId);
+      } catch (pErr) {
+        console.warn('Profiles update warning:', pErr);
+      }
+
+      return jsonResponse({ message: 'Parolanız başarıyla başlangıç şifrenize (987654) sıfırlandı.' });
     }
 
     if (operation === 'update_all_auth_emails_to_net') {
