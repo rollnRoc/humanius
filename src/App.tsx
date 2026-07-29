@@ -550,6 +550,9 @@ const AppInner: React.FC = () => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
           loadData();
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_talepleri' }, () => {
+          loadData();
+        })
         .subscribe();
 
       return () => {
