@@ -4,24 +4,26 @@ import type { Employee } from '../types';
 import { zimmetService, Zimmet, ZimmetKategori, ZimmetDurum, ZimmetInsert } from '../services/zimmetService';
 import { useAuth } from '../contexts/AuthContext';
 
-const KATEGORI_IKON: Record<ZimmetKategori, React.ReactNode> = {
-  bilgisayar: <Laptop className="w-4 h-4" />,
-  telefon: <Smartphone className="w-4 h-4" />,
-  arac: <Car className="w-4 h-4" />,
-  anahtar: <Key className="w-4 h-4" />,
-  monitor: <Monitor className="w-4 h-4" />,
-  yazici: <Printer className="w-4 h-4" />,
-  diger: <Package className="w-4 h-4" />,
+const getKategoriIkon = (kategori: string): React.ReactNode => {
+  const norm = (kategori || '').toLowerCase();
+  if (norm.includes('bilgisayar') || norm.includes('laptop') || norm.includes('pc')) return <Laptop className="w-4 h-4" />;
+  if (norm.includes('telefon') || norm.includes('phone') || norm.includes('mobil')) return <Smartphone className="w-4 h-4" />;
+  if (norm.includes('araç') || norm.includes('arac') || norm.includes('araba')) return <Car className="w-4 h-4" />;
+  if (norm.includes('anahtar')) return <Key className="w-4 h-4" />;
+  if (norm.includes('monitör') || norm.includes('monitor') || norm.includes('ekran')) return <Monitor className="w-4 h-4" />;
+  if (norm.includes('yazıcı') || norm.includes('yazici') || norm.includes('printer')) return <Printer className="w-4 h-4" />;
+  return <Package className="w-4 h-4" />;
 };
 
-const KATEGORI_RENK: Record<ZimmetKategori, string> = {
-  bilgisayar: '#6366f1',
-  telefon: '#3b82f6',
-  arac: '#f59e0b',
-  anahtar: '#ef4444',
-  monitor: '#8b5cf6',
-  yazici: '#10b981',
-  diger: '#64748b',
+const getKategoriRenk = (kategori: string): string => {
+  const norm = (kategori || '').toLowerCase();
+  if (norm.includes('bilgisayar') || norm.includes('laptop')) return '#6366f1';
+  if (norm.includes('telefon')) return '#3b82f6';
+  if (norm.includes('araç') || norm.includes('arac')) return '#f59e0b';
+  if (norm.includes('anahtar')) return '#ef4444';
+  if (norm.includes('monitör') || norm.includes('monitor')) return '#8b5cf6';
+  if (norm.includes('yazıcı') || norm.includes('yazici')) return '#10b981';
+  return '#64748b';
 };
 
 const DURUM_RENK: Record<ZimmetDurum, string> = {
@@ -304,9 +306,9 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                     <div className="flex items-center gap-2.5">
                       <div
                         className="w-8 h-8 rounded-xl flex items-center justify-center text-white flex-shrink-0"
-                        style={{ backgroundColor: KATEGORI_RENK[z.kategori] }}
+                        style={{ backgroundColor: getKategoriRenk(z.kategori) }}
                       >
-                        {KATEGORI_IKON[z.kategori]}
+                        {getKategoriIkon(z.kategori)}
                       </div>
                       <div>
                         <p className="font-medium text-gray-800">{z.ad}</p>

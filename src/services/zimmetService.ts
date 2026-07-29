@@ -2,30 +2,13 @@ import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 import { demoService } from './demoService';
 
-export type ZimmetKategori = 'bilgisayar' | 'telefon' | 'arac' | 'anahtar' | 'monitor' | 'yazici' | 'kulaklik' | 'tablet' | 'mobilya' | 'yazilim' | 'diger';
+export type ZimmetKategori = string;
 export type ZimmetDurum = 'aktif' | 'iade-edildi' | 'kayip' | 'bakimda';
 
-const VALID_KATEGORILER: ZimmetKategori[] = [
-  'bilgisayar', 'telefon', 'arac', 'anahtar', 'monitor', 'yazici', 'kulaklik', 'tablet', 'mobilya', 'yazilim', 'diger'
-];
-
-export function sanitizeZimmetKategori(kategori: any): ZimmetKategori {
+export function sanitizeZimmetKategori(kategori: any): string {
   if (!kategori || typeof kategori !== 'string') return 'diger';
-  const norm = kategori.toLowerCase().trim();
-  if (VALID_KATEGORILER.includes(norm as ZimmetKategori)) {
-    return norm as ZimmetKategori;
-  }
-  if (norm.includes('bilgisayar') || norm.includes('laptop') || norm.includes('pc')) return 'bilgisayar';
-  if (norm.includes('telefon') || norm.includes('phone') || norm.includes('mobil')) return 'telefon';
-  if (norm.includes('araç') || norm.includes('arac') || norm.includes('araba')) return 'arac';
-  if (norm.includes('anahtar')) return 'anahtar';
-  if (norm.includes('monitör') || norm.includes('monitor') || norm.includes('ekran')) return 'monitor';
-  if (norm.includes('yazıcı') || norm.includes('yazici') || norm.includes('printer')) return 'yazici';
-  if (norm.includes('kulaklık') || norm.includes('kulaklik')) return 'kulaklik';
-  if (norm.includes('tablet')) return 'tablet';
-  if (norm.includes('mobilya') || norm.includes('masa') || norm.includes('sandalye')) return 'mobilya';
-  if (norm.includes('yazılım') || norm.includes('yazilim') || norm.includes('lisans')) return 'yazilim';
-  return 'diger';
+  const trimmed = kategori.trim();
+  return trimmed || 'diger';
 }
 
 export interface Zimmet {
