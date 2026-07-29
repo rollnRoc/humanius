@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Search, Users, Calendar, FileText, CreditCard, Bell, Edit2, SearchIcon, LogOut, BookOpen, Clock, GraduationCap, Shield, Gift, ChevronDown, UserCircle, Settings, Layout, Lock } from 'lucide-react';
+import { Search, Users, Calendar, FileText, CreditCard, Bell, Edit2, SearchIcon, LogOut, BookOpen, Clock, GraduationCap, Shield, Gift, ChevronDown, UserCircle, Settings, Layout, Lock, Home } from 'lucide-react';
 import { View } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -44,7 +44,7 @@ interface SidebarProps {
 const UYGULAMALAR_IDS: View[] = ['kvkk', 'kullanim-kilavuzu'];
 
 const RAW_NAV_ITEMS = [
-  { id: 'arama' as View, label: 'Arama', icon: SearchIcon },
+  { id: 'arama' as View, label: 'Ana Sayfa', icon: Home },
   { id: 'personel' as View, label: 'Şirket Yönetimi', icon: Users, children: [
     { id: 'personel' as View, label: 'Personel Listesi' },
     { id: 'org-sema' as View, label: 'Organizasyon Şeması' },
