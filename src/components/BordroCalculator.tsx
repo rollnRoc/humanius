@@ -13,11 +13,12 @@ interface BordroCalculatorProps {
   onSendForApproval?: (bordro: BordroItem) => void;
   selectedEmployee: Employee;
   period: string;
+  isEmekli?: boolean;
 }
 
 const DEMO_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
 
-const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBordro, onSendForApproval, selectedEmployee, period }) => {
+const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBordro, onSendForApproval, selectedEmployee, period, isEmekli = false }) => {
   const { t } = useLanguage();
   const { profile } = useAuth();
   const effectiveCompanyId = profile?.company_id ?? DEMO_COMPANY_ID;
@@ -80,7 +81,6 @@ const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBo
         return rYear === year && rMonth < month;
       });
       // En güncel ayın kümülatif matrahi = o aya kadar toplam
-      // Eğer kayıt varsa en büyük ay numarasının kumulatif_vergi_matrahi değerini al
       if (oncekiAylar.length === 0) {
         setOncekiAylarGVMatrahi(0);
         return;
@@ -107,13 +107,14 @@ const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBo
         period,
         sicilNo: selectedEmployee.id,
         tcNo: '***********',
+        isEmekli: isEmekli || selectedEmployee.employeeType === 'emekli' || (selectedEmployee as any).employee_type === 'emekli',
         ...formData,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }, undefined, ayNo, oncekiAylarGVMatrahi);
       setCalculatedBordro(bordroData);
     }
-  }, [selectedEmployee, period, formData, oncekiAylarGVMatrahi]);
+  }, [selectedEmployee, period, formData, oncekiAylarGVMatrahi, isEmekli]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev: any) => ({

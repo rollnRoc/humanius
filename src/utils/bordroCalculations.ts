@@ -56,6 +56,7 @@ export interface BordroHesapInput {
   sicilNo?: string;
   tcNo?: string;
   temelKazanc: number;
+  isEmekli?: boolean;
   medeniDurum?: 'bekar' | 'evli';
   cocukSayisi?: number;
   sgkIsverenIndirimOrani?: number;
@@ -108,6 +109,7 @@ export function calculateBordro(
 ): BordroHesapResult {
   const {
     temelKazanc = 0,
+    isEmekli = false,
     yolParasi = 0,
     gidaYardimi = 0,
     cocukYardimi = 0,
@@ -127,6 +129,12 @@ export function calculateBordro(
     engelliIndirimi = 0,
     sgkIsverenIndirimOrani = 5,
   } = input;
+
+  // SGK ve İşsizlik Oranları (Emekli SGDP vs Normal)
+  const isciSgkOrani = isEmekli ? 0.075 : SGK_ISCI_ORANI; // Emekli SGDP İşçi = %7.5
+  const isciIssizlikOrani = isEmekli ? 0 : ISSIZLIK_ISCI_ORANI; // Emekli İşsizlik = %0
+  const isverenSgkOrani = isEmekli ? 0.245 : SGK_ISVEREN_ORANI; // Emekli SGDP İşveren = %24.5
+  const isverenIssizlikOrani = isEmekli ? 0 : ISSIZLIK_ISVEREN_ORANI; // Emekli İşveren İşsizlik = %0
 
   // Fazla mesai hesabı
   const saatlikUcret = temelKazanc / 225;
@@ -150,12 +158,12 @@ export function calculateBordro(
 
   // SGK matrahı tavana göre kırp
   const sgkMatrahi = Math.min(toplamKazanc, SGK_TAVAN);
-  const sgkIsciPayi = sgkMatrahi * SGK_ISCI_ORANI;
-  const issizlikSigortasi = sgkMatrahi * ISSIZLIK_ISCI_ORANI;
+  const sgkIsciPayi = sgkMatrahi * isciSgkOrani;
+  const issizlikSigortasi = sgkMatrahi * isciIssizlikOrani;
 
   // İşveren payları
-  const sgkIsverenPayi = sgkMatrahi * SGK_ISVEREN_ORANI;
-  const issizlikIsverenPayi = sgkMatrahi * ISSIZLIK_ISVEREN_ORANI;
+  const sgkIsverenPayi = sgkMatrahi * isverenSgkOrani;
+  const issizlikIsverenPayi = sgkMatrahi * isverenIssizlikOrani;
   const sgkIsverenIndirimi = sgkIsverenPayi * (sgkIsverenIndirimOrani / 100);
 
   // ── Gelir Vergisi (Kümülatif Yöntem) ────────────────────────────────────────
