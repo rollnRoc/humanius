@@ -90,11 +90,25 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
   }
 
   function hesaplaWhatIf() {
-    const mevcutBrutOrtalama = 30000; // Demo
-    const artis = mevcutBrutOrtalama * (senaryo.maasArtisYuzde / 100);
-    const kisiBasiArtis = artis + senaryo.ekBudget;
-    const toplamEkMaliyet = kisiBasiArtis * employees.length;
-    setHesapSonucu({ toplamMaliyet: toplamEkMaliyet, kisiBasiMaliyet: kisiBasiArtis });
+    const totalCount = employees.length || 1;
+    const totalCurrentSalary = employees.reduce((sum, e) => sum + (Number(e.salary) || 30000), 0);
+    const avgSalary = totalCurrentSalary / totalCount;
+    
+    // Her personelin kendi gerçek maaşı üzerinden zam hesabı
+    const totalSalaryIncrease = employees.length > 0 
+      ? employees.reduce((sum, e) => sum + ((Number(e.salary) || avgSalary) * (senaryo.maasArtisYuzde / 100)), 0)
+      : avgSalary * (senaryo.maasArtisYuzde / 100);
+
+    const totalExtraFlexBudget = senaryo.ekBudget * totalCount;
+    const toplamEkMaliyet = totalSalaryIncrease + totalExtraFlexBudget;
+    const kisiBasiMaliyet = toplamEkMaliyet / totalCount;
+    
+    setHesapSonucu({ 
+      toplamMaliyet: Math.round(toplamEkMaliyet), 
+      kisiBasiMaliyet: Math.round(kisiBasiMaliyet),
+      mevcutOrtalamaMaas: Math.round(avgSalary),
+      yeniOrtalamaMaas: Math.round(avgSalary + (toplamEkMaliyet / totalCount))
+    } as any);
   }
 
   const kategoriDagilim = KATEGORILER.map((k) => ({
@@ -156,14 +170,22 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
           </div>
 
           {hesapSonucu && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                <p className="text-xs text-gray-500">Kişi Başı Ek Maliyet</p>
-                <p className="text-2xl font-bold text-green-700">{hesapSonucu.kisiBasiMaliyet.toLocaleString('tr-TR')} ₺</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5">
+                <p className="text-xs text-gray-500 font-medium">Mevcut Şirket Ort. Maaşı</p>
+                <p className="text-xl font-bold text-blue-700">{((hesapSonucu as any).mevcutOrtalamaMaas || 0).toLocaleString('tr-TR')} ₺</p>
               </div>
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                <p className="text-xs text-gray-500">Toplam Şirket Ek Maliyeti ({employees.length} kişi)</p>
-                <p className="text-2xl font-bold text-red-700">{hesapSonucu.toplamMaliyet.toLocaleString('tr-TR')} ₺</p>
+              <div className="bg-green-50 border border-green-200 rounded-xl p-3.5">
+                <p className="text-xs text-gray-500 font-medium">Kişi Başı Ek Maliyet</p>
+                <p className="text-xl font-bold text-green-700">{hesapSonucu.kisiBasiMaliyet.toLocaleString('tr-TR')} ₺</p>
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3.5">
+                <p className="text-xs text-gray-500 font-medium">Şirket Toplam Ek Maliyeti ({employees.length} Kişi)</p>
+                <p className="text-xl font-bold text-red-700">{hesapSonucu.toplamMaliyet.toLocaleString('tr-TR')} ₺</p>
+              </div>
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-3.5">
+                <p className="text-xs text-gray-500 font-medium">Ek Yan Hak Bütçesi</p>
+                <p className="text-xl font-bold text-purple-700">{(senaryo.ekBudget * (employees.length || 1)).toLocaleString('tr-TR')} ₺</p>
               </div>
             </div>
           )}
