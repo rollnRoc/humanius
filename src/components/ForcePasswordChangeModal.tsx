@@ -10,11 +10,9 @@ interface ForcePasswordChangeModalProps {
 export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> = ({ onSuccess }) => {
   const { user, profile, updatePassword, updateProfile, signOut } = useAuth();
 
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -25,9 +23,8 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
   // Validation rules
   const hasMinLength = newPassword.length >= 6;
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
-  const isDifferentFromCurrent = currentPassword ? newPassword !== currentPassword : true;
 
-  const isValid = hasMinLength && passwordsMatch && isDifferentFromCurrent;
+  const isValid = hasMinLength && passwordsMatch;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,11 +37,6 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
 
     if (!passwordsMatch) {
       setErrorMessage('Girdiğiniz yeni şifreler birbiriyle eşleşmiyor.');
-      return;
-    }
-
-    if (currentPassword && newPassword === currentPassword) {
-      setErrorMessage('Yeni şifreniz geçici/eski şifreniz ile aynı olamaz.');
       return;
     }
 
@@ -122,38 +114,10 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
             </div>
           )}
 
-          {/* User Info Bar */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs">
-            <div>
-              <p className="font-bold text-slate-800">{profile?.full_name || user?.email}</p>
-              <p className="text-[11px] text-slate-500">{user?.email}</p>
-            </div>
-            <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded-md capitalize">
-              {profile?.role || 'Kullanıcı'}
-            </span>
-          </div>
-
-          {/* Geçici / Mevcut Şifre (İsteğe bağlı teyit) */}
-          <div className="space-y-1">
-            <label className="block text-xs font-bold text-slate-700">
-              Mevcut (Geçici) Şifreniz
-            </label>
-            <div className="relative">
-              <input
-                type={showCurrent ? 'text' : 'password'}
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="Size iletilen geçici şifre (örn: 987654)"
-                className="w-full pl-3.5 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all"
-              />
-              <button
-                type="button"
-                onClick={() => setShowCurrent(!showCurrent)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
+          {/* User Info Bar (Role badge removed) */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs">
+            <p className="font-bold text-slate-800">{profile?.full_name || user?.email}</p>
+            <p className="text-[11px] text-slate-500">{user?.email}</p>
           </div>
 
           {/* Yeni Şifre */}
