@@ -162,15 +162,39 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   }, [effectiveEmail, formData?.id, employee?.id, employee?.email, isNew, isOpen]);
 
   useEffect(() => {
-    if (employee) {
-      const jd = employee.joinDate || employee.join_date || (employee as any).ise_giris_tarihi || '';
-      setFormData({
-        ...employee,
-        joinDate: jd,
-        join_date: jd,
-      });
+    if (isOpen) {
+      if (employee) {
+        const rawJd = employee.joinDate || employee.join_date || (employee as any).ise_giris_tarihi || '';
+        const formattedJd = rawJd ? String(rawJd).split('T')[0] : '';
+        setFormData({
+          ...employee,
+          joinDate: formattedJd,
+          join_date: formattedJd,
+        });
+      } else {
+        const today = new Date().toISOString().split('T')[0];
+        setFormData({
+          name: '',
+          department: '',
+          position: '',
+          level: '',
+          salary: 0,
+          status: 'active',
+          phone: '',
+          email: '',
+          address: '',
+          skills: [],
+          employeeType: 'normal',
+          tc_no: '',
+          sicil_no: '',
+          joinDate: today,
+          join_date: today,
+          approval_passcode: '987654',
+          role: 'employee',
+        } as any);
+      }
     }
-  }, [employee]);
+  }, [employee, isOpen]);
 
   if (!isOpen || !formData) return null;
 
@@ -179,17 +203,21 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       alert('Bu e-posta adresi sistemde zaten kayıtlı. Lütfen başka bir e-posta tanımlayın.');
       return;
     }
+    const finalJd = formData.joinDate || formData.join_date || new Date().toISOString().split('T')[0];
     onSave({
       ...formData,
+      joinDate: finalJd,
+      join_date: finalJd,
       approval_passcode: formData.approval_passcode || '987654',
     });
   };
 
   const handleInputChange = (field: keyof Employee, value: any) => {
     if (field === 'joinDate' || field === 'join_date') {
-      setFormData({ ...formData, joinDate: value, join_date: value });
+      const cleanValue = value ? String(value).split('T')[0] : '';
+      setFormData(prev => prev ? { ...prev, joinDate: cleanValue, join_date: cleanValue } : null);
     } else {
-      setFormData({ ...formData, [field]: value });
+      setFormData(prev => prev ? { ...prev, [field]: value } : null);
     }
   };
 

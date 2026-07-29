@@ -373,6 +373,8 @@ Deno.serve(async (req: Request) => {
           existingEmp = emailMatch;
         }
 
+        const joinDate = payload.join_date || payload.joinDate || null;
+
         if (!existingEmp) {
           await adminClient.from('employees').insert({
             company_id: companyId,
@@ -384,6 +386,7 @@ Deno.serve(async (req: Request) => {
             employee_type: employeeType,
             salary: salary,
             status: 'active',
+            join_date: joinDate,
           });
         } else {
           await adminClient.from('employees').update({
@@ -395,6 +398,7 @@ Deno.serve(async (req: Request) => {
             position: position,
             employee_type: employeeType,
             salary: salary,
+            join_date: joinDate,
           }).eq('id', existingEmp.id);
         }
       } catch (empErr) {
