@@ -52,8 +52,6 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       baslik: 'Sözleşmeler',
       maddeler: [
         { id: 'sz1', label: 'İş Sözleşmesi İmzalandı' },
-        { id: 'sz2', label: 'Gizlilik Sözleşmesi İmzalandı' },
-        { id: 'sz3', label: 'Etik Kurallar Formu İmzalandı' },
         { id: 'sz4', label: 'KVKK Aydınlatma Formu İmzalandı' },
       ],
     },
