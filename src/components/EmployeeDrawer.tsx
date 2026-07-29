@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle } from 'lucide-react';
+import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
 import { Employee, Company, Department } from '../types';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useAuth } from '../contexts/AuthContext';
 import { canDeleteUsers } from '../auth/roles';
+import { supabase } from '../lib/supabase';
 
 interface EmployeeDrawerProps {
   isOpen: boolean;
@@ -86,6 +87,15 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const toplamSayi = tumMaddeler.length;
   const yuzde = Math.round((tamamlananSayi / toplamSayi) * 100);
 
+  const toAsciiEmail = (str: string) => {
+    return str.toLowerCase()
+      .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
+      .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+      .replace(/[^a-z0-9]/g, '');
+  };
+
+  const effectiveEmail = (formData?.email || (formData?.name ? `${toAsciiEmail(formData.name)}@humanius.net` : '')).trim().toLowerCase();
+
   const toggleCheck = (id: string) => {
     setChecked((prev) => {
       const next = new Set(prev);
@@ -93,6 +103,49 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       return next;
     });
   };
+
+  useEffect(() => {
+    if (!isOpen || !effectiveEmail || effectiveEmail.length < 5) {
+      setEmailStatus('idle');
+      return;
+    }
+
+    let active = true;
+    setEmailStatus('checking');
+
+    const timer = setTimeout(async () => {
+      try {
+        const { data: empMatch } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('email', effectiveEmail)
+          .neq('id', formData?.id || '')
+          .maybeSingle();
+
+        const { data: profMatch } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', effectiveEmail)
+          .neq('id', formData?.id || '')
+          .maybeSingle();
+
+        if (active) {
+          if (empMatch || profMatch) {
+            setEmailStatus('taken');
+          } else {
+            setEmailStatus('available');
+          }
+        }
+      } catch {
+        if (active) setEmailStatus('idle');
+      }
+    }, 350);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [effectiveEmail, formData?.id, isOpen]);
 
   useEffect(() => {
     if (employee) {
@@ -108,7 +161,14 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   if (!isOpen || !formData) return null;
 
   const handleSave = () => {
-    onSave(formData);
+    if (emailStatus === 'taken') {
+      alert('Bu e-posta adresi sistemde zaten kayıtlı. Lütfen başka bir e-posta tanımlayın.');
+      return;
+    }
+    onSave({
+      ...formData,
+      approval_passcode: formData.approval_passcode || '987654',
+    });
   };
 
   const handleInputChange = (field: keyof Employee, value: any) => {
@@ -269,24 +329,45 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       <label className="block text-xs font-semibold text-gray-700 mb-1.5">Giriş E-postası</label>
                       <input
                         type="email"
-                        value={formData.email || (formData.name ? `${formData.name.toLowerCase().replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/[^a-z0-9]/g, '')}@humanius.net` : '')}
+                        value={formData.email || (formData.name ? `${toAsciiEmail(formData.name)}@humanius.net` : '')}
                         onChange={(e) => handleInputChange('email', e.target.value)}
                         placeholder="adsoyad@humanius.net"
-                        className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                        className={`w-full bg-white border ${
+                          emailStatus === 'taken' ? 'border-rose-400 focus:border-rose-500 bg-rose-50/20' :
+                          emailStatus === 'available' ? 'border-emerald-400 focus:border-emerald-500 bg-emerald-50/20' :
+                          'border-gray-200 focus:border-blue-500'
+                        } text-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none transition-all`}
                       />
-                      {isNew && formData.name && (
-                        <p className="text-[11px] text-blue-600 font-medium mt-1 flex items-center gap-1">
-                          <span>ℹ️</span> Sistem geneli tekillik garantisi ile otomatik önerilir.
-                        </p>
+                      {emailStatus === 'checking' && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                          <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                          <span>Sistem kontrol ediliyor...</span>
+                        </div>
+                      )}
+                      {emailStatus === 'taken' && (
+                        <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-rose-700 font-semibold bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg shadow-sm">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                          <span>Bu e-posta sistemde zaten kayıtlı, lütfen başka bir e-posta tanımlayın.</span>
+                        </div>
+                      )}
+                      {emailStatus === 'available' && effectiveEmail.length >= 5 && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-lg shadow-sm">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Bu e-posta kayıt için uygundur.</span>
+                        </div>
                       )}
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">Başlangıç Şifresi</label>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center justify-between">
+                        <span>Başlangıç Şifresi</span>
+                        <span className="text-[10px] text-gray-400 font-medium">(Sabit)</span>
+                      </label>
                       <input
                         type="text"
-                        value={formData.approval_passcode || '987654'}
-                        onChange={(e) => handleInputChange('approval_passcode', e.target.value)}
-                        className="w-full bg-gray-50 border border-gray-200 text-gray-600 rounded-xl px-3 py-2.5 text-sm font-mono outline-none"
+                        readOnly
+                        disabled
+                        value="987654"
+                        className="w-full bg-gray-100 border border-gray-200 text-gray-400 font-mono rounded-xl px-3 py-2.5 text-sm cursor-not-allowed select-none outline-none"
                       />
                     </div>
                     <div>
