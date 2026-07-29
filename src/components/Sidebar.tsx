@@ -225,6 +225,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     return navItems.filter((item) => !UYGULAMALAR_IDS.includes(item.id));
   }, [effectiveRole]);
 
+  const uygulamalarNavItems = useMemo(() => {
+    return [
+      { id: 'kvkk' as View, label: 'KVKK / GDPR Uyumluluk', icon: Shield },
+      { id: 'kullanim-kilavuzu' as View, label: 'Kullanım Kılavuzu', icon: BookOpen },
+    ].filter((item) => canAccessView(effectiveRole, item.id));
+  }, [effectiveRole]);
+
   React.useEffect(() => {
     if (prevViewRef.current !== currentView) {
       prevViewRef.current = currentView;
