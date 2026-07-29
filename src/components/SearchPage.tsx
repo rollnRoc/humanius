@@ -643,7 +643,11 @@ export const SearchPage: React.FC<SearchPageProps> = ({
             <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               {[
                 { label: 'Personel',    count: employees.length,     cat: 'personel' as Category },
-                { label: 'İzin Talebi', count: izinTalepleri.length, cat: 'izin'     as Category },
+                {
+                  label: 'Bekleyen İzin Talebi',
+                  count: (izinTalepleri || []).filter(t => t.durum === 'beklemede' || (t as any).durum === 'onay-bekliyor').length,
+                  cat: 'izin' as Category
+                },
                 { label: 'Bordro',      count: bordrolar.length,     cat: 'bordro'   as Category },
               ].map(item => {
                 const cs = CAT_STYLE[item.cat];
