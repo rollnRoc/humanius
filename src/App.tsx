@@ -1521,11 +1521,20 @@ const AppInner: React.FC = () => {
           {mobileMenuOpen && <div className="fixed inset-0 bg-black/50 md:hidden" onClick={() => setMobileMenuOpen(false)} />}
           <AppSectionErrorBoundary
             resetKey={currentView}
-            fallback={
+            fallback={() => (
               <aside className="w-64 bg-white border-r border-gray-200 p-5 sticky top-0 h-screen overflow-y-auto shadow-sm">
-                <h2 className="text-sm font-semibold text-gray-800">Menü yüklenemedi</h2>
+                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs">
+                  <h2 className="text-sm font-semibold mb-1">Menü yüklenemedi</h2>
+                  <p className="text-[11px] text-amber-700 mb-2">Güncelleme sonrası tarayıcınızı yenileyebilirsiniz.</p>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shadow-sm transition-all"
+                  >
+                    Sayfayı Yenile (Ctrl+F5)
+                  </button>
+                </div>
               </aside>
-            }
+            )}
           >
             <div className="relative h-full bg-white w-64 md:w-auto">
               <Sidebar
