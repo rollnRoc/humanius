@@ -288,8 +288,8 @@ const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees, izinTaleple
                   `}>
                   <span>{gun.split('-')[2]}</span>
                   {izinSayisi > 0 && (
-                    <span className={`absolute bottom-0.5 right-0.5 text-[8px] text-white rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold ${
-                      hasDeptConflict ? 'bg-amber-500 animate-pulse' : 'bg-blue-500'
+                    <span className={`absolute bottom-0.5 right-0.5 text-[9px] text-white rounded-full w-4 h-4 flex items-center justify-center font-bold shadow-sm ${
+                      hasDeptConflict ? 'bg-amber-500 ring-1 ring-amber-300 animate-pulse' : 'bg-indigo-900'
                     }`}>
                       {izinSayisi}
                     </span>
@@ -299,9 +299,10 @@ const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees, izinTaleple
               );
             })}
           </div>
-          <div className="flex gap-4 text-[11px] text-gray-500 flex-wrap">
+          <div className="flex gap-4 text-[11px] text-gray-500 flex-wrap pt-1">
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-100 border border-red-400 inline-block" /> Resmi Tatil</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" /> İzinli personel sayısı</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-indigo-900 inline-block" /> İzinli personel sayısı (Lacivert)</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> Departman İzin Çakışması (Uyarı)</span>
           </div>
         </div>
       )}
