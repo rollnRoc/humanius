@@ -1,11 +1,12 @@
 import React from 'react';
-import { Calendar, Bell, FileText, Award } from 'lucide-react';
+import { Calendar, Bell, FileText, Gift } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface QuickActionsProps {
   onBulkLeave?: () => void;
   onBulkAlert?: () => void;
   onUploadPayroll?: () => void;
+  onFlexBenefits?: () => void;
   onAssignCertificate?: () => void;
 }
 
@@ -13,6 +14,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
   onBulkLeave,
   onBulkAlert,
   onUploadPayroll,
+  onFlexBenefits,
   onAssignCertificate
 }) => {
   const { t } = useLanguage();
@@ -20,7 +22,8 @@ const QuickActions: React.FC<QuickActionsProps> = ({
   const actions = [
     { label: t('quickActions.bulkLeave'), icon: Calendar, onClick: onBulkLeave },
     { label: t('quickActions.bulkAlert'), icon: Bell, onClick: onBulkAlert },
-    { label: t('quickActions.uploadPayroll'), icon: FileText, onClick: onUploadPayroll }
+    { label: t('quickActions.uploadPayroll'), icon: FileText, onClick: onUploadPayroll },
+    ...(onFlexBenefits ? [{ label: 'Esnek Yan Haklarım', icon: Gift, onClick: onFlexBenefits }] : [])
   ];
 
   return (
@@ -29,7 +32,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
         <h3 className="font-bold text-gray-800">{t('quickActions.title')}</h3>
       </div>
       <div className="p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           {actions.map((action, index) => {
             const Icon = action.icon;
             return (
@@ -40,7 +43,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
                 className="flex items-center justify-center gap-2 bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm w-full"
               >
                 <Icon className="w-4 h-4 shrink-0" />
-                <span className="text-sm whitespace-nowrap">{action.label}</span>
+                <span className="text-xs sm:text-sm whitespace-nowrap">{action.label}</span>
               </button>
             );
           })}

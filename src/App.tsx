@@ -1267,6 +1267,7 @@ const AppInner: React.FC = () => {
                 onBulkLeave={() => setShowTopluIzinForm(true)}
                 onBulkAlert={() => setShowTopluUyariModal(true)}
                 onUploadPayroll={() => setCurrentView('bordro')}
+                onFlexBenefits={() => setCurrentView('yan-haklar')}
               />
               <UpcomingEvents employees={employees} izinTalepleri={izinTalepleri} />
             </div>
