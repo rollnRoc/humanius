@@ -41,6 +41,51 @@ interface SidebarProps {
   onSearchChange: (term: string) => void;
 }
 
+const UYGULAMALAR_IDS: View[] = ['kvkk', 'kullanim-kilavuzu'];
+
+const RAW_NAV_ITEMS = [
+  { id: 'arama' as View, label: 'Arama', icon: SearchIcon },
+  { id: 'personel' as View, label: 'Şirket Yönetimi', icon: Users, children: [
+    { id: 'personel' as View, label: 'Personel Listesi' },
+    { id: 'org-sema' as View, label: 'Organizasyon Şeması' },
+    { id: 'zimmet' as View, label: 'Tüm Zimmetler Listesi' },
+    { id: 'kullanicilar' as View, label: 'Kullanıcılar' },
+    { id: 'offboarding' as View, label: 'İşten Çıkış (Offboarding)' },
+    { id: 'ayar' as View, label: 'Personel ve Şirket Yönetimi' },
+  ]},
+  { id: 'ozluk-dosyasi' as View, label: 'Personel Yönetimi', icon: UserCircle, children: [
+    { id: 'ozluk-dosyasi' as View, label: 'Personel Kartı ve Özlük' },
+    { id: 'gorev-tanimi' as View, label: 'Görev Tanımı' },
+  ]},
+  { id: 'bordro' as View, label: 'Bordro ve İcmal', icon: CreditCard, children: [
+    { id: 'bordro' as View, label: 'Bordro' },
+    { id: 'yan-haklar' as View, label: 'Esnek Yan Haklar' },
+    { id: 'bordro-icmal' as View, label: 'Bordro İcmal Raporu' },
+  ]},
+  { id: 'izin' as View, label: 'İzin Yönetimi', icon: Calendar, children: [
+    { id: 'izin' as View, label: 'İzin Talepleri' },
+    { id: 'izin-cakisma' as View, label: 'İzin Çakışma Kontrolü' },
+    { id: 'izin-tanimlari' as View, label: 'İzin Türleri Tanımları' },
+    { id: 'izin-listesi' as View, label: 'İzinli Kişiler Listesi' },
+  ]},
+  { id: 'is-akisi-menu' as View, label: 'İş Akışı ve PDKS', icon: Clock, children: [
+    { id: 'is-akisi' as View, label: 'İş Akışı Panosu' },
+    { id: 'pdks-devam' as View, label: 'Devam Kontrolü' },
+    { id: 'egitim-girisi' as View, label: 'Eğitim Girişi' },
+    { id: 'analitik' as View, label: 'Veri Analitiği' },
+  ]},
+  { id: 'uyari' as View, label: 'Uyarılar Takvimi', icon: Bell },
+  { id: 'egitim' as View, label: 'Eğitim & Gelişim (LMS)', icon: GraduationCap, children: [
+    { id: 'egitim' as View, label: 'Eğitim Kataloğu & LMS' },
+    { id: 'yetkinlik' as View, label: 'Yetkinlik Matrisi' },
+  ]},
+  { id: 'performans' as View, label: 'Performans & Geri Bildirim', icon: Layout, children: [
+    { id: 'performans' as View, label: 'Performans ve Geri Bildirim' },
+    { id: 'okr' as View, label: 'OKR Hedefler' },
+  ]},
+  { id: 'kullanim-kilavuzu' as View, label: 'Kullanım Kılavuzu', icon: BookOpen },
+];
+
 const Sidebar: React.FC<SidebarProps> = ({
   currentView,
   onViewChange,
@@ -52,7 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const effectiveRole = user ? appRole : 'admin';
   const prevViewRef = useRef<View>(currentView);
   const [openSections, setOpenSections] = useState<View[]>(() => {
-    const parent = rawNavItems.find(
+    const parent = RAW_NAV_ITEMS.find(
       (item) => item.children && item.children.some((child) => child.id === currentView)
     );
     return parent ? [parent.id] : [];
@@ -165,53 +210,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [profile?.company_id, logoSrcKey, logoConfigKey]);
 
-  const uygulamalarIds: View[] = ['kvkk', 'kullanim-kilavuzu'];
-
-  const rawNavItems = [
-    { id: 'arama' as View, label: 'Arama', icon: SearchIcon },
-    { id: 'personel' as View, label: 'Şirket Yönetimi', icon: Users, children: [
-      { id: 'personel' as View, label: 'Personel Listesi' },
-      { id: 'org-sema' as View, label: 'Organizasyon Şeması' },
-      { id: 'zimmet' as View, label: 'Tüm Zimmetler Listesi' },
-      { id: 'kullanicilar' as View, label: 'Kullanıcılar' },
-      { id: 'offboarding' as View, label: 'İşten Çıkış (Offboarding)' },
-      { id: 'ayar' as View, label: 'Personel ve Şirket Yönetimi' },
-    ]},
-    { id: 'ozluk-dosyasi' as View, label: 'Personel Yönetimi', icon: UserCircle, children: [
-      { id: 'ozluk-dosyasi' as View, label: 'Personel Kartı ve Özlük' },
-      { id: 'gorev-tanimi' as View, label: 'Görev Tanımı' },
-    ]},
-    { id: 'bordro' as View, label: 'Bordro ve İcmal', icon: CreditCard, children: [
-      { id: 'bordro' as View, label: 'Bordro' },
-      { id: 'yan-haklar' as View, label: 'Esnek Yan Haklar' },
-      { id: 'bordro-icmal' as View, label: 'Bordro İcmal Raporu' },
-    ]},
-    { id: 'izin' as View, label: 'İzin Yönetimi', icon: Calendar, children: [
-      { id: 'izin' as View, label: 'İzin Talepleri' },
-      { id: 'izin-cakisma' as View, label: 'İzin Çakışma Kontrolü' },
-      { id: 'izin-tanimlari' as View, label: 'İzin Türleri Tanımları' },
-      { id: 'izin-listesi' as View, label: 'İzinli Kişiler Listesi' },
-    ]},
-    { id: 'is-akisi-menu' as View, label: 'İş Akışı ve PDKS', icon: Clock, children: [
-      { id: 'is-akisi' as View, label: 'İş Akışı Panosu' },
-      { id: 'pdks-devam' as View, label: 'Devam Kontrolü' },
-      { id: 'egitim-girisi' as View, label: 'Eğitim Girişi' },
-      { id: 'analitik' as View, label: 'Veri Analitiği' },
-    ]},
-    { id: 'uyari' as View, label: 'Uyarılar Takvimi', icon: Bell },
-    { id: 'egitim' as View, label: 'Eğitim & Gelişim (LMS)', icon: GraduationCap, children: [
-      { id: 'egitim' as View, label: 'Eğitim Kataloğu & LMS' },
-      { id: 'yetkinlik' as View, label: 'Yetkinlik Matrisi' },
-    ]},
-    { id: 'performans' as View, label: 'Performans & Geri Bildirim', icon: Layout, children: [
-      { id: 'performans' as View, label: 'Performans ve Geri Bildirim' },
-      { id: 'okr' as View, label: 'OKR Hedefler' },
-    ]},
-    { id: 'kullanim-kilavuzu' as View, label: 'Kullanım Kılavuzu', icon: BookOpen },
-  ];
-
   const mainNavItems = useMemo(() => {
-    const navItems = rawNavItems.map(item => {
+    const navItems = RAW_NAV_ITEMS.map(item => {
       if (item.children) {
         return { ...item, children: item.children.filter(child => canAccessView(effectiveRole, child.id)) };
       }
@@ -222,7 +222,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       return explicitlyAccessible || hasVisibleChildren;
     });
 
-    return navItems.filter((item) => !uygulamalarIds.includes(item.id));
+    return navItems.filter((item) => !UYGULAMALAR_IDS.includes(item.id));
   }, [effectiveRole]);
 
   React.useEffect(() => {
