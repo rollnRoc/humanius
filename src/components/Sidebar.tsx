@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Search, Users, Calendar, FileText, CreditCard, Bell, Edit2, SearchIcon, LogOut, BookOpen, Clock, GraduationCap, Shield, Gift, ChevronDown, UserCircle, Settings, Layout, Lock } from 'lucide-react';
 import { View } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -50,7 +50,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { t } = useLanguage();
   const { user, profile, appRole, signOut } = useAuth();
   const effectiveRole = user ? appRole : 'admin';
-  const [openSections, setOpenSections] = useState<View[]>([]);
+  const prevViewRef = useRef<View>(currentView);
+  const [openSections, setOpenSections] = useState<View[]>(() => {
+    const parent = rawNavItems.find(
+      (item) => item.children && item.children.some((child) => child.id === currentView)
+    );
+    return parent ? [parent.id] : [];
+  });
   const [showLogoEditor, setShowLogoEditor] = useState(false);
   const [showAlertDot, setShowAlertDot] = React.useState(() => {
     try {
@@ -204,35 +210,35 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'kullanim-kilavuzu' as View, label: 'Kullanım Kılavuzu', icon: BookOpen },
   ];
 
-  const navItems = rawNavItems.map(item => {
-    if (item.children) {
-      return { ...item, children: item.children.filter(child => canAccessView(effectiveRole, child.id)) };
-    }
-    return item;
-  }).filter(item => {
-    const explicitlyAccessible = canAccessView(effectiveRole, item.id);
-    const hasVisibleChildren = item.children && item.children.length > 0;
-    return explicitlyAccessible || hasVisibleChildren;
-  });
+  const mainNavItems = useMemo(() => {
+    const navItems = rawNavItems.map(item => {
+      if (item.children) {
+        return { ...item, children: item.children.filter(child => canAccessView(effectiveRole, child.id)) };
+      }
+      return item;
+    }).filter(item => {
+      const explicitlyAccessible = canAccessView(effectiveRole, item.id);
+      const hasVisibleChildren = item.children && item.children.length > 0;
+      return explicitlyAccessible || hasVisibleChildren;
+    });
 
-  const uygulamalarNavItems = [
-    { id: 'kvkk' as View, label: 'KVKK / GDPR Uyumluluk', icon: Shield },
-    { id: 'kullanim-kilavuzu' as View, label: 'Kullanım Kılavuzu', icon: BookOpen },
-  ].filter((item) => canAccessView(effectiveRole, item.id));
-
-  const mainNavItems = navItems.filter((item) => !uygulamalarIds.includes(item.id));
+    return navItems.filter((item) => !uygulamalarIds.includes(item.id));
+  }, [effectiveRole]);
 
   React.useEffect(() => {
-    const currentParent = mainNavItems.find(
-      (item) => item.children && item.children.some((child) => child.id === currentView)
-    );
+    if (prevViewRef.current !== currentView) {
+      prevViewRef.current = currentView;
+      const currentParent = mainNavItems.find(
+        (item) => item.children && item.children.some((child) => child.id === currentView)
+      );
 
-    if (!currentParent) return;
+      if (!currentParent) return;
 
-    setOpenSections((prev) => {
-      if (prev.includes(currentParent.id)) return prev;
-      return [...prev, currentParent.id];
-    });
+      setOpenSections((prev) => {
+        if (prev.includes(currentParent.id)) return prev;
+        return [...prev, currentParent.id];
+      });
+    }
   }, [currentView, mainNavItems]);
 
   return (
