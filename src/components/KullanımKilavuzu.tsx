@@ -172,11 +172,6 @@ const FAQ_ITEMS: FAQItem[] = [
     roles: ALL_ROLES,
   },
   {
-    question: 'Kullanıcı hesabı ve personel ekleme nerede birleştirildi?',
-    answer: 'Personel Ekle formunda "Sistem Erişim Hesabı & Oturum Bilgileri" kartı yer alır. E-posta, şifre ve rolü orada belirlediğinizde ayrı bir kullanıcı ekleme işlemine gerek kalmadan hem personel kartı hem de sistem giriş hesabı aynı anda açılır.',
-    roles: MGMT_ROLES,
-  },
-  {
     question: 'Devam kontrolünde giriş/çıkış saatini yanlış giren personeli nasıl düzeltirim?',
     answer: 'PDKS & Devam Kontrolü sayfasında ilgili personelin satırındaki "✏️ Düzenle" butonuna tıklayarak hem Giriş Saati hem de Çıkış Saati bilgilerini güncelleyebilirsiniz.',
     roles: MGMT_AND_MANAGER,
