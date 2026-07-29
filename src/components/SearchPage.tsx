@@ -640,27 +640,53 @@ export const SearchPage: React.FC<SearchPageProps> = ({
               </div>
             </section>
 
-            <section className="flex justify-center max-w-sm mx-auto w-full">
-              {[
-                {
-                  label: 'Bekleyen İzin Talebi',
-                  count: (izinTalepleri || []).filter(t => t.durum === 'beklemede' || (t as any).durum === 'onay-bekliyor').length,
-                  cat: 'izin' as Category
-                },
-              ].map(item => {
-                const cs = CAT_STYLE[item.cat];
-                return (
-                  <button
-                    key={item.label}
-                    onClick={() => onNavigate('izin')}
-                    className={`w-full ${cs.bg} border ${cs.border} rounded-2xl px-6 py-5 text-center ${cs.hoverBg} transition-all shadow-sm hover:shadow-md cursor-pointer`}
-                  >
-                    <p className={`text-4xl font-extrabold ${cs.text}`}>{item.count}</p>
-                    <p className="text-sm font-semibold text-gray-600 mt-1">{item.label}</p>
-                  </button>
-                );
-              })}
-            </section>
+            {['superadmin', 'admin', 'hr', 'manager'].includes(effectiveRole) ? (
+              <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                {[
+                  { label: 'Personel', count: employees.length, cat: 'personel' as Category },
+                  {
+                    label: 'Bekleyen İzin Talebi',
+                    count: (izinTalepleri || []).filter(t => t.durum === 'beklemede' || (t as any).durum === 'onay-bekliyor').length,
+                    cat: 'izin' as Category
+                  },
+                  { label: 'Bordro', count: bordrolar.length, cat: 'bordro' as Category },
+                ].map(item => {
+                  const cs = CAT_STYLE[item.cat];
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => onNavigate(item.cat === 'izin' ? 'izin' : item.cat === 'bordro' ? 'bordro' : 'personel')}
+                      className={`${cs.bg} border ${cs.border} rounded-2xl px-4 py-4 text-center ${cs.hoverBg} transition-all cursor-pointer shadow-sm hover:shadow-md`}
+                    >
+                      <p className={`text-3xl font-extrabold ${cs.text}`}>{item.count}</p>
+                      <p className="text-xs text-gray-500 mt-1 font-medium">{item.label}</p>
+                    </button>
+                  );
+                })}
+              </section>
+            ) : (
+              <section className="flex justify-center max-w-sm mx-auto w-full">
+                {[
+                  {
+                    label: 'Bekleyen İzin Talebi',
+                    count: (izinTalepleri || []).filter(t => t.durum === 'beklemede' || (t as any).durum === 'onay-bekliyor').length,
+                    cat: 'izin' as Category
+                  },
+                ].map(item => {
+                  const cs = CAT_STYLE[item.cat];
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => onNavigate('izin')}
+                      className={`w-full ${cs.bg} border ${cs.border} rounded-2xl px-6 py-5 text-center ${cs.hoverBg} transition-all shadow-sm hover:shadow-md cursor-pointer`}
+                    >
+                      <p className={`text-4xl font-extrabold ${cs.text}`}>{item.count}</p>
+                      <p className="text-sm font-semibold text-gray-600 mt-1">{item.label}</p>
+                    </button>
+                  );
+                })}
+              </section>
+            )}
 
             <div className="text-center text-sm text-gray-400 py-4">
               <Search className="w-5 h-5 mx-auto mb-2 opacity-30" />
