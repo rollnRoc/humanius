@@ -34,6 +34,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const [formData, setFormData] = useState<Employee | null>(null);
   const [activeTab, setActiveTab] = useState('genel');
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [emailStatus, setEmailStatus] = useState<'checking' | 'available' | 'taken' | 'idle'>('idle');
 
   const ONAY_GRUPLARI = [
     {
