@@ -316,9 +316,9 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
           .root-box { display: inline-block; background: linear-gradient(135deg, #1d4ed8, #4338ca); color: white; padding: 6px 20px; border-radius: 10px; font-weight: 800; font-size: 12px; text-align: center; }
           .line-connector { width: 2px; height: 12px; background: #93c5fd; margin: 0 auto 6px auto; }
 
-          /* SIDE-BY-SIDE DEPARTMENT COLUMNS (FLEX ROW) */
-          .dept-flex-container { display: flex; flex-direction: row; gap: 8px; align-items: flex-start; margin-bottom: 12px; width: 100%; page-break-inside: avoid; }
-          .dept-card { flex: 1 1 0px; min-width: 0; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #ffffff; overflow: hidden; }
+          /* SIDE-BY-SIDE DEPARTMENT COLUMNS (FLEX ROW MULTI-TIER GRID) */
+          .dept-flex-container { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; align-items: flex-start; margin-bottom: 12px; width: 100%; page-break-inside: avoid; }
+          .dept-card { flex: 1 1 180px; min-width: 150px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #ffffff; overflow: hidden; }
           .dept-head { padding: 6px 8px; color: white; font-weight: 800; font-size: 10px; display: flex; justify-content: space-between; align-items: center; }
           .dept-count-pill { background: rgba(255,255,255,0.25); color: white; padding: 1px 5px; border-radius: 8px; font-size: 8px; }
           
