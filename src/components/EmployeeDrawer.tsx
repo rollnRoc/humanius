@@ -61,9 +61,8 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       baslik: 'Sistem & Ekipman',
       maddeler: [
         { id: 'se1', label: 'E-posta Hesabı Açıldı' },
-        { id: 'se2', label: 'Bilgisayar / Ekipman Teslim Edildi' },
-        { id: 'se3', label: 'Kimlik Kartı / Rozet Teslim Edildi' },
-        { id: 'se4', label: 'Sistem Erişimleri Tanımlandı' },
+        { id: 'se2', label: 'Ekipmanları Teslim Edildi' },
+        { id: 'se3', label: 'Sistem Erişimleri Tanımlandı' },
       ],
     },
     {
