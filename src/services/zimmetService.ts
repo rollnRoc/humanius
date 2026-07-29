@@ -2,8 +2,31 @@ import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 import { demoService } from './demoService';
 
-export type ZimmetKategori = 'bilgisayar' | 'telefon' | 'arac' | 'anahtar' | 'monitor' | 'yazici' | 'diger';
+export type ZimmetKategori = 'bilgisayar' | 'telefon' | 'arac' | 'anahtar' | 'monitor' | 'yazici' | 'kulaklik' | 'tablet' | 'mobilya' | 'yazilim' | 'diger';
 export type ZimmetDurum = 'aktif' | 'iade-edildi' | 'kayip' | 'bakimda';
+
+const VALID_KATEGORILER: ZimmetKategori[] = [
+  'bilgisayar', 'telefon', 'arac', 'anahtar', 'monitor', 'yazici', 'kulaklik', 'tablet', 'mobilya', 'yazilim', 'diger'
+];
+
+export function sanitizeZimmetKategori(kategori: any): ZimmetKategori {
+  if (!kategori || typeof kategori !== 'string') return 'diger';
+  const norm = kategori.toLowerCase().trim();
+  if (VALID_KATEGORILER.includes(norm as ZimmetKategori)) {
+    return norm as ZimmetKategori;
+  }
+  if (norm.includes('bilgisayar') || norm.includes('laptop') || norm.includes('pc')) return 'bilgisayar';
+  if (norm.includes('telefon') || norm.includes('phone') || norm.includes('mobil')) return 'telefon';
+  if (norm.includes('araç') || norm.includes('arac') || norm.includes('araba')) return 'arac';
+  if (norm.includes('anahtar')) return 'anahtar';
+  if (norm.includes('monitör') || norm.includes('monitor') || norm.includes('ekran')) return 'monitor';
+  if (norm.includes('yazıcı') || norm.includes('yazici') || norm.includes('printer')) return 'yazici';
+  if (norm.includes('kulaklık') || norm.includes('kulaklik')) return 'kulaklik';
+  if (norm.includes('tablet')) return 'tablet';
+  if (norm.includes('mobilya') || norm.includes('masa') || norm.includes('sandalye')) return 'mobilya';
+  if (norm.includes('yazılım') || norm.includes('yazilim') || norm.includes('lisans')) return 'yazilim';
+  return 'diger';
+}
 
 export interface Zimmet {
   id: string;
@@ -81,10 +104,14 @@ export const zimmetService = {
   },
 
   async create(zimmet: ZimmetInsert): Promise<Zimmet> {
+    const payload = {
+      ...zimmet,
+      kategori: sanitizeZimmetKategori(zimmet.kategori)
+    };
     if (demoService.isDemoActive()) {
       const list = await this.getAll();
       const newRec: Zimmet = {
-        ...zimmet,
+        ...payload,
         id: 'z-' + Math.random().toString(36).substr(2, 9),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -95,7 +122,7 @@ export const zimmetService = {
     }
     const { data, error } = await supabase
       .from('zimmetler')
-      .insert(zimmet)
+      .insert(payload)
       .select()
       .single();
 
@@ -104,17 +131,21 @@ export const zimmetService = {
   },
 
   async update(id: string, updates: Partial<ZimmetInsert>): Promise<Zimmet> {
+    const payload = {
+      ...updates,
+      ...(updates.kategori ? { kategori: sanitizeZimmetKategori(updates.kategori) } : {})
+    };
     if (demoService.isDemoActive()) {
       const list = await this.getAll();
       const idx = list.findIndex(z => z.id === id);
       if (idx === -1) throw new Error('Zimmet bulunamadı');
-      list[idx] = { ...list[idx], ...updates, updated_at: new Date().toISOString() } as any;
+      list[idx] = { ...list[idx], ...payload, updated_at: new Date().toISOString() } as any;
       localStorage.setItem('humanius_demo_zimmetler', JSON.stringify(list));
       return list[idx];
     }
     const { data, error } = await supabase
       .from('zimmetler')
-      .update(updates)
+      .update(payload)
       .eq('id', id)
       .select()
       .single();

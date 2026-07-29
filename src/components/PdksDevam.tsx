@@ -224,9 +224,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         setLocationStatus('success');
       },
       (error) => {
-        console.error('Location error:', error);
+        if (error.code === 1) {
+          console.warn('Konum izni verilmedi (Kullanıcı tercihi).');
+        } else {
+          console.warn('Konum uyarısı:', error.message);
+        }
         setLocationStatus('denied');
-        setLocationErrorMsg('Konum izni reddedildi. Mesai başlatmak için konum erişimine izin vermelisiniz.');
+        setLocationErrorMsg('Konum izni verilmedi. İşleminize konum bilgisi eklenmeden devam edilebilir.');
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -243,7 +247,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           setUserCoords({ lat: latitude, lng: longitude });
         },
         (error) => {
-          console.error("Watch position error:", error);
+          console.warn("Watch position warning:", error.message);
         },
         { enableHighAccuracy: true }
       );

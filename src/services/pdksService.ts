@@ -93,6 +93,12 @@ export const pdksService = {
   async createVardiya(kayit: VardiyaInsert): Promise<VardiyaKaydi> {
     if (demoService.isDemoActive()) {
       const list = await this.getVardiyalar();
+      const existingIdx = list.findIndex(r => r.employee_id === kayit.employee_id && r.tarih === kayit.tarih);
+      if (existingIdx >= 0) {
+        list[existingIdx] = { ...list[existingIdx], ...kayit, updated_at: new Date().toISOString() };
+        localStorage.setItem('humanius_demo_pdks_vardiya', JSON.stringify(list));
+        return list[existingIdx];
+      }
       const newRec: VardiyaKaydi = {
         ...kayit,
         id: 'v-' + Math.random().toString(36).substr(2, 9),
@@ -105,7 +111,7 @@ export const pdksService = {
     }
     const { data, error } = await supabase
       .from('pdks_vardiya_kayitlari')
-      .insert(kayit)
+      .upsert(kayit, { onConflict: 'employee_id,tarih' })
       .select()
       .single();
 
