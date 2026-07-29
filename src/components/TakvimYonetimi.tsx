@@ -59,7 +59,7 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
       return [];
     }
   });
-  const [yeniEtkinlik, setYeniEtkinlik] = useState({ baslik: '', aciklama: '', tarih: '' });
+  const [yeniEtkinlik, setYeniEtkinlik] = useState<{ baslik: string; aciklama: string; tarih: string; tur: EtkinlikTuru }>({ baslik: '', aciklama: '', tarih: '', tur: 'toplanti' });
 
   // Keep state synced with localStorage and handle other tabs/components updating it
   useEffect(() => {
@@ -573,10 +573,10 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <h4 className="text-sm font-medium text-gray-800 mb-3">Etkinlik Türü Renk Kodları</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {['izin', 'bordro', 'tatil', 'egitim', 'toplanti', 'sgk', 'vergi', 'diger'].map(tur => (
+          {(['tatil', 'izin', 'egitim', 'toplanti'] as EtkinlikTuru[]).map(tur => (
             <div key={tur} className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${getEtkinlikNoktaRengi(tur as EtkinlikTuru)}`} />
-              <span className="text-xs text-gray-600">{getEtkinlikTuruAdi(tur as EtkinlikTuru)}</span>
+              <div className={`w-3.5 h-3.5 rounded-full ${getEtkinlikNoktaRengi(tur)}`} />
+              <span className="text-xs font-semibold text-gray-700">{getEtkinlikTuruAdi(tur)}</span>
             </div>
           ))}
         </div>
@@ -592,6 +592,19 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
               </button>
             </div>
             <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Etkinlik Türü / Kategori</label>
+                <select
+                  value={yeniEtkinlik.tur}
+                  onChange={(e) => setYeniEtkinlik({ ...yeniEtkinlik, tur: e.target.value as EtkinlikTuru })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 bg-white text-sm font-medium text-gray-800"
+                >
+                  <option value="tatil">🟢 Tatil (Resmi & Genel Tatiller)</option>
+                  <option value="izin">🟠 İzin (Personel İzinleri)</option>
+                  <option value="egitim">🔵 Eğitim (Eğitim & Seminerler)</option>
+                  <option value="toplanti">🟣 Toplantı (Toplantı & Etkinlikler)</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tarih</label>
                 <input
@@ -631,15 +644,14 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                     tarih: yeniEtkinlik.tarih,
                     baslik: yeniEtkinlik.baslik,
                     aciklama: yeniEtkinlik.aciklama,
-                    tur: 'egitim', // Default
-                    durum: 'planlandi',
-                    oncelik: 'orta',
-                    olusturmaTarihi: new Date().toISOString()
+                    tur: yeniEtkinlik.tur || 'toplanti',
+                    durum: 'beklemede' as any,
+                    oncelik: 'normal' as any
                   };
                   setCustomEtkinlikler([...customEtkinlikler, newEv]);
                   localStorage.setItem('humanius_new_alert_notification', 'true');
                   window.dispatchEvent(new Event('storage'));
-                  setYeniEtkinlik({ baslik: '', aciklama: '', tarih: '' });
+                  setYeniEtkinlik({ baslik: '', aciklama: '', tarih: '', tur: 'toplanti' });
                   setShowNewEvent(false);
                 }}
                 className="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700"

@@ -190,31 +190,6 @@ export function createAutomaticEvents(
     });
   });
 
-  // Bordro dönemleri → etkinlik
-  const periods = [...new Set(bordrolar.map((b) => b.period).filter(Boolean))];
-  periods.forEach((period) => {
-    if (!period || typeof period !== 'string' || !period.includes('-')) return;
-    let [yearVal, month] = period.split('-');
-    if (!yearVal || !month || isNaN(Number(yearVal)) || isNaN(Number(month))) return;
-    
-    // Shift to selected year if it's legacy 2024 test data
-    if (yearVal === '2024') {
-      yearVal = String(year);
-    }
-    
-    const shiftedPeriod = `${yearVal}-${month}`;
-    const odemeGunu = new Date(Number(yearVal), Number(month) - 1, BORDRO_SURELERI.bordroOdemeGunleri);
-    events.push({
-      id: uid(),
-      baslik: `${shiftedPeriod} Bordro Dönemi`,
-      tarih: odemeGunu.toISOString().split('T')[0],
-      tur: 'bordro',
-      oncelik: 'kritik',
-      durum: 'beklemede',
-      otomatik: true,
-    });
-  });
-
   // Resmî tatiller
   const holidays = getResmiTatillerForYear(year);
   holidays.forEach((tatil) => {
@@ -266,44 +241,32 @@ export function organizeEventsByDate(
 
 export function getEtkinlikRengi(tur: EtkinlikTuru): string {
   const map: Record<EtkinlikTuru, string> = {
-    izin: 'bg-yellow-50 border-yellow-200 text-yellow-700',
-    bordro: 'bg-red-50 border-red-200 text-red-700',
-    tatil: 'bg-green-50 border-green-200 text-green-700',
+    tatil: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+    izin: 'bg-amber-50 border-amber-200 text-amber-700',
     egitim: 'bg-blue-50 border-blue-200 text-blue-700',
     toplanti: 'bg-purple-50 border-purple-200 text-purple-700',
-    sgk: 'bg-orange-50 border-orange-200 text-orange-700',
-    vergi: 'bg-pink-50 border-pink-200 text-pink-700',
-    diger: 'bg-gray-50 border-gray-200 text-gray-700',
   };
-  return map[tur] ?? map.diger;
+  return map[tur] ?? map.tatil;
 }
 
 export function getEtkinlikNoktaRengi(tur: EtkinlikTuru): string {
   const map: Record<EtkinlikTuru, string> = {
-    izin: 'bg-amber-500',
-    bordro: 'bg-rose-500',
     tatil: 'bg-emerald-500',
+    izin: 'bg-amber-500',
     egitim: 'bg-blue-500',
     toplanti: 'bg-purple-500',
-    sgk: 'bg-orange-500',
-    vergi: 'bg-pink-500',
-    diger: 'bg-gray-400',
   };
-  return map[tur] ?? map.diger;
+  return map[tur] ?? map.tatil;
 }
 
 export function getEtkinlikTuruAdi(tur: EtkinlikTuru): string {
   const map: Record<EtkinlikTuru, string> = {
-    izin: 'İzin',
-    bordro: 'Bordro',
     tatil: 'Tatil',
+    izin: 'İzin',
     egitim: 'Eğitim',
     toplanti: 'Toplantı',
-    sgk: 'SGK',
-    vergi: 'Vergi',
-    diger: 'Diğer',
   };
-  return map[tur] ?? 'Diğer';
+  return map[tur] ?? 'Tatil';
 }
 
 export function getOncelikRengi(oncelik: EtkinlikOncelik): string {

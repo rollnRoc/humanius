@@ -1,12 +1,8 @@
 export type EtkinlikTuru =
-  | 'izin'
-  | 'bordro'
   | 'tatil'
+  | 'izin'
   | 'egitim'
-  | 'toplanti'
-  | 'sgk'
-  | 'vergi'
-  | 'diger';
+  | 'toplanti';
 
 export type EtkinlikOncelik = 'dusuk' | 'normal' | 'yuksek' | 'kritik';
 export type EtkinlikDurum = 'beklemede' | 'tamamlandi' | 'iptal' | 'devam';
