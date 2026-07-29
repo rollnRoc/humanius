@@ -303,48 +303,48 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         <meta charset="UTF-8">
         <title>Humanius HRMS - Kurumsal Organizasyon Şeması Belgesi</title>
         <style>
-          @page { size: A4 portrait; margin: 6mm 8mm; }
+          @page { size: A4 landscape; margin: 5mm 6mm; }
           * { box-sizing: border-box; }
-          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 10px; background: #ffffff; }
+          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 6px; background: #ffffff; width: 100%; }
           
-          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9.5px; }
-          .audit-table td { border: 1px solid #cbd5e1; padding: 5px 10px; }
+          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 9px; }
+          .audit-table td { border: 1px solid #cbd5e1; padding: 4px 8px; }
           .audit-bg { background: #f8fafc; font-weight: 600; color: #475569; }
 
           /* TOP NODE */
-          .root-wrapper { display: flex; justify-content: center; align-items: center; margin-bottom: 6px; }
-          .root-box { background: linear-gradient(135deg, #1d4ed8, #4338ca); color: white; padding: 8px 24px; border-radius: 12px; font-weight: 800; font-size: 13px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-          .line-connector { width: 2px; height: 16px; background: #93c5fd; margin: 0 auto 10px auto; }
+          .root-wrapper { text-align: center; margin-bottom: 4px; }
+          .root-box { display: inline-block; background: linear-gradient(135deg, #1d4ed8, #4338ca); color: white; padding: 6px 20px; border-radius: 10px; font-weight: 800; font-size: 12px; text-align: center; }
+          .line-connector { width: 2px; height: 12px; background: #93c5fd; margin: 0 auto 6px auto; }
 
-          /* COLUMNS GRID */
-          .dept-grid { display: grid; grid-template-cols: repeat(${deptPosMap.size > 4 ? 4 : deptPosMap.size}, 1fr); gap: 10px; margin-bottom: 16px; page-break-inside: avoid; }
-          .dept-card { border: 1.5px solid #cbd5e1; border-radius: 10px; background: #ffffff; overflow: hidden; page-break-inside: avoid; }
-          .dept-head { padding: 8px 10px; color: white; font-weight: 800; font-size: 11px; display: flex; justify-content: space-between; align-items: center; }
-          .dept-count-pill { background: rgba(255,255,255,0.25); color: white; padding: 1px 6px; border-radius: 10px; font-size: 9px; }
+          /* SIDE-BY-SIDE DEPARTMENT COLUMNS (FLEX ROW) */
+          .dept-flex-container { display: flex; flex-direction: row; gap: 8px; align-items: flex-start; margin-bottom: 12px; width: 100%; page-break-inside: avoid; }
+          .dept-card { flex: 1 1 0px; min-width: 0; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #ffffff; overflow: hidden; }
+          .dept-head { padding: 6px 8px; color: white; font-weight: 800; font-size: 10px; display: flex; justify-content: space-between; align-items: center; }
+          .dept-count-pill { background: rgba(255,255,255,0.25); color: white; padding: 1px 5px; border-radius: 8px; font-size: 8px; }
           
-          .pos-container { padding: 8px; display: flex; flex-direction: column; gap: 6px; background: #ffffff; }
-          .pos-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; }
-          .pos-name { font-weight: 700; font-size: 9.5px; color: #1e293b; display: flex; align-items: center; gap: 4px; }
-          .pos-count { background: #dbeafe; color: #1d4ed8; font-weight: 800; font-size: 8.5px; padding: 2px 6px; border-radius: 6px; border: 1px solid #bfdbfe; }
+          .pos-container { padding: 5px; display: flex; flex-direction: column; gap: 4px; background: #ffffff; }
+          .pos-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 6px; display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+          .pos-name { font-weight: 700; font-size: 8.5px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .pos-count { background: #dbeafe; color: #1d4ed8; font-weight: 800; font-size: 8px; padding: 1px 4px; border-radius: 4px; border: 1px solid #bfdbfe; flex-shrink: 0; }
 
           /* STAFF SECTION BELOW */
-          .staff-section { margin-top: 16px; padding-top: 12px; border-top: 2px solid #cbd5e1; page-break-before: auto; }
-          .staff-title-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-          .staff-title { font-size: 11.5px; font-weight: 800; color: #0f172a; }
-          .staff-sub { font-size: 9px; color: #64748b; }
+          .staff-section { margin-top: 12px; padding-top: 10px; border-top: 1.5px solid #cbd5e1; page-break-before: auto; }
+          .staff-title-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+          .staff-title { font-size: 10.5px; font-weight: 800; color: #0f172a; }
+          .staff-sub { font-size: 8.5px; color: #64748b; }
 
-          .staff-grid { display: grid; grid-template-cols: repeat(3, 1fr); gap: 8px; }
-          .staff-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #ffffff; page-break-inside: avoid; display: flex; flex-direction: column; justify-content: space-between; }
-          .staff-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-          .staff-name { font-weight: 800; font-size: 10px; color: #0f172a; }
-          .staff-dept { font-size: 8px; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; color: #475569; font-weight: 600; }
-          .staff-pos { font-weight: 700; font-size: 9px; color: #1d4ed8; margin-bottom: 4px; }
-          .staff-desc { font-size: 8.5px; color: #334155; background: #f8fafc; padding: 5px; border-radius: 5px; border: 1px solid #e2e8f0; line-height: 1.3; }
+          .staff-flex-container { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+          .staff-card { width: calc(33.333% - 4px); border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; background: #ffffff; page-break-inside: avoid; display: flex; flex-direction: column; justify-content: space-between; }
+          .staff-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+          .staff-name { font-weight: 800; font-size: 9px; color: #0f172a; }
+          .staff-dept { font-size: 7.5px; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; color: #475569; font-weight: 600; }
+          .staff-pos { font-weight: 700; font-size: 8.5px; color: #1d4ed8; margin-bottom: 3px; }
+          .staff-desc { font-size: 8px; color: #334155; background: #f8fafc; padding: 4px; border-radius: 4px; border: 1px solid #e2e8f0; line-height: 1.25; }
 
-          .legal-note { margin-top: 12px; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 8.5px; color: #475569; line-height: 1.3; page-break-inside: avoid; }
-          .sig-container { display: flex; justify-content: space-between; margin-top: 14px; padding: 0 40px; page-break-inside: avoid; }
-          .sig-box { text-align: center; width: 180px; font-size: 9.5px; color: #334155; border-top: 1px dashed #cbd5e1; padding-top: 4px; font-weight: 600; }
-          .footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8; }
+          .legal-note { margin-top: 10px; padding: 5px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 8px; color: #475569; line-height: 1.2; page-break-inside: avoid; }
+          .sig-container { display: flex; justify-content: space-between; margin-top: 10px; padding: 0 40px; page-break-inside: avoid; }
+          .sig-box { text-align: center; width: 170px; font-size: 9px; color: #334155; border-top: 1px dashed #cbd5e1; padding-top: 3px; font-weight: 600; }
+          .footer { margin-top: 8px; padding-top: 4px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; }
         </style>
       </head>
       <body>
@@ -369,7 +369,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         </table>
 
         <!-- Summary Bar -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:9.5px; color:#475569;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:9px; color:#475569;">
           <span><strong>Kurum:</strong> HİZEL OTOMOTİV İNŞ.A.Ş / Humanius HRMS</span>
           <span><strong>Kadro Yapısı:</strong> ${employees.length} Çalışan · ${deptPosMap.size} Departman</span>
         </div>
@@ -382,8 +382,8 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         </div>
         <div class="line-connector"></div>
 
-        <!-- DEPARTMAN VE POZİSYON SÜTUNLARI -->
-        <div class="dept-grid">
+        <!-- DEPARTMAN VE POZİSYON SÜTUNLARI (YAN YANA FLEX DÜZENİ) -->
+        <div class="dept-flex-container">
           ${Array.from(deptPosMap.entries()).map(([dept, posMap]) => `
             <div class="dept-card">
               <div class="dept-head" style="background-color: ${getColor(dept)};">
@@ -409,7 +409,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
             <span class="staff-sub">${employees.length} Kayıtlı Çalışan</span>
           </div>
 
-          <div class="staff-grid">
+          <div class="staff-flex-container">
             ${Array.from(deptPosMap.entries()).flatMap(([dept, posMap]) =>
               Array.from(posMap.entries()).flatMap(([pos, emps]) =>
                 emps.map(e => `
