@@ -327,9 +327,9 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
           .pos-name { font-weight: 700; font-size: 8.5px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           .pos-count { background: #dbeafe; color: #1d4ed8; font-weight: 800; font-size: 8px; padding: 1px 4px; border-radius: 4px; border: 1px solid #bfdbfe; flex-shrink: 0; }
 
-          /* STAFF SECTION BELOW */
-          .staff-section { margin-top: 12px; padding-top: 10px; border-top: 1.5px solid #cbd5e1; page-break-before: auto; }
-          .staff-title-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+          /* STAFF SECTION BELOW (ALWAYS STARTS ON PAGE 2 FOR NIZAMI AUDIT PAGE BREAK) */
+          .staff-section { page-break-before: always; break-before: page; margin-top: 0; padding-top: 12px; border-top: 2px solid #0f172a; }
+          .staff-title-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; page-break-after: avoid; break-after: avoid; }
           .staff-title { font-size: 10.5px; font-weight: 800; color: #0f172a; }
           .staff-sub { font-size: 8.5px; color: #64748b; }
 
