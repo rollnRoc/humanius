@@ -648,8 +648,12 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                     durum: 'beklemede' as any,
                     oncelik: 'normal' as any
                   };
-                  setCustomEtkinlikler([...customEtkinlikler, newEv]);
-                  localStorage.setItem('humanius_new_alert_notification', 'true');
+                  const updatedCustomEvents = [...customEtkinlikler, newEv];
+                  setCustomEtkinlikler(updatedCustomEvents);
+                  try {
+                    localStorage.setItem('humanius_custom_events', JSON.stringify(updatedCustomEvents));
+                    localStorage.setItem('humanius_new_alert_notification', 'true');
+                  } catch {}
                   window.dispatchEvent(new Event('storage'));
                   setYeniEtkinlik({ baslik: '', aciklama: '', tarih: '', tur: 'toplanti' });
                   setShowNewEvent(false);

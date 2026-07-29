@@ -233,7 +233,11 @@ export function organizeEventsByDate(
   } else {
     dateStr = '';
   }
-  const etkinlikler = events.filter((e) => (e.tarih ?? '').split('T')[0] === dateStr);
+  const etkinlikler = events.filter((e) => {
+    const startStr = (e.tarih ?? '').split('T')[0];
+    const endStr = (e.bitisTarihi ?? startStr).split('T')[0];
+    return dateStr >= startStr && dateStr <= endStr;
+  });
   return { etkinlikler };
 }
 
