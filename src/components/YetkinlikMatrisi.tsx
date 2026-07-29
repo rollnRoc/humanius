@@ -144,15 +144,25 @@ const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees, companyI
     const emp = employees.find((e) => e.id === secilenEmployee);
     if (!emp) return null;
     const poz = secilenPozisyon || emp.position || '';
-    const gereksimler = DEMO_POZISYON_GEREKSINIM.find((p) => p.pozisyon === poz);
-    if (!gereksimler) return null;
+    if (!poz) return null;
+
+    let gereksimler = DEMO_POZISYON_GEREKSINIM.find((p) => p.pozisyon === poz);
+    
+    // Şirket içinde kaydedilen yeni veya farklı bir pozisyon seçildiyse dinamik hedef gereksinimler oluştur
+    if (!gereksimler) {
+      gereksimler = {
+        pozisyon: poz,
+        yetkinlikler: yetkinlikler.map((y) => ({ yetkinlikId: y.id, minSeviye: 3 }))
+      };
+    }
 
     return gereksimler.yetkinlikler.map((g) => {
-      const yetk = yetkinlikler.find((y) => y.id === g.yetkinlikId)!;
+      const yetk = yetkinlikler.find((y) => y.id === g.yetkinlikId);
+      if (!yetk) return null;
       const mevcut = getYetkinlikSeviye(emp.id, g.yetkinlikId);
       const fark = mevcut - g.minSeviye;
       return { yetkinlik: yetk, minSeviye: g.minSeviye, mevcutSeviye: mevcut, fark };
-    });
+    }).filter(Boolean) as { yetkinlik: Yetkinlik; minSeviye: number; mevcutSeviye: number; fark: number }[];
   }, [secilenEmployee, secilenPozisyon, personelYetkinlikler, employees, yetkinlikler]);
 
   const kategoriler = useMemo(() => {
