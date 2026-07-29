@@ -428,7 +428,17 @@ Deno.serve(async (req: Request) => {
 
         // TC No veya E-posta ile mükerrer kontrolü yap
         let existingEmp = null;
-        if (tcNo) {
+        const passedEmpId = String(payload.employeeId || payload.employee_id || '').trim();
+        if (passedEmpId) {
+          const { data: idMatch } = await adminClient
+            .from('employees')
+            .select('id')
+            .eq('id', passedEmpId)
+            .maybeSingle();
+          existingEmp = idMatch;
+        }
+
+        if (!existingEmp && tcNo) {
           const { data: tcMatch } = await adminClient
             .from('employees')
             .select('id')
@@ -437,6 +447,7 @@ Deno.serve(async (req: Request) => {
             .maybeSingle();
           existingEmp = tcMatch;
         }
+
         if (!existingEmp) {
           const { data: emailMatch } = await adminClient
             .from('employees')
@@ -448,32 +459,33 @@ Deno.serve(async (req: Request) => {
         }
 
         const joinDate = payload.join_date || payload.joinDate || null;
+        const phone = payload.phone !== undefined ? String(payload.phone ?? '').trim() : undefined;
+        const address = payload.address !== undefined ? String(payload.address ?? '').trim() : undefined;
+        const sicilNo = payload.sicil_no !== undefined ? String(payload.sicil_no ?? '').trim() : undefined;
+
+        const updateData: Record<string, any> = {
+          company_id: companyId,
+          name: fullName,
+          email: email,
+          tc_no: tcNo || null,
+          department: department,
+          position: position,
+          employee_type: employeeType,
+          salary: salary,
+          join_date: joinDate,
+        };
+
+        if (phone !== undefined) updateData.phone = phone;
+        if (address !== undefined) updateData.address = address;
+        if (sicilNo !== undefined) updateData.sicil_no = sicilNo;
 
         if (!existingEmp) {
           await adminClient.from('employees').insert({
-            company_id: companyId,
-            name: fullName,
-            email: email,
-            tc_no: tcNo || null,
-            department: department,
-            position: position,
-            employee_type: employeeType,
-            salary: salary,
+            ...updateData,
             status: 'active',
-            join_date: joinDate,
           });
         } else {
-          await adminClient.from('employees').update({
-            company_id: companyId,
-            name: fullName,
-            email: email,
-            tc_no: tcNo || null,
-            department: department,
-            position: position,
-            employee_type: employeeType,
-            salary: salary,
-            join_date: joinDate,
-          }).eq('id', existingEmp.id);
+          await adminClient.from('employees').update(updateData).eq('id', existingEmp.id);
         }
       } catch (empErr) {
         console.warn('Employees table upsert warning:', empErr);

@@ -700,6 +700,9 @@ const AppInner: React.FC = () => {
             tc_no: emp.tc_no ?? '',
           } as any);
 
+          const effectiveJoinDate = emp.joinDate || emp.join_date || null;
+          const cleanJoinDate = effectiveJoinDate ? String(effectiveJoinDate).split('T')[0] : null;
+
           await userManagementService.updateEmployeeDetails({
             email: targetEmail,
             employeeId: emp.id || undefined,
@@ -709,10 +712,10 @@ const AppInner: React.FC = () => {
             level: emp.level,
             position: emp.position,
             department: emp.department,
-            phone: emp.phone,
+            phone: emp.phone ?? '',
             salary: emp.salary,
             status: emp.status,
-            join_date: emp.joinDate ?? emp.join_date ?? null,
+            join_date: cleanJoinDate,
             tc_no: emp.tc_no ?? '',
             sicil_no: emp.sicil_no ?? '',
             employee_type: emp.employeeType ?? emp.employee_type ?? 'normal',
@@ -724,6 +727,9 @@ const AppInner: React.FC = () => {
       }
 
       try {
+        const effectiveJoinDate = emp.joinDate || emp.join_date || null;
+        const cleanJoinDate = effectiveJoinDate ? String(effectiveJoinDate).split('T')[0] : null;
+
         if (isNewEmployee) {
           await employeeService.create({
             company_id: targetCompanyId,
@@ -733,14 +739,14 @@ const AppInner: React.FC = () => {
             level: emp.level,
             salary: emp.salary,
             status: emp.status,
-            phone: emp.phone,
+            phone: emp.phone ?? '',
             email: targetEmail || emp.email,
-            address: emp.address,
+            address: emp.address ?? '',
             skills: emp.skills,
             employee_type: emp.employeeType ?? 'normal',
             tc_no: emp.tc_no ?? '',
             sicil_no: emp.sicil_no ?? '',
-            join_date: emp.joinDate ?? emp.join_date ?? null,
+            join_date: cleanJoinDate,
           });
         } else if (!isNewEmployee && emp.id) {
           await employeeService.update(emp.id, {
@@ -751,14 +757,14 @@ const AppInner: React.FC = () => {
             level: emp.level,
             salary: emp.salary,
             status: emp.status,
-            phone: emp.phone,
+            phone: emp.phone ?? '',
             email: targetEmail || emp.email,
-            address: emp.address,
+            address: emp.address ?? '',
             skills: emp.skills,
             employee_type: emp.employeeType ?? 'normal',
             tc_no: emp.tc_no ?? '',
             sicil_no: emp.sicil_no ?? '',
-            join_date: emp.joinDate ?? emp.join_date ?? null,
+            join_date: cleanJoinDate,
           });
         }
       } catch (clientEmpErr) {
