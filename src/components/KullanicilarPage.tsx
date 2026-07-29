@@ -456,7 +456,7 @@ const UserModal: React.FC<UserModalProps> = ({
               value={form.email}
               onChange={set('email')}
               disabled={mode === 'edit'}
-              placeholder="kullanici@sirket.com"
+              placeholder="adsoyad@humanius.net"
               className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
             />
           </div>

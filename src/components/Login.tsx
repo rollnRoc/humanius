@@ -242,7 +242,7 @@ export default function Login() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all text-sm"
-                      placeholder="ornek@sirket.com"
+                      placeholder="adsoyad@humanius.net"
                       required
                       autoComplete="email"
                       autoFocus
