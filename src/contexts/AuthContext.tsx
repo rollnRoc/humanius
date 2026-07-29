@@ -164,11 +164,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsDemo(false);
 
     const cleanEmail = email.trim().toLowerCase();
-    const { error } = await supabase.auth.signInWithPassword({
+    let res = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password
     });
-    return { error };
+
+    if (res.error && cleanEmail.endsWith('@humanius.net')) {
+      const fallbackCom = cleanEmail.replace('@humanius.net', '@humanius.com');
+      res = await supabase.auth.signInWithPassword({
+        email: fallbackCom,
+        password
+      });
+      if (res.error) {
+        const fallbackComTr = cleanEmail.replace('@humanius.net', '@humanius.com.tr');
+        res = await supabase.auth.signInWithPassword({
+          email: fallbackComTr,
+          password
+        });
+      }
+    } else if (res.error && cleanEmail.endsWith('@humanius.com')) {
+      const fallbackNet = cleanEmail.replace('@humanius.com', '@humanius.net');
+      res = await supabase.auth.signInWithPassword({
+        email: fallbackNet,
+        password
+      });
+    }
+
+    return { error: res.error };
   };
 
   const signOut = async () => {

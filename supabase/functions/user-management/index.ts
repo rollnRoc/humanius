@@ -173,6 +173,23 @@ Deno.serve(async (req: Request) => {
       }
 
       return jsonResponse({ message: 'testkullanici@gmail.com başarıyla geri yüklendi.', userId: targetUserId });
+    if (operation === 'update_all_auth_emails_to_net') {
+      const { data: profs } = await adminClient.from('profiles').select('id, email, full_name');
+      let count = 0;
+      for (const p of (profs || [])) {
+        if (p.email && (p.email.includes('humanius.com') || p.email.includes('humanius.com.tr'))) {
+          const newEmail = p.email.replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
+          try {
+            await adminClient.auth.admin.updateUserById(p.id, { email: newEmail, email_confirm: true });
+          } catch (e) {
+            console.warn('Auth user update warning:', e);
+          }
+          await adminClient.from('profiles').update({ email: newEmail }).eq('id', p.id);
+          await adminClient.from('employees').update({ email: newEmail }).eq('id', p.id);
+          count++;
+        }
+      }
+      return jsonResponse({ message: `${count} adet kullanıcının Auth e-postası @humanius.net olarak güncellendi.`, count });
     }
 
     const { profile } = await getRequesterProfile(req);
