@@ -274,6 +274,11 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                         placeholder="adsoyad@humanius.net"
                         className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500"
                       />
+                      {isNew && formData.name && (
+                        <p className="text-[11px] text-blue-600 font-medium mt-1 flex items-center gap-1">
+                          <span>ℹ️</span> Sistem geneli tekillik garantisi ile otomatik önerilir.
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1.5">Başlangıç Şifresi</label>
