@@ -461,6 +461,49 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
     setDuzeltmeSaati('');
   }
 
+  async function otomatikMesaiSonlandir() {
+    const ongoingRecords = gunlukKayitlar.filter(k => k.girisZamani && !k.cikisZamani);
+    if (ongoingRecords.length === 0) {
+      alert('Seçili günde mesai bitiş saati gelip çıkış yapmamış aktif personel bulunmamaktadır.');
+      return;
+    }
+
+    if (!confirm(`Seçili tarihteki (${secilenTarih}) çıkış yapmamış ${ongoingRecords.length} personelin mesaisi vardiya bitiş saatleri (18:00) itibarıyla otomatik sonlandırılsın mı?`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      for (const rec of ongoingRecords) {
+        const defaultVardiyaCikis = '18:00';
+        await pdksService.updateVardiya(rec.id, {
+          cikis_saati: defaultVardiyaCikis + ':00'
+        });
+      }
+
+      setAllKayitlar(prev => prev.map(item => {
+        if (item.girisZamani && !item.cikisZamani && item.tarih === secilenTarih) {
+          const defaultVardiyaCikis = '18:00';
+          const hesap = hesaplaKayit(item.girisZamani, defaultVardiyaCikis, DEMO_VARDIYALAR[0]);
+          return {
+            ...item,
+            cikisZamani: defaultVardiyaCikis,
+            duzeltmeTalebi: false,
+            ...hesap
+          };
+        }
+        return item;
+      }));
+
+      alert(`İşlem Başarılı: ${ongoingRecords.length} personelin devam eden mesaisi vardiya bitiş saatinde (18:00) otomatik olarak sonlandırıldı.`);
+    } catch (err) {
+      console.error(err);
+      alert('Otomatik mesai sonlandırma sırasında bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (loading) {
     return <div className="flex justify-center p-20"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
   }
@@ -470,9 +513,17 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold text-gray-800">Akilli PDKS ve Mesai Yonetimi</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Hesaplama motoru, vardiya yonetimi ve onay hiyerarsisi</p>
+          <p className="text-sm text-gray-500 mt-0.5">Hesaplama motoru, vardiya yonetimi ve otomatik mesai sonlandırma</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap items-center">
+          <button
+            onClick={otomatikMesaiSonlandir}
+            className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-emerald-700 transition shadow-sm"
+            title="Vardiya bitiş saati gelen personellerin devam eden mesailerini otomatik kapatır"
+          >
+            <Clock className="w-4 h-4" />
+            Bitiş Saatinde Otomatik Kapat
+          </button>
           <button
             onClick={() => setCheckInModal(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700"
