@@ -285,7 +285,6 @@ export default function UserManagementPanel() {
               <option value="hr">İnsan Kaynakları (İK)</option>
               <option value="manager">Departman Müdürü</option>
               <option value="admin">Şirket Yöneticisi (Admin)</option>
-              <option value="superadmin">Süper Yönetici (SuperAdmin)</option>
             </select>
           )}
           <input value={userForm.fullName} onChange={(e) => setUserForm((prev) => ({ ...prev, fullName: e.target.value }))} placeholder="Ad soyad" className="rounded-xl border border-gray-200 px-4 py-3 text-sm" required />

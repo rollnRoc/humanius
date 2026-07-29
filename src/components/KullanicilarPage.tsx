@@ -29,7 +29,6 @@ import { supabase } from '../lib/supabase';
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const ROLE_OPTIONS = [
-  { value: 'superadmin', label: 'Süper Yönetici', icon: Crown, color: 'text-violet-600 bg-violet-50 border-violet-200' },
   { value: 'admin',      label: 'Şirket Yöneticisi', icon: Shield, color: 'text-blue-600 bg-blue-50 border-blue-200' },
   { value: 'hr',         label: 'İK Uzmanı', icon: UserCheck, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
   { value: 'manager',    label: 'Birim / Departman Amiri', icon: UserCheck, color: 'text-amber-600 bg-amber-50 border-amber-200' },
@@ -37,7 +36,10 @@ const ROLE_OPTIONS = [
 ];
 
 function getRoleConfig(role: string) {
-  return ROLE_OPTIONS.find((r) => r.value === role) ?? ROLE_OPTIONS[4];
+  if (role === 'superadmin') {
+    return { value: 'superadmin', label: 'Süper Yönetici', icon: Crown, color: 'text-violet-600 bg-violet-50 border-violet-200' };
+  }
+  return ROLE_OPTIONS.find((r) => r.value === role) ?? ROLE_OPTIONS[3];
 }
 
 function formatDate(dateStr: string) {
@@ -701,12 +703,11 @@ const KullanicilarPage: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Toplam Kullanıcı', value: totalUsers,   color: 'bg-blue-50 text-blue-700',    icon: Users },
-          { label: 'Süper Yönetici',   value: superadmins,  color: 'bg-violet-50 text-violet-700', icon: Crown },
           { label: 'Yönetici',         value: admins,        color: 'bg-emerald-50 text-emerald-700', icon: Shield },
-          { label: 'Diğer',            value: regularUsers, color: 'bg-gray-50 text-gray-700',    icon: User },
+          { label: 'Diğer Kullanıcılar', value: regularUsers, color: 'bg-gray-50 text-gray-700',    icon: User },
         ].map((stat) => {
           const Icon = stat.icon;
           return (

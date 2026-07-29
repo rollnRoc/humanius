@@ -420,7 +420,6 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                         <option value="manager">Müdür</option>
                         <option value="hr">İK Uzmanı</option>
                         <option value="admin">Şirket Yöneticisi</option>
-                        {appRole === 'superadmin' && <option value="superadmin">Süper Yönetici</option>}
                       </select>
                     </div>
                   </div>
