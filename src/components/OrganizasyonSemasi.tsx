@@ -292,58 +292,59 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
 
   const todayStr = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-  const handlePrintPdf = (mode: 'dikey' | 'yatay' = 'dikey') => {
+  const handlePrintPdf = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-
-    const isVertical = mode === 'dikey';
 
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="tr">
       <head>
         <meta charset="UTF-8">
-        <title>Humanius HRMS - ${isVertical ? 'Dikey (Tek Sayfa)' : 'Yatay'} Hiyerarşik Organizasyon Şeması Belgesi</title>
+        <title>Humanius HRMS - Kurumsal Organizasyon Şeması Belgesi</title>
         <style>
-          @page { size: ${isVertical ? 'A4 portrait' : 'A4 landscape'}; margin: ${isVertical ? '5mm 6mm' : '6mm 8mm'}; }
+          @page { size: A4 portrait; margin: 6mm 8mm; }
           * { box-sizing: border-box; }
-          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: ${isVertical ? '6px' : '10px'}; background: #ffffff; }
+          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 10px; background: #ffffff; }
           
-          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 9.5px; }
-          .audit-table td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9.5px; }
+          .audit-table td { border: 1px solid #cbd5e1; padding: 5px 10px; }
           .audit-bg { background: #f8fafc; font-weight: 600; color: #475569; }
 
-          /* YATAY & DİKEY HİYERARŞİK AĞAÇ ŞEMASI */
-          .tree-root { display: flex; justify-content: center; align-items: center; margin-bottom: 10px; }
-          .tree-root-box { background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; padding: 6px 16px; border-radius: 8px; font-weight: 800; font-size: 11px; text-align: center; }
+          /* TOP NODE */
+          .root-wrapper { display: flex; justify-content: center; align-items: center; margin-bottom: 6px; }
+          .root-box { background: linear-gradient(135deg, #1d4ed8, #4338ca); color: white; padding: 8px 24px; border-radius: 12px; font-weight: 800; font-size: 13px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+          .line-connector { width: 2px; height: 16px; background: #93c5fd; margin: 0 auto 10px auto; }
 
-          /* DİKEY TEK SAYFA AKIŞ ŞEMASI (VERTICAL 1-PAGE FLOWCHART) */
-          .vtree-grid { display: grid; grid-template-cols: repeat(${deptPosMap.size > 5 ? 4 : deptPosMap.size}, 1fr); gap: 6px; margin-bottom: 10px; }
-          .vtree-dept-card { border: 1.5px solid #cbd5e1; border-radius: 7px; background: #ffffff; overflow: hidden; page-break-inside: avoid; display: flex; flex-direction: column; }
-          .vtree-dept-head { padding: 5px 8px; color: white; font-weight: 800; font-size: 10px; display: flex; justify-content: space-between; align-items: center; }
-          .vtree-pos-container { padding: 5px; display: flex; flex-direction: column; gap: 5px; flex: 1; background: #fafafa; }
-          .vtree-pos-block { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 5px; padding: 4px 6px; }
-          .vtree-pos-title { font-weight: 700; font-size: 9px; color: #1d4ed8; border-bottom: 1px border #eff6ff; padding-bottom: 2px; margin-bottom: 3px; display: flex; justify-content: space-between; }
-          .vtree-emp-list { display: flex; flex-wrap: wrap; gap: 3px; }
-          .vtree-emp-item { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1.5px 5px; font-size: 8.5px; font-weight: 600; color: #0f172a; white-space: nowrap; }
+          /* COLUMNS GRID */
+          .dept-grid { display: grid; grid-template-cols: repeat(${deptPosMap.size > 4 ? 4 : deptPosMap.size}, 1fr); gap: 10px; margin-bottom: 16px; page-break-inside: avoid; }
+          .dept-card { border: 1.5px solid #cbd5e1; border-radius: 10px; background: #ffffff; overflow: hidden; page-break-inside: avoid; }
+          .dept-head { padding: 8px 10px; color: white; font-weight: 800; font-size: 11px; display: flex; justify-content: space-between; align-items: center; }
+          .dept-count-pill { background: rgba(255,255,255,0.25); color: white; padding: 1px 6px; border-radius: 10px; font-size: 9px; }
+          
+          .pos-container { padding: 8px; display: flex; flex-direction: column; gap: 6px; background: #ffffff; }
+          .pos-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; }
+          .pos-name { font-weight: 700; font-size: 9.5px; color: #1e293b; display: flex; align-items: center; gap: 4px; }
+          .pos-count { background: #dbeafe; color: #1d4ed8; font-weight: 800; font-size: 8.5px; padding: 2px 6px; border-radius: 6px; border: 1px solid #bfdbfe; }
 
-          /* YATAY AĞAÇ ŞEMASI */
-          .htree-wrapper { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
-          .htree-dept-block { display: flex; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; overflow: hidden; page-break-inside: avoid; }
-          .htree-dept-sidebar { width: 130px; padding: 8px; background: #f8fafc; border-right: 3px solid #2563eb; display: flex; flex-direction: column; justify-content: center; }
-          .htree-dept-title { font-weight: 800; font-size: 10.5px; color: #0f172a; }
-          .htree-dept-count { font-size: 8.5px; font-weight: 600; color: #64748b; background: #e2e8f0; padding: 1px 5px; border-radius: 10px; margin-top: 3px; display: inline-block; width: fit-content; }
-          .htree-positions-container { flex: 1; padding: 6px 10px; display: flex; flex-direction: column; gap: 6px; background: #ffffff; justify-content: center; }
-          .htree-pos-row { display: flex; align-items: center; gap: 6px; position: relative; }
-          .htree-pos-badge { min-width: 110px; max-width: 140px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-weight: 700; font-size: 9px; padding: 3px 6px; border-radius: 5px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
-          .htree-arrow { color: #3b82f6; font-weight: 900; font-size: 9.5px; flex-shrink: 0; }
-          .htree-emp-group { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; padding-left: 5px; border-left: 2px solid #e2e8f0; }
-          .htree-emp-box { background: #f9fafb; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2.5px 6px; font-weight: 600; font-size: 9px; color: #0f172a; white-space: nowrap; }
+          /* STAFF SECTION BELOW */
+          .staff-section { margin-top: 16px; padding-top: 12px; border-top: 2px solid #cbd5e1; page-break-before: auto; }
+          .staff-title-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+          .staff-title { font-size: 11.5px; font-weight: 800; color: #0f172a; }
+          .staff-sub { font-size: 9px; color: #64748b; }
 
-          .legal-note { margin-top: 8px; padding: 5px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 8.5px; color: #475569; line-height: 1.25; page-break-inside: avoid; }
-          .sig-container { display: flex; justify-content: space-between; margin-top: 10px; padding: 0 30px; page-break-inside: avoid; }
-          .sig-box { text-align: center; width: 170px; font-size: 9.5px; color: #334155; border-top: 1px dashed #cbd5e1; padding-top: 3px; font-weight: 600; }
-          .footer { margin-top: 8px; padding-top: 4px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8; }
+          .staff-grid { display: grid; grid-template-cols: repeat(3, 1fr); gap: 8px; }
+          .staff-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #ffffff; page-break-inside: avoid; display: flex; flex-direction: column; justify-content: space-between; }
+          .staff-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+          .staff-name { font-weight: 800; font-size: 10px; color: #0f172a; }
+          .staff-dept { font-size: 8px; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; color: #475569; font-weight: 600; }
+          .staff-pos { font-weight: 700; font-size: 9px; color: #1d4ed8; margin-bottom: 4px; }
+          .staff-desc { font-size: 8.5px; color: #334155; background: #f8fafc; padding: 5px; border-radius: 5px; border: 1px solid #e2e8f0; line-height: 1.3; }
+
+          .legal-note { margin-top: 12px; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 8.5px; color: #475569; line-height: 1.3; page-break-inside: avoid; }
+          .sig-container { display: flex; justify-content: space-between; margin-top: 14px; padding: 0 40px; page-break-inside: avoid; }
+          .sig-box { text-align: center; width: 180px; font-size: 9.5px; color: #334155; border-top: 1px dashed #cbd5e1; padding-top: 4px; font-weight: 600; }
+          .footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8; }
         </style>
       </head>
       <body>
@@ -355,8 +356,8 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
               <div style="font-size:7px; font-weight:600; opacity:0.9;">İK Yönetim Sistemleri</div>
             </td>
             <td rowspan="2" style="width:50%; text-align:center; vertical-align:middle;">
-              <div style="font-size:12px; font-weight:800; color:#0f172a;">${isVertical ? 'DİKEY HİYERARŞİK ORGANİZASYON ŞEMASI (TEK SAYFA)' : 'YATAY HİYERARŞİK ORGANİZASYON ŞEMASI BELGESİ'}</div>
-              <div style="font-size:8.5px; color:#64748b; margin-top:1px;">Departman ➔ Pozisyon ➔ Personel Akış Şeması</div>
+              <div style="font-size:13px; font-weight:800; color:#0f172a;">KURUMSAL ORGANİZASYON ŞEMASI BELGESİ</div>
+              <div style="font-size:8.5px; color:#64748b; margin-top:1px;">Departman ➔ Pozisyon Hiyerarşisi ve Kadro Detayı</div>
             </td>
             <td class="audit-bg" style="width:15%;">Doküman No:</td>
             <td style="width:15%; font-weight:600; color:#1e293b;">FR-IK-012</td>
@@ -368,32 +369,32 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         </table>
 
         <!-- Summary Bar -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:9.5px; color:#475569;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:9.5px; color:#475569;">
           <span><strong>Kurum:</strong> HİZEL OTOMOTİV İNŞ.A.Ş / Humanius HRMS</span>
           <span><strong>Kadro Yapısı:</strong> ${employees.length} Çalışan · ${deptPosMap.size} Departman</span>
         </div>
 
         <!-- ŞİRKET KÖK KUTUSU -->
-        <div class="tree-root">
-          <div class="tree-root-box">
-            🏢 Şirket Genel Yönetim Kurulu <span style="font-size:9px; font-weight:normal; opacity:0.9;">(${employees.length} Çalışan)</span>
+        <div class="root-wrapper">
+          <div class="root-box">
+            🏢 Şirket Genel Yönetim Kurulu (${employees.length} Çalışan)
           </div>
         </div>
+        <div class="line-connector"></div>
 
-        ${isVertical ? `
-        <!-- DİKEY HİYERARŞİK TEK SAYFA MODELİ (AĞAÇTA SADECE POZİSYONLAR VE SAYILAR) -->
-        <div class="vtree-grid">
+        <!-- DEPARTMAN VE POZİSYON SÜTUNLARI -->
+        <div class="dept-grid">
           ${Array.from(deptPosMap.entries()).map(([dept, posMap]) => `
-            <div class="vtree-dept-card">
-              <div class="vtree-dept-head" style="background-color: ${getColor(dept)};">
+            <div class="dept-card">
+              <div class="dept-head" style="background-color: ${getColor(dept)};">
                 <span>🏢 ${dept}</span>
-                <span style="font-size:8.5px; opacity:0.9;">(${Array.from(posMap.values()).flat().length} kişi)</span>
+                <span class="dept-count-pill">${Array.from(posMap.values()).flat().length} kişi</span>
               </div>
-              <div class="vtree-pos-container">
+              <div class="pos-container">
                 ${Array.from(posMap.entries()).map(([pos, emps]) => `
-                  <div class="vtree-pos-block" style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight:700; font-size:9px; color:#0f172a;">💼 ${pos}</span>
-                    <span style="background:#eff6ff; color:#1d4ed8; font-weight:800; font-size:8px; padding:1px 5px; border-radius:4px; border:1px solid #bfdbfe;">${emps.length} kişi</span>
+                  <div class="pos-row">
+                    <span class="pos-name">💼 ${pos}</span>
+                    <span class="pos-count">${emps.length} kişi</span>
                   </div>
                 `).join('')}
               </div>
@@ -402,24 +403,24 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         </div>
 
         <!-- SÜTUNLAR BİTTİKTEN SONRA: KADRO & GÖREV TANIMLARI KUTULARI -->
-        <div style="margin-top:14px; padding-top:10px; border-top:1.5px solid #cbd5e1; page-break-before:auto;">
-          <div style="font-size:10.5px; font-weight:800; color:#0f172a; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-            <span>👥 KURUMSAL KADRO & POZİSYON GÖREV TANIMLARI DETAY LİSTESİ</span>
-            <span style="font-size:8.5px; font-weight:normal; color:#64748b;">${employees.length} Çalışan · Görev Özeti Belgesi</span>
+        <div class="staff-section">
+          <div class="staff-title-bar">
+            <span class="staff-title">👥 KURUMSAL KADRO & POZİSYON GÖREV TANIMLARI DETAY LİSTESİ</span>
+            <span class="staff-sub">${employees.length} Kayıtlı Çalışan</span>
           </div>
 
-          <div style="display:grid; grid-template-cols:repeat(3, 1fr); gap:6px;">
+          <div class="staff-grid">
             ${Array.from(deptPosMap.entries()).flatMap(([dept, posMap]) =>
               Array.from(posMap.entries()).flatMap(([pos, emps]) =>
                 emps.map(e => `
-                  <div style="border:1px solid #cbd5e1; border-radius:6px; padding:6px; background:#ffffff; page-break-inside:avoid; display:flex; flex-direction:column; justify-between;">
+                  <div class="staff-card">
                     <div>
-                      <div style="font-weight:800; font-size:9.5px; color:#0f172a; display:flex; justify-content:space-between;">
-                        <span>👤 ${e.name}</span>
-                        <span style="font-size:7.5px; background:#f1f5f9; padding:1px 4px; border-radius:3px; color:#475569;">${dept}</span>
+                      <div class="staff-header">
+                        <span class="staff-name">👤 ${e.name}</span>
+                        <span class="staff-dept">${dept}</span>
                       </div>
-                      <div style="font-weight:700; font-size:8.5px; color:#1d4ed8; margin:2px 0 4px 0;">💼 ${pos}</div>
-                      <div style="font-size:8px; color:#334155; background:#f8fafc; padding:4px; border-radius:4px; border:1px solid #e2e8f0; line-height:1.25;">
+                      <div class="staff-pos">💼 ${pos}</div>
+                      <div class="staff-desc">
                         <strong>Görev Tanımı:</strong> ${getPositionSummary(pos)}
                       </div>
                     </div>
@@ -429,37 +430,10 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
             ).join('')}
           </div>
         </div>
-        ` : `
-        <!-- YATAY HİYERARŞİK AĞAÇ MODELİ -->
-        <div class="htree-wrapper">
-          ${Array.from(deptPosMap.entries()).map(([dept, posMap]) => `
-            <div class="htree-dept-block">
-              <div class="htree-dept-sidebar" style="border-right-color: ${getColor(dept)};">
-                <div class="htree-dept-title">🏢 ${dept}</div>
-                <div class="htree-dept-count">${Array.from(posMap.values()).flat().length} Çalışan</div>
-              </div>
-              <div class="htree-positions-container">
-                ${Array.from(posMap.entries()).map(([pos, emps]) => `
-                  <div class="htree-pos-row">
-                    <div class="htree-pos-badge">
-                      <span>💼 ${pos}</span>
-                      <span style="font-size:8px; opacity:0.8;">(${emps.length})</span>
-                    </div>
-                    <span class="htree-arrow">➔</span>
-                    <div class="htree-emp-group">
-                      ${emps.map(e => `<div class="htree-emp-box">${e.name}</div>`).join('')}
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-        `}
 
         <!-- Yasal Beyan & Uyum Metni -->
         <div class="legal-note">
-          <strong>Resmi Beyan & Uyumluluk:</strong> İşbu ${isVertical ? 'Dikey (Tek Sayfa)' : 'Yatay'} Hiyerarşik Organizasyon Şeması Belgesi, 4857 sayılı İş Kanunu, 6331 sayılı İş Sağlığı ve Güvenliği Kanunu ve ISO 9001 Kalite Yönetim Sistemi standartlarına uygun tanzim edilmiş resmi evraktır.
+          <strong>Resmi Beyan & Uyumluluk:</strong> İşbu Kurumsal Organizasyon Şeması Belgesi, 4857 sayılı İş Kanunu, 6331 sayılı İş Sağlığı ve Güvenliği Kanunu ve ISO 9001 Kalite Yönetim Sistemi standartlarına uygun tanzim edilmiş resmi evraktır.
         </div>
 
         <!-- Islak İmza & Mühür Kutuları -->
@@ -508,28 +482,12 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => setShowPdfPreview(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs font-semibold border border-indigo-200 transition-colors"
-            title="Şema Baskı Önizlemesi"
+            onClick={handlePrintPdf}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+            title="Organizasyon Şemasını PDF Olarak İndir / Yazdır"
           >
-            <Eye className="w-3.5 h-3.5" />
-            PDF Önizleme
-          </button>
-          <button
-            onClick={() => handlePrintPdf('dikey')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
-            title="Dikey Hiyerarşik Şemayı (Tek Sayfa) PDF Olarak İndir / Yazdır"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            PDF Dikey (Tek Sayfa)
-          </button>
-          <button
-            onClick={() => handlePrintPdf('yatay')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
-            title="Yatay Hiyerarşik Şemayı PDF Olarak İndir / Yazdır"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            PDF Yatay
+            <Printer className="w-4 h-4" />
+            PDF İndir / Yazdır
           </button>
           <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
             {(['dikey', 'agac', 'kart'] as const).map((g) => (
@@ -540,7 +498,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
                   gorunum === g ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {g === 'dikey' ? 'Dikey Şema (Tek Sayfa)' : g === 'agac' ? 'Ağaç Liste' : 'Kart'}
+                {g === 'dikey' ? 'Dikey Şema' : g === 'agac' ? 'Ağaç Liste' : 'Kart'}
               </button>
             ))}
           </div>
