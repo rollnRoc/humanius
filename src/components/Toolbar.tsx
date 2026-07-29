@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus, FileDown, FileUp } from 'lucide-react';
 import { Company, Department } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ToolbarProps {
   selectedDepartment: string;
@@ -25,6 +26,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   departments
 }) => {
   const { t } = useLanguage();
+  const { appRole } = useAuth();
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
@@ -57,19 +59,23 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
       {/* Actions */}
       <div className="flex items-center gap-2 flex-wrap">
-        <label className="text-xs text-gray-500">{t('toolbar.company')}</label>
-        <select
-          value={selectedCompany}
-          onChange={(e) => onCompanyChange(e.target.value)}
-          className="bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        >
-          <option value="all">{t('toolbar.all')}</option>
-          {companies.map(company => (
-            <option key={company} value={company}>
-              {company}
-            </option>
-          ))}
-        </select>
+        {appRole === 'superadmin' && (
+          <>
+            <label className="text-xs text-gray-500">{t('toolbar.company')}</label>
+            <select
+              value={selectedCompany}
+              onChange={(e) => onCompanyChange(e.target.value)}
+              className="bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="all">{t('toolbar.all')}</option>
+              {companies.map(company => (
+                <option key={company} value={company}>
+                  {company}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         
         <button
           onClick={onNewEmployee}
