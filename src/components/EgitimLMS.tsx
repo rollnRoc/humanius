@@ -115,6 +115,8 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
 
   const [newSertifikaForm, setNewSertifikaForm] = useState({
     egitimId: '',
+    atamaHedefi: 'tek' as 'tek' | 'departman' | 'tum',
+    departman: '',
     employeeId: '',
     durum: 'tamamlandi' as 'tamamlandi' | 'devam_ediyor',
     tamamlanmaTarihi: new Date().toISOString().split('T')[0],
@@ -167,40 +169,51 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
     });
   };
 
-  // Add certificate completion handler
+  // Add certificate completion / assignment handler
   const handleAddSertifika = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSertifikaForm.egitimId || !newSertifikaForm.employeeId) return;
+    if (!newSertifikaForm.egitimId) return;
 
     const selectedCourse = egitimler.find((eg) => eg.id === newSertifikaForm.egitimId);
-    const selectedEmp = employees.find((emp) => emp.id === newSertifikaForm.employeeId);
-    if (!selectedCourse || !selectedEmp) return;
+    if (!selectedCourse) return;
+
+    let targetEmps: Employee[] = [];
+    if (newSertifikaForm.atamaHedefi === 'tum') {
+      targetEmps = employees;
+    } else if (newSertifikaForm.atamaHedefi === 'departman') {
+      targetEmps = employees.filter(emp => emp.department === newSertifikaForm.departman);
+    } else {
+      const singleEmp = employees.find(emp => emp.id === newSertifikaForm.employeeId);
+      if (singleEmp) targetEmps = [singleEmp];
+    }
+
+    if (targetEmps.length === 0) {
+      alert('Lütfen geçerli en az bir personel veya departman seçiniz.');
+      return;
+    }
 
     const isTamamlandi = newSertifikaForm.durum === 'tamamlandi';
-
-    const newCert: SertifikaKaydi = {
-      id: `sc-${Date.now()}`,
+    const newCerts: SertifikaKaydi[] = targetEmps.map(emp => ({
+      id: `sc-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       egitimId: newSertifikaForm.egitimId,
       egitimAdi: selectedCourse.baslik,
-      employeeId: newSertifikaForm.employeeId,
-      employeeName: selectedEmp.name,
+      employeeId: emp.id,
+      employeeName: emp.name,
       durum: newSertifikaForm.durum,
       tamamlanmaTarihi: isTamamlandi ? newSertifikaForm.tamamlanmaTarihi : '',
       hedefTarih: !isTamamlandi ? (newSertifikaForm.hedefTarih || newSertifikaForm.tamamlanmaTarihi) : undefined,
       gecerlilikSuresi: newSertifikaForm.gecerlilikSuresi ? Number(newSertifikaForm.gecerlilikSuresi) : null,
       puan: (isTamamlandi && newSertifikaForm.puanEkle) ? Number(newSertifikaForm.puan) : null
-    };
+    }));
 
-    saveSertifikalar([...sertifikalar, newCert]);
+    saveSertifikalar([...sertifikalar, ...newCerts]);
 
-    // Update completion count in course if completed
     if (isTamamlandi) {
       const updatedEgitimler = egitimler.map((eg) => {
         if (eg.id === newSertifikaForm.egitimId) {
-          const alreadyCompleted = sertifikalar.some((sc) => sc.egitimId === eg.id && sc.employeeId === newSertifikaForm.employeeId && sc.durum === 'tamamlandi');
           return {
             ...eg,
-            tamamlayanSayisi: alreadyCompleted ? eg.tamamlayanSayisi : eg.tamamlayanSayisi + 1
+            tamamlayanSayisi: eg.tamamlayanSayisi + newCerts.length
           };
         }
         return eg;
@@ -211,6 +224,8 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
     setShowNewSertifika(false);
     setNewSertifikaForm({
       egitimId: '',
+      atamaHedefi: 'tek',
+      departman: '',
       employeeId: '',
       durum: 'tamamlandi',
       tamamlanmaTarihi: new Date().toISOString().split('T')[0],
@@ -219,6 +234,7 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
       puanEkle: false,
       puan: 85
     });
+    alert(`İşlem Başarılı: Eğitim ${targetEmps.length} personele başarıyla ${isTamamlandi ? 'kaydedildi' : 'atandı'}.`);
   };
 
   const deleteEgitim = (id: string) => {
@@ -793,19 +809,84 @@ const EgitimLMS: React.FC<EgitimLMSProps> = ({ employees, companyId = 'default' 
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">İlgili Personel</label>
-                <select
-                  required
-                  value={newSertifikaForm.employeeId}
-                  onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, employeeId: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Seçin...</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.department || 'Genel'})</option>
-                  ))}
-                </select>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Atama Kapsamı / Hedef Kitle</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewSertifikaForm({ ...newSertifikaForm, atamaHedefi: 'tek' })}
+                    className={`py-2 px-2 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition-all ${
+                      newSertifikaForm.atamaHedefi === 'tek'
+                        ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    👤 Tek Personel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewSertifikaForm({ ...newSertifikaForm, atamaHedefi: 'departman' })}
+                    className={`py-2 px-2 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition-all ${
+                      newSertifikaForm.atamaHedefi === 'departman'
+                        ? 'bg-purple-50 border-purple-500 text-purple-700 shadow-sm'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    🏢 Departmana Göre
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewSertifikaForm({ ...newSertifikaForm, atamaHedefi: 'tum' })}
+                    className={`py-2 px-2 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 transition-all ${
+                      newSertifikaForm.atamaHedefi === 'tum'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    👥 Tüm Çalışanlara
+                  </button>
+                </div>
               </div>
+
+              {/* Dinamik Hedef Seçim Alanı */}
+              {newSertifikaForm.atamaHedefi === 'tek' && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">İlgili Personel</label>
+                  <select
+                    required
+                    value={newSertifikaForm.employeeId}
+                    onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, employeeId: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">Personel Seçin...</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.department || 'Genel'})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {newSertifikaForm.atamaHedefi === 'departman' && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Hedef Departman</label>
+                  <select
+                    required
+                    value={newSertifikaForm.departman}
+                    onChange={(e) => setNewSertifikaForm({ ...newSertifikaForm, departman: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                  >
+                    <option value="">Departman Seçin...</option>
+                    {[...new Set(employees.map(e => e.department).filter(Boolean))].map((dept) => (
+                      <option key={dept} value={dept}>{dept} Departmanı ({employees.filter(e => e.department === dept).length} Personel)</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {newSertifikaForm.atamaHedefi === 'tum' && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 font-medium flex items-center gap-2">
+                  <span>✨ Şirketteki tüm aktif çalışanlara (<strong>{employees.length} personel</strong>) bu eğitim toplu atanacaktır.</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
