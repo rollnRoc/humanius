@@ -460,6 +460,7 @@ Deno.serve(async (req: Request) => {
 
         const joinDate = payload.join_date || payload.joinDate || null;
         const phone = payload.phone !== undefined ? String(payload.phone ?? '').trim() : undefined;
+        const contactEmail = payload.contact_email !== undefined ? String(payload.contact_email ?? '').trim() : undefined;
         const address = payload.address !== undefined ? String(payload.address ?? '').trim() : undefined;
         const sicilNo = payload.sicil_no !== undefined ? String(payload.sicil_no ?? '').trim() : undefined;
 
@@ -476,6 +477,7 @@ Deno.serve(async (req: Request) => {
         };
 
         if (phone !== undefined) updateData.phone = phone;
+        if (contactEmail !== undefined) updateData.contact_email = contactEmail;
         if (address !== undefined) updateData.address = address;
         if (sicilNo !== undefined) updateData.sicil_no = sicilNo;
 

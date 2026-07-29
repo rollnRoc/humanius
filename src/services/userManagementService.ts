@@ -87,6 +87,7 @@ export const userManagementService = {
     position?: string;
     department?: string;
     phone?: string;
+    contact_email?: string;
     salary?: number;
     status?: string;
     join_date?: string | null;

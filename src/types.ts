@@ -53,6 +53,8 @@ export interface Employee {
   status: 'active' | 'onLeave' | 'inactive';
   phone: string;
   email: string;
+  contact_email?: string;
+  personal_email?: string;
   joinDate?: string;
   join_date?: string;
   address: string;

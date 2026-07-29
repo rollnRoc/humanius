@@ -311,6 +311,7 @@ const AppInner: React.FC = () => {
           status: e.status ?? 'active',
           phone: e.phone ?? '',
           email: e.email ?? '',
+          contact_email: (e as any).contact_email ?? (e as any).personal_email ?? '',
           role: profileRoleMap.get(empEmail) ?? e.role ?? 'employee',
           joinDate: e.join_date,
           join_date: e.join_date,
@@ -713,6 +714,7 @@ const AppInner: React.FC = () => {
             position: emp.position,
             department: emp.department,
             phone: emp.phone ?? '',
+            contact_email: emp.contact_email ?? '',
             salary: emp.salary,
             status: emp.status,
             join_date: cleanJoinDate,
@@ -741,13 +743,14 @@ const AppInner: React.FC = () => {
             status: emp.status,
             phone: emp.phone ?? '',
             email: targetEmail || emp.email,
+            contact_email: emp.contact_email ?? '',
             address: emp.address ?? '',
             skills: emp.skills,
             employee_type: emp.employeeType ?? 'normal',
             tc_no: emp.tc_no ?? '',
             sicil_no: emp.sicil_no ?? '',
             join_date: cleanJoinDate,
-          });
+          } as any);
         } else if (!isNewEmployee && emp.id) {
           await employeeService.update(emp.id, {
             company_id: targetCompanyId,
@@ -759,13 +762,14 @@ const AppInner: React.FC = () => {
             status: emp.status,
             phone: emp.phone ?? '',
             email: targetEmail || emp.email,
+            contact_email: emp.contact_email ?? '',
             address: emp.address ?? '',
             skills: emp.skills,
             employee_type: emp.employeeType ?? 'normal',
             tc_no: emp.tc_no ?? '',
             sicil_no: emp.sicil_no ?? '',
             join_date: cleanJoinDate,
-          });
+          } as any);
         }
       } catch (clientEmpErr) {
         console.warn('İstemci personel güncelleme uyarısı:', clientEmpErr);
