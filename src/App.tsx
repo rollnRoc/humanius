@@ -122,7 +122,9 @@ const AppInner: React.FC = () => {
     user &&
     (
       user?.user_metadata?.must_change_password === true ||
-      (profile as any)?.must_change_password === true
+      user?.user_metadata?.is_first_login === true ||
+      (profile as any)?.must_change_password === true ||
+      (profile as any)?.is_first_login === true
     )
   );
 

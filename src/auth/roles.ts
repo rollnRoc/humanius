@@ -25,9 +25,6 @@ export function getRoleLabel(role: AppRole): string {
 }
 
 export function getDefaultViewForRole(role: AppRole): View {
-  if (role === 'employee') {
-    return 'ozluk-dosyasi';
-  }
   return 'arama';
 }
 
