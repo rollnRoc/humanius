@@ -127,8 +127,15 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
             setIsBirimi(existing.is_birimi || emp.department || '');
             setPozisyonAmaci(existing.gorev_aciklama || '');
             setIdariUst(existing.bagli_oldugu_pozisyon || '');
+            const createdDate = existing.created_at ? String(existing.created_at).split('T')[0] : new Date().toISOString().split('T')[0];
+            setIlkYayinTarihi(existing.ilk_yayin_tarihi || createdDate);
+            setRevizyonTarihi(existing.revizyon_tarihi || '');
+            setRevizyonNo(existing.revizyon_no !== undefined ? String(existing.revizyon_no) : '0');
           } else {
             // No existing record, clear template fields so they can enter a new one
+            setIlkYayinTarihi(new Date().toISOString().split('T')[0]);
+            setRevizyonTarihi('');
+            setRevizyonNo('0');
             setPozisyonAmaci('');
             setIdariUst('');
             setFonksiyonelUst('');
