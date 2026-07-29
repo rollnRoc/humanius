@@ -269,9 +269,9 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       <label className="block text-xs font-semibold text-gray-700 mb-1.5">Giriş E-postası</label>
                       <input
                         type="email"
-                        value={formData.email || (formData.name ? `${formData.name.toLowerCase().replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/[^a-z0-9]/g, '')}@humanius.com` : '')}
+                        value={formData.email || (formData.name ? `${formData.name.toLowerCase().replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/[^a-z0-9]/g, '')}@humanius.net` : '')}
                         onChange={(e) => handleInputChange('email', e.target.value)}
-                        placeholder="adsoyad@humanius.com"
+                        placeholder="adsoyad@humanius.net"
                         className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500"
                       />
                     </div>

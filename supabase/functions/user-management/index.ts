@@ -122,7 +122,7 @@ Deno.serve(async (req: Request) => {
       const { data: existingProfiles } = await adminClient
         .from('profiles')
         .select('*')
-        .or('email.eq.testkullanici@gmail.com,email.eq.testkullanici@humanius.com');
+        .or('email.eq.testkullanici@gmail.com,email.eq.testkullanici@humanius.net');
 
       let targetUserId = existingProfiles && existingProfiles.length > 0 ? existingProfiles[0].id : null;
 
@@ -148,7 +148,7 @@ Deno.serve(async (req: Request) => {
       const { data: existingEmp } = await adminClient
         .from('employees')
         .select('id')
-        .or(`email.eq.${targetEmail},email.eq.testkullanici@humanius.com`)
+        .or(`email.eq.${targetEmail},email.eq.testkullanici@humanius.net`)
         .maybeSingle();
 
       if (existingEmp) {

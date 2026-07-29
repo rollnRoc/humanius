@@ -678,7 +678,7 @@ const AppInner: React.FC = () => {
           .replace(/[^a-z0-9]/g, '.');
         const domain = (matchedCompName || '').toLowerCase().includes('toyota') || targetCompanyId === 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9'
           ? 'hizel.toyota.com.tr'
-          : 'humanius.com.tr';
+          : 'humanius.net';
         targetEmail = `${slug}@${domain}`;
       }
 

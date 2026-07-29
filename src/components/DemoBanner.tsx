@@ -53,7 +53,7 @@ export default function DemoBanner() {
           </p>
           <div className="space-y-3">
             <a
-              href="mailto:destek@humanius.com.tr?subject=Humanius%20Full%20Sürüm%20Hakkında"
+              href="mailto:destek@humanius.net?subject=Humanius%20Full%20Sürüm%20Hakkında"
               className="w-full bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-500 hover:shadow-lg text-white py-3.5 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
             >
               Satış Ekibiyle İletişime Geç
