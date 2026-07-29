@@ -1,6 +1,23 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, User, Users, Building2, Briefcase, Search, Printer, FileText, Eye, X } from 'lucide-react';
 import type { Employee } from '../types';
+import { JOB_TEMPLATES } from '../data/jobTemplates';
+
+const getPositionSummary = (positionTitle: string): string => {
+  if (!positionTitle) return 'Kurumsal operasyonel süreçlerin ve görevlerin yürütülmesi.';
+  const norm = positionTitle.toLowerCase().trim();
+  const found = JOB_TEMPLATES.find(
+    (t) =>
+      t.title.toLowerCase().trim() === norm ||
+      norm.includes(t.title.toLowerCase().trim()) ||
+      t.title.toLowerCase().trim().includes(norm)
+  );
+  if (found && found.summary) {
+    const firstSentence = found.summary.split('.')[0] + '.';
+    return firstSentence.length > 140 ? firstSentence.slice(0, 137) + '...' : firstSentence;
+  }
+  return `${positionTitle} pozisyonu kapsamında departman içi operasyonel süreçlerin ve kurumsal hedeflerin yürütülmesi.`;
+};
 
 interface OrgNode {
   id: string;
@@ -364,29 +381,53 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
         </div>
 
         ${isVertical ? `
-        <!-- DİKEY HİYERARŞİK TEK SAYFA MODELİ -->
+        <!-- DİKEY HİYERARŞİK TEK SAYFA MODELİ (AĞAÇTA SADECE POZİSYONLAR VE SAYILAR) -->
         <div class="vtree-grid">
           ${Array.from(deptPosMap.entries()).map(([dept, posMap]) => `
             <div class="vtree-dept-card">
               <div class="vtree-dept-head" style="background-color: ${getColor(dept)};">
                 <span>🏢 ${dept}</span>
-                <span style="font-size:8px; opacity:0.9;">(${Array.from(posMap.values()).flat().length})</span>
+                <span style="font-size:8.5px; opacity:0.9;">(${Array.from(posMap.values()).flat().length} kişi)</span>
               </div>
               <div class="vtree-pos-container">
                 ${Array.from(posMap.entries()).map(([pos, emps]) => `
-                  <div class="vtree-pos-block">
-                    <div class="vtree-pos-title">
-                      <span>💼 ${pos}</span>
-                      <span>(${emps.length})</span>
-                    </div>
-                    <div class="vtree-emp-list">
-                      ${emps.map(e => `<div class="vtree-emp-item">${e.name}</div>`).join('')}
-                    </div>
+                  <div class="vtree-pos-block" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:700; font-size:9px; color:#0f172a;">💼 ${pos}</span>
+                    <span style="background:#eff6ff; color:#1d4ed8; font-weight:800; font-size:8px; padding:1px 5px; border-radius:4px; border:1px solid #bfdbfe;">${emps.length} kişi</span>
                   </div>
                 `).join('')}
               </div>
             </div>
           `).join('')}
+        </div>
+
+        <!-- SÜTUNLAR BİTTİKTEN SONRA: KADRO & GÖREV TANIMLARI KUTULARI -->
+        <div style="margin-top:14px; padding-top:10px; border-top:1.5px solid #cbd5e1; page-break-before:auto;">
+          <div style="font-size:10.5px; font-weight:800; color:#0f172a; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span>👥 KURUMSAL KADRO & POZİSYON GÖREV TANIMLARI DETAY LİSTESİ</span>
+            <span style="font-size:8.5px; font-weight:normal; color:#64748b;">${employees.length} Çalışan · Görev Özeti Belgesi</span>
+          </div>
+
+          <div style="display:grid; grid-template-cols:repeat(3, 1fr); gap:6px;">
+            ${Array.from(deptPosMap.entries()).flatMap(([dept, posMap]) =>
+              Array.from(posMap.entries()).flatMap(([pos, emps]) =>
+                emps.map(e => `
+                  <div style="border:1px solid #cbd5e1; border-radius:6px; padding:6px; background:#ffffff; page-break-inside:avoid; display:flex; flex-direction:column; justify-between;">
+                    <div>
+                      <div style="font-weight:800; font-size:9.5px; color:#0f172a; display:flex; justify-content:space-between;">
+                        <span>👤 ${e.name}</span>
+                        <span style="font-size:7.5px; background:#f1f5f9; padding:1px 4px; border-radius:3px; color:#475569;">${dept}</span>
+                      </div>
+                      <div style="font-weight:700; font-size:8.5px; color:#1d4ed8; margin:2px 0 4px 0;">💼 ${pos}</div>
+                      <div style="font-size:8px; color:#334155; background:#f8fafc; padding:4px; border-radius:4px; border:1px solid #e2e8f0; line-height:1.25;">
+                        <strong>Görev Tanımı:</strong> ${getPositionSummary(pos)}
+                      </div>
+                    </div>
+                  </div>
+                `)
+              )
+            ).join('')}
+          </div>
         </div>
         ` : `
         <!-- YATAY HİYERARŞİK AĞAÇ MODELİ -->
@@ -518,66 +559,125 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
       </div>
 
       {gorunum === 'dikey' && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-6 overflow-x-auto shadow-sm">
-          {/* Top Root Node */}
-          <div className="flex justify-center">
-            <div className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white px-8 py-3.5 rounded-2xl shadow-md border border-blue-800 text-center">
-              <div className="flex items-center justify-center gap-2 font-extrabold text-base">
-                <Building2 className="w-5 h-5 text-amber-300" />
-                Şirket Genel Yönetim Kurulu
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-8 overflow-x-auto shadow-sm">
+          {/* 1. ÜST KISIM: Pozisyon Tabanlı Hiyerarşik Ağaç (Sadece Pozisyonlar ve Sayılar) */}
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <div className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white px-8 py-3.5 rounded-2xl shadow-md border border-blue-800 text-center">
+                <div className="flex items-center justify-center gap-2 font-extrabold text-base">
+                  <Building2 className="w-5 h-5 text-amber-300" />
+                  Şirket Genel Yönetim Kurulu
+                </div>
+                <div className="text-xs text-blue-100 mt-0.5 font-medium">
+                  {employees.length} Çalışan · {deptPosMap.size} Departman
+                </div>
               </div>
-              <div className="text-xs text-blue-100 mt-0.5 font-medium">
-                {employees.length} Çalışan · {deptPosMap.size} Departman
-              </div>
+            </div>
+
+            {/* Line connector */}
+            <div className="w-0.5 h-5 bg-blue-300 mx-auto" />
+
+            {/* Department Vertical Grid (Sadece Pozisyonlar & Sayılar) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
+              {Array.from(deptPosMap.entries()).map(([dept, posMap]) => (
+                <div key={dept} className="bg-slate-50 rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  <div className="p-3 text-white font-bold text-sm flex items-center justify-between shadow-sm" style={{ backgroundColor: getColor(dept) }}>
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Building2 className="w-4 h-4" />
+                      {dept}
+                    </span>
+                    <span className="bg-white/20 text-white text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap">
+                      {Array.from(posMap.values()).flat().length} kişi
+                    </span>
+                  </div>
+
+                  <div className="p-3 space-y-2 bg-white">
+                    {Array.from(posMap.entries()).map(([pos, emps]) => (
+                      <div key={pos} className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl hover:border-indigo-300 transition-colors">
+                        <span className="flex items-center gap-2 text-xs font-bold text-slate-800 truncate">
+                          <Briefcase className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+                          <span className="truncate">{pos}</span>
+                        </span>
+                        <span className="px-2.5 py-0.5 bg-indigo-100 text-indigo-700 font-bold text-[11px] rounded-full whitespace-nowrap ml-2">
+                          {emps.length} kişi
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Line connector */}
-          <div className="w-0.5 h-6 bg-blue-300 mx-auto" />
+          {/* 2. ALT KISIM: Sütunlar Bittikten Sonra Personeller, Pozisyonları ve Görev Tanımı Kutuları */}
+          <div className="pt-6 border-t border-slate-200 space-y-5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-600" />
+                  Kurumsal Kadro & Pozisyon Görev Tanımları
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Departman ve pozisyon bazında atanan personeller ile görev tanımı özetleri
+                </p>
+              </div>
+              <span className="px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-xl">
+                {employees.length} Kayıtlı Çalışan
+              </span>
+            </div>
 
-          {/* Department Vertical Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
-            {Array.from(deptPosMap.entries()).map(([dept, posMap]) => (
-              <div key={dept} className="bg-slate-50 rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                <div className="p-3 text-white font-bold text-sm flex items-center justify-between shadow-sm" style={{ backgroundColor: getColor(dept) }}>
-                  <span className="flex items-center gap-1.5 truncate">
-                    <Building2 className="w-4 h-4" />
-                    {dept}
-                  </span>
-                  <span className="bg-white/20 text-white text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap">
-                    {Array.from(posMap.values()).flat().length} kişi
-                  </span>
-                </div>
+            <div className="space-y-6">
+              {Array.from(deptPosMap.entries()).map(([dept, posMap]) => (
+                <div key={dept} className="bg-slate-50/70 border border-slate-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+                    <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: getColor(dept) }} />
+                    <h4 className="font-bold text-sm text-slate-800">{dept} Departmanı</h4>
+                    <span className="text-xs text-slate-500">({Array.from(posMap.values()).flat().length} kişi)</span>
+                  </div>
 
-                <div className="p-3 space-y-3 bg-white">
-                  {Array.from(posMap.entries()).map(([pos, emps]) => (
-                    <div key={pos} className="bg-slate-50 rounded-xl border border-slate-200 p-2.5 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-800 border-b border-slate-200 pb-1.5">
-                        <span className="flex items-center gap-1 text-indigo-700 truncate">
-                          <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
-                          {pos}
-                        </span>
-                        <span className="text-[10px] text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded">
-                          {emps.length}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {emps.map((emp) => (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    {Array.from(posMap.entries()).flatMap(([pos, emps]) =>
+                      emps.map((emp) => {
+                        const summaryText = getPositionSummary(pos);
+                        return (
                           <div
                             key={emp.id}
                             onClick={() => setSecilenNode({ id: emp.id, label: emp.name, tip: 'personel', altBaslik: emp.position, renk: getColor(dept), children: [], employee: emp })}
-                            className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 transition-colors cursor-pointer"
+                            className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
                           >
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: statusRenk[emp.status] || '#94a3b8' }} />
-                            <span className="truncate">{emp.name}</span>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: statusRenk[emp.status] || '#94a3b8' }} />
+                                  {emp.name}
+                                </span>
+                                <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                                  {emp.employee_type === 'emekli' ? 'Emekli' : 'Kadrolu'}
+                                </span>
+                              </div>
+
+                              <div className="text-xs font-bold text-indigo-700 flex items-center gap-1 mb-2">
+                                <Briefcase className="w-3 h-3 text-indigo-500" />
+                                {pos}
+                              </div>
+
+                              <p className="text-[11px] text-slate-600 line-clamp-3 leading-relaxed bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                <span className="font-semibold text-slate-700">Görev Tanımı:</span> {summaryText}
+                              </p>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400">
+                              <span className="truncate max-w-[150px]">{emp.email || 'E-posta yok'}</span>
+                              <span className="font-medium text-slate-500">{emp.phone || ''}</span>
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
