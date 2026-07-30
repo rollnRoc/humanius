@@ -6,6 +6,21 @@ interface BordroIcmalProps {
   bordrolar: BordroItem[];
 }
 
+const parseSafeNumber = (val: any): number => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return isNaN(val) || !isFinite(val) ? 0 : val;
+  const parsed = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
+  return isNaN(parsed) || !isFinite(parsed) ? 0 : parsed;
+};
+
+const getSgkIsci = (b: any) => parseSafeNumber(b.sgk_isci_payi ?? b.sgk_isci ?? b.sgk_isci_tutar ?? b.sgk_kesintisi);
+const getSgkIsveren = (b: any) => parseSafeNumber(b.sgk_isveren_payi ?? b.sgk_isveren ?? b.sgk_isveren_tutar);
+const getGelirVergisi = (b: any) => parseSafeNumber(b.gelir_vergisi ?? b.gelir_vergisi_tutar ?? b.vergi);
+const getBrutMaas = (b: any) => parseSafeNumber(b.brut_maas ?? b.brut);
+const getNetMaas = (b: any) => parseSafeNumber(b.net_maas ?? b.net);
+const getToplamKesinti = (b: any) => parseSafeNumber(b.toplam_kesinti ?? b.kesinti);
+const getDamgaVergisi = (b: any) => parseSafeNumber(b.damga_vergisi ?? b.damga);
+
 const BordroIcmal: React.FC<BordroIcmalProps> = ({ bordrolar }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
@@ -29,13 +44,13 @@ const BordroIcmal: React.FC<BordroIcmalProps> = ({ bordrolar }) => {
   // Icmal Toplamlari
   const totals = useMemo(() => {
     return filteredBordrolar.reduce((acc, curr) => ({
-      brut_maas: acc.brut_maas + (curr.brut_maas || 0),
-      net_maas: acc.net_maas + (curr.net_maas || 0),
-      toplam_kesinti: acc.toplam_kesinti + (curr.toplam_kesinti || 0),
-      sgk_isci_payi: acc.sgk_isci_payi + (curr.sgk_isci_payi || 0),
-      sgk_isveren_payi: acc.sgk_isveren_payi + (curr.sgk_isveren_payi || 0),
-      gelir_vergisi: acc.gelir_vergisi + (curr.gelir_vergisi || 0),
-      damga_vergisi: acc.damga_vergisi + (curr.damga_vergisi || 0)
+      brut_maas: acc.brut_maas + getBrutMaas(curr),
+      net_maas: acc.net_maas + getNetMaas(curr),
+      toplam_kesinti: acc.toplam_kesinti + getToplamKesinti(curr),
+      sgk_isci_payi: acc.sgk_isci_payi + getSgkIsci(curr),
+      sgk_isveren_payi: acc.sgk_isveren_payi + getSgkIsveren(curr),
+      gelir_vergisi: acc.gelir_vergisi + getGelirVergisi(curr),
+      damga_vergisi: acc.damga_vergisi + getDamgaVergisi(curr)
     }), {
       brut_maas: 0,
       net_maas: 0,
@@ -48,7 +63,6 @@ const BordroIcmal: React.FC<BordroIcmalProps> = ({ bordrolar }) => {
   }, [filteredBordrolar]);
 
   const handleExportExcel = () => {
-    // Basit bir CSV export (Excel ile acilabilir)
     const headers = [
       'Dönem', 'Personel', 'Departman', 'TC No', 'Brüt Maaş', 
       'Net Maaş', 'SGK İşçi', 'SGK İşveren', 'Gelir Vergisi', 
@@ -60,13 +74,13 @@ const BordroIcmal: React.FC<BordroIcmalProps> = ({ bordrolar }) => {
       b.employees?.name || '-',
       b.employees?.department || '-',
       b.tc_no || b.employees?.tc_no || '-',
-      b.brut_maas || 0,
-      b.net_maas || 0,
-      b.sgk_isci_payi || 0,
-      b.sgk_isveren_payi || 0,
-      b.gelir_vergisi || 0,
-      b.damga_vergisi || 0,
-      b.toplam_kesinti || 0
+      getBrutMaas(b),
+      getNetMaas(b),
+      getSgkIsci(b),
+      getSgkIsveren(b),
+      getGelirVergisi(b),
+      getDamgaVergisi(b),
+      getToplamKesinti(b)
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
@@ -81,8 +95,9 @@ const BordroIcmal: React.FC<BordroIcmalProps> = ({ bordrolar }) => {
     document.body.removeChild(link);
   };
 
-  const formatMoney = (val: number) => {
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(val);
+  const formatMoney = (val: any) => {
+    const num = parseSafeNumber(val);
+    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(num);
   };
 
   return (
@@ -157,12 +172,12 @@ const BordroIcmal: React.FC<BordroIcmalProps> = ({ bordrolar }) => {
                         <p className="text-xs text-gray-500">{bordro.employees?.department}</p>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-600">{formatMoney(bordro.brut_maas)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{formatMoney(bordro.sgk_isci_payi)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{formatMoney(bordro.sgk_isveren_payi)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{formatMoney(bordro.gelir_vergisi)}</td>
-                    <td className="px-4 py-3 text-right text-red-600">{formatMoney(bordro.toplam_kesinti)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-blue-600">{formatMoney(bordro.net_maas)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{formatMoney(getBrutMaas(bordro))}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{formatMoney(getSgkIsci(bordro))}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{formatMoney(getSgkIsveren(bordro))}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{formatMoney(getGelirVergisi(bordro))}</td>
+                    <td className="px-4 py-3 text-right text-red-600">{formatMoney(getToplamKesinti(bordro))}</td>
+                    <td className="px-4 py-3 text-right font-bold text-blue-600">{formatMoney(getNetMaas(bordro))}</td>
                   </tr>
                 ))
               ) : (
