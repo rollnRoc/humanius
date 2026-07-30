@@ -163,8 +163,11 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       if (employee) {
         const rawJd = employee.joinDate || employee.join_date || (employee as any).ise_giris_tarihi || '';
         const formattedJd = rawJd ? String(rawJd).split('T')[0] : '';
+        const cEmail = employee.contact_email ?? (employee as any).personal_email ?? '';
         setFormData({
           ...employee,
+          contact_email: cEmail,
+          personal_email: cEmail,
           joinDate: formattedJd,
           join_date: formattedJd,
         });

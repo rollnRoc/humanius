@@ -481,6 +481,7 @@ serve(async (req: Request) => {
         };
 
         if (phone !== undefined) updateData.phone = phone;
+        if (contactEmail !== undefined && contactEmail !== '') updateData.personal_email = contactEmail;
         if (address !== undefined) updateData.address = address;
         if (sicilNo !== undefined) updateData.sicil_no = sicilNo;
 
@@ -601,6 +602,10 @@ serve(async (req: Request) => {
         empUpdates.level = validCheckLevels.includes(level) ? level : (level ? level : null);
       }
       if (payload.phone !== undefined) empUpdates.phone = String(payload.phone);
+      const contactEmail = payload.contact_email !== undefined ? String(payload.contact_email ?? '').trim()
+        : (payload.personal_email !== undefined ? String(payload.personal_email ?? '').trim()
+        : (payload.contactEmail !== undefined ? String(payload.contactEmail ?? '').trim() : undefined));
+      if (contactEmail !== undefined) empUpdates.personal_email = contactEmail;
       if (payload.salary !== undefined) empUpdates.salary = Number(payload.salary);
       if (payload.status !== undefined) empUpdates.status = String(payload.status);
       if (payload.join_date !== undefined) empUpdates.join_date = payload.join_date || null;
