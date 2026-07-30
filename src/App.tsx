@@ -732,44 +732,44 @@ const AppInner: React.FC = () => {
         const effectiveJoinDate = emp.joinDate || emp.join_date || null;
         const cleanJoinDate = effectiveJoinDate ? String(effectiveJoinDate).split('T')[0] : null;
 
+        const cleanPayload = {
+          company_id: targetCompanyId,
+          name: emp.name,
+          department: emp.department,
+          position: emp.position,
+          level: emp.level,
+          salary: emp.salary,
+          status: emp.status,
+          phone: emp.phone ?? '',
+          email: targetEmail || emp.email,
+          address: emp.address ?? '',
+          skills: emp.skills ?? [],
+          employee_type: emp.employeeType ?? emp.employee_type ?? 'normal',
+          tc_no: emp.tc_no ?? '',
+          sicil_no: emp.sicil_no ?? '',
+          join_date: cleanJoinDate,
+        };
+
         if (isNewEmployee) {
-          await employeeService.create({
-            company_id: targetCompanyId,
-            name: emp.name,
-            department: emp.department,
-            position: emp.position,
-            level: emp.level,
-            salary: emp.salary,
-            status: emp.status,
-            phone: emp.phone ?? '',
-            email: targetEmail || emp.email,
-            contact_email: emp.contact_email ?? '',
-            address: emp.address ?? '',
-            skills: emp.skills,
-            employee_type: emp.employeeType ?? 'normal',
-            tc_no: emp.tc_no ?? '',
-            sicil_no: emp.sicil_no ?? '',
-            join_date: cleanJoinDate,
-          } as any);
+          await employeeService.create(cleanPayload as any);
         } else if (!isNewEmployee && emp.id) {
-          await employeeService.update(emp.id, {
-            company_id: targetCompanyId,
-            name: emp.name,
-            department: emp.department,
-            position: emp.position,
-            level: emp.level,
-            salary: emp.salary,
-            status: emp.status,
-            phone: emp.phone ?? '',
-            email: targetEmail || emp.email,
-            contact_email: emp.contact_email ?? '',
-            address: emp.address ?? '',
-            skills: emp.skills,
-            employee_type: emp.employeeType ?? 'normal',
-            tc_no: emp.tc_no ?? '',
-            sicil_no: emp.sicil_no ?? '',
-            join_date: cleanJoinDate,
-          } as any);
+          await employeeService.update(emp.id, cleanPayload as any);
+
+          // Update profiles table if matching user profile exists
+          try {
+            await supabase
+              .from('profiles')
+              .update({
+                full_name: emp.name,
+                department: emp.department,
+                position: emp.position,
+                phone: emp.phone ?? '',
+                address: emp.address ?? '',
+                join_date: cleanJoinDate,
+                role: emp.role ?? 'employee'
+              })
+              .eq('id', emp.id);
+          } catch {}
         }
       } catch (clientEmpErr) {
         console.warn('İstemci personel güncelleme uyarısı:', clientEmpErr);

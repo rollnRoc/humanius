@@ -81,9 +81,10 @@ export const employeeService = {
     if (demoService.isDemoActive()) {
       return demoService.createEmployee(employee as any) as any;
     }
+    const { contact_email, personal_email, joinDate, employeeType, role, ...rawPayload } = employee as any;
     const payload = {
-      ...employee,
-      level: sanitizeLevel(employee.level)
+      ...rawPayload,
+      level: sanitizeLevel(rawPayload.level)
     };
     const { data, error } = await supabase
       .from('employees')
@@ -98,9 +99,10 @@ export const employeeService = {
     if (demoService.isDemoActive()) {
       return demoService.updateEmployee(id, updates as any) as any;
     }
+    const { contact_email, personal_email, joinDate, employeeType, role, ...rawUpdates } = updates as any;
     const payload = {
-      ...updates,
-      ...(updates.level !== undefined ? { level: sanitizeLevel(updates.level) } : {})
+      ...rawUpdates,
+      ...(rawUpdates.level !== undefined ? { level: sanitizeLevel(rawUpdates.level) } : {})
     };
     const { data, error } = await supabase
       .from('employees')
