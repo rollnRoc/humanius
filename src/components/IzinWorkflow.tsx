@@ -140,6 +140,23 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({ talep, onOnay, onRed, compa
         })}
       </div>
 
+      {/* Departman Çakışma Uyarısı */}
+      {talep.durum === 'beklemede' && (() => {
+        const overlaps = (talepleri || []).filter(t => 
+          t.id !== talep.id &&
+          t.durum === 'onaylandi' &&
+          ((t.baslangicTarihi <= talep.bitisTarihi) && (t.bitisTarihi >= talep.baslangicTarihi))
+        );
+        if (overlaps.length === 0) return null;
+        const names = overlaps.map(o => o.employeeName || 'Personel').join(', ');
+        return (
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+            <span className="font-bold text-amber-900">⚠️ Çakışma Uyarısı:</span>
+            <span>Aynı tarihlerde {names} onaylı izinli!</span>
+          </div>
+        );
+      })()}
+
       {/* Onay/Red butonları - sadece beklemede olan talepler için */}
       {talep.durum === 'beklemede' && (onOnay || onRed) && (
         <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">

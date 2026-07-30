@@ -447,24 +447,25 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
                   ? 'bg-red-50 border-red-200'
                   : toplamTalepGun > effectiveMaxGun
                     ? 'bg-yellow-50 border-yellow-200'
-                    : 'bg-gray-50 border-gray-200'
+                    : 'bg-blue-50/60 border-blue-200'
               }`}>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm text-gray-600">Toplam İzin Günü:</span>
-                  <span className={`text-sm font-bold ${
-                    validationError ? 'text-red-600' : 'text-gray-800'
-                  }`}>{gunSayisi} gün</span>
-                  {formData.yolIzniTalep && (
-                    <>
-                      <span className="text-sm text-gray-600">+ Yol İzni:</span>
-                      <span className="text-sm font-bold text-blue-600">{formData.yolIzniGun} gün</span>
-                    </>
-                  )}
-                  <span className="text-xs text-gray-500">(Hafta sonları hariç)</span>
-                  <span className="text-xs text-gray-500">
-                    / Maks: {effectiveMaxLabel}{formData.yolIzniTalep ? ' + 4 gün yol izni' : ''}
-                  </span>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-gray-700">Düşülecek İş Günü:</span>
+                    <span className={`text-base font-extrabold ${
+                      validationError ? 'text-red-600' : 'text-blue-700'
+                    }`}>{gunSayisi} İş Günü</span>
+                    {formData.yolIzniTalep && (
+                      <>
+                        <span className="text-sm text-gray-600">+ Yol İzni:</span>
+                        <span className="text-sm font-bold text-amber-600">{formData.yolIzniGun} gün</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500 font-medium">
+                    (Cumartesi ve Pazar günleri izin süresinden düşülmez)
+                  </div>
                 </div>
               </div>
             )}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Download, Search, Filter } from 'lucide-react';
+import { Download, Search, Filter, X } from 'lucide-react';
 import type { BordroItem } from '../types/bordro';
 
 interface BordroIcmalProps {
@@ -127,8 +127,17 @@ const BordroIcmal: React.FC<BordroIcmalProps> = ({ bordrolar }) => {
             placeholder="Personel veya departman ara..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
+            className="w-full pl-10 pr-9 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+              title="Aramayı Temizle"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2 min-w-[200px]">
           <Filter className="w-5 h-5 text-gray-400" />

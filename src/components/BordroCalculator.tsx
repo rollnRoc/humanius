@@ -431,6 +431,25 @@ const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBo
                 Bordro Parametreleri
               </h3>
 
+              {selectedEmployee && (
+                <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 flex items-center justify-between text-xs text-blue-900">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-blue-700">Kümülatif Vergi Matrahı Devri:</span>
+                    <span className="font-mono font-bold text-blue-950">
+                      {formatCurrency(oncekiAylarGVMatrahi)}
+                    </span>
+                    <span className="text-[11px] text-blue-600">({period.split('-')[1]}. aydan önceki birikmiş matrah)</span>
+                  </div>
+                  <div className="bg-blue-600 text-white font-semibold px-2.5 py-1 rounded-lg text-[11px] shrink-0">
+                    Aktif Vergi Dilimi: %{calculatedBordro ? (
+                      (calculatedBordro.kumulatifVergiMatrahi > 1200000 ? 35 :
+                       calculatedBordro.kumulatifVergiMatrahi > 330000 ? 27 :
+                       calculatedBordro.kumulatifVergiMatrahi > 158000 ? 20 : 15)
+                    ) : 15}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
