@@ -100,49 +100,54 @@ export const employeeService = {
       return demoService.updateEmployee(id, updates as any) as any;
     }
     const { contact_email, personal_email, joinDate, employeeType, role, ...rawUpdates } = updates as any;
-    const payload = {
-      ...rawUpdates,
-      ...(rawUpdates.level !== undefined ? { level: sanitizeLevel(rawUpdates.level) } : {})
-    };
+    const cleanLevel = sanitizeLevel(rawUpdates.level);
+    const cleanJoinDate = rawUpdates.join_date
+      ? String(rawUpdates.join_date).split('T')[0]
+      : (joinDate ? String(joinDate).split('T')[0] : null);
 
     let updatedRow: Employee | null = null;
+
+    // Use Edge Function (Service Role Admin) as primary updater to bypass client RLS seamlessly without browser XHR 400/403 console errors
     try {
-      const { data, error } = await supabase
-        .from('employees')
-        .update(payload)
-        .eq('id', id)
-        .select()
-        .maybeSingle();
-
-      if (!error && data) {
-        updatedRow = data as Employee;
-      }
-    } catch (e) {
-      console.warn('Client update error:', e);
-    }
-
-    if (!updatedRow) {
+      const { userManagementService } = await import('./userManagementService');
+      await userManagementService.updateEmployeeDetails({
+        employeeId: id,
+        email: updates.email || '',
+        phone: updates.phone ?? '',
+        address: updates.address ?? '',
+        join_date: cleanJoinDate,
+        companyId: updates.company_id,
+        fullName: updates.name,
+        department: updates.department,
+        position: updates.position,
+        level: cleanLevel ?? undefined,
+        salary: updates.salary,
+        status: updates.status,
+        tc_no: updates.tc_no,
+        sicil_no: updates.sicil_no,
+        employee_type: updates.employee_type,
+      });
+      updatedRow = { id, ...updates, level: cleanLevel ?? '', join_date: cleanJoinDate } as any;
+    } catch (edgeErr) {
+      console.warn('Edge function update error, trying direct client update:', edgeErr);
       try {
-        const { userManagementService } = await import('./userManagementService');
-        await userManagementService.updateEmployeeDetails({
-          employeeId: id,
-          email: updates.email || '',
-          phone: updates.phone ?? '',
-          address: updates.address ?? '',
-          join_date: updates.join_date ?? null,
-          companyId: updates.company_id,
-          fullName: updates.name,
-          department: updates.department,
-          position: updates.position,
-          level: updates.level,
-          salary: updates.salary,
-          status: updates.status,
-          tc_no: updates.tc_no,
-          sicil_no: updates.sicil_no,
-          employee_type: updates.employee_type,
-        });
-      } catch (e) {
-        console.warn('Fallback update details error:', e);
+        const payload = {
+          ...rawUpdates,
+          join_date: cleanJoinDate,
+          ...(cleanLevel !== undefined ? { level: cleanLevel } : {})
+        };
+        const { data, error } = await supabase
+          .from('employees')
+          .update(payload)
+          .eq('id', id)
+          .select()
+          .maybeSingle();
+
+        if (!error && data) {
+          updatedRow = data as Employee;
+        }
+      } catch (clientErr) {
+        console.warn('Client update error:', clientErr);
       }
     }
 
