@@ -160,6 +160,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   // Belge yükleme
   const [uploadingKategori, setUploadingKategori] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [fizikselDosyaVar, setFizikselDosyaVar] = useState<Record<string, boolean>>({});
 
   // Görev tanımları
   const [gorevTanimlari, setGorevTanimlari] = useState<GorevTanimi[]>([]);
@@ -673,6 +674,18 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                             <p className="text-xs text-gray-500 mt-0.5">{kat.aciklama}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
+                            <label className="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 border border-gray-200 px-2.5 py-1.5 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={!!(fizikselDosyaVar[kat.id])}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setFizikselDosyaVar(prev => ({ ...prev, [kat.id]: checked }));
+                                }}
+                                className="w-3.5 h-3.5 text-blue-600 rounded"
+                              />
+                              <span>Fiziksel Dosyasında Var</span>
+                            </label>
                             <input
                               ref={(el) => { fileInputRefs.current[kat.id] = el; }}
                               type="file"
@@ -690,7 +703,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                               ) : (
                                 <Upload className="w-3.5 h-3.5" />
                               )}
-                              Dosya Seç
+                              Dijital Dosya Yükle
                             </button>
                           </div>
                         </div>

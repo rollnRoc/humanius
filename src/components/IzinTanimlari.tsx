@@ -251,13 +251,20 @@ const IzinTanimlari: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Başlık */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold text-gray-800">İzin Türleri & Hakediş Kuralları</h2>
           <p className="text-sm text-gray-500 mt-0.5">
             İzin türlerini, hak günlerini ve devir kurallarını yapılandırın
           </p>
         </div>
+        <button
+          onClick={yeniFormuAc}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-sm"
+        >
+          <Plus className="w-4 h-4" />
+          Yeni İzin Türü Ekle
+        </button>
       </div>
 
       {/* Başarı bildirimi */}

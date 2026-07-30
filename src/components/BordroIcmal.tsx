@@ -69,18 +69,20 @@ const BordroIcmal: React.FC<BordroIcmalProps> = ({ bordrolar }) => {
       'Damga Vergisi', 'Toplam Kesinti'
     ];
     
+    const fmtVal = (val: number) => val.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    
     const rows = filteredBordrolar.map(b => [
       b.period,
-      b.employees?.name || '-',
-      b.employees?.department || '-',
-      b.tc_no || b.employees?.tc_no || '-',
-      getBrutMaas(b),
-      getNetMaas(b),
-      getSgkIsci(b),
-      getSgkIsveren(b),
-      getGelirVergisi(b),
-      getDamgaVergisi(b),
-      getToplamKesinti(b)
+      `"${b.employees?.name || '-'}"`,
+      `"${b.employees?.department || '-'}"`,
+      `"${b.tc_no || b.employees?.tc_no || '-'}"`,
+      fmtVal(getBrutMaas(b)),
+      fmtVal(getNetMaas(b)),
+      fmtVal(getSgkIsci(b)),
+      fmtVal(getSgkIsveren(b)),
+      fmtVal(getGelirVergisi(b)),
+      fmtVal(getDamgaVergisi(b)),
+      fmtVal(getToplamKesinti(b))
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 

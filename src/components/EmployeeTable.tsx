@@ -22,6 +22,19 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [employees]);
+
+  const totalPages = Math.ceil(employees.length / pageSize) || 1;
+  const paginatedEmployees = React.useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return employees.slice(start, start + pageSize);
+  }, [employees, currentPage, pageSize]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -80,13 +93,13 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
             </tr>
           </thead>
           <tbody className="bg-white">
-            {employees.map((employee, index) => (
+            {paginatedEmployees.map((employee, index) => (
               <tr 
                 key={employee.id}
                 className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
                 onClick={() => onEmployeeClick(employee)}
               >
-                <td className="px-4 py-3 text-sm text-gray-500">{index + 1}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{(currentPage - 1) * pageSize + index + 1}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3 relative">
                     <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-200 flex items-center justify-center text-xs text-gray-600">
@@ -100,41 +113,51 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                       className="flex items-center gap-1 text-sm font-medium text-gray-800 hover:text-blue-600 transition-colors"
                     >
                       {employee.name}
-                      <ChevronDown className="w-4 h-4" />
+                      <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
                     </button>
 
+                    {/* Hızlı Aksiyonlar Menüsü */}
                     {openMenuId === employee.id && (
                       <div
                         ref={menuRef}
-                        className="absolute left-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px]"
+                        className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1 min-w-[200px]"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        <button
+                          onClick={() => {
+                            onEmployeeClick(employee);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> Özlük Kartını Gör
+                        </button>
                         <button
                           onClick={() => {
                             onEmployeeActionSelect?.(employee, 'gorev');
                             setOpenMenuId(null);
                           }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                          className="w-full px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
                         >
-                          Görev Tanımı
+                          ✏️ Görev Tanımı Oluştur
                         </button>
                         <button
                           onClick={() => {
                             onEmployeeActionSelect?.(employee, 'bordro');
                             setOpenMenuId(null);
                           }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                          className="w-full px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
                         >
-                          Bordro
+                          💰 Bordro Hesapla
                         </button>
                         <button
                           onClick={() => {
                             onEmployeeActionSelect?.(employee, 'izin');
                             setOpenMenuId(null);
                           }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                          className="w-full px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
                         >
-                          İzin Yönetimi
+                          📅 İzin Talebi Aç
                         </button>
                       </div>
                     )}
@@ -142,46 +165,58 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{employee.company}</td>
                 <td className="px-4 py-3 text-sm text-gray-600">{employee.department}</td>
-                <td className="px-4 py-3 text-sm text-gray-800">{employee.position}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs border ${employee.employeeType === 'emekli' ? 'bg-purple-50 border-purple-200 text-purple-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
-                    {employee.employeeType === 'emekli' ? 'Emekli' : 'Normal Çalışan'}
-                  </span>
+                <td className="px-4 py-3 text-sm text-gray-600">{employee.position}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">
+                  {employee.employeeType === 'emekli' || (employee as any).employee_type === 'emekli' ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Emekli (SGDP)
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                      Normal (SGK)
+                    </span>
+                  )}
                 </td>
-                <td className="px-4 py-3">
-                  {getStatusBadge(employee.status)}
+                <td className="px-4 py-3">{getStatusBadge(employee.status)}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">
+                  {employee.phone ? (
+                    <a 
+                      href={`tel:${employee.phone}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 hover:text-blue-600 transition-colors"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-gray-400" />
+                      {employee.phone}
+                    </a>
+                  ) : (
+                    '-'
+                  )}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-600">{employee.phone}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => onEmployeeClick(employee)}
                       className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title={t('table.view')}
+                      title={t('table.edit')}
                     >
-                      <Eye className="w-4 h-4" />
+                      <Edit className="w-4 h-4" />
                     </button>
-                    {appRole !== 'employee' && appRole !== 'user' && (
-                        <button
-                          onClick={() => onEmployeeClick(employee)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title={t('table.edit')}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                      )}
                     <button
                       onClick={() => {
-                        const csvContent = [
-                          ['Ad Soyad', 'Şirket', 'Departman', 'Pozisyon', 'Seviye', 'Ücret', 'Durum', 'Telefon', 'Email'].join(','),
-                          [employee.name, employee.company, employee.department, employee.position, employee.level, employee.salary, employee.status, employee.phone, employee.email].join(',')
-                        ].join('\n');
+                        const row = [
+                          employee.name,
+                          employee.company,
+                          employee.department,
+                          employee.position,
+                          employee.status,
+                          employee.phone || ''
+                        ];
+                        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + row.join(';') + "\n";
                         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                         const link = document.createElement('a');
                         const url = URL.createObjectURL(blob);
                         link.setAttribute('href', url);
                         link.setAttribute('download', `${employee.name.replace(/\s+/g, '_')}_bilgileri.csv`);
-                        link.style.visibility = 'hidden';
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
@@ -205,6 +240,51 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Footer */}
+      {employees.length > 0 && (
+        <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between flex-wrap gap-3 text-xs text-gray-600">
+          <div>
+            Toplam <strong>{employees.length}</strong> kayıttan <strong>{(currentPage - 1) * pageSize + 1}</strong> - <strong>{Math.min(currentPage * pageSize, employees.length)}</strong> arası gösteriliyor
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span>Sayfa Başı:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="border border-gray-200 rounded-lg px-2 py-1 bg-white outline-none"
+              >
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-2.5 py-1 border border-gray-200 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-40"
+              >
+                Önceki
+              </button>
+              <span className="px-2 font-semibold text-gray-800">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-2.5 py-1 border border-gray-200 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-40"
+              >
+                Sonraki
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
