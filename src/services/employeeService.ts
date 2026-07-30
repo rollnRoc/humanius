@@ -99,16 +99,14 @@ export const employeeService = {
     if (demoService.isDemoActive()) {
       return demoService.updateEmployee(id, updates as any) as any;
     }
-    const { joinDate, employeeType, role, ...rawUpdates } = updates as any;
+    const { contact_email, personal_email, joinDate, employeeType, role, ...rawUpdates } = updates as any;
     const cleanLevel = sanitizeLevel(rawUpdates.level);
     const cleanJoinDate = rawUpdates.join_date
       ? String(rawUpdates.join_date).split('T')[0]
       : (joinDate ? String(joinDate).split('T')[0] : null);
-    const cleanContactEmail = String(rawUpdates.contact_email ?? rawUpdates.personal_email ?? '').trim();
 
     let updatedRow: Employee | null = null;
 
-    // Use Edge Function (Service Role Admin) as primary updater to bypass client RLS seamlessly without browser XHR 400/403 console errors
     try {
       const { userManagementService } = await import('./userManagementService');
       await userManagementService.updateEmployeeDetails({
@@ -116,8 +114,6 @@ export const employeeService = {
         email: updates.email || '',
         phone: updates.phone ?? '',
         address: updates.address ?? '',
-        contact_email: cleanContactEmail,
-        personal_email: cleanContactEmail,
         join_date: cleanJoinDate,
         companyId: updates.company_id,
         fullName: updates.name,
@@ -130,30 +126,9 @@ export const employeeService = {
         sicil_no: updates.sicil_no,
         employee_type: updates.employee_type,
       });
-      updatedRow = { id, ...updates, contact_email: cleanContactEmail, personal_email: cleanContactEmail, level: cleanLevel ?? '', join_date: cleanJoinDate } as any;
+      updatedRow = { id, ...updates, level: cleanLevel ?? '', join_date: cleanJoinDate } as any;
     } catch (edgeErr) {
-      console.warn('Edge function update error, trying direct client update:', edgeErr);
-      try {
-        const payload = {
-          ...rawUpdates,
-          personal_email: cleanContactEmail || null,
-          join_date: cleanJoinDate,
-          ...(cleanLevel !== undefined ? { level: cleanLevel } : {})
-        };
-        delete (payload as any).contact_email;
-        const { data, error } = await supabase
-          .from('employees')
-          .update(payload)
-          .eq('id', id)
-          .select()
-          .maybeSingle();
-
-        if (!error && data) {
-          updatedRow = data as Employee;
-        }
-      } catch (clientErr) {
-        console.warn('Client update error:', clientErr);
-      }
+      console.warn('Edge function update warning:', edgeErr);
     }
 
     return (updatedRow || { id, ...updates }) as Employee;

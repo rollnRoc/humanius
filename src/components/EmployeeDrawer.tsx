@@ -517,20 +517,6 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     />
                   </div>
                   <div>
-                    <label htmlFor="employee-contact-email" className="block text-sm font-medium text-gray-700 mb-2">Kişisel İletişim E-postası</label>
-                    <input
-                      id="employee-contact-email"
-                      type="email"
-                      value={formData.contact_email ?? ''}
-                      onChange={(e) => handleInputChange('contact_email', e.target.value)}
-                      placeholder="Örn: ahmet.mehmet@gmail.com"
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                    <p className="text-[11px] text-gray-400 mt-1">
-                      * Personelin şahsi/özel iletişim e-posta adresidir (Sistem oturum açma e-postasından bağımsızdır).
-                    </p>
-                  </div>
-                  <div>
                     <label htmlFor="employee-address" className="block text-sm font-medium text-gray-700 mb-2">Adres</label>
                     <textarea
                       id="employee-address"

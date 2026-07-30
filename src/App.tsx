@@ -714,8 +714,6 @@ const AppInner: React.FC = () => {
         }
       }
 
-      const cleanContactEmail = (emp.contact_email ?? emp.personal_email ?? '').trim();
-
       if (targetEmail || emp.id) {
         try {
           await userManagementService.updateEmployeeDetails({
@@ -728,8 +726,6 @@ const AppInner: React.FC = () => {
             position: emp.position,
             department: emp.department,
             phone: emp.phone ?? '',
-            contact_email: cleanContactEmail,
-            personal_email: cleanContactEmail,
             salary: emp.salary,
             status: emp.status,
             join_date: cleanJoinDate,
@@ -754,8 +750,6 @@ const AppInner: React.FC = () => {
           status: emp.status,
           phone: emp.phone ?? '',
           email: targetEmail || emp.email,
-          contact_email: cleanContactEmail,
-          personal_email: cleanContactEmail,
           address: emp.address ?? '',
           skills: emp.skills ?? [],
           employee_type: emp.employeeType ?? emp.employee_type ?? 'normal',
@@ -792,8 +786,6 @@ const AppInner: React.FC = () => {
           ...item,
           ...emp,
           email: targetEmail || emp.email,
-          contact_email: cleanContactEmail,
-          personal_email: cleanContactEmail,
           joinDate: cleanJoinDate || item.joinDate,
           join_date: cleanJoinDate || item.join_date,
         } : item);
