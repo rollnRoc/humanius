@@ -1,5 +1,5 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -101,7 +101,7 @@ async function createManagedUser(email: string, password: string, fullName: stri
   return data.user;
 }
 
-Deno.serve(async (req: Request) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
@@ -173,6 +173,8 @@ Deno.serve(async (req: Request) => {
       }
 
       return jsonResponse({ message: 'testkullanici@gmail.com başarıyla geri yüklendi.', userId: targetUserId });
+    }
+
     if (operation === 'check_email_availability') {
       const email = String(payload.email || '').trim().toLowerCase();
       const excludeId = String(payload.excludeId || '').trim();
@@ -195,6 +197,8 @@ Deno.serve(async (req: Request) => {
       const existingProfs = (profs || []).filter(p => p.id !== excludeId);
 
       const isTaken = existingEmps.length > 0 || existingProfs.length > 0;
+      return jsonResponse({ available: !isTaken, isTaken });
+    }
 
     if (operation === 'reset_password_with_tc_phone') {
       const email = String(payload.email || '').trim().toLowerCase();
@@ -477,7 +481,6 @@ Deno.serve(async (req: Request) => {
         };
 
         if (phone !== undefined) updateData.phone = phone;
-        if (contactEmail !== undefined) updateData.contact_email = contactEmail;
         if (address !== undefined) updateData.address = address;
         if (sicilNo !== undefined) updateData.sicil_no = sicilNo;
 
@@ -637,7 +640,7 @@ Deno.serve(async (req: Request) => {
         });
         try {
           await adminClient.from('profiles').update({ must_change_password: forceState } as any).eq('id', targetId);
-        } catch {}
+        } catch (_err) {}
       }
 
       return jsonResponse({ message: `Kullanıcı şifre değiştirme zorunluluğu (${forceState}) yapıldı.` });
