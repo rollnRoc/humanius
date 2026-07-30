@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Settings, Shield, Calculator, GraduationCap, FileText, Building, AlertTriangle, CheckCircle, Clock, Users, Calendar, DollarSign, TrendingUp, Plus, Pencil, Trash2, X, KeyRound, PenTool } from 'lucide-react';
+import { Settings, Shield, Calculator, GraduationCap, FileText, Building, Building2, AlertTriangle, CheckCircle, Clock, Users, Calendar, DollarSign, TrendingUp, Plus, Pencil, Trash2, X, KeyRound, PenTool } from 'lucide-react';
 import { VARSAYILAN_SISTEM_AYARLARI, SISTEM_PARAMETRELERI } from '../data/sistemAyarlari';
 import { SistemAyarlari as ISistemAyarlari, SistemParametresi, ParametreKategorisi } from '../types/sistemAyarlari';
 import { useAuth } from '../contexts/AuthContext';
@@ -1171,9 +1171,22 @@ const SistemAyarlari: React.FC = () => {
           {activeTab === 'sirket_bilgileri' && (
             <div className="space-y-6">
               <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <Building className="w-6 h-6 text-cyan-600" />
-                  <h3 className="text-lg font-semibold text-cyan-800">Şirket Bilgileri</h3>
+                <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                  <div className="flex items-center gap-3">
+                    <Building className="w-6 h-6 text-cyan-600" />
+                    <h3 className="text-lg font-semibold text-cyan-800">Şirket Bilgileri</h3>
+                  </div>
+                  <button
+                    onClick={() => {
+                      resetCompanyForm();
+                      setShowCompanyForm(true);
+                      setActiveTab('sirketler');
+                    }}
+                    className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-md"
+                  >
+                    <Plus className="w-4 h-4" />
+                    + Yeni Şirket Ekle
+                  </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-4">
@@ -1245,6 +1258,103 @@ const SistemAyarlari: React.FC = () => {
                     <strong>Bulunduğu İl:</strong> {sistemAyarlari.sirketBilgileri.bulunduguIl} - 
                     Bu bilgi yol izni taleplerinde il dışı seyahat kontrolü için kullanılır.
                   </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tüm Şirketler & Ekleme */}
+          {activeTab === 'sirketler' && (
+            <div className="space-y-6">
+              <div className="bg-purple-50 border border-purple-200 rounded-2xl p-6">
+                <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center text-white">
+                      <Building2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-purple-950">Tüm Şirketler & Yönetim</h3>
+                      <p className="text-xs text-purple-700">Sistemde tanımlı tüm şirketleri listeleyin veya yeni şirket ekleyin</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      resetCompanyForm();
+                      setShowCompanyForm(true);
+                    }}
+                    className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-all shadow-md"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Yeni Şirket Ekle
+                  </button>
+                </div>
+
+                {manageError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-medium">
+                    {manageError}
+                  </div>
+                )}
+                {manageMessage && (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm font-medium">
+                    {manageMessage}
+                  </div>
+                )}
+
+                {/* Şirketler Listesi Tablosu */}
+                <div className="overflow-x-auto bg-white border border-purple-100 rounded-xl shadow-sm">
+                  <table className="w-full text-sm">
+                    <thead className="bg-purple-50 border-b border-purple-100 text-purple-900 text-xs font-semibold">
+                      <tr>
+                        <th className="px-4 py-3 text-left">#</th>
+                        <th className="px-4 py-3 text-left">Şirket Adı</th>
+                        <th className="px-4 py-3 text-left">Şehir</th>
+                        <th className="px-4 py-3 text-left">Vergi No</th>
+                        <th className="px-4 py-3 text-left">SGK Sicil No</th>
+                        <th className="px-4 py-3 text-left">Telefon</th>
+                        <th className="px-4 py-3 text-left">Email</th>
+                        <th className="px-4 py-3 text-center">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {companies.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="px-4 py-8 text-center text-gray-400 text-sm">
+                            Henüz kayıtlı şirket bulunmamaktadır.
+                          </td>
+                        </tr>
+                      ) : (
+                        companies.map((c, idx) => (
+                          <tr key={c.id} className="hover:bg-purple-50/30 transition-colors">
+                            <td className="px-4 py-3 font-medium text-gray-500">{idx + 1}</td>
+                            <td className="px-4 py-3 font-semibold text-gray-900">{c.name}</td>
+                            <td className="px-4 py-3 text-gray-600">{c.city || '-'}</td>
+                            <td className="px-4 py-3 text-gray-600">{c.tax_number || '-'}</td>
+                            <td className="px-4 py-3 text-gray-600">{c.sgk_sicil_no || '-'}</td>
+                            <td className="px-4 py-3 text-gray-600">{c.phone || '-'}</td>
+                            <td className="px-4 py-3 text-gray-600">{c.email || '-'}</td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={() => startEditCompany(c)}
+                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Düzenle"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCompany(c)}
+                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Sil"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -1468,6 +1578,137 @@ const SistemAyarlari: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Yeni Şirket Ekle / Düzenle Modal */}
+      {showCompanyForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-purple-50">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center text-white">
+                  <Building2 size={18} />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">
+                    {editingCompanyId ? 'Şirketi Düzenle' : 'Yeni Şirket Tanımla'}
+                  </h2>
+                  <p className="text-xs text-gray-500">Sisteme yeni şirket ve kurum kaydedin</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowCompanyForm(false);
+                  resetCompanyForm();
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCompanySubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Şirket Unvanı *</label>
+                <input
+                  type="text"
+                  value={companyForm.name}
+                  onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
+                  placeholder="Örn: Toyota Otomotiv A.Ş."
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Bulunduğu İl</label>
+                  <input
+                    type="text"
+                    value={companyForm.city}
+                    onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
+                    placeholder="Örn: İstanbul / Sakarya"
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Telefon</label>
+                  <input
+                    type="text"
+                    value={companyForm.phone}
+                    onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
+                    placeholder="Örn: 0212 555 0000"
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Vergi Numarası</label>
+                  <input
+                    type="text"
+                    value={companyForm.tax_number}
+                    onChange={(e) => setCompanyForm({ ...companyForm, tax_number: e.target.value })}
+                    placeholder="10 haneli VKN"
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">SGK Sicil No</label>
+                  <input
+                    type="text"
+                    value={companyForm.sgk_sicil_no}
+                    onChange={(e) => setCompanyForm({ ...companyForm, sgk_sicil_no: e.target.value })}
+                    placeholder="SGK İşyeri Sicil"
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Şirket E-Posta</label>
+                <input
+                  type="email"
+                  value={companyForm.email}
+                  onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
+                  placeholder="info@sirket.com"
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Adres</label>
+                <textarea
+                  value={companyForm.address}
+                  onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })}
+                  rows={2}
+                  placeholder="Tam şirket adresi..."
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCompanyForm(false);
+                    resetCompanyForm();
+                  }}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md"
+                >
+                  {editingCompanyId ? 'Güncelle' : 'Şirketi Kaydet'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
