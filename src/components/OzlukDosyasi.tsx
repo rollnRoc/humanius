@@ -279,7 +279,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   const handleDelete = async (dosya: OzlukDosya) => {
     if (!window.confirm(`"${dosya.dosya_adi ?? 'Bu kayıt'}" silinsin mi?`)) return;
     try {
-      await ozlukDosyasiService.deleteDosya(dosya.id, dosya.dosya_yolu);
+      await ozlukDosyasiService.deleteDosya(dosya.id, dosya.dosya_yolu, selectedEmpId);
       setDosyalar((prev) => prev.filter((d) => d.id !== dosya.id));
     } catch (err: any) {
       alert(`Silinemedi: ${err?.message ?? 'Bilinmeyen hata'}`);

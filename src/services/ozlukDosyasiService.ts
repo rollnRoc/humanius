@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { demoService } from './demoService';
 
 export interface OzlukDosya {
   id: string;
@@ -13,6 +14,10 @@ export interface OzlukDosya {
 
 const MAX_FILE_MB = 4;
 
+function isValidUuid(id: string): boolean {
+  return Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -24,13 +29,26 @@ function fileToBase64(file: File): Promise<string> {
 
 export const ozlukDosyasiService = {
   async getDosyalar(employeeId: string): Promise<OzlukDosya[]> {
-    const { data, error } = await supabase
-      .from('ozluk_dosyalari')
-      .select('*')
-      .eq('employee_id', employeeId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as OzlukDosya[];
+    if (demoService.isDemoActive() || !isValidUuid(employeeId)) {
+      const saved = localStorage.getItem(`humanius_ozluk_dosyalari_${employeeId}`);
+      return saved ? JSON.parse(saved) : [];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('ozluk_dosyalari')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('ozluk_dosyalari query warning:', error);
+        return [];
+      }
+      return (data ?? []) as OzlukDosya[];
+    } catch (_err) {
+      return [];
+    }
   },
 
   async uploadDosya(
@@ -45,6 +63,23 @@ export const ozlukDosyasiService = {
     }
 
     const base64 = await fileToBase64(file);
+
+    if (demoService.isDemoActive() || !isValidUuid(employeeId) || !isValidUuid(companyId)) {
+      const newRec: OzlukDosya = {
+        id: 'dosya-' + Math.random().toString(36).substr(2, 9),
+        employee_id: employeeId,
+        company_id: companyId,
+        kategori,
+        dosya_adi: file.name,
+        dosya_yolu: base64,
+        notlar: notlar ?? null,
+        created_at: new Date().toISOString(),
+      };
+      const existing = await this.getDosyalar(employeeId);
+      const updated = [newRec, ...existing];
+      localStorage.setItem(`humanius_ozluk_dosyalari_${employeeId}`, JSON.stringify(updated));
+      return newRec;
+    }
 
     const { data, error } = await supabase
       .from('ozluk_dosyalari')
@@ -69,6 +104,23 @@ export const ozlukDosyasiService = {
     kategori: string,
     notlar: string
   ): Promise<OzlukDosya> {
+    if (demoService.isDemoActive() || !isValidUuid(employeeId) || !isValidUuid(companyId)) {
+      const newRec: OzlukDosya = {
+        id: 'dosya-' + Math.random().toString(36).substr(2, 9),
+        employee_id: employeeId,
+        company_id: companyId,
+        kategori,
+        dosya_adi: null,
+        dosya_yolu: null,
+        notlar,
+        created_at: new Date().toISOString(),
+      };
+      const existing = await this.getDosyalar(employeeId);
+      const updated = [newRec, ...existing];
+      localStorage.setItem(`humanius_ozluk_dosyalari_${employeeId}`, JSON.stringify(updated));
+      return newRec;
+    }
+
     const { data, error } = await supabase
       .from('ozluk_dosyalari')
       .insert({
@@ -85,16 +137,21 @@ export const ozlukDosyasiService = {
     return data as OzlukDosya;
   },
 
-  async deleteDosya(id: string, _dosyaYolu: string | null): Promise<void> {
+  async deleteDosya(id: string, _dosyaYolu: string | null, employeeId?: string): Promise<void> {
+    if (employeeId && (demoService.isDemoActive() || !isValidUuid(id))) {
+      const existing = await this.getDosyalar(employeeId);
+      const updated = existing.filter(d => d.id !== id);
+      localStorage.setItem(`humanius_ozluk_dosyalari_${employeeId}`, JSON.stringify(updated));
+      return;
+    }
     const { error } = await supabase
       .from('ozluk_dosyalari')
       .delete()
       .eq('id', id);
-    if (error) throw error;
+    if (error) console.warn('Delete dosya warning:', error);
   },
 
   async getSignedUrl(dosyaYolu: string): Promise<string> {
-    // base64 data URL — doğrudan döndür
     return dosyaYolu;
   },
 };
