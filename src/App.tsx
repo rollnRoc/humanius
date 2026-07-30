@@ -1487,7 +1487,7 @@ const AppInner: React.FC = () => {
         {currentView === 'izin-tanimlari' && <IzinTanimlari />}
 
         {/* Organizasyon Şeması */}
-        {currentView === 'org-sema' && <OrganizasyonSemasi employees={employees} />}
+        {currentView === 'org-sema' && <OrganizasyonSemasi employees={employees} companyName={companies.find(c => c.id === selectedCompany)?.name} />}
 
         {/* Zimmet Yönetimi */}
         {currentView === 'zimmet' && <ZimmetYonetimi employees={employees} />}

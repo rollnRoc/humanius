@@ -33,6 +33,7 @@ interface OrgNode {
 
 interface OrganizasyonSemasiProps {
   employees: Employee[];
+  companyName?: string;
 }
 
 function buildOrgTree(employees: Employee[]): OrgNode[] {
@@ -263,7 +264,7 @@ const PersonelDetay: React.FC<{ node: OrgNode | null }> = ({ node }) => {
   );
 };
 
-const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) => {
+const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, companyName }) => {
   const [secilenNode, setSecilenNode] = useState<OrgNode | null>(null);
   const [aramaMetni, setAramaMetni] = useState('');
   const [gorunum, setGorunum] = useState<'dikey' | 'agac' | 'kart'>('dikey');
@@ -372,7 +373,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees }) =>
 
         <!-- Summary Bar -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:9px; color:#475569;">
-          <span><strong>Kurum:</strong> HİZEL OTOMOTİV İNŞ.A.Ş / Humanius HRMS</span>
+          <span><strong>Kurum:</strong> ${companyName || (employees.length > 0 && (employees[0] as any).company ? (employees[0] as any).company : 'Kurumsal Şirket')} / Humanius HRMS</span>
           <span><strong>Kadro Yapısı:</strong> ${employees.length} Çalışan · ${deptPosMap.size} Departman</span>
         </div>
 

@@ -453,13 +453,14 @@ serve(async (req: Request) => {
         .select('*')
         .eq('company_id', companyId);
 
+      const targetPassword = payload.password ? String(payload.password).trim() : '987654';
       let resetPasswordsCount = 0;
       if (compProfiles && compProfiles.length > 0) {
         for (const prof of compProfiles) {
           if (prof.id) {
             try {
               await adminClient.auth.admin.updateUserById(prof.id, {
-                password: '123456',
+                password: targetPassword,
                 user_metadata: { must_change_password: false }
               });
               await adminClient.from('profiles').update({ must_change_password: false } as any).eq('id', prof.id);
