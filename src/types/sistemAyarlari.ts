@@ -5,7 +5,8 @@ export type ParametreKategorisi =
   | 'egitim'
   | 'belge_kurallari'
   | 'sistem_kurallari'
-  | 'sirket_bilgileri';
+  | 'sirket_bilgileri'
+  | 'sirketler';
 
 export interface SistemParametresi {
   id: string;

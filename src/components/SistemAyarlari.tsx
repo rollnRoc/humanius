@@ -534,12 +534,25 @@ const SistemAyarlari: React.FC = () => {
 
       {/* Header */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center gap-3 mb-4">
-          <Settings className="w-8 h-8 text-blue-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Sistem Ayarları</h1>
-            <p className="text-gray-600">Zorunlu şartlar, süreler ve sistem parametreleri</p>
+        <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <Settings className="w-8 h-8 text-blue-600" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">Sistem Ayarları</h1>
+              <p className="text-gray-600">Zorunlu şartlar, süreler ve sistem parametreleri</p>
+            </div>
           </div>
+
+          <button
+            onClick={() => {
+              resetCompanyForm();
+              setShowCompanyForm(true);
+            }}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-md"
+          >
+            <Building2 className="w-5 h-5" />
+            + Yeni Şirket Ekle
+          </button>
         </div>
 
         {/* Uyarı Mesajı */}
