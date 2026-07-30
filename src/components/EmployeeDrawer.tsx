@@ -216,6 +216,8 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     if (field === 'joinDate' || field === 'join_date') {
       const cleanValue = value ? String(value).split('T')[0] : '';
       setFormData(prev => prev ? { ...prev, joinDate: cleanValue, join_date: cleanValue } : null);
+    } else if (field === 'contact_email' || field === 'personal_email') {
+      setFormData(prev => prev ? { ...prev, contact_email: value, personal_email: value } : null);
     } else {
       setFormData(prev => prev ? { ...prev, [field]: value } : null);
     }
