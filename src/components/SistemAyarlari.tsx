@@ -177,7 +177,8 @@ const SistemAyarlari: React.FC = () => {
     { id: 'egitim', label: 'Eğitim & Gelişim', icon: GraduationCap, color: 'orange' },
     { id: 'belge_kurallari', label: 'Belge Kuralları', icon: FileText, color: 'red' },
     { id: 'sistem_kurallari', label: 'Sistem Kuralları', icon: Settings, color: 'gray' },
-    { id: 'sirket_bilgileri', label: 'Şirket Bilgileri', icon: Building, color: 'cyan' }
+    { id: 'sirket_bilgileri', label: 'Şirket Bilgileri', icon: Building, color: 'cyan' },
+    { id: 'sirketler', label: 'Tüm Şirketler & Yönetim', icon: Building2, color: 'purple' },
   ];
 
   const filteredParametreler = parametreler.filter(p => p.kategori === activeTab);
@@ -190,7 +191,8 @@ const SistemAyarlari: React.FC = () => {
       orange: 'bg-orange-50 border-orange-200 text-orange-700',
       red: 'bg-red-50 border-red-200 text-red-700',
       gray: 'bg-gray-50 border-gray-200 text-gray-700',
-      cyan: 'bg-cyan-50 border-cyan-200 text-cyan-700'
+      cyan: 'bg-cyan-50 border-cyan-200 text-cyan-700',
+      purple: 'bg-purple-50 border-purple-200 text-purple-700',
     };
     return renkler[color as keyof typeof renkler] || renkler.gray;
   };
@@ -1185,7 +1187,7 @@ const SistemAyarlari: React.FC = () => {
                     className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-md"
                   >
                     <Plus className="w-4 h-4" />
-                    + Yeni Şirket Ekle
+                    Yeni Şirket Ekle
                   </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
