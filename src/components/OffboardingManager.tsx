@@ -325,11 +325,21 @@ export const OffboardingManager: React.FC<OffboardingManagerProps> = ({
               />
             </div>
 
+            {selectedEmp && (selectedEmp.salary || 0) > 46252.12 && (
+              <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-center justify-between text-xs text-blue-900">
+                <div className="flex items-center gap-1.5 font-medium">
+                  <span>⚖️ Yasal Kıdem Tazminatı Tavanı:</span>
+                  <span className="font-bold">46.252,12 TL / Yıl</span>
+                </div>
+                <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">Tavan Sınırı Aktif</span>
+              </div>
+            )}
+
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-2 text-amber-800 text-xs">
               <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
               <div>
                 <p className="font-bold">Önemli Hukuki Hatırlatma:</p>
-                <p className="mt-0.5 leading-relaxed">İşten çıkış işleminin onaylanmasıyla çalışanın sistem durumu "Pasif" olacaktır. Hazırlanan ibraname belgesi çalışanın özlük dosyasına kalıcı olarak kaydedilecektir.</p>
+                <p className="mt-0.5 leading-relaxed">İşten çıkış işleminin onaylanmasıyla çalışanın sistem durumu "Pasif" olacaktır. Şirkete ait zimmetli cihazlar teslim alınmalı ve hazırlanan ibraname belgesi çalışanın özlük dosyasına kalıcı olarak kaydedilmelidir.</p>
               </div>
             </div>
 
