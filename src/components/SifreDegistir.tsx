@@ -24,11 +24,6 @@ export default function SifreDegistir() {
       return;
     }
 
-    if (newPassword === '987654' || newPassword === '123456' || newPassword === 'password') {
-      setPasswordError('Yeni şifreniz çok zayıf. Lütfen daha güçlü bir şifre seçiniz.');
-      return;
-    }
-
     if (newPassword !== confirmPassword) {
       setPasswordError('Şifre tekrarı eşleşmiyor.');
       return;
