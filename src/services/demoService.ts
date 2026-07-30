@@ -313,8 +313,41 @@ export const demoService = {
 
   updateEmployee(id: string, updates: Partial<DemoEmployee>): DemoEmployee {
     const list = this.getEmployees();
-    const idx = list.findIndex(e => e.id === id);
-    if (idx === -1) throw new Error('Çalışan bulunamadı');
+    let idx = list.findIndex(e => e.id === id);
+    if (idx === -1 && updates.email) {
+      idx = list.findIndex(e => e.email?.toLowerCase().trim() === updates.email?.toLowerCase().trim());
+    }
+    if (idx === -1 && updates.name) {
+      idx = list.findIndex(e => e.name?.toLowerCase().trim() === updates.name?.toLowerCase().trim());
+    }
+    if (idx === -1) {
+      const newEmp: DemoEmployee = {
+        id: id || 'emp-' + Math.random().toString(36).substr(2, 9),
+        company_id: updates.company_id || 'demo-company-id-9999',
+        name: updates.name || '',
+        tc_no: updates.tc_no || '',
+        sicil_no: updates.sicil_no || '',
+        department: updates.department || '',
+        position: updates.position || '',
+        level: (updates.level as any) || '',
+        salary: updates.salary || 0,
+        status: (updates.status as any) || 'active',
+        phone: updates.phone || '',
+        email: updates.email || '',
+        join_date: updates.join_date || new Date().toISOString().split('T')[0],
+        address: updates.address || '',
+        avatar_url: null,
+        skills: updates.skills || [],
+        medeni_durum: updates.medeni_durum || 'bekar',
+        cocuk_sayisi: updates.cocuk_sayisi || 0,
+        engelli_durumu: updates.engelli_durumu || 'yok',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      list.push(newEmp);
+      this.saveEmployees(list);
+      return newEmp;
+    }
     list[idx] = { ...list[idx], ...updates, updated_at: new Date().toISOString() };
     this.saveEmployees(list);
     return list[idx];

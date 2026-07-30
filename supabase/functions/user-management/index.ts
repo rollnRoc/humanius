@@ -562,6 +562,7 @@ Deno.serve(async (req: Request) => {
 
     if (operation === 'update_employee_details') {
       const email = String(payload.email ?? '').trim().toLowerCase();
+      const employeeId = payload.employeeId ? String(payload.employeeId).trim() : '';
       const companyId = String(payload.companyId ?? '').trim();
       const role = payload.role ? String(payload.role).trim() as ProfileRole : undefined;
       const level = payload.level !== undefined ? String(payload.level).trim() : undefined;
@@ -569,8 +570,8 @@ Deno.serve(async (req: Request) => {
       const department = payload.department !== undefined ? String(payload.department).trim() : undefined;
       const fullName = payload.fullName !== undefined ? String(payload.fullName).trim() : undefined;
 
-      if (!email) {
-        return jsonResponse({ error: 'email zorunludur.' }, 400);
+      if (!email && !employeeId) {
+        return jsonResponse({ error: 'email veya employeeId zorunludur.' }, 400);
       }
 
       if (role || companyId || fullName) {
@@ -579,7 +580,12 @@ Deno.serve(async (req: Request) => {
         if (companyId) profUpdates.company_id = companyId;
         if (fullName) profUpdates.full_name = fullName;
 
-        await adminClient.from('profiles').update(profUpdates).eq('email', email);
+        if (email) {
+          await adminClient.from('profiles').update(profUpdates).eq('email', email);
+        }
+        if (employeeId) {
+          await adminClient.from('profiles').update(profUpdates).eq('id', employeeId);
+        }
       }
 
       const empUpdates: Record<string, unknown> = {};
@@ -603,9 +609,11 @@ Deno.serve(async (req: Request) => {
       if (payload.employeeType !== undefined) empUpdates.employee_type = String(payload.employeeType);
 
       if (Object.keys(empUpdates).length > 0) {
-        await adminClient.from('employees').update(empUpdates).eq('email', email);
-        if (payload.employeeId) {
-          await adminClient.from('employees').update(empUpdates).eq('id', String(payload.employeeId));
+        if (employeeId) {
+          await adminClient.from('employees').update(empUpdates).eq('id', employeeId);
+        }
+        if (email) {
+          await adminClient.from('employees').update(empUpdates).eq('email', email);
         }
       }
 
