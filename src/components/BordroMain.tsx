@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, Calculator } from 'lucide-react';
 import BordroCalculator from './BordroCalculator';
-import EmeклiBordroCalculator from './EmekliBordroCalculator';
 import BordroList from './BordroList';
 import { Employee } from '../types';
 import { BordroItem } from '../types/bordro';
