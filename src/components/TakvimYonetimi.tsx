@@ -573,7 +573,7 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <h4 className="text-sm font-medium text-gray-800 mb-3">Etkinlik Türü Renk Kodları</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {(['tatil', 'izin', 'egitim', 'toplanti'] as EtkinlikTuru[]).map(tur => (
+          {(['tatil', 'izin', 'egitim', 'toplanti', 'diger'] as EtkinlikTuru[]).map(tur => (
             <div key={tur} className="flex items-center gap-2">
               <div className={`w-3.5 h-3.5 rounded-full ${getEtkinlikNoktaRengi(tur)}`} />
               <span className="text-xs font-semibold text-gray-700">{getEtkinlikTuruAdi(tur)}</span>
@@ -603,6 +603,7 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                   <option value="izin">🟠 İzin (Personel İzinleri)</option>
                   <option value="egitim">🔵 Eğitim (Eğitim & Seminerler)</option>
                   <option value="toplanti">🟣 Toplantı (Toplantı & Etkinlikler)</option>
+                  <option value="diger">🔘 Diğer (Genel & Çeşitli Etkinlikler)</option>
                 </select>
               </div>
               <div>

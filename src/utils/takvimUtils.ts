@@ -249,8 +249,9 @@ export function getEtkinlikRengi(tur: EtkinlikTuru): string {
     izin: 'bg-amber-50 border-amber-200 text-amber-700',
     egitim: 'bg-blue-50 border-blue-200 text-blue-700',
     toplanti: 'bg-purple-50 border-purple-200 text-purple-700',
+    diger: 'bg-slate-50 border-slate-200 text-slate-700',
   };
-  return map[tur] ?? map.tatil;
+  return map[tur] ?? map.diger;
 }
 
 export function getEtkinlikNoktaRengi(tur: EtkinlikTuru): string {
@@ -259,8 +260,9 @@ export function getEtkinlikNoktaRengi(tur: EtkinlikTuru): string {
     izin: 'bg-amber-500',
     egitim: 'bg-blue-500',
     toplanti: 'bg-purple-500',
+    diger: 'bg-slate-500',
   };
-  return map[tur] ?? map.tatil;
+  return map[tur] ?? map.diger;
 }
 
 export function getEtkinlikTuruAdi(tur: EtkinlikTuru): string {
@@ -269,8 +271,9 @@ export function getEtkinlikTuruAdi(tur: EtkinlikTuru): string {
     izin: 'İzin',
     egitim: 'Eğitim',
     toplanti: 'Toplantı',
+    diger: 'Diğer',
   };
-  return map[tur] ?? 'Tatil';
+  return map[tur] ?? 'Diğer';
 }
 
 export function getOncelikRengi(oncelik: EtkinlikOncelik): string {

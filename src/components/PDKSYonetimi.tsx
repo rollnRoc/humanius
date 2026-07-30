@@ -517,14 +517,6 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
         </div>
         <div className="flex gap-2 flex-wrap items-center">
           <button
-            onClick={otomatikMesaiSonlandir}
-            className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-emerald-700 transition shadow-sm"
-            title="Vardiya bitiş saati gelen personellerin devam eden mesailerini otomatik kapatır"
-          >
-            <Clock className="w-4 h-4" />
-            Bitiş Saatinde Otomatik Kapat
-          </button>
-          <button
             onClick={() => setCheckInModal(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700"
           >
