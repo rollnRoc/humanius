@@ -686,8 +686,14 @@ const AppInner: React.FC = () => {
         targetEmail = `${slug}@${domain}`;
       }
 
-      const effectiveJoinDate = emp.joinDate || emp.join_date || null;
-      const cleanJoinDate = effectiveJoinDate ? String(effectiveJoinDate).split('T')[0] : null;
+      const rawJoinDate = emp.joinDate || emp.join_date || null;
+      let cleanJoinDate: string | null = null;
+      if (rawJoinDate && String(rawJoinDate).trim() !== '' && String(rawJoinDate) !== 'null') {
+        const dateOnly = String(rawJoinDate).split('T')[0].trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+          cleanJoinDate = dateOnly;
+        }
+      }
 
       if (isNewEmployee && targetEmail) {
         try {
@@ -720,7 +726,6 @@ const AppInner: React.FC = () => {
             position: emp.position,
             department: emp.department,
             phone: emp.phone ?? '',
-            contact_email: emp.contact_email ?? '',
             salary: emp.salary,
             status: emp.status,
             join_date: cleanJoinDate,
@@ -759,17 +764,12 @@ const AppInner: React.FC = () => {
         } else if (!isNewEmployee && emp.id) {
           await employeeService.update(emp.id, cleanPayload as any);
 
-          // Update profiles table if matching user profile exists
+          // Update profiles table safely with only columns that exist in profiles schema
           try {
             await supabase
               .from('profiles')
               .update({
                 full_name: emp.name,
-                department: emp.department,
-                position: emp.position,
-                phone: emp.phone ?? '',
-                address: emp.address ?? '',
-                join_date: cleanJoinDate,
                 role: emp.role ?? 'employee'
               })
               .eq('id', emp.id);
