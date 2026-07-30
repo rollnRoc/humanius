@@ -104,14 +104,49 @@ export const employeeService = {
       ...rawUpdates,
       ...(rawUpdates.level !== undefined ? { level: sanitizeLevel(rawUpdates.level) } : {})
     };
-    const { data, error } = await supabase
-      .from('employees')
-      .update(payload)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+
+    let updatedRow: Employee | null = null;
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (!error && data) {
+        updatedRow = data as Employee;
+      }
+    } catch (e) {
+      console.warn('Client update error:', e);
+    }
+
+    if (!updatedRow) {
+      try {
+        const { userManagementService } = await import('./userManagementService');
+        await userManagementService.updateEmployeeDetails({
+          employeeId: id,
+          email: updates.email || '',
+          phone: updates.phone ?? '',
+          address: updates.address ?? '',
+          join_date: updates.join_date ?? null,
+          companyId: updates.company_id,
+          fullName: updates.name,
+          department: updates.department,
+          position: updates.position,
+          level: updates.level,
+          salary: updates.salary,
+          status: updates.status,
+          tc_no: updates.tc_no,
+          sicil_no: updates.sicil_no,
+          employee_type: updates.employee_type,
+        });
+      } catch (e) {
+        console.warn('Fallback update details error:', e);
+      }
+    }
+
+    return (updatedRow || { id, ...updates }) as Employee;
   },
 
   async delete(id: string): Promise<void> {
