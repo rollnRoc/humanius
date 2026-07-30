@@ -384,7 +384,7 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
               <button onClick={() => setYeniSecimModal(false)} className="flex-1 border border-gray-200 rounded-xl py-2 text-sm text-gray-600">İptal</button>
               <button
                 onClick={ekleSecim}
-                disabled={!yeniSecim.kategoriId || !yeniSecim.tutar}
+                disabled={!yeniSecim.kategoriId || !yeniSecim.tutar || yeniSecim.tutar > kalan}
                 className="flex-1 bg-indigo-600 text-white rounded-xl py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-1.5">
                 <Save className="w-4 h-4" /> Ekle
               </button>

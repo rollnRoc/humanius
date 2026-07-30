@@ -634,6 +634,19 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 min-h-[80px]"
                 />
               </div>
+
+              {yeniEtkinlik.tarih && (() => {
+                const [y] = yeniEtkinlik.tarih.split('-').map(Number);
+                const tatiller = getResmiTatillerForYear(y || 2026);
+                const tatil = tatiller.find(t => t.tarih === yeniEtkinlik.tarih);
+                if (!tatil) return null;
+                return (
+                  <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span><strong>Dikkat:</strong> Seçilen tarih ({tatil.ad}) resmi tatildir!</span>
+                  </div>
+                );
+              })()}
               <button
                 onClick={() => {
                   if (!yeniEtkinlik.baslik || !yeniEtkinlik.tarih) {

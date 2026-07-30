@@ -468,9 +468,12 @@ const UserModal: React.FC<UserModalProps> = ({
                 type="password"
                 value={form.password}
                 onChange={set('password')}
-                placeholder="En az 6 karakter"
+                placeholder="Varsayılan: 987654 (veya özel şifre)"
                 className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              <p className="text-[11px] text-blue-600 font-medium mt-1">
+                💡 Boş bırakılırsa varsayılan başlangıç şifresi <strong>987654</strong> olarak atanır.
+              </p>
             </div>
           )}
 
