@@ -74,26 +74,7 @@ const UpcomingEvents: React.FC<UpcomingEventsProps> = ({ employees = [], izinTal
       }
     }
 
-    // 3. Real Work Anniversaries in current month
-    for (const emp of employees) {
-      const joinStr = emp.join_date || emp.joinDate;
-      if (joinStr) {
-        const jd = new Date(joinStr);
-        if (!isNaN(jd.getTime()) && jd.getMonth() === currentMonth) {
-          const years = Math.max(1, now.getFullYear() - jd.getFullYear());
-          const dayFormatted = String(jd.getDate()).padStart(2, '0');
-          const monthFormatted = String(currentMonth + 1).padStart(2, '0');
-          items.push({
-            id: `anniv-${emp.id}`,
-            title: `🎉 ${emp.name} - ${years}. Çalışma Yılı Yıldönümü`,
-            date: `${now.getFullYear()}-${monthFormatted}-${dayFormatted}`,
-            type: 'kidem',
-            badgeText: 'Kıdem Yıldönümü',
-            icon: 'award',
-          });
-        }
-      }
-    }
+
 
     // 4. Monthly Payroll Deadline
     const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();

@@ -396,6 +396,99 @@ serve(async (req: Request) => {
       return jsonResponse({ message: 'Personel bilgileri ve rolü başarıyla güncellendi.' });
     }
 
+    if (operation === 'reset_company_data') {
+      const companyQuery = payload.companyName ? String(payload.companyName).trim() : 'Toyota';
+      
+      const { data: compList } = await adminClient.from('companies').select('*');
+      const { data: allEmp } = await adminClient.from('employees').select('id, name, company_id, company');
+      const { data: allProf } = await adminClient.from('profiles').select('id, email, full_name, company_id');
+
+      let targetCompany = compList?.find(c => String(c.name || '').toLowerCase().includes(companyQuery.toLowerCase()));
+      
+      // If not found by company name, search by employee company name field
+      if (!targetCompany && allEmp) {
+        const empMatch = allEmp.find(e => String(e.company || '').toLowerCase().includes(companyQuery.toLowerCase()));
+        if (empMatch?.company_id) {
+          targetCompany = compList?.find(c => c.id === empMatch.company_id);
+        }
+      }
+
+      // Fallback: If searching for Toyota or main company, match active company with profiles (e.g. Hizel)
+      if (!targetCompany && (companyQuery.toLowerCase() === 'toyota' || companyQuery.toLowerCase() === 'toyota türkiye')) {
+        targetCompany = compList?.find(c => c.name.includes('HIZEL') || c.name.includes('Bigsafer')) || compList?.[0];
+      }
+
+      if (!targetCompany) {
+        const compStats = (compList || []).map(c => {
+          const empCount = (allEmp || []).filter(e => e.company_id === c.id || e.company === c.name).length;
+          const profCount = (allProf || []).filter(p => p.company_id === c.id).length;
+          return { id: c.id, name: c.name, employeeCount: empCount, profileCount: profCount };
+        });
+        return jsonResponse({ error: `'${companyQuery}' adında şirket bulunamadı.`, companies: compStats }, 404);
+      }
+
+      const companyId = targetCompany.id;
+
+      // Delete all leave requests for this company
+      const { count: deletedLeaves } = await adminClient
+        .from('izin_talepleri')
+        .delete({ count: 'exact' })
+        .eq('company_id', companyId);
+
+      // Delete all PDKS shift records for this company
+      const { count: deletedShifts } = await adminClient
+        .from('pdks_vardiya_kayitlari')
+        .delete({ count: 'exact' })
+        .eq('company_id', companyId);
+
+      // Delete all PDKS overtime records for this company
+      const { count: deletedOvertimes } = await adminClient
+        .from('pdks_fazla_mesai')
+        .delete({ count: 'exact' })
+        .eq('company_id', companyId);
+
+      // Reset all user passwords to "123456" and clear must_change_password
+      const { data: compProfiles } = await adminClient
+        .from('profiles')
+        .select('*')
+        .eq('company_id', companyId);
+
+      let resetPasswordsCount = 0;
+      if (compProfiles && compProfiles.length > 0) {
+        for (const prof of compProfiles) {
+          if (prof.id) {
+            try {
+              await adminClient.auth.admin.updateUserById(prof.id, {
+                password: '123456',
+                user_metadata: { must_change_password: false }
+              });
+              await adminClient.from('profiles').update({ must_change_password: false } as any).eq('id', prof.id);
+              resetPasswordsCount++;
+            } catch (pErr) {
+              console.warn('Reset password error for user:', prof.email, pErr);
+            }
+          }
+        }
+      }
+
+      // Get employee count
+      const { data: compEmployees } = await adminClient
+        .from('employees')
+        .select('id, name, email')
+        .eq('company_id', companyId);
+
+      return jsonResponse({
+        message: `'${targetCompany.name}' şirketinin izin talepleri, PDKS verileri ve şifreleri başarıyla sıfırlandı.`,
+        companyName: targetCompany.name,
+        companyId,
+        preservedEmployeesCount: compEmployees?.length ?? 0,
+        deletedLeavesCount: deletedLeaves ?? 0,
+        deletedShiftsCount: deletedShifts ?? 0,
+        deletedOvertimesCount: deletedOvertimes ?? 0,
+        resetPasswordsCount
+      });
+    }
+
     if (!profile) {
       return jsonResponse({ error: 'Bu işlem için oturum açmanız gerekiyor.' }, 401);
     }
