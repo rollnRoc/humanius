@@ -528,10 +528,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         const checkOut = realRecord.cikis_saati;
         
         let status = 'Zamanında';
-        if (checkIn) {
+        if (!checkOut && checkIn) {
+          status = 'Mesai Devam Ediyor';
+        } else if (checkIn && checkOut) {
           const [hours, minutes] = checkIn.split(':').map(Number);
-          if (hours > 9 || (hours === 9 && minutes > 0)) {
+          if (hours > 9 || (hours === 9 && minutes > 15)) {
             status = 'Geç Kaldı';
+          } else {
+            status = 'Zamanında';
           }
         }
         
@@ -540,8 +544,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           const [gH, gM] = checkIn.split(':').map(Number);
           const [cH, cM] = checkOut.split(':').map(Number);
           mesai = parseFloat(((cH * 60 + cM - (gH * 60 + gM)) / 60).toFixed(1));
+          if (mesai < 0) mesai = 0;
         } else if (checkIn) {
-          mesai = 8.0;
+          const [gH, gM] = checkIn.split(':').map(Number);
+          const now = new Date();
+          const curMin = now.getHours() * 60 + now.getMinutes();
+          const diff = curMin - (gH * 60 + gM);
+          if (diff > 0) {
+            mesai = parseFloat((diff / 60).toFixed(1));
+          }
         }
         
         return {
@@ -585,22 +596,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         };
       }
       
-      // 3. Fallback to deterministic check-in status based on employee ID hash
-      const charCodeSum = emp.name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-      const isLate = charCodeSum % 7 === 0;
-      const isAbsent = charCodeSum % 13 === 0;
-      
-      const giris = isAbsent ? '-' : (isLate ? '09:15' : '08:50');
-      const cikis = isAbsent ? '-' : shiftConfig.cikis;
-      const durum = isAbsent ? 'Devamsız' : (isLate ? 'Geç Kaldı' : 'Zamanında');
-      const mesai = isAbsent ? 0 : 9;
-      
+      // 3. For employees without today entry: display real empty values '-'
       return {
         employee: emp,
-        giris,
-        cikis,
-        durum,
-        mesai,
+        giris: '-',
+        cikis: '-',
+        durum: 'Giriş Yapılmadı',
+        mesai: 0,
       };
     });
   }, [employees, allShiftRecords, izinTalepleri]);
