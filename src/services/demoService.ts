@@ -38,7 +38,7 @@ export interface DemoIzinTalebi {
   seyahat_yeri: string;
   il_disi_seyahat: boolean;
   belge_url: string | null;
-  durum: 'bekliyor' | 'onaylandi' | 'reddedildi';
+  durum: 'beklemede' | 'bekliyor' | 'onaylandi' | 'reddedildi';
   onaylayan_id: string | null;
   onay_tarihi: string | null;
   red_nedeni: string | null;
@@ -207,7 +207,7 @@ const MOCK_IZIN_TALEPLERI = (): DemoIzinTalebi[] => {
       seyahat_yeri: '',
       il_disi_seyahat: false,
       belge_url: null,
-      durum: 'bekliyor',
+      durum: 'beklemede',
       onaylayan_id: null,
       onay_tarihi: null,
       red_nedeni: null,
@@ -369,6 +369,7 @@ export const demoService = {
       const emp = employees.find(e => e.id === t.employee_id);
       return {
         ...t,
+        durum: (t.durum as any) === 'bekliyor' ? 'beklemede' : t.durum,
         employees: emp ? { name: emp.name, department: emp.department } : undefined
       };
     });
@@ -376,7 +377,10 @@ export const demoService = {
 
   saveIzinTalepleri(list: DemoIzinTalebi[]): void {
     // Relationships shouldn't be saved
-    const cleanList = list.map(({ employees, ...t }) => t);
+    const cleanList = list.map(({ employees, ...t }) => ({
+      ...t,
+      durum: (t.durum as any) === 'bekliyor' ? 'beklemede' : t.durum
+    }));
     localStorage.setItem('humanius_demo_izin_talepleri', JSON.stringify(cleanList));
   },
 
@@ -396,7 +400,7 @@ export const demoService = {
       seyahat_yeri: data.seyahat_yeri || '',
       il_disi_seyahat: data.il_disi_seyahat || false,
       belge_url: null,
-      durum: 'bekliyor',
+      durum: (data.durum as any) || 'beklemede',
       onaylayan_id: null,
       onay_tarihi: null,
       red_nedeni: null,
