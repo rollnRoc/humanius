@@ -1278,15 +1278,7 @@ const AppInner: React.FC = () => {
               onDeleteEmployee={handleDeleteEmployee}
               onEmployeeActionSelect={handleEmployeeActionSelect}
             />
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
-              <QuickActions
-                onBulkLeave={() => setShowTopluIzinForm(true)}
-                onBulkAlert={() => setShowTopluUyariModal(true)}
-                onUploadPayroll={() => setCurrentView('bordro')}
-                onFlexBenefits={() => setCurrentView('yan-haklar')}
-              />
-              <UpcomingEvents employees={employees} izinTalepleri={izinTalepleri} />
-            </div>
+
           </>
         )}
 
