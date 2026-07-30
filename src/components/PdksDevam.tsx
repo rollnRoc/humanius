@@ -50,6 +50,40 @@ function formatCompanyAddressWithCoords(lat: number, lng: number, addressText: s
   return `[${lat},${lng}] ${addressText || ''}`.trim();
 }
 
+function checkIsShiftExpired(shiftStartIso: string | null, cikisTimeStr: string = '18:00'): boolean {
+  if (!shiftStartIso) return true;
+  const startMs = new Date(shiftStartIso).getTime();
+  if (isNaN(startMs)) return true;
+  
+  const now = new Date();
+  const startDate = new Date(shiftStartIso);
+  
+  // 1. If start date is a previous calendar day (e.g. yesterday or earlier)
+  const startYMD = startDate.getFullYear() * 10000 + (startDate.getMonth() + 1) * 100 + startDate.getDate();
+  const nowYMD = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+  if (nowYMD > startYMD) return true;
+
+  // 2. Parse cikisTimeStr (e.g. "18:00")
+  const [cH, cM] = cikisTimeStr.split(':').map(Number);
+  if (!isNaN(cH) && !isNaN(cM)) {
+    const exitDate = new Date(startDate);
+    exitDate.setHours(cH, cM, 0, 0);
+    // If exit time is on or before shift start time (e.g. night shift 22:00 -> 06:00)
+    if (exitDate.getTime() <= startDate.getTime()) {
+      exitDate.setDate(exitDate.getDate() + 1);
+    }
+    if (now.getTime() >= exitDate.getTime()) {
+      return true;
+    }
+  }
+
+  // 3. Fallback: If duration exceeds 12 hours
+  const elapsedSecs = (now.getTime() - startMs) / 1000;
+  if (elapsedSecs >= 12 * 3600) return true;
+
+  return false;
+}
+
 const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) => {
   const { profile, appRole } = useAuth();
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
@@ -103,12 +137,32 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     // Read local storage for active session
     const savedActiveId = localStorage.getItem('pdks_active_shift_id');
     const savedStart = localStorage.getItem('pdks_active_shift_start');
+    const targetCikisTime = shiftConfig?.cikis || '18:00';
     
     if (savedActiveId && savedStart) {
-      setIsShiftActive(true);
-      setShiftStartTime(savedStart);
-      setActiveShiftRecordId(savedActiveId);
-      startWatchingLocation();
+      if (checkIsShiftExpired(savedStart, targetCikisTime)) {
+        pdksService.updateVardiya(savedActiveId, {
+          cikis_saati: targetCikisTime,
+          notlar: `Mesai çıkış saatinde (${targetCikisTime}) sistem tarafından otomatik tamamlandı`
+        }).catch(err => console.warn("Auto-close expired shift DB warning:", err));
+
+        localStorage.removeItem('pdks_active_shift_id');
+        localStorage.removeItem('pdks_active_shift_start');
+        setIsShiftActive(false);
+        setShiftStartTime(null);
+        setActiveShiftRecordId(null);
+      } else {
+        setIsShiftActive(true);
+        setShiftStartTime(savedStart);
+        setActiveShiftRecordId(savedActiveId);
+        startWatchingLocation();
+      }
+    } else if (savedStart && !savedActiveId) {
+      if (checkIsShiftExpired(savedStart, targetCikisTime)) {
+        localStorage.removeItem('pdks_active_shift_start');
+        setIsShiftActive(false);
+        setShiftStartTime(null);
+      }
     }
 
     // Request initial position
@@ -130,7 +184,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [profile?.company_id]);
+  }, [profile?.company_id, shiftConfig?.cikis]);
 
   // Load shift history from database when currentEmployee is found
   useEffect(() => {
@@ -193,10 +247,31 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
   useEffect(() => {
     let intervalId: any;
     if (isShiftActive && shiftStartTime) {
+      const targetCikisTime = shiftConfig?.cikis || '18:00';
       const startMs = new Date(shiftStartTime).getTime();
+      
       intervalId = setInterval(() => {
-        const diffMs = Date.now() - startMs;
+        const now = new Date();
+        const diffMs = now.getTime() - startMs;
         const totalSecs = Math.floor(diffMs / 1000);
+
+        if (checkIsShiftExpired(shiftStartTime, targetCikisTime)) {
+          if (activeShiftRecordId) {
+            pdksService.updateVardiya(activeShiftRecordId, {
+              cikis_saati: targetCikisTime,
+              notlar: `Mesai çıkış saatinde (${targetCikisTime}) sistem tarafından otomatik tamamlandı`
+            }).catch(err => console.warn("Auto-end shift error:", err));
+          }
+          localStorage.removeItem('pdks_active_shift_id');
+          localStorage.removeItem('pdks_active_shift_start');
+          setIsShiftActive(false);
+          setShiftStartTime(null);
+          setActiveShiftRecordId(null);
+          setTimerText('00:00:00');
+          stopWatchingLocation();
+          return;
+        }
+
         const hours = Math.floor(totalSecs / 3600).toString().padStart(2, '0');
         const mins = Math.floor((totalSecs % 3600) / 60).toString().padStart(2, '0');
         const secs = (totalSecs % 60).toString().padStart(2, '0');
@@ -206,7 +281,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       setTimerText('00:00:00');
     }
     return () => clearInterval(intervalId);
-  }, [isShiftActive, shiftStartTime]);
+  }, [isShiftActive, shiftStartTime, shiftConfig?.cikis, activeShiftRecordId]);
 
   // Request browser location once
   const requestLocation = () => {
