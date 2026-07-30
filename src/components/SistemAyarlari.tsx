@@ -312,6 +312,26 @@ const SistemAyarlari: React.FC = () => {
     loadManageData();
   }, [canManage, loadManageData]);
 
+  useEffect(() => {
+    if (companies.length > 0) {
+      const myCompany = companies.find(c => c.id === profile?.company_id) || companies[0];
+      if (myCompany) {
+        setSistemAyarlari(prev => ({
+          ...prev,
+          sirketBilgileri: {
+            ad: myCompany.name ?? prev.sirketBilgileri.ad,
+            adres: myCompany.address ?? prev.sirketBilgileri.adres,
+            vergiNo: myCompany.tax_number ?? prev.sirketBilgileri.vergiNo,
+            sgkSicilNo: myCompany.sgk_sicil_no ?? prev.sirketBilgileri.sgkSicilNo,
+            telefon: myCompany.phone ?? prev.sirketBilgileri.telefon,
+            email: myCompany.email ?? prev.sirketBilgileri.email,
+            bulunduguIl: myCompany.city ?? prev.sirketBilgileri.bulunduguIl,
+          }
+        }));
+      }
+    }
+  }, [companies, profile?.company_id]);
+
   const companyNameMap = useMemo(() => {
     return companies.reduce<Record<string, string>>((acc, company) => {
       acc[company.id] = company.name;
@@ -1191,17 +1211,36 @@ const SistemAyarlari: React.FC = () => {
                     <Building className="w-6 h-6 text-cyan-600" />
                     <h3 className="text-lg font-semibold text-cyan-800">Şirket Bilgileri</h3>
                   </div>
-                  <button
-                    onClick={() => {
-                      resetCompanyForm();
-                      setShowCompanyForm(true);
-                      setActiveTab('sirketler');
-                    }}
-                    className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-md"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Yeni Şirket Ekle
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const myCompany = companies.find(c => c.id === profile?.company_id) || companies[0];
+                        if (myCompany) {
+                          startEditCompany(myCompany);
+                        } else {
+                          resetCompanyForm();
+                          setShowCompanyForm(true);
+                        }
+                      }}
+                      className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-md"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Şirket Bilgilerini Düzenle
+                    </button>
+                    {canManageCompanies && (
+                      <button
+                        onClick={() => {
+                          resetCompanyForm();
+                          setShowCompanyForm(true);
+                          setActiveTab('sirketler');
+                        }}
+                        className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-md"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Yeni Şirket Ekle
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-4">
