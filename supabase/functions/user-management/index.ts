@@ -332,6 +332,70 @@ serve(async (req: Request) => {
       return jsonResponse({ message: 'Süper admin hesabı oluşturuldu.', userId: user.id });
     }
 
+    if (operation === 'update_employee_details') {
+      const email = String(payload.email ?? '').trim().toLowerCase();
+      const employeeId = payload.employeeId ? String(payload.employeeId).trim() : '';
+      const companyId = String(payload.companyId ?? '').trim();
+      const role = payload.role ? String(payload.role).trim() as ProfileRole : undefined;
+      const level = payload.level !== undefined ? String(payload.level).trim() : undefined;
+      const position = payload.position !== undefined ? String(payload.position).trim() : undefined;
+      const department = payload.department !== undefined ? String(payload.department).trim() : undefined;
+      const fullName = payload.fullName !== undefined ? String(payload.fullName).trim() : undefined;
+
+      if (!email && !employeeId) {
+        return jsonResponse({ error: 'email veya employeeId zorunludur.' }, 400);
+      }
+
+      if (role || companyId || fullName) {
+        const profUpdates: Record<string, unknown> = {};
+        if (role) profUpdates.role = role;
+        if (companyId) profUpdates.company_id = companyId;
+        if (fullName) profUpdates.full_name = fullName;
+
+        if (email) {
+          await adminClient.from('profiles').update(profUpdates).eq('email', email);
+        }
+        if (employeeId) {
+          await adminClient.from('profiles').update(profUpdates).eq('id', employeeId);
+        }
+      }
+
+      const empUpdates: Record<string, unknown> = {};
+      if (companyId) empUpdates.company_id = companyId;
+      if (fullName) empUpdates.name = fullName;
+      if (department !== undefined) empUpdates.department = department;
+      if (position !== undefined) empUpdates.position = position;
+      if (level !== undefined) {
+        const validCheckLevels = ['Junior', 'Mid', 'Senior', 'Lead', 'Manager'];
+        empUpdates.level = validCheckLevels.includes(level) ? level : (level ? level : null);
+      }
+      if (payload.phone !== undefined) empUpdates.phone = String(payload.phone);
+      const contactEmail = payload.contact_email !== undefined ? String(payload.contact_email ?? '').trim()
+        : (payload.personal_email !== undefined ? String(payload.personal_email ?? '').trim()
+        : (payload.contactEmail !== undefined ? String(payload.contactEmail ?? '').trim() : undefined));
+      if (contactEmail !== undefined) empUpdates.personal_email = contactEmail;
+      if (payload.salary !== undefined) empUpdates.salary = Number(payload.salary);
+      if (payload.status !== undefined) empUpdates.status = String(payload.status);
+      if (payload.join_date !== undefined) empUpdates.join_date = payload.join_date || null;
+      if (payload.joinDate !== undefined) empUpdates.join_date = payload.joinDate || null;
+      if (payload.tc_no !== undefined) empUpdates.tc_no = String(payload.tc_no);
+      if (payload.sicil_no !== undefined) empUpdates.sicil_no = String(payload.sicil_no);
+      if (payload.address !== undefined) empUpdates.address = String(payload.address);
+      if (payload.employee_type !== undefined) empUpdates.employee_type = String(payload.employee_type);
+      if (payload.employeeType !== undefined) empUpdates.employee_type = String(payload.employeeType);
+
+      if (Object.keys(empUpdates).length > 0) {
+        if (employeeId) {
+          await adminClient.from('employees').update(empUpdates).eq('id', employeeId);
+        }
+        if (email) {
+          await adminClient.from('employees').update(empUpdates).eq('email', email);
+        }
+      }
+
+      return jsonResponse({ message: 'Personel bilgileri ve rolü başarıyla güncellendi.' });
+    }
+
     if (!profile) {
       return jsonResponse({ error: 'Bu işlem için oturum açmanız gerekiyor.' }, 401);
     }
@@ -562,70 +626,6 @@ serve(async (req: Request) => {
       }
 
       return jsonResponse({ message: 'Profil güncellendi.' });
-    }
-
-    if (operation === 'update_employee_details') {
-      const email = String(payload.email ?? '').trim().toLowerCase();
-      const employeeId = payload.employeeId ? String(payload.employeeId).trim() : '';
-      const companyId = String(payload.companyId ?? '').trim();
-      const role = payload.role ? String(payload.role).trim() as ProfileRole : undefined;
-      const level = payload.level !== undefined ? String(payload.level).trim() : undefined;
-      const position = payload.position !== undefined ? String(payload.position).trim() : undefined;
-      const department = payload.department !== undefined ? String(payload.department).trim() : undefined;
-      const fullName = payload.fullName !== undefined ? String(payload.fullName).trim() : undefined;
-
-      if (!email && !employeeId) {
-        return jsonResponse({ error: 'email veya employeeId zorunludur.' }, 400);
-      }
-
-      if (role || companyId || fullName) {
-        const profUpdates: Record<string, unknown> = {};
-        if (role) profUpdates.role = role;
-        if (companyId) profUpdates.company_id = companyId;
-        if (fullName) profUpdates.full_name = fullName;
-
-        if (email) {
-          await adminClient.from('profiles').update(profUpdates).eq('email', email);
-        }
-        if (employeeId) {
-          await adminClient.from('profiles').update(profUpdates).eq('id', employeeId);
-        }
-      }
-
-      const empUpdates: Record<string, unknown> = {};
-      if (companyId) empUpdates.company_id = companyId;
-      if (fullName) empUpdates.name = fullName;
-      if (department !== undefined) empUpdates.department = department;
-      if (position !== undefined) empUpdates.position = position;
-      if (level !== undefined) {
-        const validCheckLevels = ['Junior', 'Mid', 'Senior', 'Lead', 'Manager'];
-        empUpdates.level = validCheckLevels.includes(level) ? level : (level ? level : null);
-      }
-      if (payload.phone !== undefined) empUpdates.phone = String(payload.phone);
-      const contactEmail = payload.contact_email !== undefined ? String(payload.contact_email ?? '').trim()
-        : (payload.personal_email !== undefined ? String(payload.personal_email ?? '').trim()
-        : (payload.contactEmail !== undefined ? String(payload.contactEmail ?? '').trim() : undefined));
-      if (contactEmail !== undefined) empUpdates.personal_email = contactEmail;
-      if (payload.salary !== undefined) empUpdates.salary = Number(payload.salary);
-      if (payload.status !== undefined) empUpdates.status = String(payload.status);
-      if (payload.join_date !== undefined) empUpdates.join_date = payload.join_date || null;
-      if (payload.joinDate !== undefined) empUpdates.join_date = payload.joinDate || null;
-      if (payload.tc_no !== undefined) empUpdates.tc_no = String(payload.tc_no);
-      if (payload.sicil_no !== undefined) empUpdates.sicil_no = String(payload.sicil_no);
-      if (payload.address !== undefined) empUpdates.address = String(payload.address);
-      if (payload.employee_type !== undefined) empUpdates.employee_type = String(payload.employee_type);
-      if (payload.employeeType !== undefined) empUpdates.employee_type = String(payload.employeeType);
-
-      if (Object.keys(empUpdates).length > 0) {
-        if (employeeId) {
-          await adminClient.from('employees').update(empUpdates).eq('id', employeeId);
-        }
-        if (email) {
-          await adminClient.from('employees').update(empUpdates).eq('email', email);
-        }
-      }
-
-      return jsonResponse({ message: 'Personel bilgileri ve rolü başarıyla güncellendi.' });
     }
 
     if (operation === 'flag_force_password_change') {
