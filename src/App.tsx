@@ -686,7 +686,10 @@ const AppInner: React.FC = () => {
         targetEmail = `${slug}@${domain}`;
       }
 
-      if (targetEmail) {
+      const effectiveJoinDate = emp.joinDate || emp.join_date || null;
+      const cleanJoinDate = effectiveJoinDate ? String(effectiveJoinDate).split('T')[0] : null;
+
+      if (isNewEmployee && targetEmail) {
         try {
           await userManagementService.createCompanyUser({
             companyId: targetCompanyId,
@@ -700,12 +703,15 @@ const AppInner: React.FC = () => {
             salary: emp.salary,
             tc_no: emp.tc_no ?? '',
           } as any);
+        } catch (authErr) {
+          console.warn('Oturum kaydı uyarısı:', authErr);
+        }
+      }
 
-          const effectiveJoinDate = emp.joinDate || emp.join_date || null;
-          const cleanJoinDate = effectiveJoinDate ? String(effectiveJoinDate).split('T')[0] : null;
-
+      if (targetEmail || emp.id) {
+        try {
           await userManagementService.updateEmployeeDetails({
-            email: targetEmail,
+            email: targetEmail || emp.email,
             employeeId: emp.id || undefined,
             companyId: targetCompanyId,
             fullName: emp.name,
@@ -724,14 +730,11 @@ const AppInner: React.FC = () => {
             address: emp.address ?? '',
           });
         } catch (authErr) {
-          console.warn('Oturum kaydı uyarısı:', authErr);
+          console.warn('Oturum detay güncelleme uyarısı:', authErr);
         }
       }
 
       try {
-        const effectiveJoinDate = emp.joinDate || emp.join_date || null;
-        const cleanJoinDate = effectiveJoinDate ? String(effectiveJoinDate).split('T')[0] : null;
-
         const cleanPayload = {
           company_id: targetCompanyId,
           name: emp.name,
@@ -751,7 +754,8 @@ const AppInner: React.FC = () => {
         };
 
         if (isNewEmployee) {
-          await employeeService.create(cleanPayload as any);
+          const created = await employeeService.create(cleanPayload as any);
+          if (created?.id) emp.id = created.id;
         } else if (!isNewEmployee && emp.id) {
           await employeeService.update(emp.id, cleanPayload as any);
 
@@ -774,6 +778,18 @@ const AppInner: React.FC = () => {
       } catch (clientEmpErr) {
         console.warn('İstemci personel güncelleme uyarısı:', clientEmpErr);
       }
+
+      // Ekranda değişikliklerin anında görünmesi için local state'i güncelle
+      setEmployees(prev => {
+        if (isNewEmployee) return [emp, ...prev];
+        return prev.map(item => item.id === emp.id ? {
+          ...item,
+          ...emp,
+          email: targetEmail || emp.email,
+          joinDate: cleanJoinDate || item.joinDate,
+          join_date: cleanJoinDate || item.join_date,
+        } : item);
+      });
 
       setDrawerOpen(false);
       await loadData();
