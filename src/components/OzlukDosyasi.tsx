@@ -61,6 +61,214 @@ const durumLabel = (d: string) => {
   return map[d] ?? { text: d, cls: 'bg-gray-100 text-gray-600' };
 };
 
+export interface TutanakSablon {
+  id: string;
+  label: string;
+  baslik: string;
+  generateText: (emp: Employee, companyName: string, dateStr: string, aciklama?: string) => string;
+}
+
+export const TUTANAK_SABLONLARI: TutanakSablon[] = [
+  {
+    id: 'ibraname',
+    label: 'İbraname Belgesi (İş Sözleşmesi Feshi Sonrası)',
+    baslik: 'İŞ SÖZLEŞMESİ VE İBRANAME BELGESİ',
+    generateText: (emp, companyName, dateStr, aciklama) => {
+      const adSoyad = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'Personel';
+      const tc = emp.tc_no || '---';
+      const unvan = emp.position || emp.department || 'Personel';
+      return `İBRANAME VE AKİT FESİH BELGESİ
+
+ŞİRKET/İŞVEREN: ${companyName}
+PERSONEL ADI SOYADI: ${adSoyad}
+T.C. KİMLİK NO: ${tc}
+GÖREVİ / ÜNVANI: ${unvan}
+TARİH: ${dateStr}
+
+Yukarıda açık kimliği ve unvanı yazılı bulunan çalışanımız ${adSoyad}, ${companyName} nezdindeki iş sözleşmesinin sona ermesi sebebiyle, iş kanunundan ve sözleşmeden doğan tüm kıdem tazminatı, ihbar tazminatı, yıllık izin ücreti, fazla mesai ücreti, ulusal bayram ve genel tatil alacakları ile maaş ve prim haklarını eksiksiz olarak nakden ve defaten almıştır.
+
+${aciklama ? `EK AÇIKLAMA / NOT: ${aciklama}\n\n` : ''}İşbu belge kapsamı uyarınca ${companyName} şirketini ve yöneticilerini tamamen ve gayrikabili rücu ibra ettiğimi, geçmişe ve geleceğe yönelik herhangi bir hak ve alacağımın kalmadığını kabul, beyan ve taahhüt ederim.
+
+Tarih: ${dateStr}`;
+    },
+  },
+  {
+    id: 'devamsizlik',
+    label: 'Devamsızlık Tutanak Metni (Mazeretsiz İşe Gelmeme)',
+    baslik: 'MAZERETSİZ DEVAMSIZLIK TUTANAĞI',
+    generateText: (emp, companyName, dateStr, aciklama) => {
+      const adSoyad = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'Personel';
+      const tc = emp.tc_no || '---';
+      const unvan = emp.position || emp.department || 'Personel';
+      return `MAZERETSİZ DEVAMSIZLIK TUTANAĞI
+
+İŞYERİ / ŞİRKET: ${companyName}
+DÜZENLEME TARİHİ: ${dateStr}
+
+İŞÇİYE AİT BİLGİLER:
+Adı Soyadı: ${adSoyad}
+T.C. Kimlik No: ${tc}
+Görevi: ${unvan}
+
+Yukarıda bilgileri yer alan çalışan ${adSoyad}, ${dateStr} tarihinde amirlerinin veya insan kaynaklarının bilgisi ve izni olmaksızın, haklı ve geçerli bir mazeret bildirmeksizin mesaisine gelmemiş ve iş başı yapmamıştır.
+
+${aciklama ? `DEVAMSIZLIK DETAYI: ${aciklama}\n\n` : ''}İşbu devamsızlık durumu aşağıda imzaları bulunan tanıklar ve işyeri yetkilileri huzurunda tespit edilerek tutanak altına alınmıştır.
+
+Düzenleme Tarihi: ${dateStr}`;
+    },
+  },
+  {
+    id: 'talimat_aykiriligi',
+    label: 'Görev / Talimat Aykırılığı Tutanak Metni',
+    baslik: 'GÖREV VE TALİMAT AYKIRILIĞI TUTANAĞI',
+    generateText: (emp, companyName, dateStr, aciklama) => {
+      const adSoyad = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'Personel';
+      const tc = emp.tc_no || '---';
+      const unvan = emp.position || emp.department || 'Personel';
+      return `GÖREV VE TALİMAT AYKIRILIĞI TUTANAĞI
+
+İŞYERİ / ŞİRKET: ${companyName}
+TUTANAK TARİHİ: ${dateStr}
+
+PERSONEL BİLGİLERİ:
+Adı Soyadı: ${adSoyad}
+T.C. Kimlik No: ${tc}
+Unvanı: ${unvan}
+
+Yukarıda kimlik bilgileri belirtilen çalışan ${adSoyad}, ${dateStr} tarihinde işyerinde verilen yazılı/sözlü talimatlara ve iş güvenliği kurallarına uymayarak görev ve sorumluluklarını yerine getirmemiştir.
+
+${aciklama ? `AYKIRILIK KONUSU / OLAY: ${aciklama}\n\n` : ''}İşbu durum 4857 Sayılı İş Kanunu ve İşyeri İç Yönetmeliği hükümleri uyarınca imza altına alınmıştır.
+
+Tarih: ${dateStr}`;
+    },
+  },
+  {
+    id: 'uyari_savunma',
+    label: 'Yazılı Uyarı ve Savunma İstem Formu',
+    baslik: 'YAZILI UYARI VE SAVUNMA İSTEM YAZISI',
+    generateText: (emp, companyName, dateStr, aciklama) => {
+      const adSoyad = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'Personel';
+      const tc = emp.tc_no || '---';
+      const unvan = emp.position || emp.department || 'Personel';
+      return `YAZILI SAVUNMA İSTEM FORMU
+
+SAYIN: ${adSoyad} (T.C.: ${tc})
+GÖREVİ: ${unvan}
+ŞİRKET: ${companyName}
+TARİH: ${dateStr}
+
+KONU: Savunma Talebi
+
+${dateStr} tarihinde işyerimizde meydana gelen olay uyarınca; görev sorumluluklarınızı tam olarak yerine getirmediğiniz / iş akışını aksattığınız tespit edilmiştir.
+
+${aciklama ? `KONU / GEREKÇE: ${aciklama}\n\n` : ''}4857 sayılı İş Kanunu'nun ilgili maddeleri gereğince, konuya ilişkin yazılı savunmanızı işbu yazının tarafınıza tebliğ edildiği tarihten itibaren 3 (üç) iş günü içerisinde İnsan Kaynakları birimine sunmanızı rica ederiz. Aksı takdirde savunma hakkınızdan vazgeçmiş sayılacağınızı bildiririz.
+
+İşveren / Yetkili İmza:`;
+    },
+  },
+];
+
+export const printTutanakPdf = (
+  baslik: string,
+  metin: string,
+  emp: Employee | null,
+  companyName?: string,
+  tarihStr?: string
+) => {
+  const adSoyad = emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() : 'Personel';
+  const tc = emp?.tc_no || '---';
+  const departman = emp?.department || '---';
+  const pozisyon = emp?.position || '---';
+  const tarih = tarihStr || new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const sirket = companyName || 'HUMANİUS HRMS KURUMSAL';
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('PDF yazdırma penceresi engellendi. Lütfen tarayıcı izinlerini kontrol edin.');
+    return;
+  }
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>${baslik} - ${adSoyad}</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; color: #1e293b; background: #fff; line-height: 1.6; }
+    .header { border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+    .company-title { font-size: 20px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; }
+    .doc-date { font-size: 13px; color: #64748b; font-weight: 600; }
+    .doc-title { text-align: center; font-size: 18px; font-weight: 800; color: #0f172a; margin: 20px 0; text-transform: uppercase; text-decoration: underline; }
+    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+    .info-table td { padding: 8px 12px; border: 1px solid #cbd5e1; font-size: 13px; }
+    .info-table td.label { font-weight: 700; background-color: #f8fafc; color: #334155; width: 25%; }
+    .content-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; font-size: 14px; white-space: pre-wrap; margin-bottom: 40px; line-height: 1.7; color: #0f172a; }
+    .signatures { margin-top: 50px; display: flex; justify-content: space-between; page-break-inside: avoid; }
+    .sig-box { width: 30%; text-align: center; font-size: 12px; color: #334155; }
+    .sig-line { border-top: 1.5px dashed #94a3b8; margin-top: 60px; padding-top: 8px; font-weight: 700; }
+    @media print {
+      body { margin: 20px; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="company-title">${sirket}</div>
+    <div class="doc-date">Tarih: ${tarih}</div>
+  </div>
+
+  <div class="doc-title">${baslik}</div>
+
+  <table class="info-table">
+    <tr>
+      <td class="label">Çalışan Adı Soyadı</td>
+      <td><strong>${adSoyad}</strong></td>
+      <td class="label">T.C. Kimlik No</td>
+      <td>${tc}</td>
+    </tr>
+    <tr>
+      <td class="label">Departman</td>
+      <td>${departman}</td>
+      <td class="label">Görevi / Unvanı</td>
+      <td>${pozisyon}</td>
+    </tr>
+  </table>
+
+  <div class="content-box">${metin}</div>
+
+  <div class="signatures">
+    <div class="sig-box">
+      <div>İşveren / Yetkili Temsilci</div>
+      <div class="sig-line">İmza / Kaşe</div>
+    </div>
+    <div class="sig-box">
+      <div>Tebliğ Eden (Tanık)</div>
+      <div class="sig-line">İmza</div>
+    </div>
+    <div class="sig-box">
+      <div>Tebellüğ Eden (Çalışan)</div>
+      <div class="sig-line">İmza</div>
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 400);
+    };
+  </script>
+</body>
+</html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(htmlContent);
+  printWindow.document.close();
+};
+
 //  !alıxma süresi hesaplama 
 function calismaSuresi(joinDate?: string): string {
   if (!joinDate) return '-';
