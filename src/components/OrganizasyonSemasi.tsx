@@ -8,7 +8,6 @@ import {
   Briefcase,
   Search,
   Printer,
-  FileText,
   X,
   ArrowRight,
   ZoomIn,
@@ -16,7 +15,9 @@ import {
   RotateCcw,
   Sparkles,
   Award,
-  Crown
+  Crown,
+  CornerDownRight,
+  Grid
 } from 'lucide-react';
 import type { Employee } from '../types';
 import { JOB_TEMPLATES } from '../data/jobTemplates';
@@ -353,7 +354,7 @@ const PersonelDetay: React.FC<{ node: OrgNode | null }> = ({ node }) => {
 const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, companyName }) => {
   const [secilenNode, setSecilenNode] = useState<OrgNode | null>(null);
   const [aramaMetni, setAramaMetni] = useState('');
-  const [gorunum, setGorunum] = useState<'yatay-agac' | 'dikey' | 'agac' | 'kart'>('yatay-agac');
+  const [gorunum, setGorunum] = useState<'excel-agac' | 'yatay-agac' | 'dikey' | 'agac' | 'kart'>('excel-agac');
   const [zoomScale, setZoomScale] = useState(1);
 
   const tree = useMemo(() => buildOrgTree(employees), [employees]);
@@ -372,7 +373,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
     return map;
   }, [employees]);
 
-  // ─── Dynamic Hierarchical Tree Structure (Soldan Sağa Yatay Akış) ──────────────
+  // ─── Dynamic Hierarchical Tree Structure (Bayi Sahibi ➔ Müdürler ➔ Çalışanlar) ─
   const dynamicTree = useMemo(() => {
     const level0Emps: Employee[] = [];
     const level1Emps: Employee[] = [];
@@ -387,7 +388,6 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
       else level2Emps.push(emp);
     }
 
-    // Filter by search term if active
     const matchesSearch = (e: Employee) => {
       if (!aramaMetni.trim()) return true;
       const q = aramaMetni.toLowerCase();
@@ -398,7 +398,6 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
       );
     };
 
-    // Grouping by department
     const deptGroupMap = new Map<
       string,
       {
@@ -452,7 +451,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
       <html lang="tr">
       <head>
         <meta charset="UTF-8">
-        <title>Humanius HRMS - Soldan Sağa Yatay Hiyerarşik Organizasyon Şeması</title>
+        <title>Humanius HRMS - Excel Tipi Kutu Şeması Akışı</title>
         <style>
           @page { size: A4 landscape; margin: 5mm 6mm; }
           * { box-sizing: border-box; }
@@ -462,50 +461,45 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           .audit-table td { border: 1px solid #cbd5e1; padding: 4px 8px; }
           .audit-bg { background: #f8fafc; font-weight: 600; color: #475569; }
 
-          /* TOP ROOT NODE */
+          /* ROOT / BAYİ SAHİBİ KUTUSU */
           .root-wrapper { text-align: center; margin-bottom: 6px; }
-          .root-box { display: inline-block; background: linear-gradient(135deg, #1e293b, #0f172a); color: white; padding: 8px 24px; border-radius: 12px; font-weight: 800; font-size: 13px; text-align: center; border: 2px solid #334155; }
-          .line-connector { width: 2px; height: 14px; background: #3b82f6; margin: 0 auto 8px auto; }
+          .root-box { display: inline-block; background: #1e293b; color: white; padding: 8px 24px; border-radius: 8px; font-weight: 800; font-size: 12px; border: 2px solid #0f172a; }
+          .line-connector { width: 2px; height: 12px; background: #2563eb; margin: 0 auto 6px auto; }
 
-          /* HORIZONTAL TREE FLOW LAYOUT */
-          .tree-flow-container { display: flex; flex-direction: column; gap: 8px; width: 100%; page-break-inside: avoid; }
-          .dept-flow-row { display: flex; align-items: stretch; border: 1.5px solid #cbd5e1; border-radius: 10px; background: #ffffff; overflow: hidden; page-break-inside: avoid; }
+          /* EXCEL-LIKE BOX GRID FLOW */
+          .grid-flow-container { display: flex; flex-direction: column; gap: 8px; width: 100%; page-break-inside: avoid; }
+          .grid-dept-row { border: 2px solid #94a3b8; border-radius: 8px; background: #ffffff; padding: 6px; page-break-inside: avoid; }
+          .dept-title-bar { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 9.5px; font-weight: 800; color: #0f172a; margin-bottom: 6px; display: flex; justify-content: space-between; }
           
-          .col-root { width: 160px; background: #f8fafc; padding: 8px; border-right: 2px solid #cbd5e1; display: flex; flex-direction: column; justify-content: center; }
-          .col-dept { width: 180px; background: #ffffff; padding: 8px; border-right: 2px solid #e2e8f0; display: flex; flex-direction: column; justify-content: center; }
-          .col-arrow { display: flex; align-items: center; justify-content: center; padding: 0 4px; color: #3b82f6; font-weight: 900; font-size: 14px; }
-          .col-emps { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 6px; justify-content: center; background: #f8fafc; }
+          .boxes-flex { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+          .box-item { border: 1.5px solid #64748b; border-radius: 6px; padding: 6px 10px; font-size: 8.5px; background: #ffffff; min-width: 140px; }
+          .box-mgr { border-color: #2563eb; background: #eff6ff; }
+          .box-emp { border-color: #475569; background: #ffffff; }
+          .box-ast { border-color: #9333ea; background: #faf5ff; }
 
-          .node-badge { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 8px; font-size: 8.5px; }
-          .node-title { font-weight: 800; color: #0f172a; font-size: 9px; }
-          .node-pos { color: #2563eb; font-weight: 700; font-size: 8.5px; }
-          .node-dept { font-size: 7.5px; color: #64748b; font-weight: 600; }
-
-          .emp-flex-grid { display: flex; flex-wrap: wrap; gap: 4px; }
-          .emp-mini-box { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 5px; padding: 4px 6px; font-size: 8px; min-width: 120px; }
+          .arrow-symbol { font-weight: 900; color: #2563eb; font-size: 12px; align-self: center; }
 
           /* STAFF SECTION BELOW */
           .staff-section { page-break-before: always; break-before: page; margin-top: 0; padding-top: 12px; border-top: 2px solid #0f172a; }
-          .staff-title-bar { display: flex; justify-between; align-items: center; margin-bottom: 8px; page-break-after: avoid; break-after: avoid; }
+          .staff-title-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; page-break-after: avoid; break-after: avoid; }
           .staff-title { font-size: 10.5px; font-weight: 800; color: #0f172a; }
           .staff-sub { font-size: 8.5px; color: #64748b; }
 
           .staff-flex-container { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
-          .staff-card { width: calc(33.333% - 4px); border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; background: #ffffff; page-break-inside: avoid; display: flex; flex-direction: column; justify-between; }
-          .staff-header { display: flex; justify-between; align-items: center; margin-bottom: 3px; }
+          .staff-card { width: calc(33.333% - 4px); border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; background: #ffffff; page-break-inside: avoid; display: flex; flex-direction: column; justify-content: space-between; }
+          .staff-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
           .staff-name { font-weight: 800; font-size: 9px; color: #0f172a; }
           .staff-dept { font-size: 7.5px; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; color: #475569; font-weight: 600; }
           .staff-pos { font-weight: 700; font-size: 8.5px; color: #1d4ed8; margin-bottom: 3px; }
           .staff-desc { font-size: 8px; color: #334155; background: #f8fafc; padding: 4px; border-radius: 4px; border: 1px solid #e2e8f0; line-height: 1.25; }
 
           .legal-note { margin-top: 10px; padding: 5px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 8px; color: #475569; line-height: 1.2; page-break-inside: avoid; }
-          .sig-container { display: flex; justify-between; margin-top: 10px; padding: 0 40px; page-break-inside: avoid; }
+          .sig-container { display: flex; justify-content: space-between; margin-top: 10px; padding: 0 40px; page-break-inside: avoid; }
           .sig-box { text-align: center; width: 170px; font-size: 9px; color: #334155; border-top: 1px dashed #cbd5e1; padding-top: 3px; font-weight: 600; }
-          .footer { margin-top: 8px; padding-top: 4px; border-top: 1px solid #e2e8f0; display: flex; justify-between; font-size: 7.5px; color: #94a3b8; }
+          .footer { margin-top: 8px; padding-top: 4px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; }
         </style>
       </head>
       <body>
-        <!-- ISO 9001 / ISG Kurumsal Denetim Başlık Tablosu -->
         <table class="audit-table">
           <tr>
             <td rowspan="2" style="width:20%; text-align:center; vertical-align:middle; background:linear-gradient(135deg, #1e3a8a, #2563eb); color:white;">
@@ -513,8 +507,8 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
               <div style="font-size:7px; font-weight:600; opacity:0.9;">İK Yönetim Sistemleri</div>
             </td>
             <td rowspan="2" style="width:50%; text-align:center; vertical-align:middle;">
-              <div style="font-size:13px; font-weight:800; color:#0f172a;">SOLDAN SAĞA YATAY HİYERARŞİK ORGANİZASYON ŞEMASI</div>
-              <div style="font-size:8.5px; color:#64748b; margin-top:1px;">Bayi Sahibi ➔ Müdür ➔ Uzman ➔ Stajyer / Asistan Bağlantı Akışı</div>
+              <div style="font-size:13px; font-weight:800; color:#0f172a;">KURUMSAL EXCEL KUTU ŞEMASI AKIŞI</div>
+              <div style="font-size:8.5px; color:#64748b; margin-top:1px;">Bayi Sahibi ➔ Departman Müdürü ➔ Departman Çalışanları</div>
             </td>
             <td class="audit-bg" style="width:15%;">Doküman No:</td>
             <td style="width:15%; font-weight:600; color:#1e293b;">FR-IK-012</td>
@@ -530,7 +524,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           <span><strong>Kadro Yapısı:</strong> ${employees.length} Çalışan · ${dynamicTree.departments.length} Departman</span>
         </div>
 
-        <!-- ROOT / BAYİ SAHİBİ KUTUSU -->
+        <!-- ROOT KUTUSU -->
         <div class="root-wrapper">
           <div class="root-box">
             👑 ${dynamicTree.topLeaders.length > 0 ? dynamicTree.topLeaders.map(l => `${l.name} (${l.position || 'Bayi Sahibi'})`).join(' & ') : 'Bayi Sahibi / Genel Müdür'}
@@ -538,50 +532,44 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         </div>
         <div class="line-connector"></div>
 
-        <!-- YATAY AKIŞ TABLOSU (SOLDAN SAĞA) -->
-        <div class="tree-flow-container">
+        <!-- EXCEL KUTULARI -->
+        <div class="grid-flow-container">
           ${dynamicTree.departments.map(dept => `
-            <div class="dept-flow-row">
-              <div class="col-dept" style="border-left: 5px solid ${dept.theme.hex};">
-                <div class="node-title" style="color:${dept.theme.hex};">🏢 ${dept.name}</div>
-                <div class="node-pos">
-                  💼 Müdür: ${dept.manager ? `${dept.manager.name} (${dept.manager.position})` : 'Atanmadı'}
-                </div>
-                <div class="node-dept">${dept.total} Personel</div>
+            <div class="grid-dept-row">
+              <div class="dept-title-bar">
+                <span>🏢 ${dept.name} Departmanı</span>
+                <span>Kadro: ${dept.total} Personel</span>
               </div>
-
-              <div class="col-arrow">➔</div>
-
-              <div class="col-emps">
-                <div style="font-size:7.5px; font-weight:700; color:#475569; margin-bottom:2px;">
-                   Uzman & Çalışan Kadrosu (${dept.specialists.length} Kişi):
+              <div class="boxes-flex">
+                <div class="box-item box-mgr">
+                  <div style="font-weight:800; color:#1e40af;">💼 Müdür / Yönetici:</div>
+                  <div style="font-weight:700; color:#0f172a; margin-top:2px;">${dept.manager ? dept.manager.name : 'Müdür Atanmadı'}</div>
+                  <div style="font-size:7.5px; color:#475569;">${dept.manager ? dept.manager.position : ''}</div>
                 </div>
-                <div class="emp-flex-grid">
+
+                <div class="arrow-symbol">➔</div>
+
+                <div style="flex:1; display:flex; flex-wrap:wrap; gap:6px;">
                   ${dept.specialists.length > 0 ? dept.specialists.map(s => `
-                    <div class="emp-mini-box">
-                      <div style="font-weight:700; color:#0f172a;">👤 ${s.name}</div>
-                      <div style="color:#2563eb; font-weight:600;">${s.position}</div>
+                    <div class="box-item box-emp">
+                      <div style="font-weight:800; color:#0f172a;">👤 ${s.name}</div>
+                      <div style="font-size:7.5px; color:#2563eb; font-weight:600;">${s.position}</div>
                     </div>
-                  `).join('') : '<div style="font-size:7.5px; color:#94a3b8; italic;">Doğrudan müdüre bağlı</div>'}
+                  `).join('') : '<div style="font-size:8px; color:#94a3b8; font-style:italic;">Doğrudan müdüre bağlı</div>'}
                 </div>
-              </div>
 
-              ${dept.assistants.length > 0 ? `
-                <div class="col-arrow">➔</div>
-                <div class="col-emps" style="background:#ffffff; border-left:1px dashed #cbd5e1;">
-                  <div style="font-size:7.5px; font-weight:700; color:#9333ea; margin-bottom:2px;">
-                    🎓 Stajyer & Asistan Kadrosu (${dept.assistants.length} Kişi):
-                  </div>
-                  <div class="emp-flex-grid">
+                ${dept.assistants.length > 0 ? `
+                  <div class="arrow-symbol">➔</div>
+                  <div style="display:flex; flex-wrap:wrap; gap:6px;">
                     ${dept.assistants.map(a => `
-                      <div class="emp-mini-box" style="border-color:#e9d5ff; background:#faf5ff;">
-                        <div style="font-weight:700; color:#581c87;">🎓 ${a.name}</div>
-                        <div style="color:#7e22ce; font-weight:600;">${a.position}</div>
+                      <div class="box-item box-ast">
+                        <div style="font-weight:800; color:#581c87;">🎓 ${a.name}</div>
+                        <div style="font-size:7.5px; color:#7e22ce; font-weight:600;">${a.position}</div>
                       </div>
                     `).join('')}
                   </div>
-                </div>
-              ` : ''}
+                ` : ''}
+              </div>
             </div>
           `).join('')}
         </div>
@@ -615,12 +603,10 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           </div>
         </div>
 
-        <!-- Yasal Beyan & Uyum Metni -->
         <div class="legal-note">
           <strong>Resmi Beyan & Uyumluluk:</strong> İşbu Kurumsal Organizasyon Şeması Belgesi, 4857 sayılı İş Kanunu, 6331 sayılı İş Sağlığı ve Güvenliği Kanunu ve ISO 9001 Kalite Yönetim Sistemi standartlarına uygun tanzim edilmiş resmi evraktır.
         </div>
 
-        <!-- Islak İmza & Mühür Kutuları -->
         <div class="sig-container">
           <div class="sig-box">
             Hazırlayan & Kontrol Eden<br>
@@ -636,7 +622,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
 
         <div class="footer">
           <span>Humanius İnsan Kaynakları Yönetim Sistemi © ${new Date().getFullYear()}</span>
-          <span>Gizli ve Kuruma Özel Belge · Bu evrak resmi denetimler için geçerlidir.</span>
+          <span>Gizli ve Kuruma Özel Belge · Otomatik Üretilmiştir.</span>
         </div>
 
         <script>
@@ -660,11 +646,11 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-600" />
+            <Grid className="w-5 h-5 text-blue-600" />
             Organizasyon Şeması
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            {employees.length} kayıtlı personel · {dynamicTree.departments.length} departman · Soldan sağa hiyerarşik akış
+            {employees.length} kayıtlı personel · {dynamicTree.departments.length} departman · Yalın Excel Kutu Şeması Akışı
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -677,9 +663,10 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
             PDF İndir / Yazdır
           </button>
 
-          <div className="flex bg-gray-100 p-1 rounded-xl gap-1 border border-gray-200">
+          <div className="flex bg-gray-100 p-1 rounded-xl gap-1 border border-gray-200 flex-wrap">
             {[
-              { id: 'yatay-agac', label: '🌿 Soldan Sağa Ağaç (Çizim Uyumlu)' },
+              { id: 'excel-agac', label: '📊 Yalın Excel Kutuları (YENİ)' },
+              { id: 'yatay-agac', label: '🌿 Koyu Görsel Şema' },
               { id: 'dikey', label: '🏢 Departman Görünümü' },
               { id: 'agac', label: '🌲 Ağaç Liste' },
               { id: 'kart', label: '📇 Kadro Kartları' },
@@ -689,7 +676,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                 onClick={() => setGorunum(tab.id as any)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   gorunum === tab.id
-                    ? 'bg-white text-indigo-700 shadow-sm border border-gray-200'
+                    ? 'bg-white text-blue-700 shadow-sm border border-gray-200'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -707,7 +694,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           value={aramaMetni}
           onChange={(e) => setAramaMetni(e.target.value)}
           placeholder="İsim, pozisyon veya departman ara (ör. Bayi Sahibi, Satış Müdürü, Uzman, Stajyer...)"
-          className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-all shadow-xs"
+          className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition-all shadow-xs"
         />
         {aramaMetni && (
           <button
@@ -719,36 +706,36 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         )}
       </div>
 
-      {/* ─── 1. GÖRÜNÜM: SOLDAN SAĞA HİYERARŞİK AĞAÇ (ÇİZİMİN BİREBİR UYARLAMASI) ─── */}
-      {gorunum === 'yatay-agac' && (
-        <div className="bg-slate-900 text-white rounded-3xl border border-slate-800 p-6 space-y-6 overflow-x-auto shadow-2xl relative">
-          {/* Zoom & Canvas Bar */}
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4 flex-wrap gap-2">
+      {/* ─── 1. GÖRÜNÜM: YALIN EXCEL KUTULARI (GİTTİKÇE AÇILAN KUTU AKIŞI) ───────── */}
+      {gorunum === 'excel-agac' && (
+        <div className="bg-white rounded-3xl border border-slate-300 p-6 space-y-6 overflow-x-auto shadow-md relative">
+          {/* Zoom & Controls Bar */}
+          <div className="flex items-center justify-between border-b border-slate-200 pb-4 flex-wrap gap-2">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-bold tracking-wide text-slate-300 uppercase">
-                Dinamik Mantıksal Bağlantı Ağacı (Bayi Sahibi ➔ Müdür ➔ Uzman ➔ Stajyer)
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-600" />
+              <span className="text-xs font-bold tracking-wide text-slate-700 uppercase">
+                Yalın Kutu Hiyerarşisi: Bayi Sahibi ➔ Müdürler ➔ Departman Çalışanları
               </span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setZoomScale((prev) => Math.max(0.7, prev - 0.1))}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors border border-slate-300"
                 title="Küçült"
               >
                 <ZoomOut size={16} />
               </button>
-              <span className="text-xs font-mono text-slate-400 px-2">%{Math.round(zoomScale * 100)}</span>
+              <span className="text-xs font-mono font-bold text-slate-600 px-2">%{Math.round(zoomScale * 100)}</span>
               <button
                 onClick={() => setZoomScale((prev) => Math.min(1.4, prev + 0.1))}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors border border-slate-300"
                 title="Büyüt"
               >
                 <ZoomIn size={16} />
               </button>
               <button
                 onClick={() => setZoomScale(1)}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors border border-slate-300"
                 title="Sıfırla"
               >
                 <RotateCcw size={16} />
@@ -756,106 +743,95 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
             </div>
           </div>
 
-          {/* TREE CANVAS WRAPPER */}
+          {/* EXCEL CANVAS */}
           <div
             className="transition-transform origin-top-left space-y-6"
             style={{ transform: `scale(${zoomScale})` }}
           >
-            {/* LEVEL 0: ROOT LEADERSHIP (BAYİ SAHİBİ / GENEL MÜDÜR) */}
-            <div className="flex items-center justify-center">
-              <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 px-8 py-4 rounded-2xl shadow-xl border-2 border-amber-300 text-center min-w-[280px]">
-                <div className="flex items-center justify-center gap-2 font-black text-base tracking-tight">
-                  <Crown className="w-5 h-5 text-slate-950" />
+            {/* TOP LEVEL: BAYİ SAHİBİ / GENEL MÜDÜR (ANA KUTU) */}
+            <div className="flex justify-center">
+              <div className="bg-slate-900 text-white border-2 border-slate-950 rounded-2xl p-4 text-center min-w-[320px] shadow-lg">
+                <div className="flex items-center justify-center gap-2 font-black text-base">
+                  <Crown className="w-5 h-5 text-amber-400" />
                   {dynamicTree.topLeaders.length > 0
                     ? dynamicTree.topLeaders.map(l => l.name).join(' & ')
                     : (companyName ? `${companyName} - Bayi Sahibi` : 'Bayi Sahibi / Genel Müdür')}
                 </div>
-                <div className="text-xs font-bold text-slate-900 mt-0.5">
+                <div className="text-xs font-bold text-slate-300 mt-1">
                   {dynamicTree.topLeaders.length > 0
                     ? dynamicTree.topLeaders.map(l => l.position).join(' · ')
                     : 'Kurumsal Üst Yönetim'}
                 </div>
-                <div className="mt-1 text-[10px] bg-slate-950/20 text-slate-950 font-bold px-2 py-0.5 rounded-full inline-block">
-                  {employees.length} Toplam Bağlı Personel
+                <div className="mt-2 text-[11px] bg-slate-800 text-amber-300 font-bold px-3 py-1 rounded-lg border border-slate-700 inline-block">
+                  Tüm Müdürler & Departmanlar Bağlıdır ({employees.length} Çalışan)
                 </div>
               </div>
             </div>
 
-            {/* CONNECTING STEM DOWN TO DEPARTMENTS */}
-            <div className="w-0.5 h-6 bg-gradient-to-b from-amber-400 to-indigo-500 mx-auto" />
+            {/* CONNECTING STEM DOWN TO MANAGERS */}
+            <div className="w-0.5 h-6 bg-slate-400 mx-auto" />
 
-            {/* DEPARTMENTS FLOW ROWS (SOLDAN SAĞA AKIŞ - EXACT MATCH TO DRAWING) */}
-            <div className="space-y-4 min-w-[900px]">
+            {/* DEPARTMENT ROWS - EXCEL BOX FLOW GRID */}
+            <div className="space-y-4 min-w-[920px]">
               {dynamicTree.departments.map((dept) => (
                 <div
                   key={dept.name}
-                  className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 transition-all hover:border-slate-600 hover:bg-slate-800 flex items-stretch gap-3 shadow-lg"
+                  className="border-2 border-slate-300 rounded-2xl p-4 bg-slate-50/60 shadow-xs hover:border-slate-400 transition-colors"
                 >
-                  {/* LEVEL 1: DEPARTMAN & MÜDÜR KUTUSU (SOL SÜTUN) */}
-                  <div
-                    className="w-64 rounded-xl p-3.5 flex flex-col justify-between border-l-4 shadow-md flex-shrink-0 bg-slate-900/90"
-                    style={{ borderLeftColor: dept.theme.hex }}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-extrabold text-xs tracking-wide uppercase text-slate-200 flex items-center gap-1.5">
-                          <Building2 className="w-4 h-4 text-indigo-400" />
-                          {dept.name}
-                        </span>
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300 border border-slate-700">
-                          {dept.total} kişi
-                        </span>
-                      </div>
+                  {/* DEPARTMAN BAŞLIĞI */}
+                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-300">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3.5 h-3.5 rounded-md" style={{ backgroundColor: dept.theme.hex }} />
+                      <h3 className="font-extrabold text-sm text-slate-900">
+                        {dept.name} Departmanı
+                      </h3>
+                    </div>
+                    <span className="text-xs font-bold bg-white border border-slate-300 px-3 py-1 rounded-lg text-slate-700">
+                      Toplam Kadro: {dept.total} Personel
+                    </span>
+                  </div>
 
-                      {/* MÜDÜR KARTI */}
-                      <div className="bg-slate-800/90 border border-slate-700 rounded-lg p-2.5 mt-2">
-                        <div className="text-[10px] uppercase tracking-wider text-amber-400 font-bold mb-0.5 flex items-center gap-1">
-                          <Award className="w-3 h-3" />
-                          Müdür / Yönetici:
+                  {/* KUTU AKIŞI: MÜDÜR ➔ UZMANLAR ➔ STAJYERLER */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* 1. MÜDÜR KUTUSU (BAYİ SAHİBİNE BAĞLI) */}
+                    <div className="bg-blue-50 border-2 border-blue-600 rounded-xl p-3 min-w-[220px] shadow-sm">
+                      <div className="text-[10px] font-black uppercase text-blue-700 tracking-wider flex items-center gap-1 mb-1">
+                        <Award className="w-3.5 h-3.5" />
+                        Departman Müdürü:
+                      </div>
+                      {dept.manager ? (
+                        <div
+                          onClick={() =>
+                            setSecilenNode({
+                              id: dept.manager!.id,
+                              label: dept.manager!.name,
+                              tip: 'personel',
+                              altBaslik: dept.manager!.position,
+                              renk: dept.theme.hex,
+                              children: [],
+                              employee: dept.manager,
+                            })
+                          }
+                          className="cursor-pointer"
+                        >
+                          <p className="font-extrabold text-sm text-slate-900">{dept.manager.name}</p>
+                          <p className="text-xs font-bold text-blue-700 mt-0.5">{dept.manager.position}</p>
                         </div>
-                        {dept.manager ? (
-                          <div
-                            onClick={() =>
-                              setSecilenNode({
-                                id: dept.manager!.id,
-                                label: dept.manager!.name,
-                                tip: 'personel',
-                                altBaslik: dept.manager!.position,
-                                renk: dept.theme.hex,
-                                children: [],
-                                employee: dept.manager,
-                              })
-                            }
-                            className="cursor-pointer hover:text-indigo-300 transition-colors"
-                          >
-                            <p className="font-bold text-sm text-white">{dept.manager.name}</p>
-                            <p className="text-xs text-indigo-300 font-medium truncate">{dept.manager.position}</p>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-400 italic">Müdür Atanmadı</p>
-                        )}
-                      </div>
+                      ) : (
+                        <div>
+                          <p className="font-bold text-xs text-slate-600">{dept.name} Yöneticisi</p>
+                          <p className="text-[11px] text-slate-400 italic">Müdür Atanmadı</p>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="mt-2 text-[10px] text-slate-400 flex justify-between items-center pt-2 border-t border-slate-800">
-                      <span>Departman Kadrosu</span>
-                      <span className="font-mono text-slate-300">{dept.total} Personel</span>
-                    </div>
-                  </div>
-
-                  {/* CONNECTING ARROW (SOL-ORTA OK) */}
-                  <div className="flex items-center text-indigo-400 px-1">
-                    <ArrowRight className="w-6 h-6 animate-pulse" />
-                  </div>
-
-                  {/* LEVEL 2: UZMANLAR & ÇALIŞANLAR (ORTA SÜTUN) */}
-                  <div className="flex-1 bg-slate-900/60 rounded-xl p-3 border border-slate-700/60 flex flex-col justify-center gap-2">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                      <span>💼 Uzman & Çalışan Kadrosu ({dept.specialists.length}):</span>
-                      <span className="text-[9px] text-slate-500 font-normal">Müdüre Bağlı</span>
+                    {/* OK (MÜDÜRDEN ÇALIŞANLARA) */}
+                    <div className="text-blue-600 font-extrabold flex items-center">
+                      <ArrowRight className="w-5 h-5" />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {/* 2. UZMANLAR & ÇALIŞANLAR KUTULARI (MÜDÜRE BAĞLI) */}
+                    <div className="flex-1 flex flex-wrap gap-2.5 items-center bg-white border border-slate-300 rounded-xl p-3 shadow-xs">
                       {dept.specialists.length > 0 ? (
                         dept.specialists.map((emp) => (
                           <div
@@ -871,44 +847,30 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                                 employee: emp,
                               })
                             }
-                            className="bg-slate-800 border border-slate-700 hover:border-indigo-500/60 rounded-lg p-2.5 transition-all cursor-pointer hover:bg-slate-750 group"
+                            className="bg-slate-50 border border-slate-300 hover:border-blue-500 rounded-xl px-3 py-2 cursor-pointer transition-all hover:bg-blue-50/50 min-w-[160px]"
                           >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="font-bold text-xs text-slate-200 group-hover:text-white truncate">
-                                {emp.name}
-                              </span>
-                              <div
-                                className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                  statusRenk[emp.status] || 'bg-gray-500'
-                                }`}
-                              />
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-xs text-slate-900 truncate">{emp.name}</span>
+                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${statusRenk[emp.status] || 'bg-gray-400'}`} />
                             </div>
-                            <p className="text-[11px] text-indigo-400 font-medium truncate">{emp.position}</p>
+                            <p className="text-[11px] font-semibold text-blue-600 truncate mt-0.5">{emp.position}</p>
                           </div>
                         ))
                       ) : (
-                        <div className="text-xs text-slate-500 italic p-2 bg-slate-800/40 rounded-lg">
-                          Bu departmanda doğrudan müdüre bağlı başka personel yok.
+                        <div className="text-xs text-slate-400 italic p-1">
+                          Doğrudan müdüre bağlı çalışan eklenmemiş.
                         </div>
                       )}
                     </div>
-                  </div>
 
-                  {/* CONNECTING ARROW (ORTA-SAĞ OK) - EĞER STAJYER/ASİSTAN VARSA */}
-                  {dept.assistants.length > 0 && (
-                    <>
-                      <div className="flex items-center text-purple-400 px-1">
-                        <ArrowRight className="w-6 h-6 animate-pulse" />
-                      </div>
-
-                      {/* LEVEL 3: STAJYERLER & YARDIMCILAR & ASİSTANLAR (SAĞ SÜTUN) */}
-                      <div className="w-72 bg-purple-950/30 rounded-xl p-3 border border-purple-800/40 flex flex-col justify-center gap-2 flex-shrink-0">
-                        <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider flex items-center justify-between">
-                          <span>🎓 Stajyer & Asistan Kadrosu ({dept.assistants.length}):</span>
-                          <span className="text-[9px] text-purple-400 font-normal">Kıdemlilere Bağlı</span>
+                    {/* OK & 3. STAJYERLER / YARDIMCILAR KUTULARI (VARSA) */}
+                    {dept.assistants.length > 0 && (
+                      <>
+                        <div className="text-purple-600 font-extrabold flex items-center">
+                          <ArrowRight className="w-5 h-5" />
                         </div>
 
-                        <div className="space-y-1.5">
+                        <div className="flex flex-wrap gap-2 items-center bg-purple-50/70 border border-purple-200 rounded-xl p-3 shadow-xs">
                           {dept.assistants.map((emp) => (
                             <div
                               key={emp.id}
@@ -923,20 +885,19 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                                   employee: emp,
                                 })
                               }
-                              className="bg-purple-900/40 border border-purple-700/50 hover:border-purple-500 rounded-lg p-2 transition-all cursor-pointer hover:bg-purple-900/60"
+                              className="bg-white border border-purple-300 hover:border-purple-500 rounded-xl px-3 py-2 cursor-pointer transition-all min-w-[150px]"
                             >
-                              <div className="flex items-center justify-between">
-                                <span className="font-bold text-xs text-purple-100 truncate">{emp.name}</span>
-                                <span className="text-[9px] bg-purple-950 text-purple-300 px-1.5 py-0.5 rounded font-mono">
-                                  {emp.position}
-                                </span>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-bold text-xs text-purple-950 truncate">{emp.name}</span>
+                                <CornerDownRight className="w-3 h-3 text-purple-600" />
                               </div>
+                              <p className="text-[10px] font-bold text-purple-700 truncate mt-0.5">{emp.position}</p>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -944,7 +905,80 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         </div>
       )}
 
-      {/* ─── 2. GÖRÜNÜM: DİKEY DEPARTMAN ŞEMASI ─────────────────────────────── */}
+      {/* ─── 2. GÖRÜNÜM: KOYU GÖRSEL YATAY AĞAÇ ────────────────────────────── */}
+      {gorunum === 'yatay-agac' && (
+        <div className="bg-slate-900 text-white rounded-3xl border border-slate-800 p-6 space-y-6 overflow-x-auto shadow-2xl relative">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4 flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs font-bold tracking-wide text-slate-300 uppercase">
+                Görsel Bağlantı Şeması (Koyu Tema)
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-4 min-w-[900px]">
+            {dynamicTree.departments.map((dept) => (
+              <div
+                key={dept.name}
+                className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 flex items-stretch gap-3 shadow-lg"
+              >
+                <div
+                  className="w-64 rounded-xl p-3.5 flex flex-col justify-between border-l-4 shadow-md flex-shrink-0 bg-slate-900/90"
+                  style={{ borderLeftColor: dept.theme.hex }}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-extrabold text-xs tracking-wide uppercase text-slate-200 flex items-center gap-1.5">
+                        <Building2 className="w-4 h-4 text-indigo-400" />
+                        {dept.name}
+                      </span>
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300 border border-slate-700">
+                        {dept.total} kişi
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-800/90 border border-slate-700 rounded-lg p-2.5 mt-2">
+                      <div className="text-[10px] uppercase tracking-wider text-amber-400 font-bold mb-0.5 flex items-center gap-1">
+                        <Award className="w-3 h-3" />
+                        Müdür / Yönetici:
+                      </div>
+                      {dept.manager ? (
+                        <div>
+                          <p className="font-bold text-sm text-white">{dept.manager.name}</p>
+                          <p className="text-xs text-indigo-300 font-medium truncate">{dept.manager.position}</p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400 italic">Müdür Atanmadı</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center text-indigo-400 px-1">
+                  <ArrowRight className="w-6 h-6 animate-pulse" />
+                </div>
+
+                <div className="flex-1 bg-slate-900/60 rounded-xl p-3 border border-slate-700/60 flex flex-col justify-center gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {dept.specialists.map((emp) => (
+                      <div
+                        key={emp.id}
+                        className="bg-slate-800 border border-slate-700 rounded-lg p-2.5"
+                      >
+                        <p className="font-bold text-xs text-slate-200">{emp.name}</p>
+                        <p className="text-[11px] text-indigo-400 font-medium truncate">{emp.position}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── 3. GÖRÜNÜM: DİKEY DEPARTMAN ŞEMASI ─────────────────────────────── */}
       {gorunum === 'dikey' && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-8 overflow-x-auto shadow-sm">
           <div className="space-y-4">
@@ -995,7 +1029,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         </div>
       )}
 
-      {/* ─── 3. GÖRÜNÜM: AĞAÇ LİSTE ────────────────────────────────────────────── */}
+      {/* ─── 4. GÖRÜNÜM: AĞAÇ LİSTE ────────────────────────────────────────────── */}
       {gorunum === 'agac' && (
         <div className="flex gap-5">
           <div className="flex-1 bg-white rounded-2xl border border-gray-200 p-4 overflow-y-auto max-h-[calc(100vh-280px)]">
@@ -1031,7 +1065,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         </div>
       )}
 
-      {/* ─── 4. GÖRÜNÜM: KADRO KARTLARI GRİDİ ──────────────────────────────────── */}
+      {/* ─── 5. GÖRÜNÜM: KADRO KARTLARI GRİDİ ──────────────────────────────────── */}
       {gorunum === 'kart' && (
         <div className="space-y-6">
           {Array.from(deptPosMap.entries()).map(([dept, posMap]) => (
@@ -1053,7 +1087,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                       altBaslik: emp.position, renk: getDeptTheme(dept).hex, children: [], employee: emp,
                     })}
                     className={`bg-white rounded-2xl border p-3.5 cursor-pointer hover:shadow-md transition-all ${
-                      secilenNode?.id === emp.id ? 'border-indigo-500 shadow-md ring-2 ring-indigo-100' : 'border-gray-200'
+                      secilenNode?.id === emp.id ? 'border-blue-500 shadow-md ring-2 ring-blue-100' : 'border-gray-200'
                     }`}
                   >
                     <div
@@ -1063,7 +1097,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                       {emp.name.charAt(0).toUpperCase()}
                     </div>
                     <p className="text-xs font-bold text-gray-900 text-center truncate">{emp.name}</p>
-                    <p className="text-[11px] text-indigo-600 font-medium text-center truncate">{emp.position}</p>
+                    <p className="text-[11px] text-blue-600 font-medium text-center truncate">{emp.position}</p>
                     <div className="flex justify-center items-center gap-1.5 mt-2 pt-2 border-t border-gray-100">
                       <div className={`w-2 h-2 rounded-full ${statusRenk[emp.status] ?? 'bg-gray-300'}`} />
                       <span className="text-[10px] text-gray-500 capitalize">{emp.status === 'active' ? 'Aktif' : 'İzinde'}</span>
@@ -1093,8 +1127,8 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         </div>
 
         <div className="text-xs text-gray-500 flex items-center gap-1">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Hiyerarşi mantığı: <strong>Bayi Sahibi ➔ Müdürler ➔ Uzmanlar ➔ Stajyer/Asistanlar</strong> pozisyonlarına göre otomatik bağlanır.</span>
+          <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+          <span>Şema kuralı: <strong>Tüm Müdürler Bayi Sahibine, tüm çalışanlar da kendi Departman Müdürüne bağlıdır.</strong></span>
         </div>
       </div>
     </div>
