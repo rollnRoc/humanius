@@ -1478,26 +1478,26 @@ const TutanakSikayetPanel: React.FC<TutanakSikayetPanelProps> = ({
         </div>
       </div>
 
-      {/* Hazır Hukuki Şablon Seçim Paneli (Özellikle Tutanak Kategorisi İçin) */}
+      {/* Hazır Hukuki Şablon Seçim Paneli (Sade & Anlaşılır Tasarım) */}
       {kategori === 'tutanak' && selectedEmp && (
-        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-2xl p-4 text-white shadow-md space-y-3 border border-blue-800">
-          <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-xs space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-gray-100">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-300">
-                Hazır Hukuki Şablon & İbraname Jeneratörü
+              <FileText className="w-4 h-4 text-slate-700" />
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wide">
+                Hazır Hukuki Şablon Doldurucu
               </span>
             </div>
-            <span className="text-[11px] text-blue-200 font-medium">4857 s. K. Uyumlu Otomatik Belge Doldurucu</span>
+            <span className="text-[11px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md font-medium">4857 s. K. Uyumlu Metin Şablonları</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-2">
-              <label className="text-[11px] font-bold text-blue-200 block mb-1">Şablon Türü Seçin:</label>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Şablon Türü Seçin:</label>
               <select
                 value={secilenSablonId}
                 onChange={(e) => handleApplySablon(e.target.value)}
-                className="w-full bg-slate-800 text-white border border-blue-700 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="w-full bg-white text-gray-800 border border-gray-300 rounded-lg px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
               >
                 <option value="">-- Şablon Seçiniz (İbraname, Devamsızlık, Talimat Aykırılığı vb.) --</option>
                 {TUTANAK_SABLONLARI.map((s) => (
@@ -1509,7 +1509,7 @@ const TutanakSikayetPanel: React.FC<TutanakSikayetPanelProps> = ({
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-blue-200 block mb-1">Olay / Fesih Tarihi:</label>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Olay / Fesih Tarihi:</label>
               <input
                 type="date"
                 value={sablonTarihi}
@@ -1517,7 +1517,7 @@ const TutanakSikayetPanel: React.FC<TutanakSikayetPanelProps> = ({
                   setSablonTarihi(e.target.value);
                   if (secilenSablonId) handleApplySablon(secilenSablonId);
                 }}
-                className="w-full bg-slate-800 text-white border border-blue-700 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="w-full bg-white text-gray-800 border border-gray-300 rounded-lg px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
               />
             </div>
           </div>
