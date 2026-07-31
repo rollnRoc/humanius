@@ -640,7 +640,7 @@ const printTutanakPdf = (
       </div>
 
       <div class="footer">
-        Humanius İnsan Kaynakları Yönetim Sistemi · 4857 sayılı İş Kanunu ve ISO 9001 Standartlarına Uygun Tanzim Edilmiştir.
+        İnsan Kaynakları Yönetim Sistemi · 4857 sayılı İş Kanunu ve ISO 9001 Standartlarına Uygun Tanzim Edilmiştir.
       </div>
 
       <script>

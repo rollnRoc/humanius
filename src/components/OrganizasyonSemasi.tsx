@@ -460,7 +460,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
       <html lang="tr">
       <head>
         <meta charset="UTF-8">
-        <title>Humanius HRMS - Birebir Hiyerarşik Şema</title>
+        <title>Resmi Birebir Hiyerarşik Şema</title>
         <style>
           @page { size: A4 landscape; margin: 3mm 4mm; }
           * { box-sizing: border-box; }
@@ -510,7 +510,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         <table class="audit-table">
           <tr>
             <td rowspan="2" style="width:20%; text-align:center; vertical-align:middle; background:linear-gradient(135deg, #1e3a8a, #2563eb); color:white;">
-              <div style="font-size:12px; font-weight:900;">HUMANİUS HRMS</div>
+              <div style="font-size:11px; font-weight:900;">${(companyName || 'KURUMSAL ŞİRKET').toUpperCase()}</div>
               <div style="font-size:6.5px; font-weight:600; opacity:0.9;">İK Yönetim Sistemleri</div>
             </td>
             <td rowspan="2" style="width:50%; text-align:center; vertical-align:middle;">
@@ -527,7 +527,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         </table>
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; font-size:8px; color:#475569;">
-          <span><strong>Kurum:</strong> ${companyName || (employees.length > 0 && (employees[0] as any).company ? (employees[0] as any).company : 'Kurumsal Şirket')} / Humanius HRMS</span>
+          <span><strong>Kurum:</strong> ${companyName || (employees.length > 0 && (employees[0] as any).company ? (employees[0] as any).company : 'Kurumsal Şirket')}</span>
           <span><strong>Kadro Yapısı:</strong> ${employees.length} Çalışan · ${dynamicTree.departments.length} Departman</span>
         </div>
 
@@ -632,7 +632,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         </div>
 
         <div class="footer">
-          <span>Humanius İnsan Kaynakları Yönetim Sistemi © ${new Date().getFullYear()}</span>
+          <span>İnsan Kaynakları Yönetim Sistemi © ${new Date().getFullYear()}</span>
           <span>Gizli ve Kuruma Özel Belge · Otomatik Üretilmiştir.</span>
         </div>
 
