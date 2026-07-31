@@ -3,7 +3,7 @@ import {
   FolderOpen, Upload, Download, Trash2, FileText, User, Calendar,
   AlertTriangle, Briefcase, Clock, RefreshCw, Plus, X, ChevronDown, Lock,
   Building2, Phone, Mail, MapPin, Shield, FileBadge, ClipboardList, CheckCircle, Eye,
-  BookOpen, Award
+  BookOpen, Award, Printer, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ozlukDosyasiService, OzlukDosya } from '../services/ozlukDosyasiService';
@@ -83,41 +83,95 @@ interface DosyaSatiriProps {
   dosya: OzlukDosya;
   onDelete: (dosya: OzlukDosya) => void;
   onDownload: (dosya: OzlukDosya) => void;
+  selectedEmp?: Employee | null;
+  companyName?: string;
 }
 
-const DosyaSatiri: React.FC<DosyaSatiriProps> = ({ dosya, onDelete, onDownload }) => (
-  <div className="flex items-start justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-    <div className="flex-1 min-w-0">
-      {dosya.dosya_adi ? (
-        <p className="text-sm font-medium text-gray-800 truncate">{dosya.dosya_adi}</p>
-      ) : null}
-      {dosya.notlar ? (
-        <p className="text-sm text-gray-700 whitespace-pre-line">{dosya.notlar}</p>
-      ) : null}
-      <p className="text-xs text-gray-400 mt-0.5">
-        {new Date(dosya.created_at).toLocaleDateString('tr-TR')}
-      </p>
-    </div>
-    <div className="flex items-center gap-1 shrink-0">
-      {dosya.dosya_yolu && (
+const DosyaSatiri: React.FC<DosyaSatiriProps> = ({
+  dosya,
+  onDelete,
+  onDownload,
+  selectedEmp,
+  companyName,
+}) => {
+  const hasUploadedFile = Boolean(dosya.dosya_yolu);
+  const hasTextContent = Boolean(dosya.notlar);
+
+  const handlePrintDocument = () => {
+    printTutanakPdf(
+      dosya.dosya_adi || 'Resmi Tutanak Evrağı',
+      dosya.notlar || 'Resmi tutanak metni kaydı.',
+      selectedEmp,
+      companyName,
+      new Date(dosya.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })
+    );
+  };
+
+  return (
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3.5 shadow-xs hover:border-gray-300 transition-all">
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          {dosya.dosya_adi && (
+            <span className="text-sm font-bold text-gray-900">{dosya.dosya_adi}</span>
+          )}
+          {hasUploadedFile ? (
+            <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+              <CheckCircle className="w-3 h-3 text-emerald-600" />
+              İmzalı Yüklü Dosya Var
+            </span>
+          ) : (
+            <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1">
+              <Clock className="w-3 h-3 text-amber-600" />
+              Yazılı Kayıt (Fiziksel İmza Bekleniyor)
+            </span>
+          )}
+        </div>
+
+        {dosya.notlar && (
+          <p className="text-xs text-gray-700 bg-gray-50 p-2.5 rounded-lg border border-gray-100 whitespace-pre-line leading-relaxed">
+            {dosya.notlar}
+          </p>
+        )}
+
+        <p className="text-[11px] text-gray-400">
+          Kayıt Tarihi: {new Date(dosya.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap">
+        {hasUploadedFile && (
+          <button
+            onClick={() => onDownload(dosya)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors border border-blue-200"
+            title="Yüklü İmzalı Dosyayı İndir"
+          >
+            <Download className="w-3.5 h-3.5 text-blue-600" />
+            Dosya İndir
+          </button>
+        )}
+
+        {hasTextContent && (
+          <button
+            onClick={handlePrintDocument}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors shadow-xs"
+            title="Fiziksel İmza İçin A4 Belge PDF Yazdır / İndir"
+          >
+            <Printer className="w-3.5 h-3.5 text-amber-400" />
+            PDF Yazdır / İndir
+          </button>
+        )}
+
         <button
-          onClick={() => onDownload(dosya)}
-          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
-          title="İndir"
+          onClick={() => onDelete(dosya)}
+          className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100"
+          title="Kaydı Sil"
         >
-          <Download className="w-4 h-4" />
+          <Trash2 className="w-4 h-4" />
         </button>
-      )}
-      <button
-        onClick={() => onDelete(dosya)}
-        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-        title="Sil"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 //  Ana bilexen 
 
@@ -480,14 +534,232 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   const storageKapaliMesaji = !storageEnabled
     ? 'Local ortamda Storage servisi kapali oldugu icin belge yukleme ve indirme devre disi. Veritabani belgeleri listelenebilir, ancak dosya islemleri kullanilamaz.'
     : null;
-
   const ozlukSetupMesaji = ozlukSetupEksik
     ? 'Özlük dosyası altyapısı bu Supabase projesinde henüz kurulmamış. Lütfen kurulum adımlarını tamamlayın.'
     : baglantiHatasi
     ? 'Bağlantı hatası: Sunucu ile iletişim kurulamadı. Lütfen internet bağlantınızı kontrol edin veya sayfayı yenileyin.'
     : null;
 
-  //    Render                                                                   
+// ─── Resmi Tutanak / İbraname A4 PDF Yazdırma & İndirme Yardımcısı ───────────
+const printTutanakPdf = (
+  tutanakBaslik: string,
+  tutanakMetni: string,
+  emp?: Employee | null,
+  companyName?: string,
+  tarihStr?: string
+) => {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
+
+  const today = tarihStr || new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+      <meta charset="UTF-8">
+      <title>${tutanakBaslik} - Resmi Evrak</title>
+      <style>
+        @page { size: A4 portrait; margin: 15mm 15mm; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Times New Roman', Times, serif, Arial; color: #000; line-height: 1.5; font-size: 11pt; padding: 10px; background: #fff; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+        .company-title { font-size: 14pt; font-weight: bold; text-transform: uppercase; }
+        .doc-title { font-size: 13pt; font-weight: bold; margin-top: 10px; text-decoration: underline; letter-spacing: 1px; }
+        .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10pt; }
+        .meta-table td { border: 1px solid #666; padding: 6px 10px; }
+        .meta-bg { background-color: #f2f2f2; font-weight: bold; width: 25%; }
+        .body-text { margin-bottom: 30px; text-align: justify; text-indent: 30px; font-size: 11pt; white-space: pre-wrap; word-break: break-word; }
+        .declaration { font-size: 9.5pt; font-style: italic; background: #f9f9f9; border: 1px solid #ccc; padding: 10px; margin-bottom: 40px; }
+        .signature-grid { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-top: 30px; page-break-inside: avoid; }
+        .sig-box { width: 48%; border: 1px solid #333; padding: 12px; font-size: 9.5pt; text-align: center; min-height: 120px; margin-bottom: 10px; }
+        .sig-box-title { font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 8px; text-transform: uppercase; }
+        .footer { margin-top: 40px; font-size: 8.5pt; color: #666; text-align: center; border-top: 1px solid #ccc; padding-top: 5px; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="company-title">${companyName || 'KURUMSAL ŞİRKET YÖNETİMİ'}</div>
+        <div style="font-size: 9pt; color: #444; margin-top: 2px;">İNSAN KAYNAKLARI VE DİSİPLİN KURULU BAŞKANLIĞI</div>
+        <div class="doc-title">${tutanakBaslik.toUpperCase()}</div>
+      </div>
+
+      <table class="meta-table">
+        <tr>
+          <td class="meta-bg">Personel Adı Soyadı:</td>
+          <td>${emp ? emp.name : '—'}</td>
+          <td class="meta-bg">Tarih:</td>
+          <td>${today}</td>
+        </tr>
+        <tr>
+          <td class="meta-bg">TC Kimlik No:</td>
+          <td>${emp ? (emp.tcNo || emp.tc_no || '—') : '—'}</td>
+          <td class="meta-bg">Doküman Ref:</td>
+          <td>FR-IK-TUT-${Math.floor(1000 + Math.random() * 9000)}</td>
+        </tr>
+        <tr>
+          <td class="meta-bg">Departman / Görev:</td>
+          <td colspan="3">${emp ? `${emp.department || '—'} / ${emp.position || '—'}` : '—'}</td>
+        </tr>
+      </table>
+
+      <div class="body-text">${tutanakMetni}</div>
+
+      <div class="declaration">
+        <strong>Çalışan Tebliğ & Beyan Metni:</strong> İşbu tutanak / ibraname belgesi tarafıma bizzat tebliğ edilmiş olup, metni okudum, anladım ve ıslak imzalı bir nüshasını elden teslim aldım.
+      </div>
+
+      <div class="signature-grid">
+        <div class="sig-box">
+          <div class="sig-box-title">TEBLİĞ EDEN / İŞVEREN YETKİLİSİ</div>
+          <div>Adı Soyadı: .......................................</div>
+          <div>Unvanı: İK Yöneticisi / İşveren Vekili</div>
+          <div style="margin-top: 30px;">İmza & Kaşe: ...............................</div>
+        </div>
+
+        <div class="sig-box">
+          <div class="sig-box-title">TEBLİĞ EDİLEN / ÇALIŞAN</div>
+          <div>Adı Soyadı: ${emp ? emp.name : '.......................................'}</div>
+          <div>"Okudum, anladım, bir nüshasını aldım"</div>
+          <div style="margin-top: 30px;">İmza & Tarih: ...............................</div>
+        </div>
+
+        <div class="sig-box">
+          <div class="sig-box-title">TANIK 1 (ŞAHİT)</div>
+          <div>Adı Soyadı: .......................................</div>
+          <div>Unvanı: ...........................................</div>
+          <div style="margin-top: 30px;">İmza: ............................................</div>
+        </div>
+
+        <div class="sig-box">
+          <div class="sig-box-title">TANIK 2 (ŞAHİT)</div>
+          <div>Adı Soyadı: .......................................</div>
+          <div>Unvanı: ...........................................</div>
+          <div style="margin-top: 30px;">İmza: ............................................</div>
+        </div>
+      </div>
+
+      <div class="footer">
+        Humanius İnsan Kaynakları Yönetim Sistemi · 4857 sayılı İş Kanunu ve ISO 9001 Standartlarına Uygun Tanzim Edilmiştir.
+      </div>
+
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+          }, 300);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.write(htmlContent);
+  printWindow.document.close();
+};
+
+// ─── Hazır Hukuki Şablonlar Listesi ──────────────────────────────────────────
+const TUTANAK_SABLONLARI = [
+  {
+    id: 'ibraname',
+    label: '📄 İşten Çıkarma İbranamesi ve Borcu Yoktur Belgesi (4857 s. K. Uygun)',
+    baslik: 'İBRANAME VE BORCU YOKTUR BELGESİ',
+    generateText: (emp: Employee, companyName: string, dateStr: string, reasonStr: string) => `
+İBRANAME VE BORCU YOKTUR BELGESİ
+
+İşveren Şirket: ${companyName}
+Çalışan Adı Soyadı: ${emp.name}
+TC Kimlik No: ${emp.tcNo || emp.tc_no || '12345678901'}
+Departman / Pozisyon: ${emp.department || 'Genel'} / ${emp.position || 'Personel'}
+İşe Giriş Tarihi: ${emp.joinDate || emp.join_date || '—'}
+Fesih / İşten Ayrılış Tarihi: ${dateStr}
+
+Yukarıda açık kimliği yazılı personelin iş akdi ${dateStr} tarihi itibarıyla sona ermiştir. Personelin çalışmış olduğu döneme ilişkin kıdem tazminatı, ihbar tazminatı, ödenmemiş ücret alacağı, fazla mesai ücretleri, yıllık izin ücreti, hafta tatili ve genel tatil alacakları da dahil olmak üzere doğmuş ve doğabilecek tüm alacakları eksiksiz olarak hesaplanıp tarafına ödenmiştir.
+
+İşbu ibraname ile çalışan; işveren ${companyName} şirketini ve yöneticilerini geçmişe ve geleceğe dönük olarak gayrikabili rücu serbestçe ibra ettiğini, işverenden hiçbir nam ve ad altında alacağı kalmadığını kabul, beyan ve taahhüt eder.
+
+İşbu belge 2 (iki) nüsha olarak tanzim edilmiş, okunup anlaşılarak karşılıklı imza altına alınmıştır.
+`
+  },
+  {
+    id: 'devamsizlik',
+    label: '⚠️ Mesai Devamsızlık / Mazeretsiz İşe Gelmeme Tutanağı',
+    baslik: 'MAZERETSİZ İŞE GELMEME VE DEVAMSIZLIK TUTANAĞI',
+    generateText: (emp: Employee, companyName: string, dateStr: string, reasonStr: string) => `
+MAZERETSİZ İŞE GELMEME VE DEVAMSIZLIK TUTANAĞI
+
+İşveren Şirket: ${companyName}
+Tutanak Tarihi: ${dateStr}
+Çalışan Adı Soyadı: ${emp.name}
+TC Kimlik No: ${emp.tcNo || emp.tc_no || '12345678901'}
+Departman / Pozisyon: ${emp.department || 'Genel'} / ${emp.position || 'Personel'}
+
+Açıklama / Olay Tespiti:
+Şirketimizde ${emp.position || 'personel'} olarak görev yapmakta olan ${emp.name}, ${dateStr} tarihinde mesai başlangıç saatinden itibaren işverene veya yetkili amirlere herhangi bir mazeret veya izin bildiriminde bulunmaksızın görevine gelmemiştir. ${reasonStr ? `\n\nEk Detay: ${reasonStr}` : ''}
+
+Yapılan telefon aramalarında ulaşılamamış / sunulan mazeret geçerli görülmemiştir. 4857 sayılı İş Kanunu'nun 25/II-g maddesi uyarınca yasal işlem yapılmak üzere işbu tutanak tanzim olunmuştur.
+`
+  },
+  {
+    id: 'talimat_aykirilik',
+    label: '📝 Görev ve İş Talimatlarına Aykırılık Tutanağı',
+    baslik: 'GÖREV VE İŞ TALİMATLARINA AYKIRILIK TUTANAĞI',
+    generateText: (emp: Employee, companyName: string, dateStr: string, reasonStr: string) => `
+GÖREV VE İŞ TALİMATLARINA AYKIRILIK TUTANAĞI
+
+İşveren Şirket: ${companyName}
+Tutanak Tarihi: ${dateStr}
+Çalışan Adı Soyadı: ${emp.name}
+TC Kimlik No: ${emp.tcNo || emp.tc_no || '12345678901'}
+Departman / Pozisyon: ${emp.department || 'Genel'} / ${emp.position || 'Personel'}
+
+Olay ve İhlal Özeti:
+${reasonStr || 'Verilen görevi zamanında ve talimatlara uygun olarak yerine getirmeme tespiti.'}
+
+Şirketimiz ${emp.department || 'Genel'} departmanında ${emp.position || 'personel'} olarak görev yapan ${emp.name}, yukarıda belirtilen konu ile ilgili olarak kendisine verilen yazılı/sözlü iş talimatlarına ve şirket prosedürlerine aykırı davranmıştır. İşbu tutanak personelin savunmasının talep edilmesi ve özlük dosyasına işlenmesi amacıyla düzenlenmiştir.
+`
+  },
+  {
+    id: 'disiplin_ihlali',
+    label: '⚖️ İş Yeri Disiplin ve Düzen İhlali Tutanağı',
+    baslik: 'İŞ YERİ DİSİPLİN VE DÜZEN İHLALİ TUTANAĞI',
+    generateText: (emp: Employee, companyName: string, dateStr: string, reasonStr: string) => `
+İŞ YERİ DİSİPLİN VE DÜZEN İHLALİ TUTANAĞI
+
+İşveren Şirket: ${companyName}
+Tutanak Tarihi: ${dateStr}
+Çalışan Adı Soyadı: ${emp.name}
+TC Kimlik No: ${emp.tcNo || emp.tc_no || '12345678901'}
+Departman / Pozisyon: ${emp.department || 'Genel'} / ${emp.position || 'Personel'}
+
+Disiplin İhlali Özeti:
+${reasonStr || 'İş yerinde mesai saatleri içerisinde iş disiplinini ve huzurunu bozucu davranışlarda bulunulduğu tespit edilmiştir.'}
+
+Yukarıda detayları yer alan durum, ${dateStr} tarihinde iş yeri dahilinde gerçekleşmiş olup şirket içi huzur ve disiplini olumsuz etkilemiştir. İşbu tutanak durumu resmi kayıt altına almak ve yasal süreçleri başlatmak üzere tanzim edilmiştir.
+`
+  },
+  {
+    id: 'istifa_dilekcesi',
+    label: '💼 İstifa ve İş Akdi Fesih Dilekçesi / Protokolü',
+    baslik: 'İSTİFA VE İŞ AKDİ FESİH PROTOKOLÜ',
+    generateText: (emp: Employee, companyName: string, dateStr: string, reasonStr: string) => `
+İSTİFA VE İŞ AKDİ FESİH PROTOKOLÜ
+
+İşveren Şirket: ${companyName}
+İstifa Tarihi: ${dateStr}
+Çalışan Adı Soyadı: ${emp.name}
+TC Kimlik No: ${emp.tcNo || emp.tc_no || '12345678901'}
+Departman / Pozisyon: ${emp.department || 'Genel'} / ${emp.position || 'Personel'}
+
+İşveren Şirket Yetkililerine,
+Şirketiniz bünyesinde ${emp.joinDate || emp.join_date || '—'} tarihinden bu yana ${emp.position || 'personel'} olarak sürdürmekte olduğum görevimden, kendi istek ve rızam ile ${dateStr} tarihi itibarıyla istifa ederek ayrılıyorum. ${reasonStr ? `\n\nAyrılış Nedeni: ${reasonStr}` : ''}
+
+Görev yaptığım süre zarfında doğan tüm haklarımın tarafıma ödendiğini, şirket ile ilgili herhangi bir alacağımın bulunmadığını beyan eder, gereğinin yapılmasını arz ederim.
+`
+  }
+];
+
+//     Dosya satırı bilexeni                                                                   
 
   return (
     <div className="space-y-6">
@@ -966,6 +1238,8 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                   kaydediliyor={yaziKaydediliyor['tutanak'] ?? false}
                   uploadingKategori={uploadingKategori}
                   disabled={ozlukSetupEksik || !storageEnabled}
+                  selectedEmp={selectedEmp}
+                  companyName={(selectedEmp as any)?.company || 'Kurumsal Şirket'}
                   fileInputRef={(el) => { fileInputRefs.current['tutanak'] = el; }}
                   onYaziChange={(v) => setYeniYazi((prev) => ({ ...prev, tutanak: v }))}
                   onSaveYazi={() => handleSaveYazi('tutanak')}
@@ -1083,6 +1357,8 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                   kaydediliyor={yaziKaydediliyor['sikayet'] ?? false}
                   uploadingKategori={uploadingKategori}
                   disabled={ozlukSetupEksik || !storageEnabled}
+                  selectedEmp={selectedEmp}
+                  companyName={(selectedEmp as any)?.company || 'Kurumsal Şirket'}
                   fileInputRef={(el) => { fileInputRefs.current['sikayet'] = el; }}
                   onYaziChange={(v) => setYeniYazi((prev) => ({ ...prev, sikayet: v }))}
                   onSaveYazi={() => handleSaveYazi('sikayet')}
@@ -1152,6 +1428,8 @@ interface TutanakSikayetPanelProps {
   kaydediliyor: boolean;
   uploadingKategori: string | null;
   disabled: boolean;
+  selectedEmp?: Employee | null;
+  companyName?: string;
   fileInputRef: (el: HTMLInputElement | null) => void;
   onYaziChange: (v: string) => void;
   onSaveYazi: () => void;
@@ -1169,6 +1447,8 @@ const TutanakSikayetPanel: React.FC<TutanakSikayetPanelProps> = ({
   kaydediliyor,
   uploadingKategori,
   disabled,
+  selectedEmp,
+  companyName,
   fileInputRef,
   onYaziChange,
   onSaveYazi,
@@ -1177,70 +1457,176 @@ const TutanakSikayetPanel: React.FC<TutanakSikayetPanelProps> = ({
   onDownload,
 }) => {
   const innerRef = useRef<HTMLInputElement | null>(null);
+  const [secilenSablonId, setSecilenSablonId] = useState<string>('');
+  const [sablonAciklama, setSablonAciklama] = useState<string>('');
+  const [sablonTarihi, setSablonTarihi] = useState<string>(new Date().toISOString().split('T')[0]);
+
+  const handleApplySablon = (sablonId: string) => {
+    setSecilenSablonId(sablonId);
+    if (!sablonId) return;
+    const sablon = TUTANAK_SABLONLARI.find((s) => s.id === sablonId);
+    if (sablon && selectedEmp) {
+      const formattedDate = new Date(sablonTarihi).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+      const metin = sablon.generateText(selectedEmp, companyName || 'Kurumsal Şirket', formattedDate, sablonAciklama);
+      onYaziChange(metin);
+    }
+  };
+
+  const handlePrintDraftPdf = () => {
+    if (!yeniYazi.trim()) return;
+    const sablon = TUTANAK_SABLONLARI.find((s) => s.id === secilenSablonId);
+    const docTitle = sablon ? sablon.baslik : `${baslik} Resmi Belgesi`;
+    printTutanakPdf(docTitle, yeniYazi, selectedEmp, companyName);
+  };
 
   return (
-  <div className="space-y-4">
-    <div>
-      <h3 className="font-semibold text-gray-800">{baslik}</h3>
-      <p className="text-xs text-gray-500 mt-0.5">{aciklama}</p>
-    </div>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 className="font-bold text-base text-gray-900 flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 text-blue-600" />
+            {baslik}
+          </h3>
+          <p className="text-xs text-gray-500 mt-0.5">{aciklama}</p>
+        </div>
+      </div>
 
-    {/* Yeni ekleme */}
-    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Yeni Kayıt Ekle</p>
-      <textarea
-        value={yeniYazi}
-        onChange={(e) => onYaziChange(e.target.value)}
-        rows={3}
-        placeholder={`${baslik} metnini buraya yazın...`}
-        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-      />
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onSaveYazi}
-          disabled={!yeniYazi.trim() || kaydediliyor || disabled}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-        >
-          {kaydediliyor ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-          Yazı Olarak Kaydet
-        </button>
-        <span className="text-gray-400 text-xs">veya</span>
-        <input
-          ref={(el) => { innerRef.current = el; fileInputRef(el); }}
-          type="file"
-          className="hidden"
-          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-          onChange={onFileSelect}
-        />
-        <button
-          onClick={() => innerRef.current?.click()}
-          disabled={uploadingKategori === kategori || disabled}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-white transition-colors disabled:opacity-50"
-        >
-          {uploadingKategori === kategori ? (
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <Upload className="w-3.5 h-3.5" />
+      {/* Hazır Hukuki Şablon Seçim Paneli (Özellikle Tutanak Kategorisi İçin) */}
+      {kategori === 'tutanak' && selectedEmp && (
+        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-2xl p-4 text-white shadow-md space-y-3 border border-blue-800">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-300">
+                Hazır Hukuki Şablon & İbraname Jeneratörü
+              </span>
+            </div>
+            <span className="text-[11px] text-blue-200 font-medium">4857 s. K. Uyumlu Otomatik Belge Doldurucu</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="md:col-span-2">
+              <label className="text-[11px] font-bold text-blue-200 block mb-1">Şablon Türü Seçin:</label>
+              <select
+                value={secilenSablonId}
+                onChange={(e) => handleApplySablon(e.target.value)}
+                className="w-full bg-slate-800 text-white border border-blue-700 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400"
+              >
+                <option value="">-- Şablon Seçiniz (İbraname, Devamsızlık, Talimat Aykırılığı vb.) --</option>
+                {TUTANAK_SABLONLARI.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-blue-200 block mb-1">Olay / Fesih Tarihi:</label>
+              <input
+                type="date"
+                value={sablonTarihi}
+                onChange={(e) => {
+                  setSablonTarihi(e.target.value);
+                  if (secilenSablonId) handleApplySablon(secilenSablonId);
+                }}
+                className="w-full bg-slate-800 text-white border border-blue-700 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Yeni ekleme / Metin & Dosya Alanı */}
+      <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 space-y-3 shadow-xs">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-extrabold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
+            <FileText className="w-4 h-4 text-blue-600" />
+            Yeni Kayıt / Düzenleme Alanı
+          </p>
+          {yeniYazi.trim() && (
+            <button
+              onClick={handlePrintDraftPdf}
+              className="flex items-center gap-1.5 px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5 text-amber-400" />
+              Fiziksel İmza İçin PDF Yazdır
+            </button>
           )}
-          Dosya Yükle
-        </button>
+        </div>
+
+        <textarea
+          value={yeniYazi}
+          onChange={(e) => onYaziChange(e.target.value)}
+          rows={5}
+          placeholder={`${baslik} metnini buraya yazın veya yukarıdaki hazır hukuki şablonlardan birini seçin...`}
+          className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-mono leading-relaxed"
+        />
+
+        <div className="flex items-center gap-2 flex-wrap pt-1">
+          <button
+            onClick={onSaveYazi}
+            disabled={!yeniYazi.trim() || kaydediliyor || disabled}
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-extrabold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+          >
+            {kaydediliyor ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+            Yazılı Kaydı Özlük Dosyasına Kaydet
+          </button>
+
+          <span className="text-gray-400 text-xs font-bold">veya</span>
+
+          <input
+            ref={(el) => { innerRef.current = el; fileInputRef(el); }}
+            type="file"
+            className="hidden"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            onChange={onFileSelect}
+          />
+
+          <button
+            onClick={() => innerRef.current?.click()}
+            disabled={uploadingKategori === kategori || disabled}
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-extrabold bg-white border-2 border-gray-300 text-gray-800 rounded-xl hover:bg-gray-50 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+          >
+            {uploadingKategori === kategori ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
+            ) : (
+              <Upload className="w-3.5 h-3.5 text-blue-600" />
+            )}
+            Fiziksel İmzalı Evrak / Dosya Yükle
+          </button>
+        </div>
+      </div>
+
+      {/* Mevcut kayıtlar */}
+      <div className="space-y-3">
+        <h4 className="text-xs font-extrabold text-gray-700 uppercase tracking-wider flex items-center justify-between">
+          <span>Kayıtlı {baslik} ({dosyalar.length})</span>
+          <span className="text-[11px] font-normal text-gray-500">Resmi Özlük Arşivi</span>
+        </h4>
+
+        {dosyalar.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 p-8 text-center bg-gray-50/50">
+            <FileText className="w-9 h-9 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm font-bold text-gray-500">Henüz {baslik.toLowerCase()} kaydı yok</p>
+            <p className="text-xs text-gray-400 mt-1">Hazır şablon seçerek veya metin/dosya ekleyerek kayıt oluşturabilirsiniz.</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {dosyalar.map((d) => (
+              <DosyaSatiri
+                key={d.id}
+                dosya={d}
+                onDelete={onDelete}
+                onDownload={onDownload}
+                selectedEmp={selectedEmp}
+                companyName={companyName}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
-
-    {/* Mevcut kayıtlar */}
-    {dosyalar.length === 0 ? (
-      <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center">
-        <FileText className="w-8 h-8 text-gray-200 mx-auto mb-1" />
-        <p className="text-sm text-gray-400">Henüz {baslik.toLowerCase()} kaydı yok</p>
-      </div>
-    ) : (
-      <div className="space-y-2">
-        {dosyalar.map((d) => (
-          <DosyaSatiri key={d.id} dosya={d} onDelete={onDelete} onDownload={onDownload} />
-        ))}
-      </div>
-    )}
-  </div>
   );
 };
 
