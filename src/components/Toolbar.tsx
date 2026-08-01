@@ -60,6 +60,13 @@ const Toolbar: React.FC<ToolbarProps> = ({
               </button>
             ) : null}
           </div>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm shrink-0 cursor-pointer"
+          >
+            <Search className="w-4 h-4" />
+            <span>Ara</span>
+          </button>
         </div>
 
         {/* Action Buttons */}
