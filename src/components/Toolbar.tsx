@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, FileDown, FileUp } from 'lucide-react';
+import { Plus, FileDown, Search, X } from 'lucide-react';
 import { Company, Department } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,6 +13,9 @@ interface ToolbarProps {
   onExportCSV: () => void;
   companies: Company[];
   departments: Department[];
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
+  totalResultCount?: number;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -23,76 +26,110 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onNewEmployee,
   onExportCSV,
   companies,
-  departments
+  departments,
+  searchTerm = '',
+  onSearchChange,
+  totalResultCount
 }) => {
   const { t } = useLanguage();
   const { appRole } = useAuth();
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-      {/* Department Filters */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => onDepartmentChange('all')}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-            selectedDepartment === 'all'
-              ? 'bg-blue-100 border border-blue-300 text-blue-700'
-              : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
-          }`}
-        >
-          {t('toolbar.all')}
-        </button>
-        {departments.map(dept => (
+    <div className="space-y-3 mb-4">
+      {/* Search & Actions Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Global Multi-Column Search Input */}
+        <div className="relative flex-1 min-w-[280px] max-w-lg">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            placeholder="Personel adı, departman, pozisyon, telefon, TC ara (Tüm sayfalar)..."
+            className="w-full pl-10 pr-9 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium placeholder:text-gray-400 text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm"
+          />
+          {searchTerm ? (
+            <button
+              onClick={() => onSearchChange?.('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+              title="Aramayı Temizle"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {appRole === 'superadmin' && (
+            <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-1.5">
+              <label className="text-xs text-gray-500 font-medium">{t('toolbar.company')}:</label>
+              <select
+                value={selectedCompany}
+                onChange={(e) => onCompanyChange(e.target.value)}
+                className="bg-transparent text-gray-800 text-sm font-semibold outline-none cursor-pointer"
+              >
+                <option value="all">{t('toolbar.all')}</option>
+                {companies.map(company => (
+                  <option key={company} value={company}>
+                    {company}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
           <button
-            key={dept}
-            onClick={() => onDepartmentChange(dept)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-              selectedDepartment === dept
-                ? 'bg-blue-100 border border-blue-300 text-blue-700'
+            onClick={onNewEmployee}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            {t('toolbar.newEmployee')}
+          </button>
+          
+          <button
+            onClick={onExportCSV}
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-semibold hover:border-blue-300 hover:bg-blue-50 transition-all text-sm"
+          >
+            <FileDown className="w-4 h-4 text-gray-500" />
+            {t('toolbar.exportCSV')}
+          </button>
+        </div>
+      </div>
+
+      {/* Department Filter Pills & Active Search Info */}
+      <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            onClick={() => onDepartmentChange('all')}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+              selectedDepartment === 'all'
+                ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
             }`}
           >
-            {dept}
+            {t('toolbar.all')}
           </button>
-        ))}
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {appRole === 'superadmin' && (
-          <>
-            <label className="text-xs text-gray-500">{t('toolbar.company')}</label>
-            <select
-              value={selectedCompany}
-              onChange={(e) => onCompanyChange(e.target.value)}
-              className="bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          {departments.map(dept => (
+            <button
+              key={dept}
+              onClick={() => onDepartmentChange(dept)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                selectedDepartment === dept
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+              }`}
             >
-              <option value="all">{t('toolbar.all')}</option>
-              {companies.map(company => (
-                <option key={company} value={company}>
-                  {company}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-        
-        <button
-          onClick={onNewEmployee}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg"
-        >
-          <Plus className="w-4 h-4" />
-          {t('toolbar.newEmployee')}
-        </button>
-        
-        <button
-          onClick={onExportCSV}
-          className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl font-medium hover:border-blue-300 hover:bg-blue-50 transition-colors"
-        >
-          <FileDown className="w-4 h-4" />
-          {t('toolbar.exportCSV')}
-        </button>
+              {dept}
+            </button>
+          ))}
+        </div>
 
+        {searchTerm && (
+          <div className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full flex items-center gap-1.5">
+            <span>Arama sonucu: <strong>{totalResultCount ?? 0}</strong> personel bulundu</span>
+          </div>
+        )}
       </div>
     </div>
   );

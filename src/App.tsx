@@ -576,15 +576,32 @@ const AppInner: React.FC = () => {
 
   // ── Filtered lists ──────────────────────────────────────────────────────────
   const filteredEmployees = employees.filter((emp) => {
-    const safeName = String(emp.name ?? '').toLowerCase();
-    const safeDepartment = String(emp.department ?? '').toLowerCase();
-    const safePosition = String(emp.position ?? '').toLowerCase();
-    const normalizedSearch = searchTerm.toLowerCase();
+    const normalize = (str?: string) =>
+      String(str ?? '')
+        .toLowerCase()
+        .replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u')
+        .replace(/ş/g, 's')
+        .replace(/ı/g, 'i')
+        .replace(/ö/g, 'o')
+        .replace(/ç/g, 'c');
+
+    const searchNorm = normalize(searchTerm);
     const matchSearch =
       !searchTerm ||
-      safeName.includes(normalizedSearch) ||
-      safeDepartment.includes(normalizedSearch) ||
-      safePosition.includes(normalizedSearch);
+      normalize(emp.name).includes(searchNorm) ||
+      normalize(emp.email).includes(searchNorm) ||
+      normalize((emp as any).contact_email).includes(searchNorm) ||
+      normalize(emp.department).includes(searchNorm) ||
+      normalize(emp.position).includes(searchNorm) ||
+      normalize(emp.mobile).includes(searchNorm) ||
+      normalize(emp.phone).includes(searchNorm) ||
+      normalize(emp.employee_type).includes(searchNorm) ||
+      normalize(emp.status).includes(searchNorm) ||
+      normalize(emp.company).includes(searchNorm) ||
+      normalize(emp.tc_no).includes(searchNorm) ||
+      normalize(emp.sicil_no).includes(searchNorm);
+
     const matchDept =
       selectedDepartment === 'all' || emp.department === selectedDepartment;
 
@@ -1270,6 +1287,9 @@ const AppInner: React.FC = () => {
               onExportCSV={handleExportCSV}
               companies={companies}
               departments={departments}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              totalResultCount={filteredEmployees.length}
             />
             <StatsCards stats={stats} />
             <EmployeeTable
