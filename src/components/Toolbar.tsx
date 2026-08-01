@@ -38,25 +38,38 @@ const Toolbar: React.FC<ToolbarProps> = ({
     <div className="space-y-3 mb-4">
       {/* Search & Actions Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Global Multi-Column Search Input */}
-        <div className="relative flex-1 min-w-[280px] max-w-lg">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => onSearchChange?.(e.target.value)}
-            placeholder="Personel adı, departman, pozisyon, telefon, TC ara (Tüm sayfalar)..."
-            className="w-full pl-10 pr-9 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium placeholder:text-gray-400 text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm"
-          />
-          {searchTerm ? (
-            <button
-              onClick={() => onSearchChange?.('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-              title="Aramayı Temizle"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          ) : null}
+        {/* Global Multi-Column Search Input & Search Button */}
+        <div className="flex items-center gap-2 flex-1 min-w-[300px] max-w-xl">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              placeholder="Personel ara (Ad, Soyad, TC, Telefon, Pozisyon...)"
+              className="w-full pl-10 pr-9 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium placeholder:text-gray-400 text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm"
+            />
+            {searchTerm ? (
+              <button
+                type="button"
+                onClick={() => onSearchChange?.('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                title="Aramayı Temizle"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              // Focus or trigger if needed (instant search already filters live)
+            }}
+            className="flex items-center gap-1.5 bg-gray-900 hover:bg-black text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm cursor-pointer shrink-0"
+          >
+            <Search className="w-4 h-4" />
+            <span>Ara</span>
+          </button>
         </div>
 
         {/* Action Buttons */}
