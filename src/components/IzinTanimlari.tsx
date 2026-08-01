@@ -186,6 +186,17 @@ const IzinTanimlari: React.FC = () => {
 
   const seciliTur = izinTurleri.find((t) => t.id === secili);
 
+  function yeniFormuAc() {
+    setSecili(null);
+    setForm({
+      ad: '', kod: '', renk: '#6366f1', ucretli: true, yillikHak: false,
+      devirHakki: false, devirLimiti: '', borclanma: false, belgeGerekli: false,
+      maksBekleme: '0', kademeli: false, kademe1gun: '14', kademe2gun: '20', kademe3gun: '26', aciklama: '',
+    });
+    setYeniEkleme(true);
+    setDuzenleme(true);
+  }
+
   function formDoldur(tur: IzinTuruKural) {
     setForm({
       ad: tur.ad,
