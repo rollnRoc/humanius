@@ -305,8 +305,8 @@ const AppInner: React.FC = () => {
           sicil_no: e.sicil_no,
           company: companyMap.get(e.company_id) ?? (
             e.company_id === 'demo-company-id-9999' || e.company_id === 'aaaaaaaa-0000-0000-0000-000000000001' || e.company_id?.startsWith('demo-')
-              ? 'HİZEL OTOMOTİV İNŞ.A.Ş'
-              : (e.company_id && !e.company_id.includes('-id-') ? e.company_id : 'HİZEL OTOMOTİV İNŞ.A.Ş')
+              ? 'Humanius Demo Şirketi'
+              : (e.company_id && !e.company_id.includes('-id-') ? e.company_id : 'Humanius Demo Şirketi')
           ),
           department: e.department ?? '',
           position: e.position ?? '',
@@ -371,10 +371,10 @@ const AppInner: React.FC = () => {
           setCompanies((allComps ?? []).map((c) => c.name));
         } else if (profile?.company_id) {
           if (profile.company_id === 'demo-company-id-9999' || profile.company_id.startsWith('demo-')) {
-            setCompanies(['HİZEL OTOMOTİV İNŞ.A.Ş']);
+            setCompanies(['Humanius Demo Şirketi']);
           } else {
             const compData = await companyService.getById(profile.company_id);
-            setCompanies(compData ? [compData.name] : ['HİZEL OTOMOTİV İNŞ.A.Ş']);
+            setCompanies(compData ? [compData.name] : ['Humanius Demo Şirketi']);
             setCompanyLogoUrl(compData?.logo_url ?? null);
           }
         }
@@ -615,8 +615,8 @@ const AppInner: React.FC = () => {
 
     const selCompLower = (selectedCompany || '').toLowerCase();
     const empCompLower = (emp.company || '').toLowerCase();
-    const isToyotaSelected = selCompLower.includes('hizel') || selCompLower.includes('toyota') || selectedCompany === 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9';
-    const isEmpToyota = empCompLower.includes('hizel') || empCompLower.includes('toyota') || emp.company_id === 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9' || !emp.company_id || emp.company_id === 'aaaaaaaa-0000-0000-0000-000000000001';
+    const isDemoSelected = selCompLower.includes('demo') || selCompLower.includes('humanius') || selectedCompany === 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9' || selectedCompany === 'aaaaaaaa-0000-0000-0000-000000000001';
+    const isEmpDemo = empCompLower.includes('demo') || empCompLower.includes('humanius') || emp.company_id === 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9' || !emp.company_id || emp.company_id === 'aaaaaaaa-0000-0000-0000-000000000001';
 
     const matchCompany =
       selectedCompany === 'all' ||
@@ -624,7 +624,7 @@ const AppInner: React.FC = () => {
       emp.company === selectedCompany ||
       emp.company_id === selectedCompany ||
       (emp.company && selectedCompany && emp.company.toLowerCase().trim() === selectedCompany.toLowerCase().trim()) ||
-      (isToyotaSelected && isEmpToyota);
+      (isDemoSelected && isEmpDemo);
 
     return matchSearch && matchDept && matchCompany;
   });
@@ -705,9 +705,12 @@ const AppInner: React.FC = () => {
           .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
           .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
           .replace(/[^a-z0-9]/g, '.');
-        const domain = (matchedCompName || '').toLowerCase().includes('toyota') || targetCompanyId === 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9'
-          ? 'hizel.toyota.com.tr'
-          : 'humanius.net';
+        const compSlug = (matchedCompName || '')
+          .toLowerCase()
+          .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
+          .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+          .replace(/[^a-z0-9]/g, '');
+        const domain = compSlug ? `${compSlug}.com.tr` : 'humanius.net';
         targetEmail = `${slug}@${domain}`;
       }
 

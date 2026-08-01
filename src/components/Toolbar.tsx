@@ -60,16 +60,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
               </button>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              // Focus or trigger if needed (instant search already filters live)
-            }}
-            className="flex items-center gap-1.5 bg-gray-900 hover:bg-black text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm cursor-pointer shrink-0"
-          >
-            <Search className="w-4 h-4" />
-            <span>Ara</span>
-          </button>
         </div>
 
         {/* Action Buttons */}
