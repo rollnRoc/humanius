@@ -294,20 +294,28 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           .audit-table td { border: 1px solid #cbd5e1; padding: 4px 8px; }
           .audit-bg { background: #f8fafc; font-weight: 600; color: #475569; }
 
-          /* Hiyerarşik Ağaç Görünüm Stilleri (Sıkıştırılmış & Düzenli) */
-          .tree-root { text-align: center; margin-bottom: 12px; }
-          .tree-root-box { display: inline-block; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; padding: 6px 18px; border-radius: 8px; font-weight: 800; font-size: 12px; }
-          
-          .dept-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
-          .dept-card { border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; overflow: hidden; page-break-inside: avoid; }
-          .dept-card-header { padding: 5px 10px; background: #f8fafc; font-weight: 700; font-size: 11px; color: #0f172a; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-          .dept-badge { font-size: 9px; font-weight: 600; color: #475569; background: #e2e8f0; padding: 1px 6px; border-radius: 10px; }
+          /* Top-Down Ağaç Şeması Stilleri */
+          .tree-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; margin: 12px 0; }
+          .tree-root-box { background: #0f172a; color: #ffffff; padding: 7px 22px; border-radius: 8px; text-align: center; border: 2px solid #1e293b; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
+          .root-title { font-size: 12px; font-weight: 900; letter-spacing: 0.5px; }
+          .root-sub { font-size: 9px; opacity: 0.85; margin-top: 2px; }
 
-          /* Personel Izgara / Micro Grid */
-          .emp-micro-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px; }
-          .emp-pill { border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 8px; background: #f9fafb; font-size: 10px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-          .emp-name { font-weight: 700; color: #0f172a; }
-          .emp-pos { font-weight: 600; color: #2563eb; font-size: 9.5px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+          .v-line { width: 2px; background-color: #64748b; margin: 0 auto; flex-shrink: 0; }
+
+          .h-line-wrapper { width: 100%; display: flex; justify-content: center; }
+          .h-line { height: 2px; background-color: #64748b; width: 88%; }
+
+          .dept-branches { display: flex; justify-content: space-around; width: 100%; gap: 10px; align-items: flex-start; }
+          .dept-branch { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 110px; }
+
+          .dept-node-box { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; text-align: center; width: 100%; max-width: 160px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+          .dept-name { font-size: 11px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .dept-count { font-size: 9px; font-weight: 700; color: #2563eb; margin-top: 1px; }
+
+          .emp-nodes { display: flex; flex-direction: column; align-items: center; width: 100%; }
+          .emp-node-box { background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 5px 8px; text-align: center; width: 100%; max-width: 150px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+          .emp-name { font-size: 10.5px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .emp-pos { font-size: 9px; font-weight: 600; color: #2563eb; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
           .legal-note { margin-top: 10px; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 9px; color: #475569; line-height: 1.3; page-break-inside: avoid; }
           .sig-container { display: flex; justify-content: space-between; margin-top: 14px; padding: 0 40px; page-break-inside: avoid; }
@@ -342,31 +350,51 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           <span><strong>Toplam Kadro:</strong> ${employees.length} Çalışan · ${depts.size} Departman</span>
         </div>
 
-        <!-- HİYERARŞİK AĞAÇ ŞEMASI (COMPACT SIKIŞTIRILMIŞ DÜZEN) -->
-        <div class="tree-root">
+        <!-- HİYERARŞİK DİKİNE AĞAÇ ŞEMASI (TOP-DOWN TREE) -->
+        <div class="tree-wrapper">
+          <!-- Kök Düğüm / Şirket Yönetimi -->
           <div class="tree-root-box">
-            🏢 Şirket Genel Yönetimi
-            <span style="font-size:9px; font-weight:normal; opacity:0.9; margin-left:6px;">(${employees.length} Personel)</span>
+            <div class="root-title">🏢 ŞİRKET GENEL YÖNETİMİ</div>
+            <div class="root-sub">Genel Müdürlük · (${employees.length} Personel)</div>
           </div>
-        </div>
 
-        <div class="dept-container">
-          ${Array.from(depts.entries()).map(([dept, emps]) => `
-            <div class="dept-card">
-              <div class="dept-card-header" style="border-top: 3px solid ${getColor(dept)};">
-                <span>🏢 ${dept}</span>
-                <span class="dept-badge">${emps.length} Çalışan</span>
+          <!-- Dikey Bağlantı Çubuğu -->
+          <div class="v-line" style="height: 16px;"></div>
+
+          <!-- Departmanlar Arası Yatay Bağlantı Çubuğu -->
+          <div class="h-line-wrapper">
+            <div class="h-line"></div>
+          </div>
+
+          <!-- Departman Dalları -->
+          <div class="dept-branches">
+            ${Array.from(depts.entries()).map(([dept, emps]) => `
+              <div class="dept-branch">
+                <!-- Yatay Çubuktan Departmana İnen Çizgi -->
+                <div class="v-line" style="height: 12px;"></div>
+
+                <!-- Departman Kutusu -->
+                <div class="dept-node-box" style="border-top: 3px solid ${getColor(dept)};">
+                  <div class="dept-name">🏢 ${dept}</div>
+                  <div class="dept-count">${emps.length} Çalışan</div>
+                </div>
+
+                <!-- Departmandan Personellere İnen Çizgi -->
+                <div class="v-line" style="height: 12px;"></div>
+
+                <!-- Personel Kutuları (Yukarıdan Aşağıya Dikey Dizilim) -->
+                <div class="emp-nodes">
+                  ${emps.map((e, idx) => `
+                    <div class="emp-node-box">
+                      <div class="emp-name">${e.name}</div>
+                      <div class="emp-pos">${e.position || 'Personel'}</div>
+                    </div>
+                    ${idx < emps.length - 1 ? '<div class="v-line" style="height: 6px;"></div>' : ''}
+                  `).join('')}
+                </div>
               </div>
-              <div class="emp-micro-grid">
-                ${emps.map(e => `
-                  <div class="emp-pill">
-                    <span class="emp-name">${e.name}</span>
-                    <span class="emp-pos">${e.position || 'Personel'}</span>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          `).join('')}
+            `).join('')}
+          </div>
         </div>
 
         <!-- Yasal Beyan & Uyum Metni -->
@@ -616,27 +644,46 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                   </div>
                 </div>
 
-                {/* Sıkıştırılmış Düzenli Şema Önizlemesi */}
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="inline-block bg-gradient-to-r from-blue-700 to-indigo-700 text-white font-extrabold text-xs px-6 py-1.5 rounded-lg shadow-sm">
-                      🏢 Şirket Genel Yönetim Kurulu
-                      <span className="block text-[9px] font-normal opacity-90">Top. {employees.length} Personel · {depts.size} Departman</span>
-                    </div>
+                {/* Top-Down Ağaç Şeması Önizlemesi */}
+                <div className="flex flex-col items-center w-full py-4 overflow-x-auto">
+                  {/* Root Node */}
+                  <div className="bg-slate-900 text-white px-6 py-2 rounded-lg border-2 border-slate-800 text-center shadow-md">
+                    <p className="text-xs font-black tracking-wide">🏢 ŞİRKET GENEL YÖNETİMİ</p>
+                    <p className="text-[10px] text-slate-300">Genel Müdürlük · ({employees.length} Personel)</p>
                   </div>
-                  <div className="space-y-3">
+
+                  {/* Vertical Line from Root */}
+                  <div className="w-0.5 h-4 bg-slate-500"></div>
+
+                  {/* Horizontal Connector Bar */}
+                  <div className="w-[88%] h-0.5 bg-slate-500"></div>
+
+                  {/* Department Branches */}
+                  <div className="flex justify-around w-full gap-3 items-start mt-0">
                     {Array.from(depts.entries()).map(([dept, emps]) => (
-                      <div key={dept} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-xs">
-                        <div className="bg-gray-50 px-3 py-1.5 border-b border-gray-200 flex justify-between items-center" style={{ borderTop: `3px solid ${getColor(dept)}` }}>
-                          <span className="font-bold text-xs text-gray-900">🏢 {dept}</span>
-                          <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-semibold">{emps.length} Çalışan</span>
+                      <div key={dept} className="flex flex-col items-center flex-1 min-w-[110px]">
+                        {/* Vertical Line down to Dept */}
+                        <div className="w-0.5 h-3 bg-slate-500"></div>
+
+                        {/* Department Box */}
+                        <div className="bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-center w-full max-w-[160px] shadow-xs" style={{ borderTop: `3px solid ${getColor(dept)}` }}>
+                          <p className="font-bold text-xs text-slate-900 truncate">🏢 {dept}</p>
+                          <p className="font-semibold text-[10px] text-blue-600 mt-0.5">{emps.length} Çalışan</p>
                         </div>
-                        <div className="p-2 grid grid-cols-3 gap-2">
-                          {emps.map((e) => (
-                            <div key={e.id} className="border border-gray-200 rounded-md p-1.5 bg-gray-50/50 flex justify-between items-center text-left">
-                              <span className="font-bold text-[11px] text-gray-900 truncate">{e.name}</span>
-                              <span className="font-semibold text-[10px] text-blue-600 ml-2 truncate">{e.position || 'Personel'}</span>
-                            </div>
+
+                        {/* Vertical Line down to Employee Stack */}
+                        <div className="w-0.5 h-3 bg-slate-500"></div>
+
+                        {/* Employee Nodes Stacked Vertically */}
+                        <div className="flex flex-col items-center w-full">
+                          {emps.map((e, idx) => (
+                            <React.Fragment key={e.id}>
+                              <div className="bg-white border border-slate-300 rounded-lg p-1.5 text-center w-full max-w-[150px] shadow-2xs">
+                                <p className="font-bold text-[11px] text-slate-900 truncate">{e.name}</p>
+                                <p className="font-semibold text-[9.5px] text-blue-600 truncate">{e.position || 'Personel'}</p>
+                              </div>
+                              {idx < emps.length - 1 && <div className="w-0.5 h-1.5 bg-slate-400"></div>}
+                            </React.Fragment>
                           ))}
                         </div>
                       </div>
