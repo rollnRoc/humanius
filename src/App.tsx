@@ -303,7 +303,11 @@ const AppInner: React.FC = () => {
           name: e.name ?? '',
           tc_no: e.tc_no,
           sicil_no: e.sicil_no,
-          company: companyMap.get(e.company_id) ?? (e.company_id === 'aaaaaaaa-0000-0000-0000-000000000001' ? 'Humanius Demo Şirketi' : (e.company_id ?? 'Humanius Demo Şirketi')),
+          company: companyMap.get(e.company_id) ?? (
+            e.company_id === 'demo-company-id-9999' || e.company_id === 'aaaaaaaa-0000-0000-0000-000000000001' || e.company_id?.startsWith('demo-')
+              ? 'HİZEL OTOMOTİV İNŞ.A.Ş'
+              : (e.company_id && !e.company_id.includes('-id-') ? e.company_id : 'HİZEL OTOMOTİV İNŞ.A.Ş')
+          ),
           department: e.department ?? '',
           position: e.position ?? '',
           level: (e.level === 'Junior' || !e.level) ? '' : e.level,
@@ -366,9 +370,13 @@ const AppInner: React.FC = () => {
           const allComps = await companyService.getCompanies();
           setCompanies((allComps ?? []).map((c) => c.name));
         } else if (profile?.company_id) {
-          const compData = await companyService.getById(profile.company_id);
-          setCompanies(compData ? [compData.name] : []);
-          setCompanyLogoUrl(compData?.logo_url ?? null);
+          if (profile.company_id === 'demo-company-id-9999' || profile.company_id.startsWith('demo-')) {
+            setCompanies(['HİZEL OTOMOTİV İNŞ.A.Ş']);
+          } else {
+            const compData = await companyService.getById(profile.company_id);
+            setCompanies(compData ? [compData.name] : ['HİZEL OTOMOTİV İNŞ.A.Ş']);
+            setCompanyLogoUrl(compData?.logo_url ?? null);
+          }
         }
       } catch {}
 

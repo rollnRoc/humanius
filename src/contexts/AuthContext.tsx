@@ -22,9 +22,9 @@ const mockDemoUser: User = {
 const mockDemoProfile: Profile = {
   id: 'demo-user-id-9999',
   email: 'demo@humanius.net',
-  full_name: 'Demo Yönetici (Kurucu)',
+  full_name: 'Demo Şirket Yöneticisi',
   company_id: 'demo-company-id-9999',
-  role: 'superadmin',
+  role: 'admin',
   avatar_url: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString()
