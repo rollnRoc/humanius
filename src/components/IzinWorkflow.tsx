@@ -7,6 +7,7 @@ interface IzinWorkflowProps {
   onOnay?: (id: string) => void;
   onRed?: (id: string) => void;
   compact?: boolean;
+  talepleri?: IzinTalebi[];
 }
 
 interface WorkflowAdim {
@@ -46,7 +47,7 @@ const AdimIkonu: React.FC<{ durum: 'tamamlandi' | 'aktif' | 'bekliyor' | 'red'; 
   return <span className="text-gray-300">{icon}</span>;
 };
 
-const IzinWorkflow: React.FC<IzinWorkflowProps> = ({ talep, onOnay, onRed, compact = false }) => {
+const IzinWorkflow: React.FC<IzinWorkflowProps> = ({ talep, onOnay, onRed, compact = false, talepleri = [] }) => {
   if (compact) {
     return (
       <div className="flex items-center gap-1">
@@ -236,7 +237,7 @@ export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({ talepl
       ) : (
         <div className="space-y-3">
           {bekleyenler.map((talep) => (
-            <IzinWorkflow key={talep.id} talep={talep} onOnay={onOnay} onRed={onRed} />
+            <IzinWorkflow key={talep.id} talep={talep} onOnay={onOnay} onRed={onRed} talepleri={talepleri} />
           ))}
         </div>
       )}
@@ -251,7 +252,7 @@ export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({ talepl
                   <p className="text-sm font-medium text-gray-800">{talep.employeeName}</p>
                   <p className="text-xs text-gray-500">{talep.izinTuru} • {talep.gunSayisi} gün • {talep.baslangicTarihi}</p>
                 </div>
-                <IzinWorkflow talep={talep} compact />
+                <IzinWorkflow talep={talep} compact talepleri={talepleri} />
               </div>
             ))}
           </div>
