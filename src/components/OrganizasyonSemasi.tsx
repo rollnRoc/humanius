@@ -352,6 +352,10 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           .manager-name { font-size: 10px; font-weight: 800; color: #1e3a8a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           .manager-pos { font-size: 8px; font-weight: 700; color: #2563eb; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+          /* MÜDÜR ALTINDAKİ AĞAÇ DALI ÇİZGİLERİ (SUB-BRANCH LINES) */
+          .sub-h-line-wrapper { width: 100%; display: flex; justify-content: center; margin: 1px 0; }
+          .sub-h-line { height: 1.5px; background-color: #2563eb; width: 75%; border-radius: 1px; }
+
           /* YATAY YAN YANA SIKIŞTIRILMIŞ ÇALIŞAN IZGARASI (STAFF HORIZONTAL GRID) */
           .staff-grid { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: stretch; width: 100%; gap: 3px; }
           .staff-node-box { flex: 1 1 auto; min-width: 50px; max-width: 95px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2.5px 4px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
@@ -444,9 +448,13 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                     </div>
                   `}
 
-                  <!-- Müdürcen Altındaki Çalışanlara İnen Çizgi -->
+                  <!-- Müdürden Altındaki Çalışanlara İnen Ağaç Dalı Çizgileri -->
                   ${remainingStaff.length > 0 ? `
-                    <div class="v-line" style="height: 8px;"></div>
+                    <div class="v-line" style="height: 6px;"></div>
+                    <div class="sub-h-line-wrapper">
+                      <div class="sub-h-line"></div>
+                    </div>
+                    <div class="v-line" style="height: 6px;"></div>
                     <!-- Level 2: Çalışanlar (Yatay Yan Yana Sıkıştırılmış Izgara) -->
                     <div class="staff-grid">
                       ${remainingStaff.map(e => `
