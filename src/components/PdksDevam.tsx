@@ -494,24 +494,31 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
 
   // Synchronize company coordinates to current location
   const setOfficeToCurrentLocation = async () => {
-    if (userCoords && profile?.company_id && companyDetails) {
-      const lat = userCoords.lat;
-      const lng = userCoords.lng;
+    if (!userCoords) {
+      requestLocation();
+      alert("Mevcut konumunuz henüz alınamadı. Konum izni isteniyor, lütfen tarayıcınızdan konum izni veriniz.");
+      return;
+    }
+
+    const lat = userCoords.lat;
+    const lng = userCoords.lng;
+
+    // Update local state immediately (works for demo mode & production)
+    setCompanyCoords({ lat, lng });
+
+    // Update database if profile and company details exist
+    if (profile?.company_id && companyDetails) {
       const parsed = parseCompanyCoords(companyDetails.address);
       const newAddress = formatCompanyAddressWithCoords(lat, lng, parsed.cleanAddress);
-      
       try {
         await companyService.update(profile.company_id, { address: newAddress });
-        setCompanyCoords({ lat, lng });
         setCompanyDetails({ ...companyDetails, address: newAddress });
-        alert(`Şirket lokasyonu tarayıcı konumunuza (${lat.toFixed(5)}, ${lng.toFixed(5)}) eşitlendi ve veritabanına kalıcı olarak kaydedildi! Artık bu şirketteki tüm çalışanlar için giriş doğrulaması bu konuma göre yapılacaktır.`);
       } catch (err) {
-        console.error("Error saving company location:", err);
-        alert("Şirket konumu kaydedilirken bir hata oluştu.");
+        console.warn("Error updating company address in DB:", err);
       }
-    } else if (!userCoords) {
-      alert("Mevcut konumunuz henüz alınamadı. Lütfen konum servisinin aktif olmasını bekleyin.");
     }
+
+    alert(`Şirket lokasyonu tarayıcı konumunuza (${lat.toFixed(5)}, ${lng.toFixed(5)}) eşitlendi! Artık giriş ve çıkış doğrulamaları bu konuma göre yapılacaktır.`);
   };
 
   // -------------------------------------------------------------

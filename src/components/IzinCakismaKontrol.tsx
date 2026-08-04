@@ -282,7 +282,7 @@ const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees, izinTaleple
               return (
                 <div key={gun}
                   title={tooltipParts || undefined}
-                  className={`relative aspect-square rounded-lg text-center flex flex-col items-center justify-center text-xs cursor-default
+                  className={`relative h-11 sm:h-12 rounded-lg text-center flex flex-col items-center justify-center text-xs cursor-default transition-colors
                     ${tatil ? 'bg-red-100 text-red-700 font-bold' : haftatatimi ? 'bg-gray-50 text-gray-400' : 'text-gray-700 hover:bg-gray-50'}
                     ${hasDeptConflict ? 'ring-2 ring-amber-400 ring-offset-1 bg-amber-50' : ''}
                   `}>

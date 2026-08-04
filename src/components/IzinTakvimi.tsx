@@ -117,7 +117,7 @@ const IzinTakvimi: React.FC<IzinTakvimiProps> = ({ izinTalepleri }) => {
             return (
               <div
                 key={index}
-                className={`min-h-[100px] p-2 border-b border-r border-gray-100 ${
+                className={`min-h-[64px] p-1.5 border-b border-r border-gray-100 ${
                   !isCurrentMonth ? 'bg-gray-50' : 'bg-white'
                 } ${isToday ? 'bg-blue-50' : ''} ${isWeekend ? 'bg-gray-25' : ''}`}
               >

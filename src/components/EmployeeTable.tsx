@@ -178,15 +178,15 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                   )}
                 </td>
                 <td className="px-4 py-3">{getStatusBadge(employee.status)}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">
+                <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                   {employee.phone ? (
                     <a 
                       href={`tel:${employee.phone}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 hover:text-blue-600 transition-colors"
+                      className="inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors whitespace-nowrap"
                     >
-                      <Phone className="w-3.5 h-3.5 text-gray-400" />
-                      {employee.phone}
+                      <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                      <span>{employee.phone}</span>
                     </a>
                   ) : (
                     '-'
