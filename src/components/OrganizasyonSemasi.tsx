@@ -459,12 +459,16 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
             })()}
           </div>
 
-          <!-- Dikey Bağlantı Çubuğu -->
-          <div class="v-line" style="height: 12px;"></div>
+          <!-- Dikey Bağlantı Çubuğu (SVG Vektör Çizgisi) -->
+          <svg width="100%" height="12" style="display:block; overflow:visible;">
+            <line x1="50%" y1="0" x2="50%" y2="12" stroke="#1e40af" stroke-width="2.5" />
+          </svg>
 
-          <!-- Departmanlar Arası Yatay Bağlantı Çubuğu -->
-          <div class="h-line-wrapper">
-            <div class="h-line"></div>
+          <!-- Departmanlar Arası Yatay Bağlantı Çubuğu (SVG Vektör Çizgisi) -->
+          <div style="width:100%; display:flex; justify-content:center; margin:-1px 0;">
+            <svg width="86%" height="4" style="display:block; overflow:visible;">
+              <line x1="0" y1="2" x2="100%" y2="2" stroke="#1e40af" stroke-width="2.5" />
+            </svg>
           </div>
 
           <!-- MÜDÜR VE ÇALIŞAN DALLARI (DEPARTMAN KUTULARI YOKTUR) -->
@@ -477,8 +481,10 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
 
               return `
                 <div class="dept-branch">
-                  <!-- Yatay Çubuktan Müdüre İnen Çizgi -->
-                  <div class="v-line" style="height: 10px;"></div>
+                  <!-- Yatay Çubuktan Müdüre İnen Çizgi (SVG Vektör) -->
+                  <svg width="100%" height="10" style="display:block; overflow:visible;">
+                    <line x1="50%" y1="0" x2="50%" y2="10" stroke="#1e40af" stroke-width="2.5" />
+                  </svg>
 
                   <!-- Level 1: Müdür / Yönetici Kutusu (Doğrudan Üst Çizgiye Bağlı) -->
                   ${mainManager ? `
@@ -493,13 +499,19 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                     </div>
                   `}
 
-                  <!-- Müdürden Altındaki Çalışanlara İnen Ağaç Dalı Çizgileri -->
+                  <!-- Müdürden Altındaki Çalışanlara İnen SVG Ağaç Dalı Çizgileri -->
                   ${remainingStaff.length > 0 ? `
-                    <div class="v-line" style="height: 6px;"></div>
-                    <div class="sub-h-line-wrapper">
-                      <div class="sub-h-line"></div>
+                    <svg width="100%" height="6" style="display:block; overflow:visible;">
+                      <line x1="50%" y1="0" x2="50%" y2="6" stroke="#2563eb" stroke-width="2" />
+                    </svg>
+                    <div style="width:100%; display:flex; justify-content:center; margin:-1px 0;">
+                      <svg width="80%" height="3" style="display:block; overflow:visible;">
+                        <line x1="0" y1="1.5" x2="100%" y2="1.5" stroke="#2563eb" stroke-width="2" />
+                      </svg>
                     </div>
-                    <div class="v-line" style="height: 6px;"></div>
+                    <svg width="100%" height="6" style="display:block; overflow:visible;">
+                      <line x1="50%" y1="0" x2="50%" y2="6" stroke="#2563eb" stroke-width="2" />
+                    </svg>
                     <!-- Level 2: Çalışanlar (Yatay Yan Yana Sıkıştırılmış Izgara) -->
                     <div class="staff-grid">
                       ${remainingStaff.map(e => `
