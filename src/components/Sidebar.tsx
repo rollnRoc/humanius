@@ -326,40 +326,43 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                   onViewChange(item.id);
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all ${
                   isHighlighted
-                    ? 'bg-blue-50 border border-blue-200 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border border-transparent'
+                    ? 'bg-blue-50 border border-blue-200 text-blue-700 font-semibold'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border border-transparent font-medium'
                 }`}
               >
-                {isHighlighted && <div className="w-2 h-2 rounded-full bg-blue-500" />}
-                <Icon className="w-4 h-4" />
-                <span className="font-medium">{item.label}</span>
+                <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                  <Icon className="w-4 h-4" />
+                </div>
+                <span className="flex-1 text-left text-sm leading-tight">{item.label}</span>
                 {item.id === 'uyari' && showAlertDot && (
-                  <span className="ml-auto w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0 ml-1" />
                 )}
                 {hasChildren && (
                   <ChevronDown
-                    className={`ml-auto h-4 w-4 transition-transform ${isSectionOpen ? 'rotate-180' : ''}`}
+                    className={`w-4 h-4 shrink-0 transition-transform ${isSectionOpen ? 'rotate-180' : ''}`}
                   />
                 )}
               </button>
               {hasChildren && isSectionOpen && (
-                <div className="ml-8 mt-1 space-y-1">
+                <div className="ml-5 pl-3 border-l border-gray-100 my-1 space-y-0.5">
                   {item.children.map(child => {
                     const isChildActive = currentView === child.id;
                     return (
                       <button
                         key={child.id}
                         onClick={() => onViewChange(child.id)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                        className={`w-full flex items-start gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all ${
                           isChildActive
-                            ? 'bg-blue-50 text-blue-700 font-medium'
-                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                            ? 'bg-blue-50 text-blue-700 font-bold'
+                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800 font-medium'
                         }`}
                       >
-                        <FileText className="w-3 h-3" />
-                        <span>{child.label}</span>
+                        <div className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
+                          <FileText className={`w-3.5 h-3.5 ${isChildActive ? 'text-blue-600' : 'text-gray-400'}`} />
+                        </div>
+                        <span className="flex-1 text-left leading-snug">{child.label}</span>
                       </button>
                     );
                   })}
@@ -379,15 +382,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onViewChange(item.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all ${
                     isActive
-                      ? 'bg-indigo-50 border border-indigo-200 text-indigo-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border border-transparent'
+                      ? 'bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border border-transparent font-medium'
                   }`}
                 >
-                  {isActive && <div className="w-2 h-2 rounded-full bg-indigo-500" />}
-                  <Icon className="w-4 h-4" />
-                  <span className="font-medium">{item.label}</span>
+                  <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <span className="flex-1 text-left text-sm leading-tight">{item.label}</span>
                 </button>
               );
             })}
@@ -395,27 +399,29 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </nav>
 
-
-
       {/* Logout & Settings */}
       {user && (
         <div className="mt-3 space-y-1">
           <button
             onClick={() => onViewChange('sifre-degistir')}
-            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm transition-all border ${
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all border ${
               currentView === 'sifre-degistir'
                 ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border-transparent hover:border-gray-200'
             }`}
           >
-            <Lock className="w-4 h-4" />
+            <div className="w-5 h-5 flex items-center justify-center shrink-0">
+              <Lock className="w-4 h-4" />
+            </div>
             <span className="font-medium">Şifre Değiştir</span>
           </button>
           <button
             onClick={() => signOut()}
-            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-200"
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-200"
           >
-            <LogOut className="w-4 h-4" />
+            <div className="w-5 h-5 flex items-center justify-center shrink-0">
+              <LogOut className="w-4 h-4" />
+            </div>
             <span className="font-medium">Çıkış Yap</span>
           </button>
         </div>
