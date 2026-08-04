@@ -334,52 +334,53 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           
           .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 10px; }
           .audit-table td { border: 1px solid #cbd5e1; padding: 4px 8px; }
-          .audit-bg { background: #f8fafc; font-weight: 600; color: #475569; }
-
+          
           /* Top-Down Ağaç Şeması Stilleri */
-          .tree-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; margin: 12px 0; }
-          .tree-root-box { background: #0f172a; color: #ffffff; padding: 8px 24px; border-radius: 8px; text-align: center; border: 2px solid #1e293b; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
-          .root-title { font-size: 13px; font-weight: 900; letter-spacing: 0.5px; }
-          .root-sub { font-size: 9.5px; opacity: 0.85; margin-top: 2px; }
+          .tree-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; margin: 8px 0; }
+          .tree-root-box { background: #0f172a; color: #ffffff; padding: 6px 20px; border-radius: 6px; text-align: center; border: 2px solid #1e293b; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
+          .root-title { font-size: 12px; font-weight: 900; letter-spacing: 0.5px; }
+          .root-sub { font-size: 9px; opacity: 0.85; margin-top: 1px; }
 
           .v-line { width: 2px; background-color: #64748b; margin: 0 auto; flex-shrink: 0; }
 
           .h-line-wrapper { width: 100%; display: flex; justify-content: center; }
           .h-line { height: 2px; background-color: #64748b; width: 88%; }
 
-          .dept-branches { display: flex; justify-content: space-around; width: 100%; gap: 10px; align-items: flex-start; }
-          .dept-branch { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 110px; }
+          .dept-branches { display: flex; justify-content: space-around; width: 100%; gap: 6px; align-items: flex-start; }
+          .dept-branch { display: flex; flex-direction: column; align-items: center; flex: 1 1 0px; min-width: 90px; }
 
-          .dept-node-box { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; text-align: center; width: 100%; max-width: 160px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-          .dept-name { font-size: 11px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .dept-count { font-size: 9px; font-weight: 700; color: #2563eb; margin-top: 1px; }
+          .dept-node-box { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 5px; padding: 4px 6px; text-align: center; width: 100%; max-width: 150px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+          .dept-name { font-size: 10.5px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .dept-count { font-size: 8.5px; font-weight: 700; color: #2563eb; margin-top: 1px; }
 
-          .rank-group { display: flex; flex-direction: column; align-items: center; width: 100%; gap: 4px; }
-          .emp-node-box { border-radius: 6px; padding: 5px 8px; text-align: center; width: 100%; max-width: 150px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+          /* YATAYDA (HORIZONTAL) YAN YANA SIKIŞTIRILABİLİR PERSONEL KUTULARI */
+          .rank-group { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: stretch; width: 100%; gap: 3px; }
+          .emp-node-box { flex: 1 1 auto; min-width: 55px; max-width: 120px; border-radius: 4px; padding: 3px 4px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
           .node-manager { background: #eff6ff; border: 1.5px solid #2563eb; }
           .node-submanager { background: #f5f3ff; border: 1.5px solid #6366f1; }
           .node-staff { background: #ffffff; border: 1.5px solid #cbd5e1; }
           .node-assistant { background: #f8fafc; border: 1.5px dashed #94a3b8; }
 
-          .emp-name { font-size: 10.5px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .emp-pos { font-size: 9px; font-weight: 600; color: #2563eb; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .emp-name { font-size: 9px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
+          .emp-pos { font-size: 7.5px; font-weight: 600; color: #2563eb; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
 
-          .legal-note { margin-top: 10px; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 9px; color: #475569; line-height: 1.3; page-break-inside: avoid; }
-          .sig-container { display: flex; justify-content: space-between; margin-top: 14px; padding: 0 40px; page-break-inside: avoid; }
-          .sig-box { text-align: center; width: 180px; font-size: 10px; color: #334155; border-top: 1px dashed #cbd5e1; padding-top: 4px; font-weight: 600; }
-          .footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 8.5px; color: #94a3b8; }
+          .legal-note { margin-top: 8px; padding: 5px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 8.5px; color: #475569; line-height: 1.2; page-break-inside: avoid; }
+          .sig-container { display: flex; justify-content: space-between; margin-top: 10px; padding: 0 30px; page-break-inside: avoid; }
+          .sig-box { text-align: center; width: 160px; font-size: 9.5px; color: #334155; border-top: 1px dashed #cbd5e1; padding-top: 3px; font-weight: 600; }
+          .footer { margin-top: 8px; padding-top: 4px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8; }
         </style>
       </head>
       <body>
+        <!-- ISO 9001 / ISG Kurumsal Denetim Başlık Tablosu -->
         <table class="audit-table">
           <tr>
             <td rowspan="2" style="width:20%; text-align:center; vertical-align:middle; background:linear-gradient(135deg, #1e3a8a, #2563eb); color:white;">
-              <div style="font-size:15px; font-weight:900;">HUMANİUS HRMS</div>
-              <div style="font-size:7.5px; font-weight:600; opacity:0.9;">İK Yönetim Sistemleri</div>
+              <div style="font-size:14px; font-weight:900;">HUMANİUS HRMS</div>
+              <div style="font-size:7px; font-weight:600; opacity:0.9;">İK Yönetim Sistemleri</div>
             </td>
             <td rowspan="2" style="width:50%; text-align:center; vertical-align:middle;">
-              <div style="font-size:13px; font-weight:800; color:#0f172a;">KURUMSAL ORGANİZASYON ŞEMASI BELGESİ</div>
-              <div style="font-size:9px; color:#64748b; margin-top:1px;">İdari ve Teşkilat Yapısı · ${targetMode === 'agac' ? 'Hiyerarşik Ağaç Şeması' : 'Departman Şeması'}</div>
+              <div style="font-size:12px; font-weight:800; color:#0f172a;">KURUMSAL ORGANİZASYON ŞEMASI BELGESİ</div>
+              <div style="font-size:8.5px; color:#64748b; margin-top:1px;">İdari ve Teşkilat Yapısı · ${targetMode === 'agac' ? 'Hiyerarşik Ağaç Şeması' : 'Departman Şeması'}</div>
             </td>
             <td class="audit-bg" style="width:15%;">Doküman No:</td>
             <td style="width:15%; font-weight:600; color:#1e293b;">FR-IK-012</td>
@@ -391,7 +392,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         </table>
 
         <!-- Summary Bar -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:10px; color:#475569;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:9.5px; color:#475569;">
           <span><strong>Kurum:</strong> HİZEL OTOMOTİV İNŞ.A.Ş / Humanius HRMS</span>
           <span><strong>Toplam Kadro:</strong> ${employees.length} Çalışan · ${depts.size} Departman</span>
         </div>
@@ -401,7 +402,6 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           <!-- Level 0: Kök Düğüm / Şirket Sahibi - Genel Müdür -->
           <div class="tree-root-box">
             ${(() => {
-              const getEmployeeRank = (e: any) => e.level === 'CEO' || e.level === 'General Manager' ? 0 : e.level === 'Manager' ? 1 : e.level === 'Team Lead' ? 2 : 3;
               const ceoEmps = employees.filter(e => getEmployeeRank(e) === 0);
               if (ceoEmps.length > 0) {
                 return ceoEmps.map(e => `
@@ -417,7 +417,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           </div>
 
           <!-- Dikey Bağlantı Çubuğu -->
-          <div class="v-line" style="height: 16px;"></div>
+          <div class="v-line" style="height: 12px;"></div>
 
           <!-- Departmanlar Arası Yatay Bağlantı Çubuğu -->
           <div class="h-line-wrapper">
@@ -427,7 +427,6 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           <!-- Departman Dalları -->
           <div class="dept-branches">
             ${Array.from(depts.entries()).map(([dept, emps]) => {
-              const getEmployeeRank = (e: any) => e.level === 'CEO' || e.level === 'General Manager' ? 0 : e.level === 'Manager' ? 1 : e.level === 'Team Lead' ? 2 : 3;
               const r1 = emps.filter(e => getEmployeeRank(e) === 1);
               const r2 = emps.filter(e => getEmployeeRank(e) === 2);
               const r3 = emps.filter(e => getEmployeeRank(e) === 3);
@@ -436,7 +435,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
               return `
                 <div class="dept-branch">
                   <!-- Yatay Çubuktan Departmana İnen Çizgi -->
-                  <div class="v-line" style="height: 12px;"></div>
+                  <div class="v-line" style="height: 10px;"></div>
 
                   <!-- Departman Kutusu -->
                   <div class="dept-node-box" style="border-top: 3px solid ${getColor(dept)};">
@@ -444,9 +443,9 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                     <div class="dept-count">${emps.length} Çalışan</div>
                   </div>
 
-                  <!-- Level 1: Müdürler / Yöneticiler -->
+                  <!-- Level 1: Müdürler / Yöneticiler (Yatay Yan Yana) -->
                   ${r1.length > 0 ? `
-                    <div class="v-line" style="height: 10px;"></div>
+                    <div class="v-line" style="height: 8px;"></div>
                     <div class="rank-group">
                       ${r1.map(e => `
                         <div class="emp-node-box node-manager">
@@ -457,9 +456,9 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                     </div>
                   ` : ''}
 
-                  <!-- Level 2: Müdür Yardımcıları / Liderler -->
+                  <!-- Level 2: Müdür Yardımcıları / Liderler (Yatay Yan Yana) -->
                   ${r2.length > 0 ? `
-                    <div class="v-line" style="height: 10px;"></div>
+                    <div class="v-line" style="height: 8px;"></div>
                     <div class="rank-group">
                       ${r2.map(e => `
                         <div class="emp-node-box node-submanager">
@@ -470,9 +469,9 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                     </div>
                   ` : ''}
 
-                  <!-- Level 3: Departman Çalışanları / Uzmanlar -->
+                  <!-- Level 3: Departman Çalışanları / Uzmanlar (Yatay Yan Yana) -->
                   ${r3.length > 0 ? `
-                    <div class="v-line" style="height: 10px;"></div>
+                    <div class="v-line" style="height: 8px;"></div>
                     <div class="rank-group">
                       ${r3.map(e => `
                         <div class="emp-node-box node-staff">
@@ -483,9 +482,9 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                     </div>
                   ` : ''}
 
-                  <!-- Level 4: Yardımcılar / Asistanlar / Stajyerler -->
+                  <!-- Level 4: Yardımcılar / Asistanlar / Stajyerler (Yatay Yan Yana) -->
                   ${r4.length > 0 ? `
-                    <div class="v-line" style="height: 10px;"></div>
+                    <div class="v-line" style="height: 8px;"></div>
                     <div class="rank-group">
                       ${r4.map(e => `
                         <div class="emp-node-box node-assistant">
