@@ -328,47 +328,70 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         <meta charset="UTF-8">
         <title>Humanius HRMS - Kurumsal Resmi Organizasyon Şeması Belgesi</title>
         <style>
-          @page { size: A4 landscape; margin: 6mm 8mm; }
+          @page { size: A4 landscape; margin: 4mm 6mm; }
           * { box-sizing: border-box; }
-          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 10px; background: #ffffff; }
+          html, body { 
+            height: 100%; 
+            max-height: 100vh;
+            margin: 0; 
+            padding: 4px; 
+            overflow: hidden !important; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            color: #0f172a; 
+            background: #ffffff; 
+            page-break-after: avoid !important;
+            page-break-before: avoid !important;
+            page-break-inside: avoid !important;
+          }
           
-          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 10px; }
-                 /* Top-Down Ağaç Şeması Stilleri */
-          .tree-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; margin: 6px 0; }
-          .tree-root-box { background: #0f172a; color: #ffffff; padding: 6px 20px; border-radius: 6px; text-align: center; border: 2px solid #1e293b; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
-          .root-title { font-size: 12px; font-weight: 900; letter-spacing: 0.5px; }
-          .root-sub { font-size: 8.5px; opacity: 0.85; margin-top: 1px; }
+          .page-container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            page-break-inside: avoid !important;
+          }
+
+          .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; font-size: 9px; }
+          .audit-table td { border: 1px solid #cbd5e1; padding: 2px 6px; }
+          
+          /* Top-Down Ağaç Şeması Stilleri */
+          .tree-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; margin: 4px 0; flex: 1 1 auto; justify-content: center; }
+          .tree-root-box { background: #0f172a; color: #ffffff; padding: 5px 18px; border-radius: 6px; text-align: center; border: 2px solid #1e293b; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
+          .root-title { font-size: 11.5px; font-weight: 900; letter-spacing: 0.5px; }
+          .root-sub { font-size: 8px; opacity: 0.85; margin-top: 1px; }
 
           .v-line { width: 2px; background-color: #64748b; margin: 0 auto; flex-shrink: 0; }
 
           .h-line-wrapper { width: 100%; display: flex; justify-content: center; }
           .h-line { height: 2px; background-color: #64748b; width: 86%; }
 
-          .dept-branches { display: flex; justify-content: space-around; width: 100%; gap: 6px; align-items: flex-start; }
-          .dept-branch { display: flex; flex-direction: column; align-items: center; flex: 1 1 0px; min-width: 80px; }
+          .dept-branches { display: flex; justify-content: space-around; width: 100%; gap: 4px; align-items: flex-start; }
+          .dept-branch { display: flex; flex-direction: column; align-items: center; flex: 1 1 0px; min-width: 75px; }
 
           /* YÖNETİCİ / MÜDÜR KUTUSU (LEVEL 1) */
-          .manager-node-box { background: #eff6ff; border: 1.5px solid #2563eb; border-radius: 5px; padding: 4px 6px; text-align: center; width: 100%; max-width: 140px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-          .manager-name { font-size: 10px; font-weight: 800; color: #1e3a8a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .manager-pos { font-size: 8px; font-weight: 700; color: #2563eb; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .manager-node-box { background: #eff6ff; border: 1.5px solid #2563eb; border-radius: 5px; padding: 3px 5px; text-align: center; width: 100%; max-width: 130px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+          .manager-name { font-size: 9.5px; font-weight: 800; color: #1e3a8a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .manager-pos { font-size: 7.5px; font-weight: 700; color: #2563eb; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
           /* MÜDÜR ALTINDAKİ AĞAÇ DALI ÇİZGİLERİ (SUB-BRANCH LINES) */
           .sub-h-line-wrapper { width: 100%; display: flex; justify-content: center; margin: 1px 0; }
           .sub-h-line { height: 1.5px; background-color: #2563eb; width: 75%; border-radius: 1px; }
 
           /* YATAY YAN YANA SIKIŞTIRILMIŞ ÇALIŞAN IZGARASI (STAFF HORIZONTAL GRID) */
-          .staff-grid { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: stretch; width: 100%; gap: 3px; }
-          .staff-node-box { flex: 1 1 auto; min-width: 50px; max-width: 95px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2.5px 4px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
-          .staff-name { font-size: 8.5px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
+          .staff-grid { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: stretch; width: 100%; gap: 2.5px; }
+          .staff-node-box { flex: 1 1 auto; min-width: 45px; max-width: 90px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 3.5px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+          .staff-name { font-size: 8px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
           .staff-pos { font-size: 7px; font-weight: 600; color: #2563eb; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
 
-          .legal-note { margin-top: 8px; padding: 5px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 8.5px; color: #475569; line-height: 1.2; page-break-inside: avoid; }
-          .sig-container { display: flex; justify-content: space-between; margin-top: 10px; padding: 0 30px; page-break-inside: avoid; }
-          .sig-box { text-align: center; width: 160px; font-size: 9.5px; color: #334155; border-top: 1px dashed #cbd5e1; padding-top: 3px; font-weight: 600; }
-          .footer { margin-top: 8px; padding-top: 4px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8; }
+          .legal-note { margin-top: 4px; padding: 3px 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 8px; color: #475569; line-height: 1.15; page-break-inside: avoid; }
+          .sig-container { display: flex; justify-content: space-between; margin-top: 6px; padding: 0 30px; page-break-inside: avoid; }
+          .sig-box { text-align: center; width: 150px; font-size: 8.5px; color: #334155; border-top: 1px dashed #cbd5e1; padding-top: 2px; font-weight: 600; }
+          .footer { margin-top: 4px; padding-top: 2px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; }
         </style>
       </head>
       <body>
+        <div class="page-container">
         <!-- ISO 9001 / ISG Kurumsal Denetim Başlık Tablosu -->
         <table class="audit-table">
           <tr>
@@ -493,6 +516,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         <div class="footer">
           <span>Humanius İnsan Kaynakları Yönetim Sistemi © ${new Date().getFullYear()}</span>
           <span>Gizli ve Kuruma Özel Belge · Bu evrak resmi denetimler için geçerlidir.</span>
+        </div>
         </div>
 
         <script>
