@@ -329,7 +329,12 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         <title>Humanius HRMS - Kurumsal Resmi Organizasyon Şeması Belgesi</title>
         <style>
           @page { size: A4 landscape; margin: 4mm 6mm; }
-          * { box-sizing: border-box; }
+          * { 
+            box-sizing: border-box; 
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important; 
+            color-adjust: exact !important; 
+          }
           html, body { 
             height: 100%; 
             max-height: 100vh;
@@ -355,28 +360,45 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           .audit-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; font-size: 9px; }
           .audit-table td { border: 1px solid #cbd5e1; padding: 2px 6px; }
           
-          /* Top-Down Ağaç Şeması Stilleri */
+          /* Top-Down Ağaç Şeması Stilleri (BELGİN VE MAVİ AĞAÇ DALLARI) */
           .tree-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; margin: 4px 0; flex: 1 1 auto; justify-content: center; }
           .tree-root-box { background: #0f172a; color: #ffffff; padding: 5px 18px; border-radius: 6px; text-align: center; border: 2px solid #1e293b; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
           .root-title { font-size: 11.5px; font-weight: 900; letter-spacing: 0.5px; }
           .root-sub { font-size: 8px; opacity: 0.85; margin-top: 1px; }
 
-          .v-line { width: 2px; background-color: #64748b; margin: 0 auto; flex-shrink: 0; }
+          .v-line { 
+            width: 2.5px; 
+            background-color: #2563eb !important; 
+            border-left: 2.5px solid #2563eb !important; 
+            margin: 0 auto; 
+            flex-shrink: 0; 
+          }
 
           .h-line-wrapper { width: 100%; display: flex; justify-content: center; }
-          .h-line { height: 2px; background-color: #64748b; width: 86%; }
+          .h-line { 
+            height: 2.5px; 
+            background-color: #2563eb !important; 
+            border-top: 2.5px solid #2563eb !important; 
+            width: 86%; 
+          }
 
           .dept-branches { display: flex; justify-content: space-around; width: 100%; gap: 4px; align-items: flex-start; }
           .dept-branch { display: flex; flex-direction: column; align-items: center; flex: 1 1 0px; min-width: 75px; }
 
           /* YÖNETİCİ / MÜDÜR KUTUSU (LEVEL 1) */
-          .manager-node-box { background: #eff6ff; border: 1.5px solid #2563eb; border-radius: 5px; padding: 3px 5px; text-align: center; width: 100%; max-width: 130px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+          .manager-node-box { background: #eff6ff !important; border: 1.5px solid #2563eb !important; border-radius: 5px; padding: 3px 5px; text-align: center; width: 100%; max-width: 130px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
           .manager-name { font-size: 9.5px; font-weight: 800; color: #1e3a8a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           .manager-pos { font-size: 7.5px; font-weight: 700; color: #2563eb; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
           /* MÜDÜR ALTINDAKİ AĞAÇ DALI ÇİZGİLERİ (SUB-BRANCH LINES) */
           .sub-h-line-wrapper { width: 100%; display: flex; justify-content: center; margin: 1px 0; }
-          .sub-h-line { height: 1.5px; background-color: #2563eb; width: 75%; border-radius: 1px; }
+          .sub-h-line { 
+            height: 2px; 
+            background-color: #2563eb !important; 
+            border-top: 2px solid #2563eb !important; 
+            width: 80%; 
+            border-radius: 1px; 
+          }
 
           /* YATAY YAN YANA SIKIŞTIRILMIŞ ÇALIŞAN IZGARASI (STAFF HORIZONTAL GRID) */
           .staff-grid { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: stretch; width: 100%; gap: 2.5px; }
@@ -766,10 +788,10 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                   </div>
 
                   {/* Vertical Line from Root */}
-                  <div className="w-0.5 h-3 bg-slate-500"></div>
+                  <div className="w-1 h-3.5 bg-blue-600"></div>
 
                   {/* Horizontal Connector Bar */}
-                  <div className="w-[86%] h-0.5 bg-slate-500"></div>
+                  <div className="w-[86%] h-1 bg-blue-600 rounded-full"></div>
 
                   {/* Manager Branches (NO Department Header Boxes!) */}
                   <div className="flex justify-around w-full gap-2 items-start mt-0">
@@ -781,11 +803,11 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                       return (
                         <div key={dept} className="flex flex-col items-center flex-1 min-w-[85px]">
                           {/* Vertical Line down to Manager */}
-                          <div className="w-0.5 h-2.5 bg-slate-500"></div>
+                          <div className="w-1 h-3 bg-blue-600"></div>
 
                           {/* Level 1: Manager Box */}
                           {mainManager ? (
-                            <div className="bg-blue-50 border border-blue-500 rounded-md p-1.5 text-center w-full max-w-[130px] shadow-2xs">
+                            <div className="bg-blue-50 border-2 border-blue-600 rounded-md p-1.5 text-center w-full max-w-[130px] shadow-sm">
                               <p className="font-bold text-[11px] text-blue-950 truncate">👔 {mainManager.name}</p>
                               <p className="font-semibold text-[9px] text-blue-700 truncate">{mainManager.position || 'Müdür'}</p>
                             </div>
@@ -796,10 +818,12 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                             </div>
                           )}
 
-                          {/* Vertical Line down to Staff */}
+                          {/* Vertical Line & Sub-Branch Lines down to Staff */}
                           {remainingStaff.length > 0 && (
                             <>
-                              <div className="w-0.5 h-2 bg-slate-400"></div>
+                              <div className="w-0.5 h-2 bg-blue-600"></div>
+                              <div className="w-[80%] h-0.5 bg-blue-600 rounded-full my-0.5"></div>
+                              <div className="w-0.5 h-2 bg-blue-600"></div>
                               {/* Level 2: Staff Horizontal Grid */}
                               <div className="flex flex-row flex-wrap justify-center items-stretch gap-1 w-full">
                                 {remainingStaff.map(e => (
