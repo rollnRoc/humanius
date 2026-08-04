@@ -17,6 +17,48 @@ interface OrganizasyonSemasiProps {
   companyName?: string;
 }
 
+export function getEmployeeRank(emp: Employee): number {
+  const pos = (emp.position || '').toLowerCase();
+  const lvl = (emp.level || '').toLowerCase();
+
+  // Rank 0: Genel Müdür / CEO / Şirket Sahibi / Kurucu / Yönetim Kurulu
+  if (
+    pos.includes('genel müdür') || pos.includes('genel mudur') ||
+    pos.includes('ceo') || pos.includes('sahibi') ||
+    pos.includes('kurucu') || pos.includes('yönetim kurulu') ||
+    pos.includes('genel koordinatör') || lvl === 'executive'
+  ) {
+    return 0;
+  }
+
+  // Rank 1: Müdürler / Direktörler / Yöneticiler (excl. Yardımcı/Asistan)
+  if (
+    !pos.includes('yardımcı') && !pos.includes('yardimci') && !pos.includes('asistan') &&
+    (pos.includes('müdür') || pos.includes('mudur') || pos.includes('direktör') || pos.includes('direktor') || pos.includes('yönetici') || pos.includes('yonetici') || pos.includes('head') || lvl === 'director' || lvl === 'manager')
+  ) {
+    return 1;
+  }
+
+  // Rank 2: Müdür Yardımcıları / Takım Liderleri / Supervisors
+  if (
+    pos.includes('müdür yardımcısı') || pos.includes('mudur yardimcisi') || pos.includes('yönetici yardımcısı') ||
+    pos.includes('lider') || pos.includes('lead') || pos.includes('supervisor') || pos.includes('kıdemli') || pos.includes('senior')
+  ) {
+    return 2;
+  }
+
+  // Rank 4: Yardımcılar / Asistanlar / Stajyerler / Juniorlar
+  if (
+    pos.includes('asistan') || pos.includes('stajyer') || pos.includes('junior') || pos.includes('destek') ||
+    pos.includes('yardımcı') || pos.includes('yardimci')
+  ) {
+    return 4;
+  }
+
+  // Rank 3: Standart Departman Çalışanları / Uzmanlar / Mühendisler
+  return 3;
+}
+
 function buildOrgTree(employees: Employee[]): OrgNode[] {
   const deptMap = new Map<string, Map<string, Employee[]>>();
 
@@ -296,9 +338,9 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
 
           /* Top-Down Ağaç Şeması Stilleri */
           .tree-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; margin: 12px 0; }
-          .tree-root-box { background: #0f172a; color: #ffffff; padding: 7px 22px; border-radius: 8px; text-align: center; border: 2px solid #1e293b; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
-          .root-title { font-size: 12px; font-weight: 900; letter-spacing: 0.5px; }
-          .root-sub { font-size: 9px; opacity: 0.85; margin-top: 2px; }
+          .tree-root-box { background: #0f172a; color: #ffffff; padding: 8px 24px; border-radius: 8px; text-align: center; border: 2px solid #1e293b; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
+          .root-title { font-size: 13px; font-weight: 900; letter-spacing: 0.5px; }
+          .root-sub { font-size: 9.5px; opacity: 0.85; margin-top: 2px; }
 
           .v-line { width: 2px; background-color: #64748b; margin: 0 auto; flex-shrink: 0; }
 
@@ -312,8 +354,13 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           .dept-name { font-size: 11px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           .dept-count { font-size: 9px; font-weight: 700; color: #2563eb; margin-top: 1px; }
 
-          .emp-nodes { display: flex; flex-direction: column; align-items: center; width: 100%; }
-          .emp-node-box { background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 5px 8px; text-align: center; width: 100%; max-width: 150px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+          .rank-group { display: flex; flex-direction: column; align-items: center; width: 100%; gap: 4px; }
+          .emp-node-box { border-radius: 6px; padding: 5px 8px; text-align: center; width: 100%; max-width: 150px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+          .node-manager { background: #eff6ff; border: 1.5px solid #2563eb; }
+          .node-submanager { background: #f5f3ff; border: 1.5px solid #6366f1; }
+          .node-staff { background: #ffffff; border: 1.5px solid #cbd5e1; }
+          .node-assistant { background: #f8fafc; border: 1.5px dashed #94a3b8; }
+
           .emp-name { font-size: 10.5px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           .emp-pos { font-size: 9px; font-weight: 600; color: #2563eb; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -324,7 +371,6 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
         </style>
       </head>
       <body>
-        <!-- ISO 9001 / ISG Kurumsal Denetim Başlık Tablosu -->
         <table class="audit-table">
           <tr>
             <td rowspan="2" style="width:20%; text-align:center; vertical-align:middle; background:linear-gradient(135deg, #1e3a8a, #2563eb); color:white;">
@@ -350,12 +396,24 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
           <span><strong>Toplam Kadro:</strong> ${employees.length} Çalışan · ${depts.size} Departman</span>
         </div>
 
-        <!-- HİYERARŞİK DİKİNE AĞAÇ ŞEMASI (TOP-DOWN TREE) -->
+        <!-- HİYERARŞİK DİKİNE AĞAÇ ŞEMASI (TOP-DOWN MULTI-LEVEL TREE) -->
         <div class="tree-wrapper">
-          <!-- Kök Düğüm / Şirket Yönetimi -->
+          <!-- Level 0: Kök Düğüm / Şirket Sahibi - Genel Müdür -->
           <div class="tree-root-box">
-            <div class="root-title">🏢 ŞİRKET GENEL YÖNETİMİ</div>
-            <div class="root-sub">Genel Müdürlük · (${employees.length} Personel)</div>
+            ${(() => {
+              const getEmployeeRank = (e: any) => e.level === 'CEO' || e.level === 'General Manager' ? 0 : e.level === 'Manager' ? 1 : e.level === 'Team Lead' ? 2 : 3;
+              const ceoEmps = employees.filter(e => getEmployeeRank(e) === 0);
+              if (ceoEmps.length > 0) {
+                return ceoEmps.map(e => `
+                  <div class="root-title">👑 ${e.name}</div>
+                  <div class="root-sub">${e.position || 'Şirket Sahibi / Genel Müdür'}</div>
+                `).join('');
+              }
+              return `
+                <div class="root-title">🏢 ŞİRKET GENEL YÖNETİMİ</div>
+                <div class="root-sub">Genel Müdürlük · (${employees.length} Personel)</div>
+              `;
+            })()}
           </div>
 
           <!-- Dikey Bağlantı Çubuğu -->
@@ -368,32 +426,78 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
 
           <!-- Departman Dalları -->
           <div class="dept-branches">
-            ${Array.from(depts.entries()).map(([dept, emps]) => `
-              <div class="dept-branch">
-                <!-- Yatay Çubuktan Departmana İnen Çizgi -->
-                <div class="v-line" style="height: 12px;"></div>
+            ${Array.from(depts.entries()).map(([dept, emps]) => {
+              const getEmployeeRank = (e: any) => e.level === 'CEO' || e.level === 'General Manager' ? 0 : e.level === 'Manager' ? 1 : e.level === 'Team Lead' ? 2 : 3;
+              const r1 = emps.filter(e => getEmployeeRank(e) === 1);
+              const r2 = emps.filter(e => getEmployeeRank(e) === 2);
+              const r3 = emps.filter(e => getEmployeeRank(e) === 3);
+              const r4 = emps.filter(e => getEmployeeRank(e) === 4);
 
-                <!-- Departman Kutusu -->
-                <div class="dept-node-box" style="border-top: 3px solid ${getColor(dept)};">
-                  <div class="dept-name">🏢 ${dept}</div>
-                  <div class="dept-count">${emps.length} Çalışan</div>
-                </div>
+              return `
+                <div class="dept-branch">
+                  <!-- Yatay Çubuktan Departmana İnen Çizgi -->
+                  <div class="v-line" style="height: 12px;"></div>
 
-                <!-- Departmandan Personellere İnen Çizgi -->
-                <div class="v-line" style="height: 12px;"></div>
+                  <!-- Departman Kutusu -->
+                  <div class="dept-node-box" style="border-top: 3px solid ${getColor(dept)};">
+                    <div class="dept-name">🏢 ${dept}</div>
+                    <div class="dept-count">${emps.length} Çalışan</div>
+                  </div>
 
-                <!-- Personel Kutuları (Yukarıdan Aşağıya Dikey Dizilim) -->
-                <div class="emp-nodes">
-                  ${emps.map((e, idx) => `
-                    <div class="emp-node-box">
-                      <div class="emp-name">${e.name}</div>
-                      <div class="emp-pos">${e.position || 'Personel'}</div>
+                  <!-- Level 1: Müdürler / Yöneticiler -->
+                  ${r1.length > 0 ? `
+                    <div class="v-line" style="height: 10px;"></div>
+                    <div class="rank-group">
+                      ${r1.map(e => `
+                        <div class="emp-node-box node-manager">
+                          <div class="emp-name">👔 ${e.name}</div>
+                          <div class="emp-pos">${e.position || 'Müdür'}</div>
+                        </div>
+                      `).join('')}
                     </div>
-                    ${idx < emps.length - 1 ? '<div class="v-line" style="height: 6px;"></div>' : ''}
-                  `).join('')}
+                  ` : ''}
+
+                  <!-- Level 2: Müdür Yardımcıları / Liderler -->
+                  ${r2.length > 0 ? `
+                    <div class="v-line" style="height: 10px;"></div>
+                    <div class="rank-group">
+                      ${r2.map(e => `
+                        <div class="emp-node-box node-submanager">
+                          <div class="emp-name">🎖️ ${e.name}</div>
+                          <div class="emp-pos">${e.position || 'Müdür Yrd.'}</div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+
+                  <!-- Level 3: Departman Çalışanları / Uzmanlar -->
+                  ${r3.length > 0 ? `
+                    <div class="v-line" style="height: 10px;"></div>
+                    <div class="rank-group">
+                      ${r3.map(e => `
+                        <div class="emp-node-box node-staff">
+                          <div class="emp-name">${e.name}</div>
+                          <div class="emp-pos">${e.position || 'Uzman'}</div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+
+                  <!-- Level 4: Yardımcılar / Asistanlar / Stajyerler -->
+                  ${r4.length > 0 ? `
+                    <div class="v-line" style="height: 10px;"></div>
+                    <div class="rank-group">
+                      ${r4.map(e => `
+                        <div class="emp-node-box node-assistant">
+                          <div class="emp-name">${e.name}</div>
+                          <div class="emp-pos">${e.position || 'Asistan / Stajyer'}</div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
                 </div>
-              </div>
-            `).join('')}
+              `;
+            }).join('')}
           </div>
         </div>
 
@@ -646,10 +750,25 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
 
                 {/* Top-Down Ağaç Şeması Önizlemesi */}
                 <div className="flex flex-col items-center w-full py-4 overflow-x-auto">
-                  {/* Root Node */}
-                  <div className="bg-slate-900 text-white px-6 py-2 rounded-lg border-2 border-slate-800 text-center shadow-md">
-                    <p className="text-xs font-black tracking-wide">🏢 ŞİRKET GENEL YÖNETİMİ</p>
-                    <p className="text-[10px] text-slate-300">Genel Müdürlük · ({employees.length} Personel)</p>
+                  {/* Root Node (CEO / Genel Müdür / Şirket Sahibi) */}
+                  <div className="bg-slate-900 text-white px-6 py-2.5 rounded-lg border-2 border-slate-800 text-center shadow-md">
+                    {(() => {
+                      const ceoEmps = employees.filter(e => getEmployeeRank(e) === 0);
+                      if (ceoEmps.length > 0) {
+                        return ceoEmps.map(e => (
+                          <React.Fragment key={e.id}>
+                            <p className="text-xs font-black tracking-wide">👑 {e.name}</p>
+                            <p className="text-[10px] text-slate-300">{e.position || 'Şirket Sahibi / Genel Müdür'}</p>
+                          </React.Fragment>
+                        ));
+                      }
+                      return (
+                        <>
+                          <p className="text-xs font-black tracking-wide">🏢 ŞİRKET GENEL YÖNETİMİ</p>
+                          <p className="text-[10px] text-slate-300">Genel Müdürlük · ({employees.length} Personel)</p>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Vertical Line from Root */}
@@ -660,34 +779,85 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
 
                   {/* Department Branches */}
                   <div className="flex justify-around w-full gap-3 items-start mt-0">
-                    {Array.from(depts.entries()).map(([dept, emps]) => (
-                      <div key={dept} className="flex flex-col items-center flex-1 min-w-[110px]">
-                        {/* Vertical Line down to Dept */}
-                        <div className="w-0.5 h-3 bg-slate-500"></div>
+                    {Array.from(depts.entries()).map(([dept, emps]) => {
+                      const r1 = emps.filter(e => getEmployeeRank(e) === 1);
+                      const r2 = emps.filter(e => getEmployeeRank(e) === 2);
+                      const r3 = emps.filter(e => getEmployeeRank(e) === 3);
+                      const r4 = emps.filter(e => getEmployeeRank(e) === 4);
 
-                        {/* Department Box */}
-                        <div className="bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-center w-full max-w-[160px] shadow-xs" style={{ borderTop: `3px solid ${getColor(dept)}` }}>
-                          <p className="font-bold text-xs text-slate-900 truncate">🏢 {dept}</p>
-                          <p className="font-semibold text-[10px] text-blue-600 mt-0.5">{emps.length} Çalışan</p>
-                        </div>
+                      return (
+                        <div key={dept} className="flex flex-col items-center flex-1 min-w-[110px]">
+                          {/* Vertical Line down to Dept */}
+                          <div className="w-0.5 h-3 bg-slate-500"></div>
 
-                        {/* Vertical Line down to Employee Stack */}
-                        <div className="w-0.5 h-3 bg-slate-500"></div>
+                          {/* Department Box */}
+                          <div className="bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-center w-full max-w-[160px] shadow-xs" style={{ borderTop: `3px solid ${getColor(dept)}` }}>
+                            <p className="font-bold text-xs text-slate-900 truncate">🏢 {dept}</p>
+                            <p className="font-semibold text-[10px] text-blue-600 mt-0.5">{emps.length} Çalışan</p>
+                          </div>
 
-                        {/* Employee Nodes Stacked Vertically */}
-                        <div className="flex flex-col items-center w-full">
-                          {emps.map((e, idx) => (
-                            <React.Fragment key={e.id}>
-                              <div className="bg-white border border-slate-300 rounded-lg p-1.5 text-center w-full max-w-[150px] shadow-2xs">
-                                <p className="font-bold text-[11px] text-slate-900 truncate">{e.name}</p>
-                                <p className="font-semibold text-[9.5px] text-blue-600 truncate">{e.position || 'Personel'}</p>
+                          {/* Level 1: Müdürler / Yöneticiler */}
+                          {r1.length > 0 && (
+                            <>
+                              <div className="w-0.5 h-2.5 bg-slate-400"></div>
+                              <div className="flex flex-col gap-1 w-full items-center">
+                                {r1.map(e => (
+                                  <div key={e.id} className="bg-blue-50 border border-blue-400 rounded-lg p-1.5 text-center w-full max-w-[150px] shadow-2xs">
+                                    <p className="font-bold text-[11px] text-blue-950 truncate">👔 {e.name}</p>
+                                    <p className="font-semibold text-[9.5px] text-blue-700 truncate">{e.position || 'Müdür'}</p>
+                                  </div>
+                                ))}
                               </div>
-                              {idx < emps.length - 1 && <div className="w-0.5 h-1.5 bg-slate-400"></div>}
-                            </React.Fragment>
-                          ))}
+                            </>
+                          )}
+
+                          {/* Level 2: Müdür Yardımcıları / Liderler */}
+                          {r2.length > 0 && (
+                            <>
+                              <div className="w-0.5 h-2.5 bg-slate-400"></div>
+                              <div className="flex flex-col gap-1 w-full items-center">
+                                {r2.map(e => (
+                                  <div key={e.id} className="bg-indigo-50 border border-indigo-300 rounded-lg p-1.5 text-center w-full max-w-[150px] shadow-2xs">
+                                    <p className="font-bold text-[11px] text-indigo-950 truncate">🎖️ {e.name}</p>
+                                    <p className="font-semibold text-[9.5px] text-indigo-700 truncate">{e.position || 'Müdür Yrd.'}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+
+                          {/* Level 3: Departman Çalışanları / Uzmanlar */}
+                          {r3.length > 0 && (
+                            <>
+                              <div className="w-0.5 h-2.5 bg-slate-400"></div>
+                              <div className="flex flex-col gap-1 w-full items-center">
+                                {r3.map(e => (
+                                  <div key={e.id} className="bg-white border border-slate-300 rounded-lg p-1.5 text-center w-full max-w-[150px] shadow-2xs">
+                                    <p className="font-bold text-[11px] text-slate-900 truncate">{e.name}</p>
+                                    <p className="font-semibold text-[9.5px] text-blue-600 truncate">{e.position || 'Uzman'}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+
+                          {/* Level 4: Yardımcılar / Asistanlar / Stajyerler */}
+                          {r4.length > 0 && (
+                            <>
+                              <div className="w-0.5 h-2.5 bg-slate-400"></div>
+                              <div className="flex flex-col gap-1 w-full items-center">
+                                {r4.map(e => (
+                                  <div key={e.id} className="bg-slate-50 border border-dashed border-slate-400 rounded-lg p-1.5 text-center w-full max-w-[150px] shadow-2xs">
+                                    <p className="font-bold text-[11px] text-slate-800 truncate">{e.name}</p>
+                                    <p className="font-semibold text-[9.5px] text-slate-500 truncate">{e.position || 'Asistan'}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
