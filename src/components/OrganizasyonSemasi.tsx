@@ -383,13 +383,13 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
             width: 86%; 
           }
 
-          .dept-branches { display: flex; justify-content: space-around; width: 100%; gap: 4px; align-items: flex-start; }
-          .dept-branch { display: flex; flex-direction: column; align-items: center; flex: 1 1 0px; min-width: 75px; }
+          .dept-branches { display: flex; justify-content: space-around; width: 100%; gap: 5px; align-items: flex-start; }
+          .dept-branch { display: flex; flex-direction: column; align-items: center; flex: 1 1 0px; min-width: 85px; }
 
           /* YÖNETİCİ / MÜDÜR KUTUSU (LEVEL 1) */
-          .manager-node-box { background: #eff6ff !important; border: 1.5px solid #2563eb !important; border-radius: 5px; padding: 3px 5px; text-align: center; width: 100%; max-width: 130px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-          .manager-name { font-size: 9.5px; font-weight: 800; color: #1e3a8a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .manager-pos { font-size: 7.5px; font-weight: 700; color: #2563eb; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .manager-node-box { background: #eff6ff !important; border: 1.5px solid #2563eb !important; border-radius: 5px; padding: 4px 6px; text-align: center; width: 100%; min-width: 110px; max-width: 160px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+          .manager-name { font-size: 9.5px; font-weight: 800; color: #1e3a8a; white-space: normal; word-break: break-word; line-height: 1.15; }
+          .manager-pos { font-size: 8px; font-weight: 700; color: #2563eb; margin-top: 1px; white-space: normal; word-break: break-word; line-height: 1.15; }
 
           /* MÜDÜR ALTINDAKİ AĞAÇ DALI ÇİZGİLERİ (SUB-BRANCH LINES) */
           .sub-h-line-wrapper { width: 100%; display: flex; justify-content: center; margin: 1px 0; }
@@ -401,11 +401,11 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
             border-radius: 1px; 
           }
 
-          /* YATAY YAN YANA SIKIŞTIRILMIŞ ÇALIŞAN IZGARASI (STAFF HORIZONTAL GRID) */
-          .staff-grid { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: stretch; width: 100%; gap: 2.5px; }
-          .staff-node-box { flex: 1 1 auto; min-width: 45px; max-width: 90px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 3.5px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
-          .staff-name { font-size: 8px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
-          .staff-pos { font-size: 7px; font-weight: 600; color: #2563eb; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
+          /* YATAY YAN YANA ÇALIŞAN IZGARASI (STAFF HORIZONTAL GRID - TAM İŞ TANIMLARI) */
+          .staff-grid { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: stretch; width: 100%; gap: 3px; }
+          .staff-node-box { flex: 1 1 auto; min-width: 65px; max-width: 110px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 4px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: center; }
+          .staff-name { font-size: 8.5px; font-weight: 800; color: #0f172a; white-space: normal; word-break: break-word; line-height: 1.15; }
+          .staff-pos { font-size: 7.5px; font-weight: 600; color: #2563eb; margin-top: 1px; white-space: normal; word-break: break-word; line-height: 1.15; }
 
           .legal-note { margin-top: 4px; padding: 3px 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 8px; color: #475569; line-height: 1.15; page-break-inside: avoid; }
           .sig-container { display: flex; justify-content: space-between; margin-top: 6px; padding: 0 30px; page-break-inside: avoid; }
@@ -820,14 +820,14 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
 
                           {/* Level 1: Manager Box */}
                           {mainManager ? (
-                            <div className="bg-blue-50 border-2 border-blue-600 rounded-md p-1.5 text-center w-full max-w-[130px] shadow-sm">
-                              <p className="font-bold text-[11px] text-blue-950 truncate">👔 {mainManager.name}</p>
-                              <p className="font-semibold text-[9px] text-blue-700 truncate">{mainManager.position || 'Müdür'}</p>
+                            <div className="bg-blue-50 border-2 border-blue-600 rounded-md p-1.5 text-center w-full max-w-[150px] shadow-sm">
+                              <p className="font-bold text-[11px] text-blue-950 whitespace-normal break-words leading-tight">👔 {mainManager.name}</p>
+                              <p className="font-semibold text-[9px] text-blue-700 whitespace-normal break-words leading-tight mt-0.5">{mainManager.position || 'Müdür'}</p>
                             </div>
                           ) : (
-                            <div className="bg-slate-50 border border-slate-300 rounded-md p-1.5 text-center w-full max-w-[130px] shadow-2xs">
-                              <p className="font-bold text-[11px] text-slate-900 truncate">🏢 {dept}</p>
-                              <p className="font-semibold text-[9px] text-slate-500 truncate">Yönetimi</p>
+                            <div className="bg-slate-50 border border-slate-300 rounded-md p-1.5 text-center w-full max-w-[150px] shadow-2xs">
+                              <p className="font-bold text-[11px] text-slate-900 whitespace-normal break-words leading-tight">🏢 {dept}</p>
+                              <p className="font-semibold text-[9px] text-slate-500 whitespace-normal break-words leading-tight mt-0.5">Yönetimi</p>
                             </div>
                           )}
 
@@ -837,12 +837,12 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                               <div className="w-0.5 h-2 bg-blue-600"></div>
                               <div className="w-[80%] h-0.5 bg-blue-600 rounded-full my-0.5"></div>
                               <div className="w-0.5 h-2 bg-blue-600"></div>
-                              {/* Level 2: Staff Horizontal Grid */}
+                              {/* Level 2: Staff Horizontal Grid (Tam Unvanlar & Kısaltmasız Metinler) */}
                               <div className="flex flex-row flex-wrap justify-center items-stretch gap-1 w-full">
                                 {remainingStaff.map(e => (
-                                  <div key={e.id} className="flex-1 min-w-[50px] max-w-[95px] bg-white border border-slate-300 rounded p-1 text-center shadow-2xs">
-                                    <p className="font-bold text-[9.5px] text-slate-900 truncate">{e.name}</p>
-                                    <p className="font-semibold text-[7.5px] text-blue-600 truncate">{e.position || 'Personel'}</p>
+                                  <div key={e.id} className="flex-1 min-w-[65px] max-w-[110px] bg-white border border-slate-300 rounded p-1 text-center shadow-2xs flex flex-col justify-center">
+                                    <p className="font-bold text-[9.5px] text-slate-900 whitespace-normal break-words leading-tight">{e.name}</p>
+                                    <p className="font-semibold text-[8px] text-blue-600 whitespace-normal break-words leading-tight mt-0.5">{e.position || 'Personel'}</p>
                                   </div>
                                 ))}
                               </div>
