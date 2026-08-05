@@ -5,7 +5,7 @@ import { companyService } from '../services/companyService';
 import {
   Clock, LogIn, LogOut, Search, Filter, MapPin, Fingerprint,
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
-  Sliders, Navigation, CheckCircle, RefreshCw
+  Sliders, Navigation, CheckCircle, RefreshCw, Trash2
 } from 'lucide-react';
 import type { Employee } from '../types';
 
@@ -521,6 +521,24 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     alert(`Şirket lokasyonu tarayıcı konumunuza (${lat.toFixed(5)}, ${lng.toFixed(5)}) eşitlendi! Artık giriş ve çıkış doğrulamaları bu konuma göre yapılacaktır.`);
   };
 
+  const handleClearAllPdks = async () => {
+    if (!window.confirm('PDKS ve mesai takibindeki TÜM kaydedilmiş verileri silmek/temizlemek istediğinize emin misiniz? Bu işlem geri alınamaz.')) {
+      return;
+    }
+    try {
+      await pdksService.clearAllData();
+      setAllShiftRecords([]);
+      setIsShiftActive(false);
+      setShiftStartTime(null);
+      setActiveShiftRecordId(null);
+      setTimerText("00:00:00");
+      alert('Tüm mesai ve PDKS devam kayıtları başarıyla temizlendi.');
+    } catch (err: any) {
+      console.error(err);
+      alert('Veriler temizlenirken hata oluştu: ' + (err?.message || err));
+    }
+  };
+
   // -------------------------------------------------------------
   // TEAM MONITORING (MANAGER VIEW) DATA
   const mockPdksData = React.useMemo(() => {
@@ -631,23 +649,33 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         </div>
 
         {isManagement && (
-          <div className="flex bg-gray-100 p-1 rounded-xl">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => setActiveTab('personal')}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'personal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-              }`}
+              onClick={handleClearAllPdks}
+              className="flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors shadow-xs"
+              title="Tüm PDKS Devam ve Mesai Kayıtlarını Temizle / Sıfırla"
             >
-              Kişisel Mesai Paneli
+              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+              Verileri Temizle
             </button>
-            <button
-              onClick={() => setActiveTab('team')}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'team' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              Tüm Çalışanların Durumu
-            </button>
+            <div className="flex bg-gray-100 p-1 rounded-xl">
+              <button
+                onClick={() => setActiveTab('personal')}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'personal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                Kişisel Mesai Paneli
+              </button>
+              <button
+                onClick={() => setActiveTab('team')}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'team' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                Tüm Çalışanların Durumu
+              </button>
+            </div>
           </div>
         )}
       </div>

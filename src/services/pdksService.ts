@@ -271,5 +271,23 @@ export const pdksService = {
 
     if (error) throw error;
     return data as FazlaMesai;
+  },
+
+  async clearAllData(): Promise<void> {
+    if (demoService.isDemoActive()) {
+      localStorage.setItem('humanius_demo_pdks_vardiya', JSON.stringify([]));
+      localStorage.setItem('humanius_demo_pdks_mesai', JSON.stringify([]));
+      localStorage.removeItem('pdks_active_shift_id');
+      localStorage.removeItem('pdks_active_shift_start');
+      localStorage.removeItem('pdks_personal_history');
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('humanius_pdks_override_')) {
+          localStorage.removeItem(key);
+        }
+      });
+      return;
+    }
+    await supabase.from('pdks_fazla_mesai').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('pdks_vardiya_kayitlari').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   }
 };

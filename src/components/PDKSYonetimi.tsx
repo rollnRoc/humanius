@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Save,
   TrendingUp,
+  Trash2,
   UserCheck,
   UserX,
   Wifi,
@@ -504,6 +505,23 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
     }
   }
 
+  const handleClearAllData = async () => {
+    if (!window.confirm('Mesai ve PDKS devam takibindeki TÜM kaydedilmiş verileri silmek/temizlemek istediğinize emin misiniz? Bu işlem geri alınamaz.')) {
+      return;
+    }
+    try {
+      setLoading(true);
+      await pdksService.clearAllData();
+      await loadData();
+      alert('Tüm mesai ve PDKS kayıtları başarıyla temizlendi.');
+    } catch (err: any) {
+      console.error(err);
+      alert('Veriler temizlenirken hata oluştu: ' + (err?.message || err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center p-20"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
   }
@@ -516,6 +534,16 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
           <p className="text-sm text-gray-500 mt-0.5">Hesaplama motoru, vardiya yonetimi ve otomatik mesai sonlandırma</p>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
+          {isAdmin && (
+            <button
+              onClick={handleClearAllData}
+              className="flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-red-100 transition-colors"
+              title="Tüm Mesai ve PDKS Kayıtlarını Sıfırla / Temizle"
+            >
+              <Trash2 className="w-4 h-4 text-red-600" />
+              Verileri Temizle
+            </button>
+          )}
           <button
             onClick={() => setCheckInModal(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700"
