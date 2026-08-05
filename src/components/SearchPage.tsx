@@ -455,17 +455,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
 
           {/* Employee Header */}
           {appRole && (
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-2">
-              <div className="flex items-center gap-2">
-                {effectiveRole === 'superadmin' || !companyLogoUrl ? (
-                  <div className="flex items-center gap-2">
-                    <BlueHLogo className="w-8 h-8" />
-                    <span className="text-xl font-bold text-gray-800 tracking-tight">Humanius</span>
-                  </div>
-                ) : (
-                  <img src={companyLogoUrl} alt="Logo" className="h-8 object-contain" />
-                )}
-              </div>
+            <div className="flex items-center justify-end pb-3 border-b border-gray-100 mb-2">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onNavigate('sifre-degistir')}
