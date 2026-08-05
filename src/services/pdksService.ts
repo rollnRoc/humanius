@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { demoService } from './demoService';
+import { getTodayYYYYMMDD } from '../utils/sanitize';
 
 export type VardiyaTipi = 'sabah' | 'aksam' | 'gece' | 'tam-gun' | 'yari-gun';
 export type GirisDurumu = 'zamaninda' | 'gec-kaldi' | 'erken-cikti' | 'gelmedi' | 'izinli';
@@ -47,7 +48,7 @@ export const pdksService = {
       const records = localStorage.getItem('humanius_demo_pdks_vardiya');
       if (!records) {
         // Seed today vardiya
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayYYYYMMDD();
         const initial: VardiyaKaydi[] = [
           {
             id: 'v-1',
@@ -166,7 +167,7 @@ export const pdksService = {
             id: 'm-1',
             company_id: 'demo-company-id-9999',
             employee_id: 'emp-2',
-            tarih: new Date().toISOString().split('T')[0],
+            tarih: getTodayYYYYMMDD(),
             baslangic_saati: '18:00',
             bitis_saati: '20:00',
             toplam_saat: 2.0,

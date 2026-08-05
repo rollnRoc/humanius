@@ -6,6 +6,7 @@ import { Employee } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { bordroService } from '../services/bordroService';
+import { escapeHtml } from '../utils/sanitize';
 
 interface BordroCalculatorProps {
   employees: Employee[];
@@ -280,13 +281,13 @@ const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBo
       <body>
         <div class="header">
           <h1>BORDRO HESAP PUSULASI</h1>
-          <p>${calculatedBordro.period}</p>
+          <p>${escapeHtml(calculatedBordro.period)}</p>
         </div>
 
         <div class="top-info">
-          <div><strong>Personel Adı Soyadı:</strong> ${calculatedBordro.employeeName}</div>
-          <div><strong>Sicil No:</strong> ${calculatedBordro.sicilNo || '-'}</div>
-          <div><strong>Dönem:</strong> ${calculatedBordro.period}</div>
+          <div><strong>Personel Adı Soyadı:</strong> ${escapeHtml(calculatedBordro.employeeName)}</div>
+          <div><strong>Sicil No:</strong> ${escapeHtml(calculatedBordro.sicilNo || '-')}</div>
+          <div><strong>Dönem:</strong> ${escapeHtml(calculatedBordro.period)}</div>
         </div>
 
         <div class="main-columns">

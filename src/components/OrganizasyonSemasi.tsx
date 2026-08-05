@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, User, Users, Building2, Briefcase, Search, Printer, FileText, Eye, X } from 'lucide-react';
 import type { Employee } from '../types';
+import { escapeHtml } from '../utils/sanitize';
 
 interface OrgNode {
   id: string;
@@ -448,8 +449,8 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
               const ceoEmps = employees.filter(e => getEmployeeRank(e) === 0);
               if (ceoEmps.length > 0) {
                 return ceoEmps.map(e => `
-                  <div class="root-title">👑 ${e.name}</div>
-                  <div class="root-sub">${e.position || 'Şirket Sahibi / Genel Müdür'}</div>
+                  <div class="root-title">👑 ${escapeHtml(e.name)}</div>
+                  <div class="root-sub">${escapeHtml(e.position || 'Şirket Sahibi / Genel Müdür')}</div>
                 `).join('');
               }
               return `
@@ -489,12 +490,12 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                   <!-- Level 1: Müdür / Yönetici Kutusu (Doğrudan Üst Çizgiye Bağlı) -->
                   ${mainManager ? `
                     <div class="manager-node-box">
-                      <div class="manager-name">👔 ${mainManager.name}</div>
-                      <div class="manager-pos">${mainManager.position || 'Müdür'}</div>
+                      <div class="manager-name">👔 ${escapeHtml(mainManager.name)}</div>
+                      <div class="manager-pos">${escapeHtml(mainManager.position || 'Müdür')}</div>
                     </div>
                   ` : `
                     <div class="manager-node-box">
-                      <div class="manager-name">🏢 ${dept}</div>
+                      <div class="manager-name">🏢 ${escapeHtml(dept)}</div>
                       <div class="manager-pos">Yönetimi</div>
                     </div>
                   `}
@@ -516,8 +517,8 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                     <div class="staff-grid">
                       ${remainingStaff.map(e => `
                         <div class="staff-node-box">
-                          <div class="staff-name">${e.name}</div>
-                          <div class="staff-pos">${e.position || 'Personel'}</div>
+                          <div class="staff-name">${escapeHtml(e.name)}</div>
+                          <div class="staff-pos">${escapeHtml(e.position || 'Personel')}</div>
                         </div>
                       `).join('')}
                     </div>

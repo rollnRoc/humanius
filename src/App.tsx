@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Bell, X, Megaphone } from 'lucide-react';
+import { Bell, X, Megaphone, Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import Sidebar from './components/Sidebar';
@@ -34,25 +34,26 @@ import PdksDevam from './components/PdksDevam';
 import IsAkisi from './components/IsAkisi';
 import DemoBanner from './components/DemoBanner';
 
+import { Suspense, lazy } from 'react';
 import { IzinWorkflowListesi } from './components/IzinWorkflow';
 import AIBrowserPage from './browser/AIBrowserPage';
 import GuideContextMenu from './components/GuideContextMenu';
-import PDKSYonetimi from './components/PDKSYonetimi';
-import PerformansYonetimi from './components/PerformansYonetimi';
-import EgitimLMS from './components/EgitimLMS';
-import AnalitiKDashboard from './components/AnalitiKDashboard';
-import KVKKUyumluluk from './components/KVKKUyumluluk';
-import { OffboardingManager } from './components/OffboardingManager';
-import IzinTanimlari from './components/IzinTanimlari';
-import OrganizasyonSemasi from './components/OrganizasyonSemasi';
-import ZimmetYonetimi from './components/ZimmetYonetimi';
-import OKRYonetimi from './components/OKRYonetimi';
-import YetkinlikMatrisi from './components/YetkinlikMatrisi';
-import OnboardingAkisi from './components/OnboardingAkisi';
-import EsnekYanHaklar from './components/EsnekYanHaklar';
-import IzinCakismaKontrol from './components/IzinCakismaKontrol';
-import DinamikFormBuilder from './components/DinamikFormBuilder';
-import KullanımKilavuzu from './components/KullanımKilavuzu';
+
+const PDKSYonetimi = lazy(() => import('./components/PDKSYonetimi'));
+const PerformansYonetimi = lazy(() => import('./components/PerformansYonetimi'));
+const EgitimLMS = lazy(() => import('./components/EgitimLMS'));
+const AnalitiKDashboard = lazy(() => import('./components/AnalitiKDashboard'));
+const KVKKUyumluluk = lazy(() => import('./components/KVKKUyumluluk'));
+const OffboardingManager = lazy(() => import('./components/OffboardingManager').then(m => ({ default: m.OffboardingManager })));
+const IzinTanimlari = lazy(() => import('./components/IzinTanimlari'));
+const OrganizasyonSemasi = lazy(() => import('./components/OrganizasyonSemasi'));
+const ZimmetYonetimi = lazy(() => import('./components/ZimmetYonetimi'));
+const OKRYonetimi = lazy(() => import('./components/OKRYonetimi'));
+const YetkinlikMatrisi = lazy(() => import('./components/YetkinlikMatrisi'));
+const EsnekYanHaklar = lazy(() => import('./components/EsnekYanHaklar'));
+const IzinCakismaKontrol = lazy(() => import('./components/IzinCakismaKontrol'));
+const DinamikFormBuilder = lazy(() => import('./components/DinamikFormBuilder'));
+const KullanımKilavuzu = lazy(() => import('./components/KullanımKilavuzu'));
 import { OnboardingModal } from './components/OnboardingModal';
 import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
 import { employeeService } from './services/employeeService';
@@ -1454,6 +1455,7 @@ const AppInner: React.FC = () => {
           </div>
         )}
 
+        <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
         {/* Raporlar */}
         {currentView === 'raporlar' && (
           <IzinRaporlari
@@ -1560,6 +1562,7 @@ const AppInner: React.FC = () => {
 
         {/* Şifre ve Güvenlik Ayarları */}
         {currentView === 'sifre-degistir' && <SifreDegistir />}
+        </Suspense>
         </div>
       </main>
     );
