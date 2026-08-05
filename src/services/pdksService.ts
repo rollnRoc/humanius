@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { demoService } from './demoService';
-import { getTodayYYYYMMDD } from '../utils/sanitize';
+import { getTodayYYYYMMDD, secureStorage } from '../utils/sanitize';
 
 export type VardiyaTipi = 'sabah' | 'aksam' | 'gece' | 'tam-gun' | 'yari-gun';
 export type GirisDurumu = 'zamaninda' | 'gec-kaldi' | 'erken-cikti' | 'gelmedi' | 'izinli';
@@ -45,7 +45,7 @@ export const pdksService = {
   // =====================================
   async getVardiyalar(): Promise<VardiyaKaydi[]> {
     if (demoService.isDemoActive()) {
-      const records = localStorage.getItem('humanius_demo_pdks_vardiya');
+      const records = secureStorage.getItem<VardiyaKaydi[]>('humanius_demo_pdks_vardiya');
       if (!records) {
         // Seed today vardiya
         const today = getTodayYYYYMMDD();
@@ -77,10 +77,10 @@ export const pdksService = {
             updated_at: new Date().toISOString()
           }
         ];
-        localStorage.setItem('humanius_demo_pdks_vardiya', JSON.stringify(initial));
+        secureStorage.setItem('humanius_demo_pdks_vardiya', initial);
         return initial;
       }
-      return JSON.parse(records);
+      return records;
     }
     const { data, error } = await supabase
       .from('pdks_vardiya_kayitlari')
@@ -276,13 +276,13 @@ export const pdksService = {
 
   async clearAllData(): Promise<void> {
     if (demoService.isDemoActive()) {
-      localStorage.setItem('humanius_demo_pdks_vardiya', JSON.stringify([]));
-      localStorage.setItem('humanius_demo_pdks_mesai', JSON.stringify([]));
-      localStorage.removeItem('pdks_active_shift_id');
-      localStorage.removeItem('pdks_active_shift_start');
-      localStorage.removeItem('pdks_personal_history');
+      secureStorage.setItem('humanius_demo_pdks_vardiya', []);
+      secureStorage.setItem('humanius_demo_pdks_mesai', []);
+      secureStorage.removeItem('pdks_active_shift_id');
+      secureStorage.removeItem('pdks_active_shift_start');
+      secureStorage.removeItem('pdks_personal_history');
       Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('humanius_pdks_override_')) {
+        if (key.startsWith('humanius_pdks_override_') || key.startsWith('__enc_humanius_pdks_override_')) {
           localStorage.removeItem(key);
         }
       });

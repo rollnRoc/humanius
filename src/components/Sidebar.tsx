@@ -314,6 +314,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           return (
             <div key={item.id}>
               <button
+                aria-label={item.label}
+                aria-expanded={hasChildren ? isSectionOpen : undefined}
                 onClick={() => {
                   if (hasChildren) {
                     setOpenSections((prev) =>

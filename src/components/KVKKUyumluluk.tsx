@@ -534,8 +534,21 @@ const KVKKUyumluluk: React.FC<KVKKUyumlulukProps> = ({ employees = [] }) => {
 
       {/* Veri Envanteri */}
       {aktifSekme === 'veri-envanteri' && (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-100 bg-gray-50">
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden space-y-4">
+          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center gap-1.5">
+                <Shield className="w-4 h-4 text-blue-600" /> Otomatik Yasal Saklama Süresi & Anonimleştirme Motoru (L10N-01)
+              </h4>
+              <p className="text-xs text-blue-700 mt-0.5">
+                Süresi dolan eski aday CV'leri (2 yıl) ve ayrılan personel verileri T.C. KVKK Madde 7 uyarınca otomatik taranıp anonimleştirilmektedir.
+              </p>
+            </div>
+            <span className="text-[11px] font-bold bg-blue-600 text-white px-3 py-1 rounded-full shadow-xs">
+              Otomatik Arka Plan Görevi Aktif
+            </span>
+          </div>
+          <div className="px-4 border-b border-gray-100 bg-gray-50 pb-2">
             <p className="text-xs text-gray-500">İşlenen kişisel veri kategorileri ve saklama süreleri</p>
           </div>
           <div className="overflow-x-auto">

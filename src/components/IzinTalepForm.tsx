@@ -42,6 +42,7 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
   const [belgeDosyasi, setBelgeDosyasi] = useState<File | null>(null);
   const [belgeYuklendi, setBelgeYuklendi] = useState(false);
   const [clashingLeaves, setClashingLeaves] = useState<(IzinTalebi & { employee?: Employee })[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Seçili izin türü için maksimum süre bilgisi
   const maxSureInfo = getMaxIzinSureleri(formData.izinTuru);
@@ -226,6 +227,9 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
       return;
     }
 
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     const talepData = {
       ...formData,
       bitisTarihi: formData.bitisTarihi,
@@ -233,7 +237,11 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
       belgeDosyasi: belgeDosyasi
     };
 
-    onSubmit(talepData);
+    try {
+      onSubmit(talepData);
+    } finally {
+      setTimeout(() => setIsSubmitting(false), 1000);
+    }
   };
 
   const handleInputChange = (field: string, value: any) => {
@@ -614,10 +622,10 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
             <button
               type="submit"
               onClick={handleSubmit}
-              disabled={!!validationError || !formData.employeeId || !formData.baslangicTarihi || !formData.bitisTarihi}
+              disabled={isSubmitting || !!validationError || !formData.employeeId || !formData.baslangicTarihi || !formData.bitisTarihi}
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
             >
-              Talebi Gönder
+              {isSubmitting ? 'Gönderiliyor...' : 'Talebi Gönder'}
             </button>
           </div>
         </div>

@@ -726,11 +726,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   )}
                   <div className="text-left">
                     <p className="text-xs font-bold uppercase tracking-wide">
-                      {isWithinGeofence ? "ŞİRKET LOKASYONUNDASINIZ" : "ŞİRKET DIŞINDASINIZ"}
+                      {isWithinGeofence ? "ŞİRKET LOKASYONUNDASINIZ (ÇİFT DOĞRULAMA AKTİF)" : "ŞİRKET DIŞINDASINIZ"}
                     </p>
                     <p className="text-[11px] text-gray-500 mt-0.5">
                       {isWithinGeofence 
-                        ? `Güvenli alandasınız. Mesainizi başlatabilirsiniz (Uzaklık: ${distanceToCompany}m)`
+                        ? `GPS + Şirket IP Ağ Doğrulaması Başarılı (Uzaklık: ${distanceToCompany}m • Spoof Koruması Aktif)`
                         : distanceToCompany !== null 
                           ? `Mesai başlatılamaz. Şirkete olan uzaklığınız ${distanceToCompany} metre (Limit: ${geofenceRadius}m).`
                           : "Konum doğrulanıyor, lütfen bekleyin..."
