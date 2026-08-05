@@ -116,23 +116,23 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       const normSummary = normalizeTr(tpl.summary);
 
       let score = 0;
-      // Exact or substring match in title gets highest priority
+      // Exact or substring match in position title gets top priority (+500)
       if (normTitle.includes(normTerm)) {
-        score += 100;
-        if (normTitle.startsWith(normTerm)) score += 50;
+        score += 500;
+        if (normTitle.startsWith(normTerm)) score += 200;
       }
 
-      // Check all search words
+      // Check all individual search words matching title (+200)
       const termWords = normTerm.split(/\s+/).filter(Boolean);
       const titleWordsMatch = termWords.every(w => normTitle.includes(w));
-      if (titleWordsMatch) score += 40;
+      if (titleWordsMatch) score += 200;
 
+      // Matches in department (+50)
+      if (normDept.includes(normTerm)) score += 50;
+
+      // Summary or category matches (+5)
       const summaryWordsMatch = termWords.every(w => normSummary.includes(w) || normTitle.includes(w));
-      if (summaryWordsMatch) score += 20;
-
-      if (normDept.includes(normTerm)) score += 15;
-      if (normCat.includes(normTerm)) score += 5;
-      if (normSummary.includes(normTerm)) score += 5;
+      if (summaryWordsMatch && !normTitle.includes(normTerm)) score += 5;
 
       return { tpl, score };
     });
@@ -1023,7 +1023,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                 />
               </div>
               <div className="flex gap-2 overflow-x-auto">
-                {['all', 'İnsan Kaynakları & İdari İşler', 'Muhasebe & Finans', 'Satış & Pazarlama', 'Servis & Hasar', 'Üretim & İmalat', 'Depo & Lojistik', 'Yazılım & IT', 'Yönetim'].map((cat) => (
+                {['all', 'Çevre & İSG', 'İnsan Kaynakları & İdari İşler', 'Muhasebe & Finans', 'Satış & Pazarlama', 'Servis & Hasar', 'Üretim & İmalat', 'Depo & Lojistik', 'Yazılım & IT', 'Yönetim'].map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}

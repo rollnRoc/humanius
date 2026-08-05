@@ -109,28 +109,6 @@ export const JOB_TEMPLATES: JobTemplate[] = [
       { baslik: 'Tesis ve Bina Otomasyonu', aciklama: 'Bina güvenlik ve filo takip sistemleri.' }
     ]
   },
-  {
-    id: 'isg-uzmani',
-    category: 'İnsan Kaynakları & İdari İşler',
-    title: 'İş Sağlığı ve Güvenliği (İSG) Uzmanı',
-    department: 'İdari İşler & İSG',
-    reportsTo: 'Genel Müdür',
-    summary: 'Çalışma ortamındaki iş kazası ve meslek hastalığı risklerini tespit etmek, risk analizleri hazırlamak, çalışanlara yasal İSG eğitimlerini vermek, kişisel koruyucu donanım (KKD) kullanımını denetlemek ve sıfır iş kazası hedefini sağlamaktır.',
-    tasks: [
-      { surec: 'Risk Değerlendirmesi ve Saha Denetimi', yetkinlik: '6331 Sayılı İSG Kanunu', davranis: 'Tavizsiz ve Dikkatli', raci: 'Sorumlu', kpi: 'İSG uygunsuzluklarının kapatılma oranı (%100)' },
-      { surec: 'İSG Eğitimleri & Kaza İnceleme', yetkinlik: 'Kaza Kök Neden Analizi', davranis: 'Eğitici', raci: 'Sorumlu', kpi: 'İş kazası sıklık oranı (< 0.5)' }
-    ],
-    kpis: [
-      { label: 'İş Kazası Sıklık Oranı (LTIFR)', value: '0 Kaza' },
-      { label: 'Yasal İSG Eğitim Tamamlama Oranı', value: '%100' }
-    ],
-    yonetselYetkinlikler: [
-      { baslik: 'Güvenlik Kültürü Oluşturma', aciklama: 'Tüm çalışanlarda güvenlik bilincini yerleştirme.' }
-    ],
-    teknikBeceriler: [
-      { baslik: 'İSG Mevzuatı ve Sertifikasyonu', aciklama: 'A/B/C Sınıfı İş Güvenliği Uzmanlığı belgesi.' }
-    ]
-  },
 
   // ─── 2. MUHASEBE & FİNANS ───────────────────────────────────────────────────
   {
