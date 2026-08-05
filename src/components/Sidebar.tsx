@@ -125,13 +125,42 @@ const Sidebar: React.FC<SidebarProps> = ({
   const logoSrcKey = `logoSrc${companyIdKey}`;
   const logoConfigKey = `logoConfig${companyIdKey}`;
 
-  const [logoSrc, setLogoSrc] = useState(DEFAULT_LOGO_SRC);
-  const [logoConfig, setLogoConfig] = useState<LogoConfig>({
-    width: 225,
-    height: 75,
-    x: 0,
-    y: 0,
-    rotation: 0
+  // Synchronously initialize logoSrc on frame 0 to prevent F5 flicker
+  const [logoSrc, setLogoSrc] = useState<string>(() => {
+    try {
+      if (profile?.company_id) {
+        const compSaved = safeReadLocalStorage(`logoSrc_${profile.company_id}`);
+        if (compSaved && !LEGACY_LOGO_SRCS.includes(compSaved)) return compSaved;
+      }
+      const savedLogoSrc = safeReadLocalStorage('logoSrc');
+      if (savedLogoSrc && !LEGACY_LOGO_SRCS.includes(savedLogoSrc)) return savedLogoSrc;
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('logoSrc')) {
+          const val = localStorage.getItem(k);
+          if (val && !LEGACY_LOGO_SRCS.includes(val)) return val;
+        }
+      }
+    } catch {}
+    return DEFAULT_LOGO_SRC;
+  });
+
+  const [logoConfig, setLogoConfig] = useState<LogoConfig>(() => {
+    try {
+      const saved = safeReadLocalStorage(logoConfigKey) || safeReadLocalStorage('logoConfig');
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<LogoConfig>;
+        return {
+          width: parsed.width === 180 ? 225 : (parsed.width || 225),
+          height: parsed.height === 60 ? 75 : (parsed.height || 75),
+          x: parsed.x || 0,
+          y: parsed.y || 0,
+          rotation: parsed.rotation || 0
+        };
+      }
+    } catch {}
+    return { width: 225, height: 75, x: 0, y: 0, rotation: 0 };
   });
 
   const handleLogoSave = (config: LogoConfig) => {
@@ -142,6 +171,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleLogoSelect = async (nextLogoSrc: string) => {
     setLogoSrc(nextLogoSrc);
     safeWriteLocalStorage(logoSrcKey, nextLogoSrc);
+    safeWriteLocalStorage('logoSrc', nextLogoSrc);
     
     if (profile?.company_id) {
       try {
@@ -159,6 +189,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           const comp = await companyService.getById(profile.company_id);
           if (comp?.logo_url) {
             setLogoSrc(comp.logo_url);
+            safeWriteLocalStorage(logoSrcKey, comp.logo_url);
+            safeWriteLocalStorage('logoSrc', comp.logo_url);
             return;
           }
         } catch (err) {
@@ -166,48 +198,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         }
       }
       
-      const savedLogoSrc = safeReadLocalStorage(logoSrcKey);
+      const savedLogoSrc = safeReadLocalStorage(logoSrcKey) || safeReadLocalStorage('logoSrc');
       if (savedLogoSrc && !LEGACY_LOGO_SRCS.includes(savedLogoSrc)) {
         setLogoSrc(savedLogoSrc);
-      } else {
-        setLogoSrc(DEFAULT_LOGO_SRC);
       }
     };
 
     loadCompanyLogo();
-
-    const saved = safeReadLocalStorage(logoConfigKey);
-    if (!saved) {
-      setLogoConfig({
-        width: 225,
-        height: 75,
-        x: 0,
-        y: 0,
-        rotation: 0
-      });
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(saved) as Partial<LogoConfig>;
-      const migratedWidth = parsed.width === 180 ? 225 : parsed.width;
-      const migratedHeight = parsed.height === 60 ? 75 : parsed.height;
-
-      setLogoConfig((prev) => ({
-        ...prev,
-        ...(typeof migratedWidth === 'number' ? { width: migratedWidth } : {}),
-        ...(typeof migratedHeight === 'number' ? { height: migratedHeight } : {}),
-        ...(typeof parsed.x === 'number' ? { x: parsed.x } : {}),
-        ...(typeof parsed.y === 'number' ? { y: parsed.y } : {}),
-        ...(typeof parsed.rotation === 'number' ? { rotation: parsed.rotation } : {}),
-      }));
-    } catch {
-      try {
-        localStorage.removeItem(logoConfigKey);
-      } catch {
-        // ignore storage cleanup failures
-      }
-    }
   }, [profile?.company_id, logoSrcKey, logoConfigKey]);
 
   const mainNavItems = useMemo(() => {
