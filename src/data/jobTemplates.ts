@@ -687,5 +687,32 @@ export const JOB_TEMPLATES: JobTemplate[] = [
       { baslik: 'AB Yeşil Mutabakatı & SKDM (CBAM)', aciklama: 'Sınırda Karbon Düzenleme Mekanizması ve kurumsal sürdürülebilirlik raporlaması.' },
       { baslik: 'ÇED ve Entegre Çevre İzin Süreçleri', aciklama: 'Büyük ölçekli sanayi tesislerinde ÇED ve Çevre İzin Lisans yönetimi.' }
     ]
+  },
+  {
+    id: 'isg-uzmani',
+    category: 'Çevre & İSG',
+    title: 'İş Güvenliği Uzmanı / İSG Sorumlusu',
+    department: 'İş Sağlığı ve Güvenliği (İSG)',
+    reportsTo: 'İSG Müdürü / İK ve İdari İşler Müdürü',
+    summary: '6331 sayılı İş Sağlığı ve Güvenliği Kanunu ile Çalışma ve Sosyal Güvenlik Bakanlığı mevzuatlarına uygun olarak; işyerinde risk değerlendirmesi yapmak, acil durum planlarını hazırlamak, ramak kala ve kaza analizlerini yürütmek, Kişisel Koruyucu Donanım (KKD) takibini sağlamak ve çalışanlara yasal zorunlu İSG eğitimlerini vermektir.',
+    tasks: [
+      { surec: 'Risk Değerlendirmesi & Saha Denetimi', yetkinlik: '6331 Sayılı İSG Kanunu & ISO 45001', davranis: 'Kuralcı, Dikkatli ve Preventif', raci: 'Sorumlu', kpi: 'Saha İSG ramak kala ve tehlike bildirim yanıt süresi (< 24 saat)' },
+      { surec: 'İş Kazası İnceleme & Bildirim Süreci', yetkinlik: 'SGK Kaza Bildirim Sistemi & Kök Neden Analizi', davranis: 'Tarafsız ve Hızlı', raci: 'Sorumlu', kpi: 'SGK iş kazası yasal bildirim süresi uyumu (%100 - 3 iş günü)' },
+      { surec: 'İSG Eğitimleri & KKD Dağıtım Takibi', yetkinlik: 'Temel İSG Eğitimi & Zimmet Yönetimi', davranis: 'Eğitici ve Denetleyici', raci: 'Sorumlu', kpi: 'Zorunlu İSG eğitimi personel katılım oranı (%100)' },
+      { surec: 'İSG Kurul Toplantıları & Acil Durum Tatbikatları', yetkinlik: 'İSG Kurul Yönetmeliği & Yangın/Tahliye Tatbikatı', davranis: 'Organizatör', raci: 'Sorumlu', kpi: 'Yıllık acil durum tatbikatı gerçekleştirme oranı' }
+    ],
+    kpis: [
+      { label: 'İş Kazası Sıklık Oranı (LTIFR)', value: '0 (Target Zero)' },
+      { label: 'SGK Yasal Kaza Bildirim Zamanında Yapılma Oranı', value: '%100' },
+      { label: 'Saha KKD Kullanım Denetim Uyum Oranı', value: '> %95' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'İSG Güvenlik Kültürü Oluşturma', aciklama: 'Çalışanlara iş güvenliği bilincini aşılayıp güvenli davranış modelleri geliştirme.' },
+      { baslik: 'Kriz Yönetimi ve Müdahale', aciklama: 'Acil durumlarda (yangın, tahliye, kaza) soğukkanlı ve etkin müdahale yönetimi.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'İSG Katip & Bakanlık Portalı', aciklama: 'Çalışma Bakanlığı İSG Katip sistemi sözleşme ve bildirim yönetimi.' },
+      { baslik: 'ISO 45001 İş Sağlığı ve Güvenliği', aciklama: 'İSG yönetim sistemi standartları ve risk analiz metodolojileri (Fine-Kinney, FMEA).' }
+    ]
   }
 ];
