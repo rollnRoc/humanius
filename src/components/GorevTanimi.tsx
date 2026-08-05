@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, Download, RefreshCw, Search, Plus, X, Save, CheckCircle, History, AlertTriangle, Sparkles, BookOpen, Layers } from 'lucide-react';
 import { companyService } from '../services/companyService';
 import { employeeService } from '../services/employeeService';
@@ -87,12 +87,61 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
     setShowTemplateModal(false);
   };
 
-  const filteredTemplates = JOB_TEMPLATES.filter((tpl) => {
-    const matchesCategory = selectedCategory === 'all' || tpl.category === selectedCategory;
-    const term = templateSearch.toLowerCase().trim();
-    const matchesSearch = !term || tpl.title.toLowerCase().includes(term) || tpl.category.toLowerCase().includes(term) || tpl.summary.toLowerCase().includes(term);
-    return matchesCategory && matchesSearch;
-  });
+  const normalizeTr = (str: string = '') => {
+    return str
+      .replace(/İ/g, 'i')
+      .replace(/I/g, 'ı')
+      .toLowerCase()
+      .replace(/ç/g, 'c')
+      .replace(/ğ/g, 'g')
+      .replace(/ı/g, 'i')
+      .replace(/ö/g, 'o')
+      .replace(/ş/g, 's')
+      .replace(/ü/g, 'u')
+      .trim();
+  };
+
+  const filteredTemplates = useMemo(() => {
+    const normTerm = normalizeTr(templateSearch);
+    
+    const scored = JOB_TEMPLATES.map((tpl) => {
+      const matchesCategory = selectedCategory === 'all' || tpl.category === selectedCategory;
+      if (!matchesCategory) return { tpl, score: 0 };
+
+      if (!normTerm) return { tpl, score: 1 };
+
+      const normTitle = normalizeTr(tpl.title);
+      const normDept = normalizeTr(tpl.department);
+      const normCat = normalizeTr(tpl.category);
+      const normSummary = normalizeTr(tpl.summary);
+
+      let score = 0;
+      // Exact or substring match in title gets highest priority
+      if (normTitle.includes(normTerm)) {
+        score += 100;
+        if (normTitle.startsWith(normTerm)) score += 50;
+      }
+
+      // Check all search words
+      const termWords = normTerm.split(/\s+/).filter(Boolean);
+      const titleWordsMatch = termWords.every(w => normTitle.includes(w));
+      if (titleWordsMatch) score += 40;
+
+      const summaryWordsMatch = termWords.every(w => normSummary.includes(w) || normTitle.includes(w));
+      if (summaryWordsMatch) score += 20;
+
+      if (normDept.includes(normTerm)) score += 15;
+      if (normCat.includes(normTerm)) score += 5;
+      if (normSummary.includes(normTerm)) score += 5;
+
+      return { tpl, score };
+    });
+
+    return scored
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(item => item.tpl);
+  }, [templateSearch, selectedCategory]);
 
   useEffect(() => {
     const init = async () => {

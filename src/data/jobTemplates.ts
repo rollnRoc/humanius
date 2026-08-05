@@ -637,10 +637,10 @@ export const JOB_TEMPLATES: JobTemplate[] = [
   {
     id: 'cevre-gorevlisi',
     category: 'Çevre & İSG',
-    title: 'Çevre Görevlisi / Çevre Mühendisi',
+    title: 'Çevre Sorumlusu / Çevre Mühendisi',
     department: 'Çevre ve İş Sağlığı Güvenliği (İSG-Ç)',
     reportsTo: 'Çevre Müdürü / İSG-Ç Müdürü',
-    summary: 'T.C. Çevre, Şehircilik ve İklim Değişikliği Bakanlığı mevzuatına ve ISO 14001 Çevre Yönetim Sistemi standartlarına uygun olarak; şirketin/tesisin emisyon, atık su, tehlikeli/tehlikesiz atık bertarafı, sıfır atık belgelendirmesi ve çevre izin/lisans süreçlerini sahada aktif şekilde yürütmek, denetimlere hazırlamak ve yasal beyanları gerçekleştirmektir.',
+    summary: 'Çevre sorumlusu, çevre görevlisi ve çevre mühendisi rolü kapsamında; T.C. Çevre, Şehircilik ve İklim Değişikliği Bakanlığı mevzuatına ve ISO 14001 Çevre Yönetim Sistemi standartlarına uygun olarak; şirketin/tesisin emisyon, atık su, tehlikeli/tehlikesiz atık bertarafı, sıfır atık belgelendirmesi ve çevre izin/lisans süreçlerini sahada aktif şekilde yürütmek, denetimlere hazırlamak ve yasal beyanları gerçekleştirmektir.',
     tasks: [
       { surec: 'Çevre İzin, Lisans ve Yasal Beyanlar', yetkinlik: 'Entegre Çevre Bilgi Sistemi (EÇBS) & Mevzuat', davranis: 'Titiz ve Mevzuata Uyumlu', raci: 'Sorumlu', kpi: 'Yasal çevre beyanlarının süresinde ve eksiksiz yapılması (%100)' },
       { surec: 'Atık Yönetimi ve Sıfır Atık Süreçleri', yetkinlik: 'Tehlikeli / Tehlikesiz Atık Ayrıştırma & Motat', davranis: 'Takipçi ve Çevreye Duyarlı', raci: 'Sorumlu', kpi: 'Atık geri kazanım ve bertaraf sertifikasyonu tutarlılığı' },
