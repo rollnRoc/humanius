@@ -254,13 +254,13 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                 {/* Hafta Günleri */}
                 <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
                   {weekDays.map(day => (
-                    <div key={day} className="p-3 text-center text-sm font-medium text-gray-600">
+                    <div key={day} className="p-2 text-center text-xs font-semibold text-gray-600">
                       {day}
                     </div>
                   ))}
                 </div>
 
-                {/* Takvim Günleri */}
+                {/* Takvim Günleri (Ekran Sığdırma İçin Kompakt Hücre Yüksekliği) */}
                 <div className="grid grid-cols-7">
                   {calendarDays.map((date, index) => {
                     const isCurrentMonth = date.getMonth() === currentDate.getMonth();
@@ -269,51 +269,53 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                     const dayEvents = getEventsForDate(date);
                     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                     const resmiTatil = isResmiTatil(date);
+                    const maxDisplayEvents = resmiTatil ? 1 : 2;
 
                     return (
                       <div
                         key={index}
                         onClick={() => setSelectedDate(dateString)}
-                        className={`min-h-[120px] p-2 border-b border-r border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                          !isCurrentMonth ? 'bg-gray-50' : 'bg-white'
-                        } ${isToday ? 'bg-blue-50 border-blue-200' : ''} ${
-                          isWeekend || resmiTatil ? 'bg-red-25' : ''
-                        } ${selectedDate === dateString ? 'ring-2 ring-blue-500' : ''}`}
+                        className={`min-h-[58px] sm:min-h-[64px] p-1.5 border-b border-r border-gray-100 cursor-pointer hover:bg-blue-50/50 transition-all flex flex-col justify-between ${
+                          !isCurrentMonth ? 'bg-gray-50/60 text-gray-400' : 'bg-white'
+                        } ${isToday ? 'bg-blue-50/90 border-blue-300 ring-1 ring-blue-300' : ''} ${
+                          isWeekend || resmiTatil ? 'bg-red-50/40' : ''
+                        } ${selectedDate === dateString ? 'ring-2 ring-blue-500 z-10' : ''}`}
                       >
-                        <div className={`text-sm font-medium mb-2 flex items-center justify-between ${
-                          !isCurrentMonth ? 'text-gray-400' : 
-                          isToday ? 'text-blue-600' : 
-                          isWeekend || resmiTatil ? 'text-red-600' : 'text-gray-800'
-                        }`}>
-                          <span>{date.getDate()}</span>
+                        <div className="flex items-center justify-between text-xs font-bold">
+                          <span className={
+                            !isCurrentMonth ? 'text-gray-400' : 
+                            isToday ? 'text-blue-600 font-extrabold' : 
+                            isWeekend || resmiTatil ? 'text-red-600' : 'text-gray-800'
+                          }>
+                            {date.getDate()}
+                          </span>
                           {dayEvents.length > 0 && (
-                            <span className="bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                            <span className="bg-blue-600 text-white text-[9px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center shadow-2xs">
                               {dayEvents.length}
                             </span>
                           )}
                         </div>
                         
-                        {/* Resmi tatil gösterimi */}
-                        {resmiTatil && (
-                          <div className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded mb-1 truncate">
-                            {resmiTatil.ad}
-                          </div>
-                        )}
-                        
-                        {/* Etkinlikler */}
-                        <div className="space-y-1">
-                          {dayEvents.slice(0, 3).map((etkinlik, idx) => (
+                        {/* Kompakt Etkinlik Gösterimi */}
+                        <div className="space-y-0.5 mt-0.5 overflow-hidden">
+                          {resmiTatil && (
+                            <div className="text-[9px] font-semibold bg-red-100 text-red-700 px-1 py-0.5 rounded truncate leading-tight">
+                              🔴 {resmiTatil.ad}
+                            </div>
+                          )}
+                          
+                          {dayEvents.slice(0, maxDisplayEvents).map((etkinlik, idx) => (
                             <div
                               key={idx}
-                              className={`text-xs px-2 py-1 rounded border truncate ${getEtkinlikRengi(etkinlik.tur)}`}
+                              className={`text-[9px] px-1 py-0.5 rounded border truncate leading-tight font-medium ${getEtkinlikRengi(etkinlik.tur)}`}
                               title={`${etkinlik.baslik} - ${etkinlik.aciklama}`}
                             >
                               {etkinlik.baslik}
                             </div>
                           ))}
-                          {dayEvents.length > 3 && (
-                            <div className="text-xs text-gray-500 px-2">
-                              +{dayEvents.length - 3} daha
+                          {dayEvents.length > maxDisplayEvents && (
+                            <div className="text-[8.5px] text-gray-400 font-medium px-0.5">
+                              +{dayEvents.length - maxDisplayEvents} daha
                             </div>
                           )}
                         </div>
