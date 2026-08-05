@@ -631,5 +631,61 @@ export const JOB_TEMPLATES: JobTemplate[] = [
     teknikBeceriler: [
       { baslik: 'Kurumsal Yönetim ve Mali Tablolar', aciklama: 'Bilanço, P&L ve finansal yatırım analitiği.' }
     ]
+  },
+
+  // ─── 9. ÇEVRE, İSG & SÜRDÜRÜLEBİLİRLİK GÖREV TANIMLARI ─────────────────────
+  {
+    id: 'cevre-gorevlisi',
+    category: 'Çevre & İSG',
+    title: 'Çevre Görevlisi / Çevre Mühendisi',
+    department: 'Çevre ve İş Sağlığı Güvenliği (İSG-Ç)',
+    reportsTo: 'Çevre Müdürü / İSG-Ç Müdürü',
+    summary: 'T.C. Çevre, Şehircilik ve İklim Değişikliği Bakanlığı mevzuatına ve ISO 14001 Çevre Yönetim Sistemi standartlarına uygun olarak; şirketin/tesisin emisyon, atık su, tehlikeli/tehlikesiz atık bertarafı, sıfır atık belgelendirmesi ve çevre izin/lisans süreçlerini sahada aktif şekilde yürütmek, denetimlere hazırlamak ve yasal beyanları gerçekleştirmektir.',
+    tasks: [
+      { surec: 'Çevre İzin, Lisans ve Yasal Beyanlar', yetkinlik: 'Entegre Çevre Bilgi Sistemi (EÇBS) & Mevzuat', davranis: 'Titiz ve Mevzuata Uyumlu', raci: 'Sorumlu', kpi: 'Yasal çevre beyanlarının süresinde ve eksiksiz yapılması (%100)' },
+      { surec: 'Atık Yönetimi ve Sıfır Atık Süreçleri', yetkinlik: 'Tehlikeli / Tehlikesiz Atık Ayrıştırma & Motat', davranis: 'Takipçi ve Çevreye Duyarlı', raci: 'Sorumlu', kpi: 'Atık geri kazanım ve bertaraf sertifikasyonu tutarlılığı' },
+      { surec: 'Çevre Denetimleri ve Saha Kontrolleri', yetkinlik: 'ISO 14001 İç Tetkik & Saha İncelemesi', davranis: 'Gözlemci ve Hızlı Müdahale Eden', raci: 'Sorumlu', kpi: 'Saha çevre uygunsuzluklarının kapatılma oranı (%95+)' },
+      { surec: 'Çevre Bilinçlendirme Eğitimleri', yetkinlik: 'Kurumsal Çevre ve Sıfır Atık Eğitimi', davranis: 'Eğitici ve Motivasyon Sağlayan', raci: 'Destekleyen', kpi: 'Personel çevre eğitimi tamamlama oranı' }
+    ],
+    kpis: [
+      { label: 'Yasal Çevre Beyan ve Bildirim Zamanında Yapılma Oranı', value: '%100' },
+      { label: 'ISO 14001 Saha Çevre Uygunsuzluk Kapatma Süresi', value: '< 7 Gün' },
+      { label: 'Geri Dönüştürülebilir Atık Ayrıştırma Başarısı', value: '> %90' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Mevzuat ve Standartlara Uyum', aciklama: 'Güncel yasal düzenlemeleri ve çevresel standartları hassasiyetle takip etme.' },
+      { baslik: 'Risk Tespiti ve Kriz Önleme', aciklama: 'Çevresel kirlilik risklerini önceden saptayıp aksiyon alma.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'EÇBS & MOTAT Sistemleri', aciklama: 'Bakanlık Entegre Çevre Bilgi Sistemi ve Atık Taşıma sistemlerine hakimiyet.' },
+      { baslik: 'ISO 14001 Çevre Yönetim Sistemi', aciklama: 'Çevre yönetim standartları, iç tetkik ve belgelendirme süreçleri.' }
+    ]
+  },
+  {
+    id: 'cevre-muduru',
+    category: 'Çevre & İSG',
+    title: 'Çevre Yönetim Müdürü / Çevre Müdürü',
+    department: 'Çevre ve İş Sağlığı Güvenliği (İSG-Ç)',
+    reportsTo: 'Genel Müdür / Operasyon Direktörü',
+    summary: 'Şirketin tüm tesis ve operasyonlarındaki çevre vizyonunu, sürdürülebilirlik stratejilerini, karbon ayak izi azaltım hedeflerini, ISO 14001 Çevre Yönetim Sistemini ve EHS (İSG-Ç) bütçesini yönetmektir. Bakanlık ve yasal denetimlerde şirketi en üst düzeyde temsil etmek, yeşil dönüşüm ve sıfır atık projelerini liderlik ederek yürütmektir.',
+    tasks: [
+      { surec: 'Stratejik Çevre ve Sürdürülebilirlik Yönetimi', yetkinlik: 'Kurumsal Çevre Stratejisi & Karbon Ayak İzi', davranis: 'Vizyoner ve Stratejik Lider', raci: 'Hesap Veren', kpi: 'Yıllık karbon emisyonu ve enerji tasarrufu hedefleri' },
+      { surec: 'Yasal Risk ve Ruhsatlandırma Yönetimi', yetkinlik: 'ÇED Olumlu Belgesi & Çevre İzin/Lisans', davranis: 'Kuralcı ve Temsil Kabiliyeti Yüksek', raci: 'Hesap Veren', kpi: 'Sıfır yasal çevre cezası / cezasız denetim kapatma' },
+      { surec: 'ISO 14001 & ESG Uyum Bütçesi', yetkinlik: 'Sürdürülebilirlik Bütçesi & Yönetim Gözden Geçirme', davranis: 'Maliyet ve Sonuç Odaklı', raci: 'Hesap Veren', kpi: 'Çevre bütçesi gerçekleşme uyumu ve sertifikasyon sürdürülebilirliği' },
+      { surec: 'Çevre Ekibi ve Danışman Yönetimi', yetkinlik: 'Liderlik & Danışman Firma Koordinasyonu', davranis: 'Yönlendirici ve Geliştirici', raci: 'Hesap Veren', kpi: 'Çevre ekibi performans puanı' }
+    ],
+    kpis: [
+      { label: 'Yasal Çevre Ceza / Uyarı Sayısı', value: '0 (Sıfır)' },
+      { label: 'Yıllık Karbon Ayak İzi Azaltım Oranı', value: '> %10' },
+      { label: 'ISO 14001 Dış Denetim Uygunsuzluk Sayısı', value: '0 Major' }
+    ],
+    yonetselYetkinlikler: [
+      { baslik: 'Stratejik Çevre Liderliği', aciklama: 'Şirket yatırımlarında çevre ve yeşil dönüşüm kriterlerini entegre etme.' },
+      { baslik: 'Yasal Temsil ve İlişki Yönetimi', aciklama: 'Bakanlık, il müdürlükleri ve denetim organlarıyla kurumsal ilişkileri yürütme.' }
+    ],
+    teknikBeceriler: [
+      { baslik: 'AB Yeşil Mutabakatı & SKDM (CBAM)', aciklama: 'Sınırda Karbon Düzenleme Mekanizması ve kurumsal sürdürülebilirlik raporlaması.' },
+      { baslik: 'ÇED ve Entegre Çevre İzin Süreçleri', aciklama: 'Büyük ölçekli sanayi tesislerinde ÇED ve Çevre İzin Lisans yönetimi.' }
+    ]
   }
 ];
