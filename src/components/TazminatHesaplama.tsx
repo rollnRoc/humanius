@@ -110,55 +110,26 @@ export default function TazminatHesaplama() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-900 text-white p-6 rounded-3xl shadow-xl border border-slate-800">
-        <div className="flex items-center gap-4">
-          <div className="p-3.5 bg-blue-600/30 rounded-2xl border border-blue-400/30 shadow-inner">
-            <Scale className="w-8 h-8 text-blue-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black tracking-tight text-white">Tazminat & Bilirkişi Hesaplama Motoru</h1>
-              <span className="bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                4857 SK & SGK Uyumlu
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 mt-1">
-              Kıdem, İhbar, Fazla Mesai, Yıllık İzin ve Kesinti Matrislerini resmi bilirkişi standartlarında hesaplayın.
-            </p>
-          </div>
+      {/* Simple Clean Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-slate-200">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <Scale className="w-6 h-6 text-blue-600" />
+            Tazminat ve Bilirkişi Hesaplama
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            4857 sayılı İş Kanunu ve SGK mevzuatına uygun kıdem, ihbar, mesai ve izin alacakları hesaplama paneli.
+          </p>
         </div>
 
         {/* Action Button: Print/Report */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsReportOpen(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs px-5 py-3 rounded-2xl shadow-lg transition-all border border-blue-400/30 hover:scale-105 active:scale-95"
-          >
-            <Printer className="w-4 h-4" />
-            Resmi Bilirkişi Raporu Oluştur (PDF)
-          </button>
-        </div>
-      </div>
-
-      {/* Preset Scenarios Fast Picker Bar */}
-      <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
-          <Sparkles className="w-4 h-4 text-amber-600" />
-          <span>Hazır Senaryo Yükle:</span>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {PRESET_SCENARIOS.map(preset => (
-            <button
-              key={preset.id}
-              onClick={() => handlePresetSelect(preset.id)}
-              className="text-xs font-bold px-3 py-1.5 rounded-xl bg-white border border-amber-300 text-amber-900 hover:bg-amber-500 hover:text-white transition-all shadow-2xs"
-            >
-              {preset.name}
-            </button>
-          ))}
-        </div>
+        <button
+          onClick={() => setIsReportOpen(true)}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition-all"
+        >
+          <Printer className="w-4 h-4" />
+          Resmi Bilirkişi Raporu Oluştur (PDF)
+        </button>
       </div>
 
       {/* 1. Employee Wage & Period Form */}
