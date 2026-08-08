@@ -56,6 +56,7 @@ const RAW_NAV_ITEMS = [
   { id: 'ozluk-dosyasi' as View, label: 'Personel Yönetimi', icon: UserCircle, children: [
     { id: 'ozluk-dosyasi' as View, label: 'Personel Kartı ve Özlük' },
     { id: 'gorev-tanimi' as View, label: 'Görev Tanımı' },
+    { id: 'tazminat-hesaplama' as View, label: 'Tazminat & Bilirkişi Hesaplama' },
   ]},
   { id: 'bordro' as View, label: 'Bordro ve İcmal', icon: CreditCard, children: [
     { id: 'bordro' as View, label: 'Bordro' },

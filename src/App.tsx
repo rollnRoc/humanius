@@ -54,6 +54,7 @@ const EsnekYanHaklar = lazy(() => import('./components/EsnekYanHaklar'));
 const IzinCakismaKontrol = lazy(() => import('./components/IzinCakismaKontrol'));
 const DinamikFormBuilder = lazy(() => import('./components/DinamikFormBuilder'));
 const KullanımKilavuzu = lazy(() => import('./components/KullanımKilavuzu'));
+const TazminatHesaplama = lazy(() => import('./components/TazminatHesaplama'));
 import { OnboardingModal } from './components/OnboardingModal';
 import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
 import { employeeService } from './services/employeeService';
@@ -1504,6 +1505,9 @@ const AppInner: React.FC = () => {
             companyName={companies[0] || 'Humanius'}
           />
         )}
+
+        {/* Tazminat & Bilirkişi Hesaplama Motoru */}
+        {currentView === 'tazminat-hesaplama' && <TazminatHesaplama />}
 
         {/* İzinli Kişiler Listesi */}
         {currentView === 'izin-listesi' && (
