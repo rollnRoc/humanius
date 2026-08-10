@@ -474,7 +474,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
 
           <!-- MÜDÜR VE ÇALIŞAN DALLARI (DEPARTMAN KUTULARI YOKTUR) -->
           <div class="dept-branches">
-            ${Array.from(depts.entries()).map(([dept, emps]) => {
+            ${Array.from(depts.entries()).filter(([dept, emps]) => !emps.every(e => getEmployeeRank(e) === 0)).map(([dept, emps]) => {
               const managers = emps.filter(e => getEmployeeRank(e) === 1 || getEmployeeRank(e) === 2);
               const staff = emps.filter(e => getEmployeeRank(e) >= 3);
               const mainManager = managers[0] || (emps[0] ? emps[0] : null);
@@ -808,7 +808,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
 
                   {/* Manager Branches (NO Department Header Boxes!) */}
                   <div className="flex justify-around w-full gap-2 items-start mt-0">
-                    {Array.from(depts.entries()).map(([dept, emps]) => {
+                    {Array.from(depts.entries()).filter(([dept, emps]) => !emps.every(e => getEmployeeRank(e) === 0)).map(([dept, emps]) => {
                       const managers = emps.filter(e => getEmployeeRank(e) === 1 || getEmployeeRank(e) === 2);
                       const mainManager = managers[0] || (emps[0] ? emps[0] : null);
                       const remainingStaff = mainManager ? emps.filter(e => e.id !== mainManager.id) : emps;
