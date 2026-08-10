@@ -9,6 +9,7 @@ export type View =
   | 'raporlar'
   | 'uyari'
   | 'ayar'
+  | 'sirket-bilgileri'
   | 'gorev-tanimi'
   | 'gorev-tanimi-kayitlari'
   | 'ozluk-dosyasi'

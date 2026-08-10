@@ -32,21 +32,21 @@ export function getDefaultViewForRole(role: AppRole): View {
 const ALLOWED_VIEWS: Record<AppRole, View[]> = {
   superadmin: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
-    'raporlar', 'analitik', 'uyari', 'ayar', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
+    'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
     'sifre-degistir', 'offboarding', 'tazminat-hesaplama',
   ],
   admin: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
-    'raporlar', 'analitik', 'uyari', 'ayar', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
+    'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
     'sifre-degistir', 'offboarding', 'tazminat-hesaplama',
   ],
   hr: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
-    'raporlar', 'analitik', 'uyari', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
+    'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
     'sifre-degistir', 'offboarding', 'tazminat-hesaplama',
@@ -54,7 +54,7 @@ const ALLOWED_VIEWS: Record<AppRole, View[]> = {
   manager: [
     'arama', 'personel', 'izin', 'izin-cakisma', 'izin-listesi', 'uyari', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'org-sema', 'zimmet', 'okr', 'yetkinlik',
-    'kullanim-kilavuzu', 'is-akisi-menu', 'sifre-degistir', 'tazminat-hesaplama',
+    'kullanim-kilavuzu', 'is-akisi-menu', 'sifre-degistir', 'tazminat-hesaplama', 'sirket-bilgileri',
   ],
   // PERSONEL: Sadece tamamen kendisine ait kişisel bilgiler & kendi talepleri
   employee: [

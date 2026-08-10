@@ -49,6 +49,7 @@ const PAGES: { id: View; label: string; icon: string; keywords: string[] }[] = [
   { id: 'raporlar',               label: 'Raporlar',                icon: '📊', keywords: ['rapor', 'istatistik', 'analiz', 'report'] },
   { id: 'uyari',                  label: 'Uyarılar Takvimi',        icon: '🔔', keywords: ['uyarı', 'takvim', 'etkinlik', 'hatırlatma', 'calendar', 'duyuru', 'tatil', 'toplu uyarı'] },
   { id: 'ayar',                   label: 'Kanunlar ve Kurallar', icon: '⚖️', keywords: ['kanun', 'kural', 'mevzuat', 'izin', 'çalışma', 'ayarlar', 'sistem', 'yapılandırma'] },
+  { id: 'sirket-bilgileri',       label: 'Şirket Bilgileri & Yönetimi', icon: '🏢', keywords: ['şirket', 'firma', 'vergi', 'sgk', 'adres', 'logo', 'bilgiler', 'company', 'yeni şirket'] },
   { id: 'gorev-tanimi',           label: 'Görev Tanımı',            icon: '📋', keywords: ['görev', 'tanım', 'rol', 'iş tanımı', 'job'] },
   { id: 'is-akisi',               label: 'İş Akışı Panosu',         icon: '⏰', keywords: ['is akisi', 'iş akışı', 'kanban', 'süreç', 'pano', 'durum', 'operasyon', 'ik süreçleri', 'gösterim'] },
   { id: 'pdks-devam',             label: 'Devam Kontrolü (PDKS)',   icon: '⏰', keywords: ['pdks', 'devam', 'mesai', 'giriş', 'çıkış', 'vardiya', 'takip', 'checkin', 'checkout', 'saat', 'kontrol'] },

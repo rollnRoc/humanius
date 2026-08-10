@@ -125,9 +125,19 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({ onChange }) => {
   );
 };
 
-const SistemAyarlari: React.FC = () => {
+interface SistemAyarlariProps {
+  defaultTab?: ParametreKategorisi;
+}
+
+const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab = 'is_kanunu' }) => {
   const { user, profile, appRole, updatePassword } = useAuth();
-  const [activeTab, setActiveTab] = useState<ParametreKategorisi>('is_kanunu');
+  const [activeTab, setActiveTab] = useState<ParametreKategorisi>(defaultTab);
+
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
   const [sistemAyarlari, setSistemAyarlari] = useState<ISistemAyarlari>(VARSAYILAN_SISTEM_AYARLARI);
   const [parametreler, setParametreler] = useState<SistemParametresi[]>(SISTEM_PARAMETRELERI);
   const [newPassword, setNewPassword] = useState('');

@@ -1560,8 +1560,11 @@ const AppInner: React.FC = () => {
         {/* Kullanıcı Yönetimi */}
         {currentView === 'kullanicilar' && <KullanicilarPage />}
 
-        {/* Sistem Ayarları */}
-        {currentView === 'ayar' && <SistemAyarlari />}
+        {/* Sistem Ayarları - Kanunlar ve Kurallar */}
+        {currentView === 'ayar' && <SistemAyarlari defaultTab="is_kanunu" />}
+
+        {/* Şirket Bilgileri & Yönetimi */}
+        {currentView === 'sirket-bilgileri' && <SistemAyarlari defaultTab="sirket_bilgileri" />}
 
         {/* Kullanım Kılavuzu */}
         {currentView === 'kullanim-kilavuzu' && <KullanımKilavuzu />}
