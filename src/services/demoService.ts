@@ -85,14 +85,14 @@ export interface DemoPDKSRecord {
   giris_saati: string;
   cikis_saati: string | null;
   sure_dakika: number | null;
-  durum: string; // 'Normal', 'Geç Kaldı', 'İzinli', vb.
+  durum: string;
   giris_koordinat: string | null;
   cikis_koordinat: string | null;
   created_at: string;
   updated_at: string;
 }
 
-// Hazır Mock Veriler (Seed Data)
+// Zenginleştirilmiş 20 Personellik Hazır Veri Seti (Tüm E-postalar @humanius.net)
 const MOCK_EMPLOYEES: DemoEmployee[] = [
   {
     id: 'emp-1',
@@ -106,7 +106,7 @@ const MOCK_EMPLOYEES: DemoEmployee[] = [
     salary: 75000,
     status: 'active',
     phone: '0555 111 2233',
-    email: 'selin.aksoy@demo.com',
+    email: 'selin.aksoy@humanius.net',
     join_date: '2022-04-15',
     address: 'Beşiktaş / İstanbul',
     avatar_url: null,
@@ -129,7 +129,7 @@ const MOCK_EMPLOYEES: DemoEmployee[] = [
     salary: 65000,
     status: 'active',
     phone: '0555 222 3344',
-    email: 'ahmet.yilmaz@demo.com',
+    email: 'ahmet.yilmaz@humanius.net',
     join_date: '2023-01-10',
     address: 'Kadıköy / İstanbul',
     avatar_url: null,
@@ -152,7 +152,7 @@ const MOCK_EMPLOYEES: DemoEmployee[] = [
     salary: 45000,
     status: 'active',
     phone: '0555 333 4455',
-    email: 'buse.yildiz@demo.com',
+    email: 'buse.yildiz@humanius.net',
     join_date: '2024-03-01',
     address: 'Şişli / İstanbul',
     avatar_url: null,
@@ -175,13 +175,381 @@ const MOCK_EMPLOYEES: DemoEmployee[] = [
     salary: 35000,
     status: 'onLeave',
     phone: '0555 444 5566',
-    email: 'can.demir@demo.com',
+    email: 'can.demir@humanius.net',
     join_date: '2025-05-15',
     address: 'Kartal / İstanbul',
     avatar_url: null,
     skills: ['Destek', 'Problem Çözme', 'CRM'],
     medeni_durum: 'bekar',
     cocuk_sayisi: 0,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-5',
+    company_id: 'demo-company-id-9999',
+    name: 'Zeynep Kaya',
+    tc_no: '12345678901',
+    sicil_no: 'FIN-001',
+    department: 'Finans & Muhasebe',
+    position: 'Finans Müdürü',
+    level: 'Manager',
+    salary: 80000,
+    status: 'active',
+    phone: '0555 555 6677',
+    email: 'zeynep.kaya@humanius.net',
+    join_date: '2021-09-01',
+    address: 'Ataşehir / İstanbul',
+    avatar_url: null,
+    skills: ['Bütçe Planlama', 'Bordrolama', 'SAP', 'Vergi Mevzuatı'],
+    medeni_durum: 'evli',
+    cocuk_sayisi: 2,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-6',
+    company_id: 'demo-company-id-9999',
+    name: 'Murat Öztürk',
+    tc_no: '23456789012',
+    sicil_no: 'OPS-001',
+    department: 'Operasyon & Lojistik',
+    position: 'Operasyon Müdürü',
+    level: 'Manager',
+    salary: 70000,
+    status: 'active',
+    phone: '0555 666 7788',
+    email: 'murat.ozturk@humanius.net',
+    join_date: '2022-02-15',
+    address: 'Ümraniye / İstanbul',
+    avatar_url: null,
+    skills: ['Tedarik Zinciri', 'Lojistik Yönetimi', 'Süreç İyileştirme'],
+    medeni_durum: 'evli',
+    cocuk_sayisi: 1,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-7',
+    company_id: 'demo-company-id-9999',
+    name: 'Elif Şahin',
+    tc_no: '34567890123',
+    sicil_no: 'MKT-001',
+    department: 'Pazarlama',
+    position: 'Kıdemli Pazarlama Uzmanı',
+    level: 'Senior',
+    salary: 58000,
+    status: 'active',
+    phone: '0555 777 8899',
+    email: 'elif.sahin@humanius.net',
+    join_date: '2023-06-01',
+    address: 'Bakırköy / İstanbul',
+    avatar_url: null,
+    skills: ['Dijital Pazarlama', 'SEO', 'Sosyal Medya', 'Google Ads'],
+    medeni_durum: 'bekar',
+    cocuk_sayisi: 0,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-8',
+    company_id: 'demo-company-id-9999',
+    name: 'Emre Arslan',
+    tc_no: '45678901234',
+    sicil_no: 'ENG-002',
+    department: 'Yazılım',
+    position: 'DevOps & Sistem Yöneticisi',
+    level: 'Senior',
+    salary: 68000,
+    status: 'active',
+    phone: '0555 888 9900',
+    email: 'emre.arslan@humanius.net',
+    join_date: '2022-11-20',
+    address: 'Maltepe / İstanbul',
+    avatar_url: null,
+    skills: ['Docker', 'Kubernetes', 'AWS', 'CI/CD', 'Linux'],
+    medeni_durum: 'bekar',
+    cocuk_sayisi: 0,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-9',
+    company_id: 'demo-company-id-9999',
+    name: 'Gamze Çelik',
+    tc_no: '56789012345',
+    sicil_no: 'HR-002',
+    department: 'İnsan Kaynakları',
+    position: 'İK Uzman Yardımcısı',
+    level: 'Junior',
+    salary: 38000,
+    status: 'active',
+    phone: '0555 999 0011',
+    email: 'gamze.celik@humanius.net',
+    join_date: '2024-09-10',
+    address: 'Pendik / İstanbul',
+    avatar_url: null,
+    skills: ['İşe Alım', 'Oryantasyon', 'Özlük İşleri'],
+    medeni_durum: 'bekar',
+    cocuk_sayisi: 0,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-10',
+    company_id: 'demo-company-id-9999',
+    name: 'Burak Aydın',
+    tc_no: '67890123456',
+    sicil_no: 'PRD-001',
+    department: 'Yazılım',
+    position: 'Ürün Yöneticisi (Product Manager)',
+    level: 'Lead',
+    salary: 72000,
+    status: 'active',
+    phone: '0555 000 1122',
+    email: 'burak.aydin@humanius.net',
+    join_date: '2021-05-01',
+    address: 'Sarıyer / İstanbul',
+    avatar_url: null,
+    skills: ['Agile', 'Scrum', 'Ürün Stratejisi', 'Jira'],
+    medeni_durum: 'evli',
+    cocuk_sayisi: 1,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-11',
+    company_id: 'demo-company-id-9999',
+    name: 'Deniz Yıldırım',
+    tc_no: '78901234567',
+    sicil_no: 'DSG-001',
+    department: 'Pazarlama',
+    position: 'Kıdemli UI/UX Tasarımcı',
+    level: 'Senior',
+    salary: 60000,
+    status: 'active',
+    phone: '0555 123 4567',
+    email: 'deniz.yildirim@humanius.net',
+    join_date: '2023-08-15',
+    address: 'Beyoğlu / İstanbul',
+    avatar_url: null,
+    skills: ['Figma', 'UI Design', 'UX Research', 'Design Systems'],
+    medeni_durum: 'bekar',
+    cocuk_sayisi: 0,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-12',
+    company_id: 'demo-company-id-9999',
+    name: 'Hakan Koç',
+    tc_no: '89012345678',
+    sicil_no: 'SLS-002',
+    department: 'Satış',
+    position: 'Satış Direktörü',
+    level: 'Manager',
+    salary: 95000,
+    status: 'active',
+    phone: '0555 234 5678',
+    email: 'hakan.koc@humanius.net',
+    join_date: '2020-01-15',
+    address: 'Göktürk / İstanbul',
+    avatar_url: null,
+    skills: ['Stratejik Satış', 'Müşteri Portföyü', 'Liderlik'],
+    medeni_durum: 'evli',
+    cocuk_sayisi: 2,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-13',
+    company_id: 'demo-company-id-9999',
+    name: 'Fatma Ünal',
+    tc_no: '90123456789',
+    sicil_no: 'FIN-002',
+    department: 'Finans & Muhasebe',
+    position: 'Genel Muhasebe Uzmanı',
+    level: 'Mid',
+    salary: 48000,
+    status: 'active',
+    phone: '0555 345 6789',
+    email: 'fatma.unal@humanius.net',
+    join_date: '2023-04-10',
+    address: 'Zeytinburnu / İstanbul',
+    avatar_url: null,
+    skills: ['Genel Muhasebe', 'Fatura', 'E-Fatura', 'Beyannameler'],
+    medeni_durum: 'evli',
+    cocuk_sayisi: 1,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-14',
+    company_id: 'demo-company-id-9999',
+    name: 'Onur Yalçın',
+    tc_no: '01234567890',
+    sicil_no: 'ENG-003',
+    department: 'Yazılım',
+    position: 'Kalite Güvence (QA) Mühendisi',
+    level: 'Mid',
+    salary: 52000,
+    status: 'active',
+    phone: '0555 456 7890',
+    email: 'onur.yalcin@humanius.net',
+    join_date: '2024-01-15',
+    address: 'Gaziosmanpaşa / İstanbul',
+    avatar_url: null,
+    skills: ['Cypress', 'Selenium', 'API Testi', 'Manuel Test'],
+    medeni_durum: 'bekar',
+    cocuk_sayisi: 0,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-15',
+    company_id: 'demo-company-id-9999',
+    name: 'Sibel Çetin',
+    tc_no: '13579246801',
+    sicil_no: 'PR-001',
+    department: 'Pazarlama',
+    position: 'Kurumsal İletişim Uzmanı',
+    level: 'Mid',
+    salary: 46000,
+    status: 'active',
+    phone: '0555 567 8901',
+    email: 'sibel.cetin@humanius.net',
+    join_date: '2023-11-01',
+    address: 'Karaköy / İstanbul',
+    avatar_url: null,
+    skills: ['Basın Bülteni', 'Etkinlik Yönetimi', 'İç İletişim'],
+    medeni_durum: 'bekar',
+    cocuk_sayisi: 0,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-16',
+    company_id: 'demo-company-id-9999',
+    name: 'Özgür Polat',
+    tc_no: '24680135792',
+    sicil_no: 'PRD-002',
+    department: 'Üretim & İmalat',
+    position: 'Mekanik Montaj Teknisyeni',
+    level: 'Mid',
+    salary: 42000,
+    status: 'active',
+    phone: '0555 678 9012',
+    email: 'ozgur.polat@humanius.net',
+    join_date: '2022-07-20',
+    address: 'Tuzla / İstanbul',
+    avatar_url: null,
+    skills: ['İSG', 'Mekanik Montaj', 'Kalite Kontrol'],
+    medeni_durum: 'evli',
+    cocuk_sayisi: 2,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-17',
+    company_id: 'demo-company-id-9999',
+    name: 'Ebru Erdoğan',
+    tc_no: '35791357913',
+    sicil_no: 'DAT-001',
+    department: 'Yazılım',
+    position: 'Kıdemli Veri Analisti',
+    level: 'Senior',
+    salary: 64000,
+    status: 'active',
+    phone: '0555 789 0123',
+    email: 'ebru.erdogan@humanius.net',
+    join_date: '2023-02-15',
+    address: 'Üsküdar / İstanbul',
+    avatar_url: null,
+    skills: ['SQL', 'Python', 'Power BI', 'Veri Modelleme'],
+    medeni_durum: 'bekar',
+    cocuk_sayisi: 0,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-18',
+    company_id: 'demo-company-id-9999',
+    name: 'Serkan Kurt',
+    tc_no: '46802468024',
+    sicil_no: 'SEC-001',
+    department: 'Yazılım',
+    position: 'Siber Güvenlik Uzmanı',
+    level: 'Senior',
+    salary: 69000,
+    status: 'active',
+    phone: '0555 890 1234',
+    email: 'serkan.kurt@humanius.net',
+    join_date: '2022-10-01',
+    address: 'Beylikdüzü / İstanbul',
+    avatar_url: null,
+    skills: ['Ağ Güvenliği', 'KVKK', 'Sızma Testi', 'ISO 27001'],
+    medeni_durum: 'evli',
+    cocuk_sayisi: 1,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-19',
+    company_id: 'demo-company-id-9999',
+    name: 'Merve Aslan',
+    tc_no: '57913579135',
+    sicil_no: 'LEG-001',
+    department: 'Hukuk & Uyum',
+    position: 'Hukuk ve Uyum Müşaviri',
+    level: 'Lead',
+    salary: 76000,
+    status: 'active',
+    phone: '0555 901 2345',
+    email: 'merve.aslan@humanius.net',
+    join_date: '2021-03-15',
+    address: 'Nişantaşı / İstanbul',
+    avatar_url: null,
+    skills: ['İş Hukuku', 'Sözleşmeler', 'KVKK', 'Arabuluculuk'],
+    medeni_durum: 'evli',
+    cocuk_sayisi: 0,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'emp-20',
+    company_id: 'demo-company-id-9999',
+    name: 'Volkan Doğan',
+    tc_no: '68024680246',
+    sicil_no: 'LOG-002',
+    department: 'Operasyon & Lojistik',
+    position: 'Saha ve Depo Sorumlusu',
+    level: 'Mid',
+    salary: 41000,
+    status: 'active',
+    phone: '0555 012 3456',
+    email: 'volkan.dogan@humanius.net',
+    join_date: '2023-05-20',
+    address: 'Sancaktepe / İstanbul',
+    avatar_url: null,
+    skills: ['Stok Takibi', 'Depo Yönetimi', 'Sevkiyat'],
+    medeni_durum: 'evli',
+    cocuk_sayisi: 1,
     engelli_durumu: 'yok',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -223,17 +591,83 @@ const MOCK_IZIN_TALEPLERI = (): DemoIzinTalebi[] => {
       baslangic_tarihi: format(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2)),
       bitis_tarihi: format(new Date(today.getFullYear(), today.getMonth(), today.getDate())),
       gun_sayisi: 2,
-      aciklama: 'Kişisel işler',
+      aciklama: 'Kişisel ailevi mazeret',
       yol_izni_talep: false,
       yol_izni_gun: 0,
       seyahat_yeri: '',
       il_disi_seyahat: false,
       belge_url: null,
       durum: 'onaylandi',
-      onaylayan_id: 'demo-user-id-9999',
+      onaylayan_id: 'emp-1',
       onay_tarihi: format(new Date()),
       red_nedeni: null,
       talep_tarihi: format(new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000)),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 'izin-3',
+      company_id: 'demo-company-id-9999',
+      employee_id: 'emp-7',
+      izin_turu: 'yillik',
+      baslangic_tarihi: format(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 10)),
+      bitis_tarihi: format(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 17)),
+      gun_sayisi: 5,
+      aciklama: 'Yaz tatili yıllık izni',
+      yol_izni_talep: true,
+      yol_izni_gun: 2,
+      seyahat_yeri: 'Bodrum / Muğla',
+      il_disi_seyahat: true,
+      belge_url: null,
+      durum: 'onaylandi',
+      onaylayan_id: 'emp-1',
+      onay_tarihi: format(new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000)),
+      red_nedeni: null,
+      talep_tarihi: format(new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000)),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 'izin-4',
+      company_id: 'demo-company-id-9999',
+      employee_id: 'emp-11',
+      izin_turu: 'hastalik',
+      baslangic_tarihi: format(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)),
+      bitis_tarihi: format(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)),
+      gun_sayisi: 2,
+      aciklama: 'Doktor raporlu istirahat',
+      yol_izni_talep: false,
+      yol_izni_gun: 0,
+      seyahat_yeri: '',
+      il_disi_seyahat: false,
+      belge_url: null,
+      durum: 'onaylandi',
+      onaylayan_id: 'emp-1',
+      onay_tarihi: format(new Date()),
+      red_nedeni: null,
+      talep_tarihi: format(new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000)),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 'izin-5',
+      company_id: 'demo-company-id-9999',
+      employee_id: 'emp-14',
+      izin_turu: 'yillik',
+      baslangic_tarihi: format(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 15)),
+      bitis_tarihi: format(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 20)),
+      gun_sayisi: 4,
+      aciklama: 'Şehir dışı aile ziyareti',
+      yol_izni_talep: false,
+      yol_izni_gun: 0,
+      seyahat_yeri: 'Ankara',
+      il_disi_seyahat: true,
+      belge_url: null,
+      durum: 'beklemede',
+      onaylayan_id: null,
+      onay_tarihi: null,
+      red_nedeni: null,
+      talep_tarihi: format(new Date()),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
@@ -246,12 +680,28 @@ export const demoService = {
   },
 
   seedDatabase(): void {
-    if (!localStorage.getItem('humanius_demo_employees')) {
-      localStorage.setItem('humanius_demo_employees', JSON.stringify(MOCK_EMPLOYEES));
+    const existingEmpsStr = localStorage.getItem('humanius_demo_employees');
+    let needsRefresh = false;
+
+    if (!existingEmpsStr) {
+      needsRefresh = true;
+    } else {
+      try {
+        const parsed: DemoEmployee[] = JSON.parse(existingEmpsStr);
+        // If existing demo employees have @demo.com emails or count is under 15, refresh to full @humanius.net set
+        if (parsed.length < 15 || parsed.some(e => e.email?.includes('@demo.com'))) {
+          needsRefresh = true;
+        }
+      } catch {
+        needsRefresh = true;
+      }
     }
-    if (!localStorage.getItem('humanius_demo_izin_talepleri')) {
+
+    if (needsRefresh) {
+      localStorage.setItem('humanius_demo_employees', JSON.stringify(MOCK_EMPLOYEES));
       localStorage.setItem('humanius_demo_izin_talepleri', JSON.stringify(MOCK_IZIN_TALEPLERI()));
     }
+
     if (!localStorage.getItem('humanius_demo_bordro_items')) {
       localStorage.setItem('humanius_demo_bordro_items', JSON.stringify([]));
     }
@@ -274,15 +724,42 @@ export const demoService = {
   // -------------------------------------------------------------
   getEmployees(): DemoEmployee[] {
     this.seedDatabase();
-    return JSON.parse(localStorage.getItem('humanius_demo_employees') || '[]');
+    let emps: DemoEmployee[] = JSON.parse(localStorage.getItem('humanius_demo_employees') || '[]');
+    
+    // Automatically sanitize all @demo.com emails to @humanius.net
+    let modified = false;
+    emps = emps.map(emp => {
+      if (emp.email && emp.email.includes('@demo.com')) {
+        modified = true;
+        return { ...emp, email: emp.email.replace(/@demo\.com/g, '@humanius.net') };
+      }
+      return emp;
+    });
+
+    if (modified) {
+      this.saveEmployees(emps);
+    }
+
+    return emps;
   },
 
   saveEmployees(list: DemoEmployee[]): void {
-    localStorage.setItem('humanius_demo_employees', JSON.stringify(list));
+    const cleanList = list.map(emp => {
+      if (emp.email && emp.email.includes('@demo.com')) {
+        return { ...emp, email: emp.email.replace(/@demo\.com/g, '@humanius.net') };
+      }
+      return emp;
+    });
+    localStorage.setItem('humanius_demo_employees', JSON.stringify(cleanList));
   },
 
   createEmployee(data: Partial<DemoEmployee>): DemoEmployee {
     const list = this.getEmployees();
+    let rawEmail = data.email || '';
+    if (rawEmail.includes('@demo.com')) {
+      rawEmail = rawEmail.replace(/@demo\.com/g, '@humanius.net');
+    }
+
     const newEmp: DemoEmployee = {
       id: 'emp-' + Math.random().toString(36).substr(2, 9),
       company_id: 'demo-company-id-9999',
@@ -295,7 +772,7 @@ export const demoService = {
       salary: data.salary || 30000,
       status: data.status || 'active',
       phone: data.phone || '',
-      email: data.email || '',
+      email: rawEmail,
       join_date: data.join_date || new Date().toISOString().split('T')[0],
       address: data.address || '',
       avatar_url: null,
@@ -313,6 +790,10 @@ export const demoService = {
 
   updateEmployee(id: string, updates: Partial<DemoEmployee>): DemoEmployee {
     const list = this.getEmployees();
+    if (updates.email && updates.email.includes('@demo.com')) {
+      updates.email = updates.email.replace(/@demo\.com/g, '@humanius.net');
+    }
+
     let idx = list.findIndex(e => e.id === id);
     if (idx === -1 && updates.email) {
       idx = list.findIndex(e => e.email?.toLowerCase().trim() === updates.email?.toLowerCase().trim());
@@ -376,7 +857,6 @@ export const demoService = {
   },
 
   saveIzinTalepleri(list: DemoIzinTalebi[]): void {
-    // Relationships shouldn't be saved
     const cleanList = list.map(({ employees, ...t }) => ({
       ...t,
       durum: (t.durum as any) === 'bekliyor' ? 'beklemede' : t.durum
@@ -400,11 +880,11 @@ export const demoService = {
       seyahat_yeri: data.seyahat_yeri || '',
       il_disi_seyahat: data.il_disi_seyahat || false,
       belge_url: null,
-      durum: (data.durum as any) || 'beklemede',
-      onaylayan_id: null,
-      onay_tarihi: null,
-      red_nedeni: null,
-      talep_tarihi: new Date().toISOString().split('T')[0],
+      durum: (data.durum as any) === 'bekliyor' ? 'beklemede' : (data.durum || 'beklemede'),
+      onaylayan_id: data.onaylayan_id || null,
+      onay_tarihi: data.onay_tarihi || null,
+      red_nedeni: data.red_nedeni || null,
+      talep_tarihi: data.talep_tarihi || new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -416,20 +896,33 @@ export const demoService = {
   updateIzinTalebi(id: string, updates: Partial<DemoIzinTalebi>): DemoIzinTalebi {
     const list = this.getIzinTalepleri();
     const idx = list.findIndex(t => t.id === id);
-    if (idx === -1) throw new Error('İzin talebi bulunamadı');
-    list[idx] = { ...list[idx], ...updates, updated_at: new Date().toISOString() };
+    if (idx === -1) {
+      throw new Error('İzin talebi bulunamadı');
+    }
+    const updated = {
+      ...list[idx],
+      ...updates,
+      durum: (updates.durum as any) === 'bekliyor' ? 'beklemede' : (updates.durum || list[idx].durum),
+      updated_at: new Date().toISOString()
+    };
+    list[idx] = updated;
     this.saveIzinTalepleri(list);
-    return list[idx];
+    return updated;
+  },
+
+  deleteIzinTalebi(id: string): void {
+    const list = this.getIzinTalepleri();
+    this.saveIzinTalepleri(list.filter(t => t.id !== id));
   },
 
   // -------------------------------------------------------------
-  // CRUD Helpers for Payroll (Bordro)
+  // CRUD Helpers for Bordro Items
   // -------------------------------------------------------------
-  getBordrolar(): DemoBordroItem[] {
+  getBordroItems(): DemoBordroItem[] {
     this.seedDatabase();
-    const list: DemoBordroItem[] = JSON.parse(localStorage.getItem('humanius_demo_bordro_items') || '[]');
+    const items: DemoBordroItem[] = JSON.parse(localStorage.getItem('humanius_demo_bordro_items') || '[]');
     const employees = this.getEmployees();
-    return list.map(b => {
+    return items.map(b => {
       const emp = employees.find(e => e.id === b.employee_id);
       return {
         ...b,
@@ -438,19 +931,19 @@ export const demoService = {
     });
   },
 
-  saveBordrolar(list: DemoBordroItem[]): void {
+  saveBordroItems(list: DemoBordroItem[]): void {
     const cleanList = list.map(({ employees, ...b }) => b);
     localStorage.setItem('humanius_demo_bordro_items', JSON.stringify(cleanList));
   },
 
-  createBordro(data: Partial<DemoBordroItem>): DemoBordroItem {
-    const list = this.getBordrolar();
+  createBordroItem(data: Partial<DemoBordroItem>): DemoBordroItem {
+    const list = this.getBordroItems();
     const newBordro: DemoBordroItem = {
       id: 'bordro-' + Math.random().toString(36).substr(2, 9),
       company_id: 'demo-company-id-9999',
       employee_id: data.employee_id || '',
       yil: data.yil || new Date().getFullYear(),
-      ay: data.ay || (new Date().getMonth() + 1),
+      ay: data.ay || new Date().getMonth() + 1,
       brut_maas: data.brut_maas || 0,
       net_maas: data.net_maas || 0,
       sgk_isci_payi: data.sgk_isci_payi || 0,
@@ -473,21 +966,33 @@ export const demoService = {
       updated_at: new Date().toISOString()
     };
     list.push(newBordro);
-    this.saveBordrolar(list);
+    this.saveBordroItems(list);
     return newBordro;
   },
 
-  updateBordro(id: string, updates: Partial<DemoBordroItem>): DemoBordroItem {
-    const list = this.getBordrolar();
+  updateBordroItem(id: string, updates: Partial<DemoBordroItem>): DemoBordroItem {
+    const list = this.getBordroItems();
     const idx = list.findIndex(b => b.id === id);
-    if (idx === -1) throw new Error('Bordro bulunamadı');
-    list[idx] = { ...list[idx], ...updates, updated_at: new Date().toISOString() };
-    this.saveBordrolar(list);
-    return list[idx];
+    if (idx === -1) {
+      throw new Error('Bordro kaydı bulunamadı');
+    }
+    const updated = {
+      ...list[idx],
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+    list[idx] = updated;
+    this.saveBordroItems(list);
+    return updated;
+  },
+
+  deleteBordroItem(id: string): void {
+    const list = this.getBordroItems();
+    this.saveBordroItems(list.filter(b => b.id !== id));
   },
 
   // -------------------------------------------------------------
-  // CRUD Helpers for PDKS
+  // CRUD Helpers for PDKS Records
   // -------------------------------------------------------------
   getPDKSRecords(): DemoPDKSRecord[] {
     this.seedDatabase();
@@ -498,37 +1003,24 @@ export const demoService = {
     localStorage.setItem('humanius_demo_pdks', JSON.stringify(list));
   },
 
-  upsertPDKSRecord(data: Partial<DemoPDKSRecord>): DemoPDKSRecord {
+  createPDKSRecord(data: Partial<DemoPDKSRecord>): DemoPDKSRecord {
     const list = this.getPDKSRecords();
-    const today = new Date().toISOString().split('T')[0];
-    const empId = data.employee_id || '';
-    
-    const idx = list.findIndex(r => r.employee_id === empId && r.tarih === today);
-    
-    if (idx !== -1) {
-      // Update existing today record
-      list[idx] = { ...list[idx], ...data, updated_at: new Date().toISOString() };
-      this.savePDKSRecords(list);
-      return list[idx];
-    } else {
-      // Insert new today record
-      const newRec: DemoPDKSRecord = {
-        id: 'pdks-' + Math.random().toString(36).substr(2, 9),
-        company_id: 'demo-company-id-9999',
-        employee_id: empId,
-        tarih: today,
-        giris_saati: data.giris_saati || new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-        cikis_saati: data.cikis_saati || null,
-        sure_dakika: data.sure_dakika || null,
-        durum: data.durum || 'Normal',
-        giris_koordinat: data.giris_koordinat || '41.0082, 28.9784',
-        cikis_koordinat: data.cikis_koordinat || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      list.push(newRec);
-      this.savePDKSRecords(list);
-      return newRec;
-    }
+    const newRecord: DemoPDKSRecord = {
+      id: 'pdks-' + Math.random().toString(36).substr(2, 9),
+      company_id: 'demo-company-id-9999',
+      employee_id: data.employee_id || '',
+      tarih: data.tarih || new Date().toISOString().split('T')[0],
+      giris_saati: data.giris_saati || '09:00',
+      cikis_saati: data.cikis_saati || '18:00',
+      sure_dakika: data.sure_dakika || 540,
+      durum: data.durum || 'Normal',
+      giris_koordinat: data.giris_koordinat || null,
+      cikis_koordinat: data.cikis_koordinat || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    list.push(newRecord);
+    this.savePDKSRecords(list);
+    return newRecord;
   }
 };

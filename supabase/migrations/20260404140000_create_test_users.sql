@@ -153,14 +153,14 @@ VALUES
     'aaaaaaaa-0000-0000-0000-000000000001',
     'Ahmet Yılmaz', '12345678901', 'EMP001',
     'Yazılım', 'Kıdemli Geliştirici', 'Senior', 75000,
-    'active', 'ahmet@demo.com', '2022-01-15', 'evli', 2
+    'active', 'ahmet@humanius.net', '2022-01-15', 'evli', 2
   ),
   (
     'bbbbbbbb-0000-0000-0000-000000000002',
     'aaaaaaaa-0000-0000-0000-000000000001',
     'Ayşe Kaya', '98765432109', 'EMP002',
     'İnsan Kaynakları', 'İK Uzmanı', 'Mid', 55000,
-    'active', 'ayse@demo.com', '2023-03-01', 'bekar', 0
+    'active', 'ayse@humanius.net', '2023-03-01', 'bekar', 0
   ),
   (
     'bbbbbbbb-0000-0000-0000-000000000003',
