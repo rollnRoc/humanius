@@ -274,7 +274,8 @@ const AppInner: React.FC = () => {
           if (compData) {
             setCompanies([compData.name]);
             companyMap.set(compData.id, compData.name);
-            setCompanyLogoUrl(compData.logo_url ?? null);
+            const logo = compData.logo_url && !compData.logo_url.toLowerCase().includes('toyota') ? compData.logo_url : null;
+            setCompanyLogoUrl(logo);
           }
         } catch {}
       }
@@ -377,7 +378,8 @@ const AppInner: React.FC = () => {
           } else {
             const compData = await companyService.getById(profile.company_id);
             setCompanies(compData ? [compData.name] : ['Humanius Demo Şirketi']);
-            setCompanyLogoUrl(compData?.logo_url ?? null);
+            const logo = compData?.logo_url && !compData.logo_url.toLowerCase().includes('toyota') ? compData.logo_url : null;
+            setCompanyLogoUrl(logo);
           }
         }
       } catch {}

@@ -10,9 +10,22 @@ import { companyService } from '../services/companyService';
 const DEFAULT_LOGO_SRC = '/humanius-original.png';
 const LEGACY_LOGO_SRCS = ['/14.png', '/humanius-logo.svg'];
 
+const isInvalidLogo = (url: string | null | undefined): boolean => {
+  if (!url) return true;
+  if (url === DEFAULT_LOGO_SRC) return false;
+  if (LEGACY_LOGO_SRCS.includes(url)) return true;
+  if (url.toLowerCase().includes('toyota')) return true;
+  return false;
+};
+
 const safeReadLocalStorage = (key: string) => {
   try {
-    return localStorage.getItem(key);
+    const val = localStorage.getItem(key);
+    if (val && isInvalidLogo(val)) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return val;
   } catch {
     return null;
   }
@@ -30,7 +43,7 @@ const safeWriteLocalStorage = (key: string, value: string) => {
 const BlueHLogo: React.FC<{ className?: string; style?: React.CSSProperties }> = ({ className = "w-10 h-10", style }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className={`${className} select-none`} style={style}>
     <rect width="100" height="100" rx="20" fill="#2563eb" />
-    <path d="M30 25 V75 M70 25 V75 M30 50 H70" stroke="white" stroke-width="14" stroke-linecap="round" />
+    <path d="M30 25 V75 M70 25 V75 M30 50 H70" stroke="white" strokeWidth="14" strokeLinecap="round" />
   </svg>
 );
 
@@ -131,16 +144,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     try {
       if (profile?.company_id) {
         const compSaved = safeReadLocalStorage(`logoSrc_${profile.company_id}`);
-        if (compSaved && !LEGACY_LOGO_SRCS.includes(compSaved)) return compSaved;
+        if (compSaved && !isInvalidLogo(compSaved)) return compSaved;
       }
       const savedLogoSrc = safeReadLocalStorage('logoSrc');
-      if (savedLogoSrc && !LEGACY_LOGO_SRCS.includes(savedLogoSrc)) return savedLogoSrc;
+      if (savedLogoSrc && !isInvalidLogo(savedLogoSrc)) return savedLogoSrc;
 
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k && k.startsWith('logoSrc')) {
           const val = localStorage.getItem(k);
-          if (val && !LEGACY_LOGO_SRCS.includes(val)) return val;
+          if (val && !isInvalidLogo(val)) return val;
         }
       }
     } catch {}
@@ -189,9 +202,17 @@ const Sidebar: React.FC<SidebarProps> = ({
         try {
           const comp = await companyService.getById(profile.company_id);
           if (comp?.logo_url) {
-            setLogoSrc(comp.logo_url);
-            safeWriteLocalStorage(logoSrcKey, comp.logo_url);
-            safeWriteLocalStorage('logoSrc', comp.logo_url);
+            if (isInvalidLogo(comp.logo_url)) {
+              // Reset legacy/toyota logo in DB to DEFAULT_LOGO_SRC
+              setLogoSrc(DEFAULT_LOGO_SRC);
+              safeWriteLocalStorage(logoSrcKey, DEFAULT_LOGO_SRC);
+              safeWriteLocalStorage('logoSrc', DEFAULT_LOGO_SRC);
+              await companyService.update(profile.company_id, { logo_url: DEFAULT_LOGO_SRC });
+            } else {
+              setLogoSrc(comp.logo_url);
+              safeWriteLocalStorage(logoSrcKey, comp.logo_url);
+              safeWriteLocalStorage('logoSrc', comp.logo_url);
+            }
             return;
           }
         } catch (err) {
@@ -200,8 +221,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       }
       
       const savedLogoSrc = safeReadLocalStorage(logoSrcKey) || safeReadLocalStorage('logoSrc');
-      if (savedLogoSrc && !LEGACY_LOGO_SRCS.includes(savedLogoSrc)) {
+      if (savedLogoSrc && !isInvalidLogo(savedLogoSrc)) {
         setLogoSrc(savedLogoSrc);
+      } else {
+        setLogoSrc(DEFAULT_LOGO_SRC);
       }
     };
 
@@ -251,7 +274,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Brand */}
       <div className="relative group mb-5">
         <div className="flex items-center justify-center p-3 bg-gray-50 rounded-xl border border-gray-200">
-          {effectiveRole === 'superadmin' || !logoSrc || logoSrc === DEFAULT_LOGO_SRC ? (
+          {effectiveRole === 'superadmin' || !logoSrc || logoSrc === DEFAULT_LOGO_SRC || isInvalidLogo(logoSrc) ? (
             <div className="flex items-center gap-3">
               <BlueHLogo className="w-12 h-12" />
               <span className="text-xl font-bold text-gray-800 tracking-tight">Humanius</span>
