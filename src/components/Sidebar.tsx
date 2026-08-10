@@ -64,7 +64,7 @@ const RAW_NAV_ITEMS = [
     { id: 'zimmet' as View, label: 'Tüm Zimmetler Listesi' },
     { id: 'kullanicilar' as View, label: 'Kullanıcılar' },
     { id: 'offboarding' as View, label: 'İşten Çıkış (Offboarding)' },
-    { id: 'ayar' as View, label: 'Personel ve Şirket Yönetimi' },
+    { id: 'ayar' as View, label: 'Kanunlar ve Kurallar' },
   ]},
   { id: 'ozluk-dosyasi' as View, label: 'Personel Yönetimi', icon: UserCircle, children: [
     { id: 'ozluk-dosyasi' as View, label: 'Personel Kartı ve Özlük' },

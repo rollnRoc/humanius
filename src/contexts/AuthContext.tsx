@@ -12,19 +12,19 @@ const mockDemoUser: User = {
   id: 'demo-user-id-9999',
   aud: 'authenticated',
   role: 'authenticated',
-  email: 'demo@humanius.net',
+  email: 'selin.aksoy@humanius.net',
   created_at: new Date().toISOString(),
   app_metadata: {},
-  user_metadata: { full_name: 'Demo Yönetici' },
+  user_metadata: { full_name: 'Selin Aksoy' },
   audits: []
 } as any;
 
 const mockDemoProfile: Profile = {
   id: 'demo-user-id-9999',
-  email: 'demo@humanius.net',
-  full_name: 'Demo Şirket Yöneticisi',
+  email: 'selin.aksoy@humanius.net',
+  full_name: 'Selin Aksoy',
   company_id: 'demo-company-id-9999',
-  role: 'admin',
+  role: 'hr',
   avatar_url: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString()

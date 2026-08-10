@@ -23,7 +23,7 @@ type EmployeePublic = Omit<
 const FULL_ACCESS_ROLES = new Set(['superadmin', 'admin', 'hr']);
 
 async function getCurrentRole(): Promise<string> {
-  if (demoService.isDemoActive()) return 'superadmin';
+  if (demoService.isDemoActive()) return 'hr';
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return 'user';
   const { data } = await supabase

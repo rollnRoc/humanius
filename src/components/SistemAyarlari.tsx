@@ -178,7 +178,7 @@ const SistemAyarlari: React.FC = () => {
     { id: 'belge_kurallari', label: 'Belge Kuralları', icon: FileText, color: 'red' },
     { id: 'sistem_kurallari', label: 'Sistem Kuralları', icon: Settings, color: 'gray' },
     { id: 'sirket_bilgileri', label: 'Şirket Bilgileri', icon: Building, color: 'cyan' },
-    { id: 'sirketler', label: 'Tüm Şirketler & Yönetim', icon: Building2, color: 'purple' },
+    ...(canManageCompanies ? [{ id: 'sirketler', label: 'Tüm Şirketler & Yönetim', icon: Building2, color: 'purple' }] : [])
   ];
 
   const filteredParametreler = parametreler.filter(p => p.kategori === activeTab);
@@ -558,21 +558,23 @@ const SistemAyarlari: React.FC = () => {
           <div className="flex items-center gap-3">
             <Settings className="w-8 h-8 text-blue-600" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">Sistem Ayarları</h1>
-              <p className="text-gray-600">Zorunlu şartlar, süreler ve sistem parametreleri</p>
+              <h1 className="text-2xl font-bold text-gray-800">Kanunlar ve Kurallar</h1>
+              <p className="text-gray-600">4857 sayılı İş Kanunu parametreleri, çalışma saatleri, yasal izin hakları ve mevzuat kuralları</p>
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              resetCompanyForm();
-              setShowCompanyForm(true);
-            }}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-md"
-          >
-            <Building2 className="w-5 h-5" />
-            + Yeni Şirket Ekle
-          </button>
+          {canManageCompanies && (
+            <button
+              onClick={() => {
+                resetCompanyForm();
+                setShowCompanyForm(true);
+              }}
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-md"
+            >
+              <Building2 className="w-5 h-5" />
+              + Yeni Şirket Ekle
+            </button>
+          )}
         </div>
 
         {/* Uyarı Mesajı */}
