@@ -133,6 +133,11 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab = 'is_kanunu
   const { user, profile, appRole, updatePassword } = useAuth();
   const [activeTab, setActiveTab] = useState<ParametreKategorisi>(defaultTab);
 
+  // Kullanıcı yönetimi: superadmin + admin + hr
+  const canManage = appRole === 'superadmin' || appRole === 'admin' || appRole === 'hr';
+  // Şirket oluşturma/düzenleme/silme: yalnızca superadmin
+  const canManageCompanies = appRole === 'superadmin';
+
   useEffect(() => {
     if (defaultTab) {
       setActiveTab(defaultTab);
@@ -258,11 +263,6 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab = 'is_kanunu
     setConfirmPassword('');
     setPasswordMessage('Şifreniz başarıyla güncellendi.');
   };
-
-  // Kullanıcı yönetimi: superadmin + admin + hr
-  const canManage = appRole === 'superadmin' || appRole === 'admin' || appRole === 'hr';
-  // Şirket oluşturma/düzenleme/silme: yalnızca superadmin
-  const canManageCompanies = appRole === 'superadmin';
 
   // superadmin değilse şirketler sekmesinde takılı kalmayı engelle
   useEffect(() => {
