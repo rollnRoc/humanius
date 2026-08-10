@@ -92,8 +92,31 @@ export interface DemoPDKSRecord {
   updated_at: string;
 }
 
-// Zenginleştirilmiş 20 Personellik Hazır Veri Seti (Tüm E-postalar @humanius.net)
+// Zenginleştirilmiş Personellik Hazır Veri Seti (Tüm E-postalar @humanius.net)
 const MOCK_EMPLOYEES: DemoEmployee[] = [
+  {
+    id: 'emp-0',
+    company_id: 'demo-company-id-9999',
+    name: 'Hakan Hizel',
+    tc_no: '10000000001',
+    sicil_no: 'CEO-001',
+    department: 'Yönetim Kurulu',
+    position: 'Genel Müdür & Kurucu',
+    level: 'Manager',
+    salary: 120000,
+    status: 'active',
+    phone: '0555 100 0000',
+    email: 'hakan.hizel@humanius.net',
+    join_date: '2020-01-01',
+    address: 'Levent / İstanbul',
+    avatar_url: null,
+    skills: ['Kurumsal Liderlik', 'Stratejik Yönetim', 'İş Geliştirme'],
+    medeni_durum: 'evli',
+    cocuk_sayisi: 2,
+    engelli_durumu: 'yok',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
   {
     id: 'emp-1',
     company_id: 'demo-company-id-9999',

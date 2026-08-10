@@ -437,7 +437,7 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
 
         <!-- Summary Bar -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:9.5px; color:#475569;">
-          <span><strong>Kurum:</strong> HİZEL OTOMOTİV İNŞ.A.Ş / Humanius HRMS</span>
+          <span><strong>Kurum:</strong> ${escapeHtml(companyName || 'Humanius HRMS')}</span>
           <span><strong>Toplam Kadro:</strong> ${employees.length} Çalışan</span>
         </div>
 
@@ -454,8 +454,8 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                 `).join('');
               }
               return `
-                <div class="root-title">👑 HAKAN HİZEL</div>
-                <div class="root-sub">Şirket Sahibi / Genel Müdür</div>
+                <div class="root-title">👑 ${escapeHtml(companyName || 'Humanius HRMS')}</div>
+                <div class="root-sub">Yönetim Kurulu & Genel Müdürlük</div>
               `;
             })()}
           </div>
@@ -793,8 +793,8 @@ const OrganizasyonSemasi: React.FC<OrganizasyonSemasiProps> = ({ employees, comp
                       }
                       return (
                         <>
-                          <p className="text-xs font-black tracking-wide">👑 HAKAN HİZEL</p>
-                          <p className="text-[10px] text-slate-300">Şirket Sahibi / Genel Müdür</p>
+                          <p className="text-xs font-black tracking-wide">👑 {companyName || 'Humanius HRMS'}</p>
+                          <p className="text-[10px] text-slate-300">Yönetim Kurulu & Genel Müdürlük</p>
                         </>
                       );
                     })()}
