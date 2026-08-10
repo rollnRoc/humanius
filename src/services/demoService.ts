@@ -734,12 +734,22 @@ export const demoService = {
   },
 
   clearDatabase(): void {
-    localStorage.removeItem('humanius_demo_mode');
-    localStorage.removeItem('humanius_demo_start_time');
-    localStorage.removeItem('humanius_demo_employees');
-    localStorage.removeItem('humanius_demo_izin_talepleri');
-    localStorage.removeItem('humanius_demo_bordro_items');
-    localStorage.removeItem('humanius_demo_pdks');
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && (
+          key.startsWith('humanius_') || 
+          key.startsWith('ozluk_') || 
+          key.startsWith('pdks_') || 
+          key.startsWith('logoSrc') || 
+          key.startsWith('logoConfig')
+        )) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (err) {
+      console.error('Error clearing demo database:', err);
+    }
   },
 
   // -------------------------------------------------------------

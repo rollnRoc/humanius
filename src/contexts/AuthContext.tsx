@@ -159,8 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    localStorage.removeItem('humanius_demo_mode');
-    localStorage.removeItem('humanius_demo_start_time');
+    demoService.clearDatabase();
     setIsDemo(false);
 
     const cleanEmail = email.trim().toLowerCase();
