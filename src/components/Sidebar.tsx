@@ -188,7 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     safeWriteLocalStorage(logoSrcKey, nextLogoSrc);
     safeWriteLocalStorage('logoSrc', nextLogoSrc);
     
-    if (profile?.company_id) {
+    if (profile?.company_id && profile.company_id !== 'demo-company-id-9999' && !profile.company_id.startsWith('demo-')) {
       try {
         await companyService.update(profile.company_id, { logo_url: nextLogoSrc });
       } catch (err) {
@@ -199,7 +199,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   React.useEffect(() => {
     const loadCompanyLogo = async () => {
-      if (profile?.company_id) {
+      if (profile?.company_id && profile.company_id !== 'demo-company-id-9999' && !profile.company_id.startsWith('demo-')) {
         try {
           const comp = await companyService.getById(profile.company_id);
           if (comp?.logo_url) {
