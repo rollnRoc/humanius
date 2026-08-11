@@ -47,6 +47,35 @@ const AdimIkonu: React.FC<{ durum: 'tamamlandi' | 'aktif' | 'bekliyor' | 'red'; 
   return <span className="text-gray-300">{icon}</span>;
 };
 
+function formatDateTR(dateStr?: string): string {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+      return `${day} ${months[month]} ${year}`;
+    }
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+  } catch {}
+  return dateStr;
+}
+
+function formatDateRange(start?: string, end?: string): string {
+  if (!start) return '';
+  const s = formatDateTR(start);
+  const e = formatDateTR(end);
+  if (s && e && s !== e) {
+    return `${s} — ${e}`;
+  }
+  return s || e || '';
+}
+
 const IzinWorkflow: React.FC<IzinWorkflowProps> = ({ talep, onOnay, onRed, compact = false, talepleri = [] }) => {
   if (compact) {
     return (
@@ -81,9 +110,23 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({ talep, onOnay, onRed, compa
       <div className="flex items-center justify-between mb-4">
         <div>
           <p className="text-sm font-semibold text-gray-700">Onay Akışı</p>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {talep.employeeName} • {talep.izinTuru} • {talep.gunSayisi} gün
-          </p>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 mt-1">
+            <span className="font-bold text-slate-800">{talep.employeeName}</span>
+            <span>•</span>
+            <span className="capitalize font-medium text-slate-600">{talep.izinTuru} İzni</span>
+            <span>•</span>
+            <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+              {talep.gunSayisi} Gün
+            </span>
+            {talep.baslangicTarihi && (
+              <>
+                <span>•</span>
+                <span className="font-bold text-cyan-800 bg-cyan-50 px-2.5 py-0.5 rounded-md border border-cyan-200">
+                  📅 {formatDateRange(talep.baslangicTarihi, talep.bitisTarihi)}
+                </span>
+              </>
+            )}
+          </div>
         </div>
         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
           talep.durum === 'onaylandi' ? 'bg-green-100 text-green-700' :
@@ -250,7 +293,7 @@ export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({ talepl
               <div key={talep.id} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
                 <div>
                   <p className="text-sm font-medium text-gray-800">{talep.employeeName}</p>
-                  <p className="text-xs text-gray-500">{talep.izinTuru} • {talep.gunSayisi} gün • {talep.baslangicTarihi}</p>
+                  <p className="text-xs text-gray-500 font-medium">{talep.izinTuru} İzni • {talep.gunSayisi} gün • 📅 {formatDateRange(talep.baslangicTarihi, talep.bitisTarihi)}</p>
                 </div>
                 <IzinWorkflow talep={talep} compact talepleri={talepleri} />
               </div>
