@@ -1561,10 +1561,10 @@ const AppInner: React.FC = () => {
         {currentView === 'kullanicilar' && <KullanicilarPage />}
 
         {/* Sistem Ayarları - Kanunlar ve Kurallar */}
-        {currentView === 'ayar' && <SistemAyarlari defaultTab="is_kanunu" />}
+        {currentView === 'ayar' && <SistemAyarlari mode="kanunlar" defaultTab="is_kanunu" />}
 
         {/* Şirket Bilgileri & Yönetimi */}
-        {currentView === 'sirket-bilgileri' && <SistemAyarlari defaultTab="sirket_bilgileri" />}
+        {currentView === 'sirket-bilgileri' && <SistemAyarlari mode="sirket" defaultTab="sirket_bilgileri" />}
 
         {/* Kullanım Kılavuzu */}
         {currentView === 'kullanim-kilavuzu' && <KullanımKilavuzu />}

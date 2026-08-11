@@ -127,11 +127,16 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({ onChange }) => {
 
 interface SistemAyarlariProps {
   defaultTab?: ParametreKategorisi;
+  mode?: 'kanunlar' | 'sirket';
 }
 
-const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab = 'is_kanunu' }) => {
+const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => {
   const { user, profile, appRole, updatePassword } = useAuth();
-  const [activeTab, setActiveTab] = useState<ParametreKategorisi>(defaultTab);
+  
+  const isSirketMode = mode === 'sirket' || defaultTab === 'sirket_bilgileri' || defaultTab === 'sirketler';
+  const effectiveDefaultTab = defaultTab || (isSirketMode ? 'sirket_bilgileri' : 'is_kanunu');
+
+  const [activeTab, setActiveTab] = useState<ParametreKategorisi>(effectiveDefaultTab);
 
   // Kullanıcı yönetimi: superadmin + admin + hr
   const canManage = appRole === 'superadmin' || appRole === 'admin' || appRole === 'hr';
@@ -141,8 +146,12 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab = 'is_kanunu
   useEffect(() => {
     if (defaultTab) {
       setActiveTab(defaultTab);
+    } else if (isSirketMode) {
+      setActiveTab('sirket_bilgileri');
+    } else {
+      setActiveTab('is_kanunu');
     }
-  }, [defaultTab]);
+  }, [defaultTab, isSirketMode]);
   const [sistemAyarlari, setSistemAyarlari] = useState<ISistemAyarlari>(VARSAYILAN_SISTEM_AYARLARI);
   const [parametreler, setParametreler] = useState<SistemParametresi[]>(SISTEM_PARAMETRELERI);
   const [newPassword, setNewPassword] = useState('');
@@ -185,16 +194,19 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab = 'is_kanunu
     company_id: '',
   });
 
-  const kategoriler = [
-    { id: 'is_kanunu', label: 'İş Kanunu', icon: Shield, color: 'blue' },
-    { id: 'bordro_sgk', label: 'Bordro & SGK', icon: Calculator, color: 'green' },
-    { id: 'vergi_sigorta', label: 'Vergi & Sigorta', icon: DollarSign, color: 'teal' },
-    { id: 'egitim', label: 'Eğitim & Gelişim', icon: GraduationCap, color: 'orange' },
-    { id: 'belge_kurallari', label: 'Belge Kuralları', icon: FileText, color: 'red' },
-    { id: 'sistem_kurallari', label: 'Sistem Kuralları', icon: Settings, color: 'gray' },
-    { id: 'sirket_bilgileri', label: 'Şirket Bilgileri', icon: Building, color: 'cyan' },
-    ...(canManageCompanies ? [{ id: 'sirketler', label: 'Tüm Şirketler & Yönetim', icon: Building2, color: 'purple' }] : [])
-  ];
+  const kategoriler = isSirketMode
+    ? [
+        { id: 'sirket_bilgileri', label: 'Şirket Bilgileri', icon: Building, color: 'cyan' },
+        ...(canManageCompanies ? [{ id: 'sirketler', label: 'Tüm Şirketler & Kiracı Yönetimi', icon: Building2, color: 'purple' }] : [])
+      ]
+    : [
+        { id: 'is_kanunu', label: 'İş Kanunu', icon: Shield, color: 'blue' },
+        { id: 'bordro_sgk', label: 'Bordro & SGK', icon: Calculator, color: 'green' },
+        { id: 'vergi_sigorta', label: 'Vergi & Sigorta', icon: DollarSign, color: 'teal' },
+        { id: 'egitim', label: 'Eğitim & Gelişim', icon: GraduationCap, color: 'orange' },
+        { id: 'belge_kurallari', label: 'Belge Kuralları', icon: FileText, color: 'red' },
+        { id: 'sistem_kurallari', label: 'Sistem Kuralları', icon: Settings, color: 'gray' },
+      ];
 
   const filteredParametreler = parametreler.filter(p => p.kategori === activeTab);
 
@@ -566,14 +578,24 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab = 'is_kanunu
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
           <div className="flex items-center gap-3">
-            <Settings className="w-8 h-8 text-blue-600" />
+            {isSirketMode ? (
+              <Building className="w-8 h-8 text-cyan-600" />
+            ) : (
+              <Settings className="w-8 h-8 text-blue-600" />
+            )}
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">Kanunlar ve Kurallar</h1>
-              <p className="text-gray-600">4857 sayılı İş Kanunu parametreleri, çalışma saatleri, yasal izin hakları ve mevzuat kuralları</p>
+              <h1 className="text-2xl font-bold text-gray-800">
+                {isSirketMode ? 'Şirket Bilgileri & Yönetimi' : 'Kanunlar ve Kurallar'}
+              </h1>
+              <p className="text-gray-600">
+                {isSirketMode
+                  ? 'Kurum profili, iletişim ve vergi/SGK sicil bilgileri'
+                  : '4857 sayılı İş Kanunu parametreleri, çalışma saatleri ve yasal mevzuat kuralları'}
+              </p>
             </div>
           </div>
 
-          {canManageCompanies && (
+          {isSirketMode && canManageCompanies && (
             <button
               onClick={() => {
                 resetCompanyForm();
@@ -587,19 +609,21 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab = 'is_kanunu
           )}
         </div>
 
-        {/* Uyarı Mesajı */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-yellow-600" />
-            <div>
-              <h3 className="font-medium text-yellow-800">Önemli Uyarı</h3>
-              <p className="text-sm text-yellow-700">
-                Kırmızı işaretli parametreler İş Kanunu gereği değiştirilemez. 
-                Yeşil işaretli parametreler şirket politikasına göre ayarlanabilir.
-              </p>
+        {/* Uyarı Mesajı (Yalnızca Kanunlar ve Kurallar sayfasında gösterilir) */}
+        {!isSirketMode && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-600" />
+              <div>
+                <h3 className="font-medium text-yellow-800">Önemli Uyarı</h3>
+                <p className="text-sm text-yellow-700">
+                  Kırmızı işaretli parametreler İş Kanunu gereği değiştirilemez. 
+                  Yeşil işaretli parametreler şirket politikasına göre ayarlanabilir.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Tab Navigation */}
