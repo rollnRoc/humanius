@@ -458,7 +458,6 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
     { id: 'genel', label: 'War Room', icon: <BarChart2 className="w-4 h-4" /> },
     { id: 'turnover', label: 'Turnover ve Devir Hızı', icon: <RefreshCw className="w-4 h-4" /> },
     { id: 'ai-risk', label: 'AI Istifa Tahmini', icon: <Brain className="w-4 h-4" /> },
-    { id: 'egitim', label: 'Egitim Onerileri', icon: <BookOpen className="w-4 h-4" /> },
     { id: 'maliyet', label: 'Maliyet Analizi', icon: <DollarSign className="w-4 h-4" /> },
     { id: 'entegrasyon', label: 'Capraz Tetikleyiciler', icon: <Zap className="w-4 h-4" /> },
   ];
@@ -936,66 +935,7 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
         </div>
       )}
 
-      {aktifSekme === 'egitim' && (
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3">
-            <BookOpen className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-blue-800">AI Egitim Oneri Motoru (Netflix Algoritmasi)</p>
-              <p className="text-xs text-blue-600 mt-0.5">Performans degerlendirmesindeki dusuk alanlar otomatik LMS kurs eslestirmesi ile oneriliyor</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">Sirket Geneli Yetkinlik Bosluğu Analizi</h3>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={competencyGapData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis dataKey="yetkinlik" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} unit="%" />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: '11px' }} />
-                <Bar dataKey="mevcut" name="Mevcut Seviye" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="hedef" name="Hedef Seviye" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Otomatik Olusturulan Egitim Onerileri</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {EGITIM_ONERILERI.map((e, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-gray-200 p-4 hover:border-indigo-300 transition-colors">
-                  <div className="flex items-start justify-between mb-3">
-                    <BookOpen className="w-6 h-6 text-indigo-400" />
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${e.seviye === 'Zorunlu' ? 'bg-red-100 text-red-700' : e.seviye === 'Ileri' ? 'bg-purple-100 text-purple-700' : e.seviye === 'Orta' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{e.seviye}</span>
-                  </div>
-                  <p className="text-xs text-indigo-500 font-medium mb-1">{e.kategori}</p>
-                  <p className="text-sm font-semibold text-gray-800 mb-2">{e.kurs}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">{e.sure}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Kisisel Oneri - Yuksek Riskli Calisanlar</h3>
-            <div className="space-y-3">
-              {flightRiskler.filter((r) => r.puan >= 60).slice(0, 4).map(({ emp, puan }) => (
-                <div key={emp.id} className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl">
-                  <div className="w-7 h-7 rounded-full bg-indigo-200 flex items-center justify-center text-xs font-bold text-indigo-700 flex-shrink-0">{emp.name.charAt(0)}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-800">{emp.name}</p>
-                    <p className="text-[10px] text-gray-500">{emp.department}</p>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
-                  <p className="text-xs text-indigo-700 font-medium">Liderlik Gelisim Programi onerildi</p>
-                  <button className="text-[10px] bg-indigo-600 text-white px-2 py-1 rounded-lg hover:bg-indigo-700 whitespace-nowrap">Onayla</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {aktifSekme === 'maliyet' && (
         <div className="space-y-6">
