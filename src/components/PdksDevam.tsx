@@ -974,7 +974,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   <th className="px-6 py-4 text-center">Giriş Saati</th>
                   <th className="px-6 py-4 text-center">Çıkış Saati</th>
                   <th className="px-6 py-4 text-center">Çalışma Süresi</th>
-                  {isManagement && <th className="px-6 py-4 text-center">Fazla Mesai İzni</th>}
+                  {isManagement && <th className="px-6 py-4 text-center">Fazla Mesai</th>}
                   <th className="px-6 py-4 text-center">Durum</th>
                   {isManagement && <th className="px-6 py-4 text-right">İşlemler</th>}
                 </tr>
@@ -1007,8 +1007,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                                 }`}
                                 title="Mesai bitimine kadar tıklanırsa çalışan mesai sonrasında kalabilir"
                               >
-                                <span>⚡</span>
-                                <span>{isGranted ? 'İzin Verildi' : 'İzin Ver'}</span>
+                                <span>{isGranted ? '🟢' : '⚡'}</span>
+                                <span>Fazla Mesai</span>
                               </button>
                             );
                           }
@@ -1016,7 +1016,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                           if (isGranted) {
                             return (
                               <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                                <span>🟢</span> FM İzinli
+                                <span>🟢</span> Fazla Mesai
                               </span>
                             );
                           }

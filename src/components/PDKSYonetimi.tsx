@@ -625,7 +625,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Personel', 'Kaynak', 'Giris', 'Cikis', 'Brut', 'Mola', 'Net', 'FM İzni', 'F.Mesai', 'Durum', ''].map((h) => (
+                  {['Personel', 'Kaynak', 'Giris', 'Cikis', 'Brut', 'Mola', 'Net', 'Fazla Mesai', 'F.Mesai Saat', 'Durum', ''].map((h) => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                       {h}
                     </th>
@@ -685,8 +685,8 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                                 }`}
                                 title="Mesai bitimine kadar tıklanırsa çalışan mesai sonrasında kalabilir"
                               >
-                                <span>⚡</span>
-                                <span>{isGranted ? 'İzin Verildi' : 'İzin Ver'}</span>
+                                <span>{isGranted ? '🟢' : '⚡'}</span>
+                                <span>Fazla Mesai</span>
                               </button>
                             );
                           }
@@ -694,7 +694,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                           if (isGranted) {
                             return (
                               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                <span>🟢</span> FM İzinli
+                                <span>🟢</span> Fazla Mesai
                               </span>
                             );
                           }
