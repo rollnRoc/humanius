@@ -55,7 +55,6 @@ const IzinCakismaKontrol = lazy(() => import('./components/IzinCakismaKontrol'))
 const DinamikFormBuilder = lazy(() => import('./components/DinamikFormBuilder'));
 const KullanımKilavuzu = lazy(() => import('./components/KullanımKilavuzu'));
 const TazminatHesaplama = lazy(() => import('./components/TazminatHesaplama'));
-import { OnboardingModal } from './components/OnboardingModal';
 import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
 import { employeeService } from './services/employeeService';
 import { userManagementService } from './services/userManagementService';
@@ -198,17 +197,7 @@ const AppInner: React.FC = () => {
   }, [currentView]);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  useEffect(() => {
-    if (profile?.id) {
-      const shownKey = `humanius_onboarding_shown_${profile.id}`;
-      const hasShown = localStorage.getItem(shownKey) === 'true';
-      if (!hasShown) {
-        setShowOnboarding(true);
-      }
-    }
-  }, [profile]);
 
   useEffect(() => {
     if (currentView === 'chat') {
@@ -1843,23 +1832,7 @@ const AppInner: React.FC = () => {
         <ForcePasswordChangeModal onSuccess={loadData} />
       )}
 
-      {showOnboarding && (
-        <OnboardingModal
-          onClose={() => {
-            if (profile?.id) {
-              localStorage.setItem(`humanius_onboarding_shown_${profile.id}`, 'true');
-            }
-            setShowOnboarding(false);
-          }}
-          onStartGuide={() => {
-            if (profile?.id) {
-              localStorage.setItem(`humanius_onboarding_shown_${profile.id}`, 'true');
-            }
-            setShowOnboarding(false);
-            setCurrentView('kullanim-kilavuzu');
-          }}
-        />
-      )}
+
 
       {showIzinForm && (
         <IzinTalepForm
