@@ -272,7 +272,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         const diffMs = now.getTime() - startMs;
         const totalSecs = Math.floor(diffMs / 1000);
 
-        if (checkIsShiftExpired(shiftStartTime, targetCikisTime)) {
+        const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
+        if (checkIsShiftExpired(shiftStartTime, targetCikisTime, isOvertimeAuthorized)) {
           if (activeShiftRecordId) {
             pdksService.updateVardiya(activeShiftRecordId, {
               cikis_saati: targetCikisTime,
@@ -1008,7 +1009,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                                 title="Mesai bitimine kadar tıklanırsa çalışan mesai sonrasında kalabilir"
                               >
                                 <span>{isGranted ? '🟢' : '⚡'}</span>
-                                <span>Fazla Mesai</span>
+                                <span>{isGranted ? 'Onaylandı' : 'Onayla'}</span>
                               </button>
                             );
                           }
@@ -1016,7 +1017,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                           if (isGranted) {
                             return (
                               <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                                <span>🟢</span> Fazla Mesai
+                                <span>🟢</span> FM Onaylı
                               </span>
                             );
                           }

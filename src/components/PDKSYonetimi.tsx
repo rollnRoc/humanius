@@ -686,7 +686,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                                 title="Mesai bitimine kadar tıklanırsa çalışan mesai sonrasında kalabilir"
                               >
                                 <span>{isGranted ? '🟢' : '⚡'}</span>
-                                <span>Fazla Mesai</span>
+                                <span>{isGranted ? 'Onaylandı' : 'Onayla'}</span>
                               </button>
                             );
                           }
@@ -694,7 +694,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                           if (isGranted) {
                             return (
                               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                <span>🟢</span> Fazla Mesai
+                                <span>🟢</span> FM Onaylı
                               </span>
                             );
                           }
