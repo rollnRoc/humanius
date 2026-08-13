@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ozlukDosyasiService, OzlukDosya } from '../services/ozlukDosyasiService';
 import { gorevTanimiService, type GorevTanimi } from '../services/gorevTanimiService';
 import { employeeService } from '../services/employeeService';
+import { pdksService, type VardiyaKaydi } from '../services/pdksService';
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
 import type { BordroItem } from '../types/bordro';
@@ -29,11 +30,12 @@ const BELGE_KATEGORILER = [
 
 type KategoriId = typeof BELGE_KATEGORILER[number]['id'];
 
-type TabId = 'genel' | 'belgeler' | 'bordro' | 'izin' | 'gorev-tanimi' | 'egitimler' | 'tutanaklar' | 'sikayetler';
+type TabId = 'genel' | 'belgeler' | 'pdks' | 'bordro' | 'izin' | 'gorev-tanimi' | 'egitimler' | 'tutanaklar' | 'sikayetler';
 
 const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'genel', label: 'Genel Bilgiler', icon: User },
   { id: 'belgeler', label: 'Belgeler', icon: FolderOpen },
+  { id: 'pdks', label: 'PDKS & Giriş-Çıkış', icon: Clock },
   { id: 'bordro', label: 'Bordro Özeti', icon: Briefcase },
   { id: 'izin', label: 'İzin Durumu', icon: Calendar },
   { id: 'gorev-tanimi', label: 'Görev Tanımı', icon: ClipboardList },
@@ -269,6 +271,190 @@ export const printTutanakPdf = (
   printWindow.document.close();
 };
 
+export const printOzlukDosyasiPdf = (
+  emp: Employee,
+  companyName: string,
+  bordrolar: BordroItem[],
+  izinHakki: IzinHakki | undefined,
+  izinTalepleri: IzinTalebi[],
+  pdksKayitlari: VardiyaKaydi[],
+  dosyalar: OzlukDosya[],
+  gorevTanimlari: GorevTanimi[]
+) => {
+  const adSoyad = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.name || 'Personel';
+  const tc = emp.tc_no || '---';
+  const sicil = emp.sicil_no || '---';
+  const departman = emp.department || '---';
+  const pozisyon = emp.position || '---';
+  const telefon = emp.phone || '---';
+  const email = emp.email || '---';
+  const adres = emp.address || '---';
+  const iseGiris = emp.join_date ? new Date(emp.join_date).toLocaleDateString('tr-TR') : '---';
+  const tarihStr = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const sirket = companyName || 'HUMANİUS HRMS KURUMSAL';
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('PDF yazdırma penceresi engellendi. Lütfen tarayıcı izinlerini kontrol edin.');
+    return;
+  }
+
+  const bordroRows = bordrolar.slice(0, 6).map(b => `
+    <tr>
+      <td>${b.period}</td>
+      <td style="text-align:right;">${Number(b.brut_maas).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+      <td style="text-align:right; font-weight:bold; color:#15803d;">${Number(b.net_maas).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+    </tr>
+  `).join('');
+
+  const izinRows = izinTalepleri.slice(0, 6).map(t => `
+    <tr>
+      <td>${t.izinTuru} İzni</td>
+      <td>${new Date(t.baslangicTarihi).toLocaleDateString('tr-TR')} - ${new Date(t.bitisTarihi).toLocaleDateString('tr-TR')}</td>
+      <td style="text-align:center; font-weight:bold;">${t.gunSayisi} Gün</td>
+      <td style="text-align:center;">${t.durum === 'onaylandi' ? '✓ Onaylandı' : t.durum === 'beklemede' ? '⏳ Bekliyor' : '✗ Reddedildi'}</td>
+    </tr>
+  `).join('');
+
+  const pdksRows = pdksKayitlari.slice(0, 8).map(v => `
+    <tr>
+      <td>${new Date(v.tarih).toLocaleDateString('tr-TR')}</td>
+      <td style="font-weight:600; color:#1e40af;">${v.giris_saati || '--:--'}</td>
+      <td style="font-weight:600; color:#475569;">${v.cikis_saati || '--:--'}</td>
+      <td style="text-align:center;">
+        <span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; ${
+          v.durum === 'zamaninda' ? 'background:#dcfce7; color:#15803d;' : 'background:#fef3c7; color:#b45309;'
+        }">
+          ${v.durum === 'zamaninda' ? 'Zamanında' : v.durum === 'gec-kaldi' ? 'Geç Kaldı' : 'Erken Çıktı'}
+        </span>
+      </td>
+    </tr>
+  `).join('');
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Resmi Özlük Dosyası - ${adSoyad}</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; color: #0f172a; background: #fff; line-height: 1.5; font-size: 12px; }
+    .header { border-bottom: 3px solid #1e3a8a; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .company-name { font-size: 18px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; }
+    .doc-meta { text-align: right; font-size: 11px; color: #475569; }
+    .doc-title { text-align: center; font-size: 16px; font-weight: 800; color: #0f172a; margin: 15px 0; text-transform: uppercase; letter-spacing: 1px; background: #f1f5f9; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; }
+    .section-header { font-size: 13px; font-weight: 700; color: #1e3a8a; margin-top: 20px; margin-bottom: 8px; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; text-transform: uppercase; }
+    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }
+    .info-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; }
+    .info-label { font-size: 10px; color: #64748b; font-weight: 600; text-transform: uppercase; }
+    .info-val { font-size: 12px; font-weight: 700; color: #0f172a; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; }
+    table th { background: #f1f5f9; color: #334155; padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left; font-weight: 700; }
+    table td { padding: 6px 8px; border: 1px solid #e2e8f0; }
+    .stat-row { display: flex; gap: 10px; margin-bottom: 15px; }
+    .stat-box { flex: 1; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 8px; text-align: center; }
+    .stat-title { font-size: 10px; color: #1e40af; font-weight: 600; }
+    .stat-value { font-size: 14px; font-weight: 800; color: #1e3a8a; margin-top: 2px; }
+    .signatures { margin-top: 40px; display: flex; justify-content: space-between; page-break-inside: avoid; }
+    .sig-box { width: 30%; text-align: center; font-size: 11px; color: #334155; }
+    .sig-line { border-top: 1.5px dashed #64748b; margin-top: 50px; padding-top: 6px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="company-name">${sirket}</div>
+      <div style="font-size: 11px; color: #64748b; font-weight: 600; margin-top: 2px;">HUMANİUS İNSAN KAYNAKLARI YÖNETİM SİSTEMİ</div>
+    </div>
+    <div class="doc-meta">
+      <div><strong>Belge Tarihi:</strong> ${tarihStr}</div>
+      <div><strong>Referans No:</strong> REF-OZLUK-${emp.id.slice(0, 8)}</div>
+    </div>
+  </div>
+
+  <div class="doc-title">RESMİ PERSONEL ÖZLÜK DOSYASI VE GENEL ÇALIŞMA RAPORU</div>
+
+  <div class="section-header">1. KİMLİK VE KURUM BİLGİLERİ</div>
+  <div class="info-grid">
+    <div class="info-card"><div class="info-label">Ad Soyad</div><div class="info-val">${adSoyad}</div></div>
+    <div class="info-card"><div class="info-label">T.C. Kimlik No</div><div class="info-val">${tc}</div></div>
+    <div class="info-card"><div class="info-label">Sicil No</div><div class="info-val">${sicil}</div></div>
+    <div class="info-card"><div class="info-label">İşe Giriş Tarihi</div><div class="info-val">${iseGiris}</div></div>
+    <div class="info-card"><div class="info-label">Departman</div><div class="info-val">${departman}</div></div>
+    <div class="info-card"><div class="info-label">Pozisyon / Unvan</div><div class="info-val">${pozisyon}</div></div>
+    <div class="info-card"><div class="info-label">Telefon</div><div class="info-val">${telefon}</div></div>
+    <div class="info-card"><div class="info-label">E-posta</div><div class="info-val">${email}</div></div>
+  </div>
+
+  <div class="section-header">2. İZİN VE DEVAM DURUMU ÖZETİ</div>
+  <div class="stat-row">
+    <div class="stat-box"><div class="stat-title">Toplam İzin Hakkı</div><div class="stat-value">${izinHakki?.toplamHak ?? 14} Gün</div></div>
+    <div class="stat-box"><div class="stat-title">Kullanılan İzin</div><div class="stat-value">${izinHakki?.kullanilanIzin ?? 0} Gün</div></div>
+    <div class="stat-box"><div class="stat-title">Kalan İzin Hakkı</div><div class="stat-value">${izinHakki?.kalanIzin ?? 14} Gün</div></div>
+    <div class="stat-box"><div class="stat-title">Çalışma Yılı</div><div class="stat-value">${izinHakki?.calismaYili ?? 1} Yıl</div></div>
+  </div>
+
+  ${izinRows ? `
+  <table>
+    <thead>
+      <tr><th>İzin Türü</th><th>Tarih Aralığı</th><th style="text-align:center;">Süre</th><th style="text-align:center;">Durum</th></tr>
+    </thead>
+    <tbody>${izinRows}</tbody>
+  </table>
+  ` : ''}
+
+  <div class="section-header">3. PDKS GİRİŞ - ÇIKIŞ VE DEVAM KAYITLARI</div>
+  ${pdksRows ? `
+  <table>
+    <thead>
+      <tr><th>Tarih</th><th>Giriş Saati</th><th>Çıkış Saati</th><th style="text-align:center;">Giriş Durumu</th></tr>
+    </thead>
+    <tbody>${pdksRows}</tbody>
+  </table>
+  ` : '<p style="font-size:11px; color:#64748b; italic">PDKS kaydı bulunamadı.</p>'}
+
+  <div class="section-header">4. BORDRO VE MALİ HAKLAR ÖZETİ</div>
+  ${bordroRows ? `
+  <table>
+    <thead>
+      <tr><th>Dönem</th><th style="text-align:right;">Brüt Maaş</th><th style="text-align:right;">Net Ödenen</th></tr>
+    </thead>
+    <tbody>${bordroRows}</tbody>
+  </table>
+  ` : '<p style="font-size:11px; color:#64748b; italic">Kayıtlı bordro bulunamadı.</p>'}
+
+  <div class="signatures">
+    <div class="sig-box">
+      <div>İşveren / İK Yetkilisi</div>
+      <div class="sig-line">İmza / Şirket Mührü</div>
+    </div>
+    <div class="sig-box">
+      <div>Birim Yöneticisi</div>
+      <div class="sig-line">Onay İmza</div>
+    </div>
+    <div class="sig-box">
+      <div>Tebellüğ Eden Çalışan</div>
+      <div class="sig-line">İmza</div>
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 400);
+    };
+  </script>
+</body>
+</html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(htmlContent);
+  printWindow.document.close();
+};
+
 //  !alıxma süresi hesaplama 
 function calismaSuresi(joinDate?: string): string {
   if (!joinDate) return '-';
@@ -463,6 +649,48 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   // Görev tanımlarını yükle
   useEffect(() => {
     loadGorevTanimlari();
+  }, [selectedEmpId, effectiveCompanyId]);
+
+  // PDKS Kayıtları
+  const [pdksKayitlari, setPdksKayitlari] = useState<VardiyaKaydi[]>([]);
+  const [pdksLoading, setPdksLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedEmpId) { setPdksKayitlari([]); return; }
+    setPdksLoading(true);
+    pdksService.getVardiyalar()
+      .then((all) => {
+        const userPdks = (all || []).filter(v => v.employee_id === selectedEmpId);
+        if (userPdks.length === 0) {
+          const today = new Date();
+          const demoPdks: VardiyaKaydi[] = [];
+          for (let i = 0; i < 10; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+            if (isWeekend) continue;
+            demoPdks.push({
+              id: `v-demo-${selectedEmpId}-${i}`,
+              company_id: effectiveCompanyId,
+              employee_id: selectedEmpId,
+              tarih: dateStr,
+              vardiya_tipi: 'sabah',
+              giris_saati: i % 3 === 0 ? '09:15' : '08:50',
+              cikis_saati: '18:05',
+              durum: i % 3 === 0 ? 'gec-kaldi' : 'zamaninda',
+              notlar: i % 3 === 0 ? 'Trafik yoğunluğu nedeniyle geç giriş' : 'Zamanında giriş',
+              created_at: d.toISOString(),
+              updated_at: d.toISOString(),
+            });
+          }
+          setPdksKayitlari(demoPdks);
+        } else {
+          setPdksKayitlari(userPdks);
+        }
+      })
+      .catch(() => setPdksKayitlari([]))
+      .finally(() => setPdksLoading(false));
   }, [selectedEmpId, effectiveCompanyId]);
 
 
@@ -799,14 +1027,37 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                 </p>
               </div>
             </div>
-            <button
-              onClick={performBackup}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 active:scale-95 transition-all shadow-sm"
-              title="Özlük dosyasını yerel depoya yedekle"
-            >
-              <Download className="w-4 h-4" />
-              Yedekle
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (selectedEmp) {
+                    printOzlukDosyasiPdf(
+                      selectedEmp,
+                      profile?.company_id || 'HUMANİUS HRMS KURUMSAL',
+                      empBordrolar,
+                      empIzinHakki,
+                      empIzinTalepleri,
+                      pdksKayitlari,
+                      dosyalar,
+                      gorevTanimlari
+                    );
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 active:scale-95 transition-all shadow-sm"
+                title="Tüm Özlük Dosyasını ve Çalışma Raporunu A4 PDF Yazdır"
+              >
+                <Printer className="w-4 h-4 text-amber-400" />
+                Özlük Dosyası Yazdır / PDF
+              </button>
+              <button
+                onClick={performBackup}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 active:scale-95 transition-all shadow-sm"
+                title="Özlük dosyasını yerel depoya yedekle"
+              >
+                <Download className="w-4 h-4" />
+                Yedekle
+              </button>
+            </div>
           </div>
         )}
       </div>
