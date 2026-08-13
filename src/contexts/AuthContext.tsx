@@ -134,6 +134,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsDemo(false);
         setSession(session);
         setUser(session.user);
+        setProfile(null);
+        setLoading(true);
         fetchProfile(session.user.id);
       } else if (localStorage.getItem('humanius_demo_mode') !== 'true') {
         setSession(null);

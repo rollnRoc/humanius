@@ -625,7 +625,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Personel', 'Kaynak', 'Giris', 'Cikis', 'Brut', 'Mola', 'Net', 'F.Mesai', 'Durum', ''].map((h) => (
+                  {['Personel', 'Kaynak', 'Giris', 'Cikis', 'Brut', 'Mola', 'Net', 'FM İzni', 'F.Mesai', 'Durum', ''].map((h) => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                       {h}
                     </th>
@@ -635,7 +635,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
               <tbody className="divide-y divide-gray-50">
                 {gunlukKayitlar.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-8 text-center text-gray-400 text-sm">
+                    <td colSpan={11} className="px-4 py-8 text-center text-gray-400 text-sm">
                       Kayit bulunamadi
                     </td>
                   </tr>
@@ -665,6 +665,47 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                       <td className="px-4 py-3 text-right text-gray-500 text-xs">{formatDuration(k.brutCalismaDk)}</td>
                       <td className="px-4 py-3 text-right text-orange-500 text-xs">{k.molaDusumuDk ? `-${k.molaDusumuDk}dk` : '-'}</td>
                       <td className="px-4 py-3 text-right font-medium text-gray-700 text-xs">{formatDuration(k.netCalismaDk)}</td>
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const now = new Date();
+                          const todayStr = now.toISOString().split('T')[0];
+                          const currentHM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                          const isToday = k.tarih === todayStr;
+                          const isShiftActiveTime = isToday && currentHM < '18:00';
+                          const isGranted = k.fazlaMesaiOnayDurum === 'onaylandi';
+
+                          if (isShiftActiveTime) {
+                            return (
+                              <button
+                                onClick={() => fazlaMesaiOnayla(k.employeeId, isGranted ? 'beklemede' : 'onaylandi')}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all shadow-sm cursor-pointer ${
+                                  isGranted
+                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                    : 'bg-slate-100 text-slate-700 hover:bg-amber-100 hover:text-amber-800 border border-slate-200'
+                                }`}
+                                title="Mesai bitimine kadar tıklanırsa çalışan mesai sonrasında kalabilir"
+                              >
+                                <span>⚡</span>
+                                <span>{isGranted ? 'İzin Verildi' : 'İzin Ver'}</span>
+                              </button>
+                            );
+                          }
+
+                          if (isGranted) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                <span>🟢</span> FM İzinli
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <span className="text-[11px] text-gray-400 font-medium">
+                              ⚪ Mesai Bitti
+                            </span>
+                          );
+                        })()}
+                      </td>
                       <td className="px-4 py-3 text-right font-semibold text-purple-600 text-xs">{k.gunlukFazlaMesaiDk ? `+${formatDuration(k.gunlukFazlaMesaiDk)}` : '-'}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${DURUM_RENK[effectiveDurum(k)]}`}>

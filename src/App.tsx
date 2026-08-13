@@ -563,6 +563,15 @@ const AppInner: React.FC = () => {
     }
   }, [user, profile?.company_id, loadData]);
 
+  // Hesap değiştirmede önceki kullanıcı verisinin 1-2 sn görünmesini engelleyen temizleyici
+  useEffect(() => {
+    setSelectedEmployee(null);
+    setEmployees([]);
+    setBordrolar([]);
+    setIzinTalepleri([]);
+    setIzinHakki(undefined);
+  }, [user?.id, profile?.id]);
+
   // Automatically select the logged in employee in the profile/details view
   useEffect(() => {
     const isEmployeeRole = ['employee', 'user'].includes(effectiveAppRole);
