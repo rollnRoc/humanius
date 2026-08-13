@@ -279,7 +279,9 @@ export const printOzlukDosyasiPdf = (
   izinTalepleri: IzinTalebi[],
   pdksKayitlari: VardiyaKaydi[],
   dosyalar: OzlukDosya[],
-  gorevTanimlari: GorevTanimi[]
+  gorevTanimlari: GorevTanimi[],
+  sertifikalar: any[] = [],
+  fizikselDosyaVar: Record<string, boolean> = {}
 ) => {
   const adSoyad = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.name || 'Personel';
   const tc = emp.tc_no || '---';
@@ -290,6 +292,8 @@ export const printOzlukDosyasiPdf = (
   const email = emp.email || '---';
   const adres = emp.address || '---';
   const iseGiris = emp.join_date ? new Date(emp.join_date).toLocaleDateString('tr-TR') : '---';
+  const durumText = emp.status === 'active' ? 'Aktif Çalışan' : emp.status === 'onLeave' ? 'İzinde' : 'Pasif';
+  const turText = emp.employeeType === 'emekli' ? 'Emekli Çalışan' : 'Normal Çalışan';
   const tarihStr = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
   const sirket = companyName || 'HUMANİUS HRMS KURUMSAL';
 
@@ -299,36 +303,104 @@ export const printOzlukDosyasiPdf = (
     return;
   }
 
-  const bordroRows = bordrolar.slice(0, 6).map(b => `
+  // 2. Belgeler
+  const belgeRows = BELGE_KATEGORILER.map((kat) => {
+    const katDosyalar = dosyalar.filter(d => d.kategori === kat.id);
+    const varFiziksel = fizikselDosyaVar[kat.id];
+    let durumStr = '';
+    if (katDosyalar.length > 0) {
+      durumStr = `✓ Dijital Yüklü (${katDosyalar.length} Adet: ${katDosyalar.map(d => d.dosya_adi).join(', ')})`;
+    } else if (varFiziksel) {
+      durumStr = '📋 Fiziksel Dosyasında Mevcut';
+    } else {
+      durumStr = '⚠️ Eksik / Yüklenmedi';
+    }
+    return `
+      <tr>
+        <td><strong>${kat.label}</strong><br/><span style="font-size:10px; color:#64748b;">${kat.aciklama}</span></td>
+        <td>${durumStr}</td>
+      </tr>
+    `;
+  }).join('');
+
+  // 3. PDKS
+  const pdksRows = pdksKayitlari.slice(0, 10).map(v => `
     <tr>
-      <td>${b.period}</td>
+      <td>${new Date(v.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'short' })}</td>
+      <td style="text-transform:capitalize;">${v.vardiya_tipi}</td>
+      <td style="font-weight:700; color:#1e40af; text-align:center;">${v.giris_saati || '--:--'}</td>
+      <td style="font-weight:700; color:#334155; text-align:center;">${v.cikis_saati || '--:--'}</td>
+      <td style="text-align:center;">
+        <span style="padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; ${
+          v.durum === 'zamaninda' ? 'background:#dcfce7; color:#15803d;' : 'background:#fef3c7; color:#b45309;'
+        }">
+          ${v.durum === 'zamaninda' ? '✓ Zamanında' : v.durum === 'gec-kaldi' ? '⚠️ Geç Kaldı' : 'Erken Çıktı'}
+        </span>
+      </td>
+    </tr>
+  `).join('');
+
+  // 4. Bordro
+  const bordroRows = bordrolar.slice(0, 8).map(b => `
+    <tr>
+      <td><strong>${b.period}</strong></td>
       <td style="text-align:right;">${Number(b.brut_maas).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
       <td style="text-align:right; font-weight:bold; color:#15803d;">${Number(b.net_maas).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
     </tr>
   `).join('');
 
-  const izinRows = izinTalepleri.slice(0, 6).map(t => `
+  // 5. İzinler
+  const izinRows = izinTalepleri.slice(0, 8).map(t => `
     <tr>
-      <td>${t.izinTuru} İzni</td>
+      <td>${izinTuruLabel(t.izinTuru)}</td>
       <td>${new Date(t.baslangicTarihi).toLocaleDateString('tr-TR')} - ${new Date(t.bitisTarihi).toLocaleDateString('tr-TR')}</td>
       <td style="text-align:center; font-weight:bold;">${t.gunSayisi} Gün</td>
-      <td style="text-align:center;">${t.durum === 'onaylandi' ? '✓ Onaylandı' : t.durum === 'beklemede' ? '⏳ Bekliyor' : '✗ Reddedildi'}</td>
-    </tr>
-  `).join('');
-
-  const pdksRows = pdksKayitlari.slice(0, 8).map(v => `
-    <tr>
-      <td>${new Date(v.tarih).toLocaleDateString('tr-TR')}</td>
-      <td style="font-weight:600; color:#1e40af;">${v.giris_saati || '--:--'}</td>
-      <td style="font-weight:600; color:#475569;">${v.cikis_saati || '--:--'}</td>
       <td style="text-align:center;">
-        <span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; ${
-          v.durum === 'zamaninda' ? 'background:#dcfce7; color:#15803d;' : 'background:#fef3c7; color:#b45309;'
+        <span style="padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; ${
+          t.durum === 'onaylandi' ? 'background:#dcfce7; color:#15803d;' : t.durum === 'beklemede' ? 'background:#dbeafe; color:#1e40af;' : 'background:#fee2e2; color:#b91c1c;'
         }">
-          ${v.durum === 'zamaninda' ? 'Zamanında' : v.durum === 'gec-kaldi' ? 'Geç Kaldı' : 'Erken Çıktı'}
+          ${t.durum === 'onaylandi' ? '✓ Onaylandı' : t.durum === 'beklemede' ? '⏳ Bekliyor' : '✗ Reddedildi'}
         </span>
       </td>
     </tr>
+  `).join('');
+
+  // 6. Görev Tanımı
+  const gorevRows = gorevTanimlari.map(g => `
+    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:10px; margin-bottom:8px;">
+      <div style="font-weight:700; font-size:12px; color:#1e3a8a;">${g.gorev_adi || 'Görev Tanımı Belgesi'}</div>
+      ${g.gorev_aciklama ? `<div style="font-size:11px; color:#475569; margin-top:3px;">${g.gorev_aciklama}</div>` : ''}
+      ${g.sorumluluklar ? `<div style="font-size:11px; margin-top:4px;"><strong>Sorumluluklar:</strong> ${g.sorumluluklar}</div>` : ''}
+      ${g.performans_kriterleri ? `<div style="font-size:11px; margin-top:4px;"><strong>KPI Performans Kriterleri:</strong> ${g.performans_kriterleri}</div>` : ''}
+    </div>
+  `).join('');
+
+  // 7. Eğitimler
+  const egitimRows = sertifikalar.map(s => `
+    <tr>
+      <td><strong>${s.egitimAdi}</strong></td>
+      <td style="text-align:center;">${s.durum === 'devam_ediyor' ? '🟡 Devam Ediyor' : '✓ Tamamlandı'}</td>
+      <td style="text-align:center;">${s.tamamlanmaTarihi || s.hedefTarih || '-'}</td>
+      <td style="text-align:center; font-weight:bold;">${s.puan ? `${s.puan} / 100` : '-'}</td>
+    </tr>
+  `).join('');
+
+  // 8. Tutanaklar
+  const tutanakDosyalari = dosyalar.filter(d => d.kategori === 'tutanak');
+  const tutanakRows = tutanakDosyalari.map(t => `
+    <div style="background:#fff1f2; border:1px solid #fecdd3; border-radius:6px; padding:10px; margin-bottom:8px;">
+      <div style="font-weight:700; font-size:12px; color:#9f1239;">📄 ${t.dosya_adi || 'Resmi Tutanak Belgesi'} (${new Date(t.created_at).toLocaleDateString('tr-TR')})</div>
+      ${t.notlar ? `<div style="font-size:11px; color:#4c0519; margin-top:4px; white-space:pre-line;">${t.notlar}</div>` : ''}
+    </div>
+  `).join('');
+
+  // 9. Şikayetler
+  const sikayetDosyalari = dosyalar.filter(d => d.kategori === 'sikayet');
+  const sikayetRows = sikayetDosyalari.map(s => `
+    <div style="background:#fffbeb; border:1px solid #fef3c7; border-radius:6px; padding:10px; margin-bottom:8px;">
+      <div style="font-weight:700; font-size:12px; color:#92400e;">⚠️ ${s.dosya_adi || 'Şikayet / Bildirim Kaydı'} (${new Date(s.created_at).toLocaleDateString('tr-TR')})</div>
+      ${s.notlar ? `<div style="font-size:11px; color:#78350f; margin-top:4px; white-space:pre-line;">${s.notlar}</div>` : ''}
+    </div>
   `).join('');
 
   const htmlContent = `
@@ -336,36 +408,36 @@ export const printOzlukDosyasiPdf = (
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>Resmi Özlük Dosyası - ${adSoyad}</title>
+  <title>EKSİKSİZ RESMİ ÖZLÜK DOSYASI - ${adSoyad}</title>
   <style>
-    @page { size: A4; margin: 15mm; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; color: #0f172a; background: #fff; line-height: 1.5; font-size: 12px; }
-    .header { border-bottom: 3px solid #1e3a8a; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    @page { size: A4; margin: 12mm; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; color: #0f172a; background: #fff; line-height: 1.5; font-size: 11px; }
+    .header { border-bottom: 3px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
     .company-name { font-size: 18px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; }
-    .doc-meta { text-align: right; font-size: 11px; color: #475569; }
-    .doc-title { text-align: center; font-size: 16px; font-weight: 800; color: #0f172a; margin: 15px 0; text-transform: uppercase; letter-spacing: 1px; background: #f1f5f9; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; }
-    .section-header { font-size: 13px; font-weight: 700; color: #1e3a8a; margin-top: 20px; margin-bottom: 8px; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; text-transform: uppercase; }
-    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }
-    .info-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; }
-    .info-label { font-size: 10px; color: #64748b; font-weight: 600; text-transform: uppercase; }
-    .info-val { font-size: 12px; font-weight: 700; color: #0f172a; margin-top: 2px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; }
-    table th { background: #f1f5f9; color: #334155; padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left; font-weight: 700; }
-    table td { padding: 6px 8px; border: 1px solid #e2e8f0; }
-    .stat-row { display: flex; gap: 10px; margin-bottom: 15px; }
-    .stat-box { flex: 1; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 8px; text-align: center; }
-    .stat-title { font-size: 10px; color: #1e40af; font-weight: 600; }
-    .stat-value { font-size: 14px; font-weight: 800; color: #1e3a8a; margin-top: 2px; }
-    .signatures { margin-top: 40px; display: flex; justify-content: space-between; page-break-inside: avoid; }
-    .sig-box { width: 30%; text-align: center; font-size: 11px; color: #334155; }
-    .sig-line { border-top: 1.5px dashed #64748b; margin-top: 50px; padding-top: 6px; font-weight: 700; }
+    .doc-meta { text-align: right; font-size: 10px; color: #475569; }
+    .doc-title { text-align: center; font-size: 15px; font-weight: 800; color: #0f172a; margin: 12px 0; text-transform: uppercase; letter-spacing: 1px; background: #f1f5f9; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; }
+    .section-header { font-size: 12px; font-weight: 800; color: #1e3a8a; margin-top: 18px; margin-bottom: 6px; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px; }
+    .info-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 8px; }
+    .info-label { font-size: 9px; color: #64748b; font-weight: 700; text-transform: uppercase; }
+    .info-val { font-size: 11px; font-weight: 700; color: #0f172a; margin-top: 1px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10.5px; }
+    table th { background: #f1f5f9; color: #334155; padding: 5px 7px; border: 1px solid #cbd5e1; text-align: left; font-weight: 700; }
+    table td { padding: 5px 7px; border: 1px solid #e2e8f0; }
+    .stat-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .stat-box { flex: 1; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px; text-align: center; }
+    .stat-title { font-size: 9px; color: #1e40af; font-weight: 700; }
+    .stat-value { font-size: 13px; font-weight: 800; color: #1e3a8a; margin-top: 1px; }
+    .signatures { margin-top: 35px; display: flex; justify-content: space-between; page-break-inside: avoid; }
+    .sig-box { width: 30%; text-align: center; font-size: 10.5px; color: #334155; }
+    .sig-line { border-top: 1.5px dashed #64748b; margin-top: 45px; padding-top: 5px; font-weight: 700; }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
       <div class="company-name">${sirket}</div>
-      <div style="font-size: 11px; color: #64748b; font-weight: 600; margin-top: 2px;">HUMANİUS İNSAN KAYNAKLARI YÖNETİM SİSTEMİ</div>
+      <div style="font-size: 10px; color: #64748b; font-weight: 600; margin-top: 2px;">HUMANİUS İNSAN KAYNAKLARI YÖNETİM SİSTEMİ</div>
     </div>
     <div class="doc-meta">
       <div><strong>Belge Tarihi:</strong> ${tarihStr}</div>
@@ -373,9 +445,9 @@ export const printOzlukDosyasiPdf = (
     </div>
   </div>
 
-  <div class="doc-title">RESMİ PERSONEL ÖZLÜK DOSYASI VE GENEL ÇALIŞMA RAPORU</div>
+  <div class="doc-title">TÜM KATEGORİLERİ KAPSAYAN RESMİ PERSONEL ÖZLÜK DOSYASI VE ÇALIŞMA RAPORU</div>
 
-  <div class="section-header">1. KİMLİK VE KURUM BİLGİLERİ</div>
+  <div class="section-header">1. KİMLİK VE GENEL BİLGİLER</div>
   <div class="info-grid">
     <div class="info-card"><div class="info-label">Ad Soyad</div><div class="info-val">${adSoyad}</div></div>
     <div class="info-card"><div class="info-label">T.C. Kimlik No</div><div class="info-val">${tc}</div></div>
@@ -385,16 +457,44 @@ export const printOzlukDosyasiPdf = (
     <div class="info-card"><div class="info-label">Pozisyon / Unvan</div><div class="info-val">${pozisyon}</div></div>
     <div class="info-card"><div class="info-label">Telefon</div><div class="info-val">${telefon}</div></div>
     <div class="info-card"><div class="info-label">E-posta</div><div class="info-val">${email}</div></div>
+    <div class="info-card"><div class="info-label">Adres</div><div class="info-val">${adres}</div></div>
+    <div class="info-card"><div class="info-label">Personel Türü & Durum</div><div class="info-val">${turText} (${durumText})</div></div>
   </div>
 
-  <div class="section-header">2. İZİN VE DEVAM DURUMU ÖZETİ</div>
+  <div class="section-header">2. BELGELER VE RESMİ EVRAK DİZİNİ</div>
+  <table>
+    <thead>
+      <tr><th>Kategori / Belge Türü</th><th>Dijital / Fiziksel Dosya Durumu</th></tr>
+    </thead>
+    <tbody>${belgeRows}</tbody>
+  </table>
+
+  <div class="section-header">3. PDKS GİRİŞ - ÇIKIŞ VE DEVAM KAYITLARI</div>
+  ${pdksRows ? `
+  <table>
+    <thead>
+      <tr><th>Tarih</th><th>Vardiya</th><th style="text-align:center;">Giriş Saati</th><th style="text-align:center;">Çıkış Saati</th><th style="text-align:center;">Giriş Durumu</th></tr>
+    </thead>
+    <tbody>${pdksRows}</tbody>
+  </table>
+  ` : '<p style="font-size:10px; color:#64748b; font-style:italic">Kayıtlı PDKS verisi bulunamadı.</p>'}
+
+  <div class="section-header">4. BORDRO VE MALİ HAKLAR ÖZETİ</div>
+  ${bordroRows ? `
+  <table>
+    <thead>
+      <tr><th>Dönem</th><th style="text-align:right;">Brüt Ücret</th><th style="text-align:right;">Net Ödenen</th></tr>
+    </thead>
+    <tbody>${bordroRows}</tbody>
+  </table>
+  ` : '<p style="font-size:10px; color:#64748b; font-style:italic">Kayıtlı bordro bulunamadı.</p>'}
+
+  <div class="section-header">5. İZİN HAKLARI VE İZİN KULLANIM GEÇMİŞİ</div>
   <div class="stat-row">
     <div class="stat-box"><div class="stat-title">Toplam İzin Hakkı</div><div class="stat-value">${izinHakki?.toplamHak ?? 14} Gün</div></div>
     <div class="stat-box"><div class="stat-title">Kullanılan İzin</div><div class="stat-value">${izinHakki?.kullanilanIzin ?? 0} Gün</div></div>
     <div class="stat-box"><div class="stat-title">Kalan İzin Hakkı</div><div class="stat-value">${izinHakki?.kalanIzin ?? 14} Gün</div></div>
-    <div class="stat-box"><div class="stat-title">Çalışma Yılı</div><div class="stat-value">${izinHakki?.calismaYili ?? 1} Yıl</div></div>
   </div>
-
   ${izinRows ? `
   <table>
     <thead>
@@ -402,27 +502,26 @@ export const printOzlukDosyasiPdf = (
     </thead>
     <tbody>${izinRows}</tbody>
   </table>
-  ` : ''}
+  ` : '<p style="font-size:10px; color:#64748b; font-style:italic">Kayıtlı izin talebi bulunamadı.</p>'}
 
-  <div class="section-header">3. PDKS GİRİŞ - ÇIKIŞ VE DEVAM KAYITLARI</div>
-  ${pdksRows ? `
+  <div class="section-header">6. GÖREV TANIMI, YETKİ VE SORUMLULUKLAR</div>
+  ${gorevRows || '<p style="font-size:10px; color:#64748b; font-style:italic">Görev tanımı henüz tanımlanmamış.</p>'}
+
+  <div class="section-header">7. EĞİTİMLER VE SERTİFİKALAR</div>
+  ${egitimRows ? `
   <table>
     <thead>
-      <tr><th>Tarih</th><th>Giriş Saati</th><th>Çıkış Saati</th><th style="text-align:center;">Giriş Durumu</th></tr>
+      <tr><th>Eğitim / Sertifika Adı</th><th style="text-align:center;">Durum</th><th style="text-align:center;">Tarih</th><th style="text-align:center;">Başarı Puanı</th></tr>
     </thead>
-    <tbody>${pdksRows}</tbody>
+    <tbody>${egitimRows}</tbody>
   </table>
-  ` : '<p style="font-size:11px; color:#64748b; italic">PDKS kaydı bulunamadı.</p>'}
+  ` : '<p style="font-size:10px; color:#64748b; font-style:italic">Kayıtlı eğitim veya sertifika bulunamadı.</p>'}
 
-  <div class="section-header">4. BORDRO VE MALİ HAKLAR ÖZETİ</div>
-  ${bordroRows ? `
-  <table>
-    <thead>
-      <tr><th>Dönem</th><th style="text-align:right;">Brüt Maaş</th><th style="text-align:right;">Net Ödenen</th></tr>
-    </thead>
-    <tbody>${bordroRows}</tbody>
-  </table>
-  ` : '<p style="font-size:11px; color:#64748b; italic">Kayıtlı bordro bulunamadı.</p>'}
+  <div class="section-header">8. TUTANAKLAR VE İKAZ YAZILARI</div>
+  ${tutanakRows || '<p style="font-size:10px; color:#64748b; font-style:italic">Tutanak kaydı bulunmuyor.</p>'}
+
+  <div class="section-header">9. ŞİKAYETLER VE BİLDİRİMLER</div>
+  ${sikayetRows || '<p style="font-size:10px; color:#64748b; font-style:italic">Şikayet kaydı bulunmuyor.</p>'}
 
   <div class="signatures">
     <div class="sig-box">
@@ -1031,6 +1130,10 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
               <button
                 onClick={() => {
                   if (selectedEmp) {
+                    const savedCerts = localStorage.getItem(`humanius_sertifikalar_${effectiveCompanyId}`) || localStorage.getItem(`humanius_sertifikalar_default`);
+                    const allCerts = savedCerts ? JSON.parse(savedCerts) : [];
+                    const empCerts = allCerts.filter((c: any) => c.employeeId === selectedEmp.id || c.employeeName === selectedEmp.name);
+
                     printOzlukDosyasiPdf(
                       selectedEmp,
                       profile?.company_id || 'HUMANİUS HRMS KURUMSAL',
@@ -1039,7 +1142,9 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                       empIzinTalepleri,
                       pdksKayitlari,
                       dosyalar,
-                      gorevTanimlari
+                      gorevTanimlari,
+                      empCerts,
+                      fizikselDosyaVar
                     );
                   }
                 }}
