@@ -569,7 +569,6 @@ const AppInner: React.FC = () => {
     setEmployees([]);
     setBordrolar([]);
     setIzinTalepleri([]);
-    setIzinHakki(undefined);
   }, [user?.id, profile?.id]);
 
   // Automatically select the logged in employee in the profile/details view
