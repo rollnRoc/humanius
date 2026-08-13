@@ -96,6 +96,23 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
        employees.find((emp) => emp.name?.toLowerCase() === profile?.full_name?.toLowerCase()))
     : employees[0];
 
+  const [overtimeAuthMap, setOvertimeAuthMap] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('humanius_pdks_overtime_auth');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleOvertimeAuth = (empId: string) => {
+    setOvertimeAuthMap((prev) => {
+      const next = { ...prev, [empId]: !prev[empId] };
+      localStorage.setItem('humanius_pdks_overtime_auth', JSON.stringify(next));
+      return next;
+    });
+  };
+
   // -------------------------------------------------------------
   // PERSONAL SHIFT TRACKING (MESAI BASLAT/BITIR) STATES
   // -------------------------------------------------------------
@@ -957,6 +974,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   <th className="px-6 py-4 text-center">Giriş Saati</th>
                   <th className="px-6 py-4 text-center">Çıkış Saati</th>
                   <th className="px-6 py-4 text-center">Çalışma Süresi</th>
+                  {isManagement && <th className="px-6 py-4 text-center">Fazla Mesai İzni</th>}
                   <th className="px-6 py-4 text-center">Durum</th>
                   {isManagement && <th className="px-6 py-4 text-right">İşlemler</th>}
                 </tr>
@@ -969,6 +987,48 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                     <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">{d.giris}</td>
                     <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">{d.cikis}</td>
                     <td className="px-6 py-4 text-center text-gray-600 font-medium">{d.mesai} Saat</td>
+                    {isManagement && (
+                      <td className="px-6 py-4 text-center">
+                        {(() => {
+                          const now = new Date();
+                          const currentHM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                          const isShiftActiveTime = currentHM < (shiftConfig.cikis || '18:00');
+                          const empId = d.employee.id;
+                          const isGranted = Boolean(overtimeAuthMap[empId]);
+
+                          if (isShiftActiveTime) {
+                            return (
+                              <button
+                                onClick={() => toggleOvertimeAuth(empId)}
+                                className={`px-3 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-all shadow-sm cursor-pointer ${
+                                  isGranted
+                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                    : 'bg-slate-100 text-slate-700 hover:bg-amber-100 hover:text-amber-800 border border-slate-200'
+                                }`}
+                                title="Mesai bitimine kadar tıklanırsa çalışan mesai sonrasında kalabilir"
+                              >
+                                <span>⚡</span>
+                                <span>{isGranted ? 'İzin Verildi' : 'İzin Ver'}</span>
+                              </button>
+                            );
+                          }
+
+                          if (isGranted) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                                <span>🟢</span> FM İzinli
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <span className="text-xs text-gray-400 font-medium">
+                              ⚪ Mesai Bitti
+                            </span>
+                          );
+                        })()}
+                      </td>
+                    )}
                     <td className="px-6 py-4 text-center">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                         d.durum === 'Zamanında' ? 'bg-green-100 text-green-700' :
