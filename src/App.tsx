@@ -667,12 +667,12 @@ const AppInner: React.FC = () => {
   };
 
   const handleNewEmployee = () => {
-    const defaultCompanyName = currentCompany?.name || (companies && companies.length > 0 ? companies[0].name : '');
+    const defaultCompanyName = (companies && companies.length > 0) ? (typeof companies[0] === 'string' ? companies[0] : (companies[0] as any).name) : '';
     setSelectedEmployee({
       id: '',
       name: '',
       company: defaultCompanyName,
-      company_id: currentCompany?.id || profile?.company_id || '',
+      company_id: profile?.company_id || '',
       department: '',
       position: '',
       level: '',
@@ -690,8 +690,8 @@ const AppInner: React.FC = () => {
 
   const handleSaveEmployee = async (emp: Employee) => {
     try {
-      let targetCompanyId = profile?.company_id || currentCompany?.id || 'default';
-      let matchedCompName = emp.company || currentCompany?.name || '';
+      let targetCompanyId = profile?.company_id || 'default';
+      let matchedCompName = emp.company || '';
       try {
         const allComps = await companyService.getCompanies();
         const matched = (emp.company || emp.company_id)
@@ -700,9 +700,6 @@ const AppInner: React.FC = () => {
         if (matched) {
           targetCompanyId = matched.id;
           matchedCompName = matched.name;
-        } else if (currentCompany) {
-          targetCompanyId = currentCompany.id;
-          matchedCompName = currentCompany.name;
         }
       } catch {}
 
@@ -1531,7 +1528,7 @@ const AppInner: React.FC = () => {
         {currentView === 'izin-tanimlari' && <IzinTanimlari />}
 
         {/* Organizasyon Şeması */}
-        {currentView === 'org-sema' && <OrganizasyonSemasi employees={employees} companyName={companies.find(c => c.id === selectedCompany)?.name} />}
+        {currentView === 'org-sema' && <OrganizasyonSemasi employees={employees} companyName={selectedCompany !== 'all' ? selectedCompany : (typeof companies[0] === 'string' ? companies[0] : (companies[0] as any)?.name || 'Humanius Şirket Grubu')} />}
 
         {/* Zimmet Yönetimi */}
         {currentView === 'zimmet' && <ZimmetYonetimi employees={employees} />}
