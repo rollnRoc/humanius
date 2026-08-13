@@ -6,7 +6,7 @@ import { translateErrorMessage } from '../utils/errorTranslator';
 import { userManagementService } from '../services/userManagementService';
 
 export default function Login() {
-  const { signIn, startDemoSession } = useAuth();
+  const { signIn, startDemoSession, startSuperAdminSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -88,15 +88,27 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,116,144,0.18),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(20,184,166,0.18),_transparent_28%),linear-gradient(135deg,_#0f172a,_#1e293b_45%,_#111827)] flex items-center justify-center p-4 relative">
       
-      {/* Floating Demo Button in the top-right corner */}
-      <button
-        type="button"
-        onClick={startDemoSession}
-        className="absolute top-6 right-6 bg-slate-900/40 hover:bg-slate-900/60 border border-white/10 hover:border-white/20 text-slate-300 hover:text-white px-4 py-2 rounded-full text-xs font-semibold shadow-lg backdrop-blur-md transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 cursor-pointer z-50"
-      >
-        <span>✨</span>
-        <span>Demoyu Dene</span>
-      </button>
+      {/* Floating Demo & Superadmin Buttons in top-right */}
+      <div className="absolute top-6 right-6 flex items-center gap-2.5 z-50">
+        <button
+          type="button"
+          onClick={startSuperAdminSession}
+          className="bg-violet-950/70 hover:bg-violet-900/90 border border-violet-400/40 text-violet-200 hover:text-white px-4 py-2 rounded-full text-xs font-semibold shadow-lg backdrop-blur-md transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 cursor-pointer"
+          title="Süper Yönetici Yetkileri ile Giriş Yap"
+        >
+          <span>👑</span>
+          <span>Süper Yönetici Girişi</span>
+        </button>
+        <button
+          type="button"
+          onClick={startDemoSession}
+          className="bg-slate-900/40 hover:bg-slate-900/60 border border-white/10 hover:border-white/20 text-slate-300 hover:text-white px-4 py-2 rounded-full text-xs font-semibold shadow-lg backdrop-blur-md transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 cursor-pointer"
+          title="Genel İK Demo Modunu Başlat"
+        >
+          <span>✨</span>
+          <span>Demoyu Dene</span>
+        </button>
+      </div>
 
       <div className="w-full max-w-sm">
 

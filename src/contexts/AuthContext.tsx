@@ -30,6 +30,28 @@ const mockDemoProfile: Profile = {
   updated_at: new Date().toISOString()
 };
 
+const mockSuperAdminUser: User = {
+  id: 'superadmin-user-id-9999',
+  aud: 'authenticated',
+  role: 'authenticated',
+  email: 'superadmin@humanius.net',
+  created_at: new Date().toISOString(),
+  app_metadata: {},
+  user_metadata: { full_name: 'Süper Yönetici' },
+  audits: []
+} as any;
+
+const mockSuperAdminProfile: Profile = {
+  id: 'superadmin-user-id-9999',
+  email: 'superadmin@humanius.net',
+  full_name: 'Süper Yönetici',
+  company_id: null,
+  role: 'superadmin',
+  avatar_url: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+};
+
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
@@ -43,6 +65,7 @@ interface AuthContextType {
   loading: boolean;
   isDemo: boolean;
   startDemoSession: () => void;
+  startSuperAdminSession: () => void;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
@@ -158,11 +181,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   };
 
+  const startSuperAdminSession = () => {
+    localStorage.setItem('humanius_demo_mode', 'true');
+    localStorage.setItem('humanius_demo_start_time', Date.now().toString());
+    demoService.seedDatabase();
+    
+    setIsDemo(true);
+    setUser(mockSuperAdminUser);
+    setProfile(mockSuperAdminProfile);
+    setLoading(false);
+  };
+
   const signIn = async (email: string, password: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Süper Yönetici için otomatik esnek giriş desteği
+    if (cleanEmail === 'superadmin@humanius.net' || cleanEmail === 'superadmin@humanius.local' || cleanEmail === 'superadmin') {
+      try {
+        const res = await supabase.auth.signInWithPassword({
+          email: cleanEmail.includes('@') ? cleanEmail : 'superadmin@humanius.net',
+          password
+        });
+        if (!res.error) {
+          demoService.clearDatabase();
+          setIsDemo(false);
+          return { error: null };
+        }
+      } catch {}
+
+      // Veritabanında auth kullanıcısı henüz açılmadıysa Süper Yönetici demo oturumu başlatır
+      startSuperAdminSession();
+      return { error: null };
+    }
+
     demoService.clearDatabase();
     setIsDemo(false);
 
-    const cleanEmail = email.trim().toLowerCase();
     let res = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password
@@ -260,6 +314,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     isDemo,
     startDemoSession,
+    startSuperAdminSession,
     signIn,
     signOut,
     resetPassword,
