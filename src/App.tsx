@@ -658,10 +658,12 @@ const AppInner: React.FC = () => {
   };
 
   const handleNewEmployee = () => {
+    const defaultCompanyName = currentCompany?.name || (companies && companies.length > 0 ? companies[0].name : '');
     setSelectedEmployee({
       id: '',
       name: '',
-      company: '',
+      company: defaultCompanyName,
+      company_id: currentCompany?.id || profile?.company_id || '',
       department: '',
       position: '',
       level: '',
@@ -679,14 +681,19 @@ const AppInner: React.FC = () => {
 
   const handleSaveEmployee = async (emp: Employee) => {
     try {
-      let targetCompanyId = profile?.company_id || 'default';
-      let matchedCompName = emp.company;
+      let targetCompanyId = profile?.company_id || currentCompany?.id || 'default';
+      let matchedCompName = emp.company || currentCompany?.name || '';
       try {
         const allComps = await companyService.getCompanies();
-        const matched = allComps.find(c => c.name === emp.company || c.id === emp.company_id || c.id === emp.company);
+        const matched = (emp.company || emp.company_id)
+          ? allComps.find(c => c.name === emp.company || c.id === emp.company_id || c.id === emp.company)
+          : null;
         if (matched) {
           targetCompanyId = matched.id;
           matchedCompName = matched.name;
+        } else if (currentCompany) {
+          targetCompanyId = currentCompany.id;
+          matchedCompName = currentCompany.name;
         }
       } catch {}
 

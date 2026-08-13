@@ -173,8 +173,10 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         });
       } else {
         const today = new Date().toISOString().split('T')[0];
+        const initialComp = (companies && companies.length > 0) ? companies[0] : '';
         setFormData({
           name: '',
+          company: initialComp,
           department: '',
           position: '',
           level: '',
@@ -194,7 +196,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         } as any);
       }
     }
-  }, [employee, isOpen]);
+  }, [employee, isOpen, companies]);
 
   if (!isOpen || !formData) return null;
 
@@ -435,10 +437,11 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       <label htmlFor="employee-company" className="block text-sm font-medium text-gray-700 mb-2">Şirket</label>
                       <select
                         id="employee-company"
-                        value={formData.company}
+                        value={formData.company || ''}
                         onChange={(e) => handleInputChange('company', e.target.value)}
                         className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       >
+                        <option value="">-- Şirket Seçin --</option>
                         {companies.map(company => (
                           <option key={company} value={company}>
                             {company}
