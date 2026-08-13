@@ -22,6 +22,21 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught React Error caught by ErrorBoundary:', error, errorInfo);
+    
+    // Auto-reload on stale deployment chunk errors
+    const errorMsg = String(error?.message || '');
+    if (
+      errorMsg.includes('error loading dynamically imported module') ||
+      errorMsg.includes('Failed to fetch dynamically imported module') ||
+      errorMsg.includes('Importing a module script failed')
+    ) {
+      const lastReload = window.sessionStorage.getItem('chunk_reload_timestamp');
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        window.sessionStorage.setItem('chunk_reload_timestamp', now.toString());
+        window.location.reload();
+      }
+    }
   }
 
   private handleReset = () => {
