@@ -706,6 +706,10 @@ const AppInner: React.FC = () => {
         }
       } catch {}
 
+      if (!targetCompanyId || targetCompanyId === 'default') {
+        targetCompanyId = 'aaaaaaaa-0000-0000-0000-000000000001';
+      }
+
       // E-posta girilmemişse ad.soyad üzerinden otomatik kurumsal e-posta üret
       let targetEmail = emp.email ? emp.email.trim() : '';
       if (!targetEmail && emp.name) {
