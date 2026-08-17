@@ -29,7 +29,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 }) => {
   useScrollLock(isOpen);
   const { appRole } = useAuth();
-  const showCompanySelector = appRole === 'superadmin';
+  const showCompanySelector = true;
 
   const [formData, setFormData] = useState<Employee | null>(null);
   const [activeTab, setActiveTab] = useState('genel');

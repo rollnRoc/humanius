@@ -690,13 +690,22 @@ const AppInner: React.FC = () => {
 
   const handleSaveEmployee = async (emp: Employee) => {
     try {
-      let targetCompanyId = (emp.company_id && !emp.company_id.includes('-id-') && emp.company_id !== 'default') ? emp.company_id : '';
+      let matched: any = null;
+      let targetCompanyId = '';
       let matchedCompName = emp.company || '';
+
       try {
         const allComps = await companyService.getCompanies();
-        let matched = (emp.company || emp.company_id)
-          ? allComps.find(c => c.name === emp.company || c.id === emp.company_id || c.id === emp.company)
-          : null;
+        const empCompStr = String(emp.company || '').trim().toLowerCase();
+        const empCompIdStr = String(emp.company_id || '').trim().toLowerCase();
+
+        if (empCompStr || empCompIdStr) {
+          matched = allComps.find(c => {
+            const cName = String(c.name || '').trim().toLowerCase();
+            const cId = String(c.id || '').trim().toLowerCase();
+            return cId === empCompIdStr || cId === empCompStr || cName === empCompStr || cName === empCompIdStr;
+          });
+        }
 
         if (!matched && emp.company && emp.company.trim() !== '') {
           try {
@@ -710,9 +719,11 @@ const AppInner: React.FC = () => {
         if (matched) {
           targetCompanyId = matched.id;
           matchedCompName = matched.name;
-        } else if (!targetCompanyId && profile?.company_id) {
+        } else if (emp.company_id && !emp.company_id.includes('-id-') && emp.company_id !== 'default') {
+          targetCompanyId = emp.company_id;
+        } else if (profile?.company_id) {
           targetCompanyId = profile.company_id;
-        } else if (!targetCompanyId && allComps.length > 0) {
+        } else if (allComps.length > 0) {
           targetCompanyId = allComps[0].id;
           matchedCompName = allComps[0].name;
         }
