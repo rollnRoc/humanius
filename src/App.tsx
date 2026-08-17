@@ -690,7 +690,7 @@ const AppInner: React.FC = () => {
 
   const handleSaveEmployee = async (emp: Employee) => {
     try {
-      let targetCompanyId = profile?.company_id || 'default';
+      let targetCompanyId = profile?.company_id || (emp.company_id && !emp.company_id.includes('-id-') ? emp.company_id : '');
       let matchedCompName = emp.company || '';
       try {
         const allComps = await companyService.getCompanies();
@@ -700,6 +700,9 @@ const AppInner: React.FC = () => {
         if (matched) {
           targetCompanyId = matched.id;
           matchedCompName = matched.name;
+        } else if ((!targetCompanyId || targetCompanyId === 'default') && allComps.length > 0) {
+          targetCompanyId = allComps[0].id;
+          matchedCompName = allComps[0].name;
         }
       } catch {}
 

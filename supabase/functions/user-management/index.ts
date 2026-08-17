@@ -628,9 +628,17 @@ serve(async (req: Request) => {
       const requestedRole = String(payload.role ?? 'employee').trim() as ProfileRole;
 
       let companyId = String(payload.companyId ?? '').trim() || (profile?.company_id || '');
+      if (!companyId || companyId === 'default') {
+        try {
+          const { data: firstComp } = await adminClient.from('companies').select('id').limit(1).maybeSingle();
+          companyId = firstComp?.id || 'aaaaaaaa-0000-0000-0000-000000000001';
+        } catch {
+          companyId = 'aaaaaaaa-0000-0000-0000-000000000001';
+        }
+      }
 
-      if (!companyId || !fullName || !email || !password) {
-        return jsonResponse({ error: 'Kullanıcı oluşturmak için tüm alanlar zorunludur.' }, 400);
+      if (!fullName || !email) {
+        return jsonResponse({ error: 'Ad Soyad ve E-posta alanları zorunludur.' }, 400);
       }
 
       const allowedRoles: ProfileRole[] = ['superadmin', 'admin', 'manager', 'employee', 'hr', 'user'];
