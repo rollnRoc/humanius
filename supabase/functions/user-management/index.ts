@@ -349,32 +349,39 @@ serve(async (req: Request) => {
       let targetAuthId: string | null = employeeId || null;
 
       if (email && employeeId) {
-        // Try updating auth user by employeeId
         let authUpdated = false;
         try {
-          await adminClient.auth.admin.updateUserById(employeeId, { email, email_confirm: true });
+          await adminClient.auth.admin.updateUserById(employeeId, { email, password: '987654', email_confirm: true });
           authUpdated = true;
         } catch (e) {
-          console.warn('Direct auth update by employeeId failed, trying lookup:', e);
+          console.warn('Direct auth update by employeeId failed, trying lookup/create:', e);
         }
 
         if (!authUpdated) {
           try {
-            // Lookup old email from employees or profiles
             const { data: existingEmp } = await adminClient.from('employees').select('email, name').eq('id', employeeId).maybeSingle();
             const oldEmail = existingEmp?.email?.toLowerCase().trim();
+            const searchEmails = [email];
             if (oldEmail) {
-              const altCom = oldEmail.replace('humanius.net', 'humanius.com');
-              const altComTr = oldEmail.replace('humanius.net', 'humanius.com.tr');
-              
-              const { data: profs } = await adminClient.from('profiles').select('id, email').or(`email.eq.${oldEmail},email.eq.${altCom},email.eq.${altComTr}`);
-              if (profs && profs.length > 0) {
-                targetAuthId = profs[0].id;
-                await adminClient.auth.admin.updateUserById(targetAuthId, { email, email_confirm: true });
+              searchEmails.push(oldEmail);
+              searchEmails.push(oldEmail.replace('humanius.net', 'humanius.com'));
+              searchEmails.push(oldEmail.replace('humanius.net', 'humanius.com.tr'));
+            }
+
+            const { data: profs } = await adminClient.from('profiles').select('id, email').or(searchEmails.map(e => `email.eq.${e}`).join(','));
+            if (profs && profs.length > 0) {
+              targetAuthId = profs[0].id;
+              await adminClient.auth.admin.updateUserById(targetAuthId, { email, password: '987654', email_confirm: true });
+            } else {
+              try {
+                const newAuthUser = await createManagedUser(email, '987654', fullName || 'Personel');
+                targetAuthId = newAuthUser.id;
+              } catch (cErr) {
+                console.warn('Create missing Auth user failed:', cErr);
               }
             }
           } catch (lookupErr) {
-            console.warn('Auth user lookup by old email failed:', lookupErr);
+            console.warn('Auth user lookup/create failed:', lookupErr);
           }
         }
       }
@@ -588,17 +595,35 @@ serve(async (req: Request) => {
 
       let userId = '';
       try {
-        const managedUser = await createManagedUser(email, password, fullName);
+        const managedUser = await createManagedUser(email, password || '987654', fullName);
         userId = managedUser.id;
       } catch (_err) {
-        // If user already exists in Auth, fetch existing profile ID
         const { data: existingProf } = await adminClient
           .from('profiles')
           .select('id')
           .eq('email', email)
           .maybeSingle();
-        if (existingProf) {
+
+        if (existingProf?.id) {
           userId = existingProf.id;
+        } else {
+          try {
+            const { data: { users } } = await adminClient.auth.admin.listUsers();
+            const found = (users || []).find(u => (u.email || '').toLowerCase() === email);
+            if (found?.id) userId = found.id;
+          } catch {}
+        }
+
+        if (userId) {
+          try {
+            await adminClient.auth.admin.updateUserById(userId, {
+              password: password || '987654',
+              email_confirm: true,
+              user_metadata: { must_change_password: true }
+            });
+          } catch (pErr) {
+            console.warn('Auth user password update in create_company_user warning:', pErr);
+          }
         }
       }
 
