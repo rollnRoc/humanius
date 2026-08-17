@@ -123,8 +123,15 @@ export const employeeService = {
       if (!error && data) {
         updatedRow = data as Employee;
       }
+      
+      if (updates.email || updates.name) {
+        const profUp: any = {};
+        if (updates.email) profUp.email = updates.email;
+        if (updates.name) profUp.full_name = updates.name;
+        await supabase.from('profiles').update(profUp).eq('id', id);
+      }
     } catch (dbErr) {
-      console.warn('Direct employees table update warning:', dbErr);
+      console.warn('Direct employees/profiles table update warning:', dbErr);
     }
 
     try {

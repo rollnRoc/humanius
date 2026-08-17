@@ -346,11 +346,36 @@ serve(async (req: Request) => {
         return jsonResponse({ error: 'email veya employeeId zorunludur.' }, 400);
       }
 
+      let targetAuthId: string | null = employeeId || null;
+
       if (email && employeeId) {
+        // Try updating auth user by employeeId
+        let authUpdated = false;
         try {
           await adminClient.auth.admin.updateUserById(employeeId, { email, email_confirm: true });
+          authUpdated = true;
         } catch (e) {
-          console.warn('Auth email update warning:', e);
+          console.warn('Direct auth update by employeeId failed, trying lookup:', e);
+        }
+
+        if (!authUpdated) {
+          try {
+            // Lookup old email from employees or profiles
+            const { data: existingEmp } = await adminClient.from('employees').select('email, name').eq('id', employeeId).maybeSingle();
+            const oldEmail = existingEmp?.email?.toLowerCase().trim();
+            if (oldEmail) {
+              const altCom = oldEmail.replace('humanius.net', 'humanius.com');
+              const altComTr = oldEmail.replace('humanius.net', 'humanius.com.tr');
+              
+              const { data: profs } = await adminClient.from('profiles').select('id, email').or(`email.eq.${oldEmail},email.eq.${altCom},email.eq.${altComTr}`);
+              if (profs && profs.length > 0) {
+                targetAuthId = profs[0].id;
+                await adminClient.auth.admin.updateUserById(targetAuthId, { email, email_confirm: true });
+              }
+            }
+          } catch (lookupErr) {
+            console.warn('Auth user lookup by old email failed:', lookupErr);
+          }
         }
       }
 
@@ -363,6 +388,9 @@ serve(async (req: Request) => {
 
         if (employeeId) {
           await adminClient.from('profiles').update(profUpdates).eq('id', employeeId);
+        }
+        if (targetAuthId && targetAuthId !== employeeId) {
+          await adminClient.from('profiles').update(profUpdates).eq('id', targetAuthId);
         }
       }
 
