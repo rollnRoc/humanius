@@ -22,24 +22,8 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
-    let cleanEmail = email.trim().toLowerCase();
-    if (cleanEmail && !cleanEmail.endsWith('@humanius.net')) {
-      const username = cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanEmail;
-      cleanEmail = `${username}@humanius.net`;
-    }
-
     try {
-      let { error: signInError } = await signIn(cleanEmail, password);
-
-      // Fallback try with original typed email if formatting differed
-      if (signInError && cleanEmail !== email.trim().toLowerCase()) {
-        const fallbackRes = await signIn(email.trim().toLowerCase(), password);
-        if (!fallbackRes.error) {
-          signInError = null;
-        }
-      }
-
+      const { error: signInError } = await signIn(email.trim().toLowerCase(), password);
       if (signInError) {
         setError(
           signInError.message.includes('Invalid login credentials')

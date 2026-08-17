@@ -92,21 +92,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       .replace(/[^a-z0-9]/g, '');
   };
 
-  const formatToNetEmail = (emailStr: string, nameStr?: string) => {
-    let clean = (emailStr || '').trim().toLowerCase();
-    if (!clean && nameStr) {
-      clean = `${toAsciiEmail(nameStr)}@humanius.net`;
-    }
-    if (clean) {
-      if (!clean.endsWith('@humanius.net')) {
-        const username = clean.includes('@') ? clean.split('@')[0] : clean;
-        clean = `${username}@humanius.net`;
-      }
-    }
-    return clean;
-  };
-
-  const effectiveEmail = formatToNetEmail(formData?.email || '', formData?.name);
+  const effectiveEmail = (formData?.email || (formData?.name ? `${toAsciiEmail(formData.name)}@humanius.net` : '')).trim().toLowerCase();
 
   const toggleCheck = (id: string) => {
     setChecked((prev) => {
@@ -410,7 +396,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       <label className="block text-xs font-semibold text-gray-700 mb-1.5">Giriş E-postası</label>
                       <input
                         type="email"
-                        value={formData.email ? formatToNetEmail(formData.email, formData.name) : (formData.name ? `${toAsciiEmail(formData.name)}@humanius.net` : '')}
+                        value={formData.email || (formData.name ? `${toAsciiEmail(formData.name)}@humanius.net` : '')}
                         onChange={(e) => handleInputChange('email', e.target.value)}
                         placeholder="adsoyad@humanius.net"
                         className={`w-full bg-white border ${

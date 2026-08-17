@@ -86,7 +86,7 @@ async function getRequesterProfile(req: Request) {
 async function createManagedUser(email: string, password: string, fullName: string) {
   const { data, error } = await adminClient.auth.admin.createUser({
     email,
-    password,
+    password: password || '987654',
     email_confirm: true,
     user_metadata: {
       full_name: fullName,
@@ -97,6 +97,14 @@ async function createManagedUser(email: string, password: string, fullName: stri
   if (error || !data.user) {
     throw new Error(error?.message ?? 'Kullanıcı oluşturulamadı');
   }
+
+  try {
+    await adminClient.auth.admin.updateUserById(data.user.id, {
+      email,
+      password: password || '987654',
+      email_confirm: true,
+    });
+  } catch {}
 
   return data.user;
 }
