@@ -346,21 +346,28 @@ serve(async (req: Request) => {
         return jsonResponse({ error: 'email veya employeeId zorunludur.' }, 400);
       }
 
-      if (role || companyId || fullName) {
+      if (email && employeeId) {
+        try {
+          await adminClient.auth.admin.updateUserById(employeeId, { email, email_confirm: true });
+        } catch (e) {
+          console.warn('Auth email update warning:', e);
+        }
+      }
+
+      if (role || companyId || fullName || email) {
         const profUpdates: Record<string, unknown> = {};
         if (role) profUpdates.role = role;
         if (companyId) profUpdates.company_id = companyId;
         if (fullName) profUpdates.full_name = fullName;
+        if (email) profUpdates.email = email;
 
-        if (email) {
-          await adminClient.from('profiles').update(profUpdates).eq('email', email);
-        }
         if (employeeId) {
           await adminClient.from('profiles').update(profUpdates).eq('id', employeeId);
         }
       }
 
       const empUpdates: Record<string, unknown> = {};
+      if (email) empUpdates.email = email;
       if (companyId) empUpdates.company_id = companyId;
       if (fullName) empUpdates.name = fullName;
       if (department !== undefined) empUpdates.department = department;
@@ -387,9 +394,6 @@ serve(async (req: Request) => {
       if (Object.keys(empUpdates).length > 0) {
         if (employeeId) {
           await adminClient.from('employees').update(empUpdates).eq('id', employeeId);
-        }
-        if (email) {
-          await adminClient.from('employees').update(empUpdates).eq('email', email);
         }
       }
 

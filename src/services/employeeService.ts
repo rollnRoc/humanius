@@ -105,7 +105,27 @@ export const employeeService = {
       ? String(rawUpdates.join_date).split('T')[0]
       : (joinDate ? String(joinDate).split('T')[0] : null);
 
+    const payload: any = {
+      ...rawUpdates,
+      level: cleanLevel ?? undefined,
+      join_date: cleanJoinDate,
+    };
+
     let updatedRow: Employee | null = null;
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (!error && data) {
+        updatedRow = data as Employee;
+      }
+    } catch (dbErr) {
+      console.warn('Direct employees table update warning:', dbErr);
+    }
 
     try {
       const { userManagementService } = await import('./userManagementService');
@@ -126,7 +146,6 @@ export const employeeService = {
         sicil_no: updates.sicil_no,
         employee_type: updates.employee_type,
       });
-      updatedRow = { id, ...updates, level: cleanLevel ?? '', join_date: cleanJoinDate } as any;
     } catch (edgeErr) {
       console.warn('Edge function update warning:', edgeErr);
     }
