@@ -289,6 +289,54 @@ serve(async (req: Request) => {
       return jsonResponse({ message: 'Parolanız başarıyla başlangıç şifrenize (987654) sıfırlandı.' });
     }
 
+    if (operation === 'clean_duplicate_test_users') {
+      const { data: emps } = await adminClient.from('employees').select('id, name, email, company, company_id');
+      const bulents = (emps || []).filter(e => (e.name || '').toLowerCase().includes('bulent') || (e.name || '').toLowerCase().includes('bülent'));
+      const ilknurs = (emps || []).filter(e => (e.name || '').toLowerCase().includes('ilknur'));
+
+      let cleaned = 0;
+
+      if (bulents.length > 1) {
+        const asciiBulent = bulents.find(b => b.name === 'Bulent Mici' || b.company === 'Humanius Demo Şirketi');
+        const origBulent = bulents.find(b => b.name === 'Bülent Mıçı' || b.company === 'Mıçı Otomotiv') || bulents[0];
+        if (asciiBulent && origBulent && asciiBulent.id !== origBulent.id) {
+          await adminClient.from('employees').delete().eq('id', asciiBulent.id);
+          await adminClient.from('profiles').delete().eq('id', asciiBulent.id);
+          cleaned++;
+        }
+        if (origBulent) {
+          await adminClient.from('employees').update({ email: 'bulent.mici@humanius.net' }).eq('id', origBulent.id);
+          const { data: { users } } = await adminClient.auth.admin.listUsers();
+          const authUser = (users || []).find(u => u.email?.toLowerCase() === 'bulent.mici@humanius.net');
+          if (authUser) {
+            await adminClient.auth.admin.updateUserById(authUser.id, { email: 'bulent.mici@humanius.net', password: '987654', email_confirm: true });
+            await adminClient.from('profiles').upsert({ id: authUser.id, email: 'bulent.mici@humanius.net', full_name: 'Bülent Mıçı', role: 'employee' });
+          }
+        }
+      }
+
+      if (ilknurs.length > 1) {
+        const asciiIlknur = ilknurs.find(i => i.name === 'Ilknur Mici' || i.company === 'Humanius Demo Şirketi');
+        const origIlknur = ilknurs.find(i => i.name === 'İlknur Mıçı' || i.company === 'Mıçı Otomotiv') || ilknurs[0];
+        if (asciiIlknur && origIlknur && asciiIlknur.id !== origIlknur.id) {
+          await adminClient.from('employees').delete().eq('id', asciiIlknur.id);
+          await adminClient.from('profiles').delete().eq('id', asciiIlknur.id);
+          cleaned++;
+        }
+        if (origIlknur) {
+          await adminClient.from('employees').update({ email: 'ilknur.mici@humanius.net' }).eq('id', origIlknur.id);
+          const { data: { users } } = await adminClient.auth.admin.listUsers();
+          const authUser = (users || []).find(u => u.email?.toLowerCase() === 'ilknur.mici@humanius.net');
+          if (authUser) {
+            await adminClient.auth.admin.updateUserById(authUser.id, { email: 'ilknur.mici@humanius.net', password: '987654', email_confirm: true });
+            await adminClient.from('profiles').upsert({ id: authUser.id, email: 'ilknur.mici@humanius.net', full_name: 'İlknur Mıçı', role: 'employee' });
+          }
+        }
+      }
+
+      return jsonResponse({ message: 'Tekrarlayan test kullanıcıları temizlendi.', cleaned });
+    }
+
     if (operation === 'update_all_auth_emails_to_net' || operation === 'sync_all_accounts_to_net') {
       const { data: emps } = await adminClient.from('employees').select('id, email, name, company_id');
       const { data: profs } = await adminClient.from('profiles').select('id, email, full_name, company_id, role');
