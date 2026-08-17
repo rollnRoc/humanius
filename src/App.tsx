@@ -690,17 +690,29 @@ const AppInner: React.FC = () => {
 
   const handleSaveEmployee = async (emp: Employee) => {
     try {
-      let targetCompanyId = profile?.company_id || (emp.company_id && !emp.company_id.includes('-id-') ? emp.company_id : '');
+      let targetCompanyId = (emp.company_id && !emp.company_id.includes('-id-') && emp.company_id !== 'default') ? emp.company_id : '';
       let matchedCompName = emp.company || '';
       try {
         const allComps = await companyService.getCompanies();
-        const matched = (emp.company || emp.company_id)
+        let matched = (emp.company || emp.company_id)
           ? allComps.find(c => c.name === emp.company || c.id === emp.company_id || c.id === emp.company)
           : null;
+
+        if (!matched && emp.company && emp.company.trim() !== '') {
+          try {
+            const { data: newComp } = await supabase.from('companies').insert({ name: emp.company.trim() }).select('id, name').single();
+            if (newComp) {
+              matched = newComp as any;
+            }
+          } catch {}
+        }
+
         if (matched) {
           targetCompanyId = matched.id;
           matchedCompName = matched.name;
-        } else if ((!targetCompanyId || targetCompanyId === 'default') && allComps.length > 0) {
+        } else if (!targetCompanyId && profile?.company_id) {
+          targetCompanyId = profile.company_id;
+        } else if (!targetCompanyId && allComps.length > 0) {
           targetCompanyId = allComps[0].id;
           matchedCompName = allComps[0].name;
         }

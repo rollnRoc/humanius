@@ -124,10 +124,11 @@ export const employeeService = {
         updatedRow = data as Employee;
       }
       
-      if (updates.email || updates.name) {
+      if (updates.email || updates.name || updates.company_id) {
         const profUp: any = {};
         if (updates.email) profUp.email = updates.email;
         if (updates.name) profUp.full_name = updates.name;
+        if (updates.company_id) profUp.company_id = updates.company_id;
         await supabase.from('profiles').update(profUp).eq('id', id);
       }
     } catch (dbErr) {
