@@ -170,7 +170,28 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           personal_email: cEmail,
           joinDate: formattedJd,
           join_date: formattedJd,
+          role: employee.role || 'employee',
         });
+
+        // Also fetch exact profile role from Supabase to guarantee 100% sync with KullanicilarPage
+        if (employee.id || employee.email) {
+          (async () => {
+            try {
+              let profRole = null;
+              if (employee.id) {
+                const { data } = await supabase.from('profiles').select('role').eq('id', employee.id).maybeSingle();
+                if (data?.role) profRole = data.role;
+              }
+              if (!profRole && employee.email) {
+                const { data } = await supabase.from('profiles').select('role').eq('email', employee.email.trim().toLowerCase()).maybeSingle();
+                if (data?.role) profRole = data.role;
+              }
+              if (profRole) {
+                setFormData(prev => prev ? { ...prev, role: profRole } : null);
+              }
+            } catch {}
+          })();
+        }
       } else {
         const today = new Date().toISOString().split('T')[0];
         const initialComp = (companies && companies.length > 0) ? companies[0] : '';
@@ -421,12 +442,13 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       <select
                         value={formData.role || 'employee'}
                         onChange={(e) => handleInputChange('role', e.target.value)}
-                        className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                        className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 font-medium"
                       >
                         <option value="employee">Personel</option>
-                        <option value="manager">Müdür</option>
+                        <option value="manager">Birim / Departman Amiri</option>
                         <option value="hr">İK Uzmanı</option>
                         <option value="admin">Şirket Yöneticisi</option>
+                        {appRole === 'superadmin' && <option value="superadmin">Süper Yönetici</option>}
                       </select>
                     </div>
                   </div>

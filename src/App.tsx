@@ -272,7 +272,7 @@ const AppInner: React.FC = () => {
 
       let profDataRes: any = { data: [] };
       try {
-        profDataRes = await supabase.from('profiles').select('email, role');
+        profDataRes = await supabase.from('profiles').select('id, email, role');
       } catch {}
 
       const [empData, empStats] = await Promise.all([
@@ -282,9 +282,8 @@ const AppInner: React.FC = () => {
 
       const profileRoleMap = new Map<string, string>();
       ((profDataRes as any)?.data ?? []).forEach((p: any) => {
-        if (p?.email) {
-          profileRoleMap.set(p.email.toLowerCase().trim(), p.role);
-        }
+        if (p?.id) profileRoleMap.set(p.id, p.role);
+        if (p?.email) profileRoleMap.set(p.email.toLowerCase().trim(), p.role);
       });
 
       // Map DB rows → frontend Employee shape
@@ -309,7 +308,7 @@ const AppInner: React.FC = () => {
           phone: e.phone ?? '',
           email: e.email ?? '',
           contact_email: (e as any).contact_email ?? (e as any).personal_email ?? '',
-          role: profileRoleMap.get(empEmail) ?? e.role ?? 'employee',
+          role: profileRoleMap.get(e.id) ?? profileRoleMap.get(empEmail) ?? e.role ?? 'employee',
           joinDate: e.join_date,
           join_date: e.join_date,
           address: e.address ?? '',
