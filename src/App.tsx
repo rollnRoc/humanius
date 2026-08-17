@@ -711,13 +711,7 @@ const AppInner: React.FC = () => {
           .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
           .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
           .replace(/[^a-z0-9]/g, '.');
-        const compSlug = (matchedCompName || '')
-          .toLowerCase()
-          .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
-          .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
-          .replace(/[^a-z0-9]/g, '');
-        const domain = compSlug ? `${compSlug}.com.tr` : 'humanius.net';
-        targetEmail = `${slug}@${domain}`;
+        targetEmail = `${slug}@humanius.net`;
       }
 
       const rawJoinDate = emp.joinDate || emp.join_date || null;
