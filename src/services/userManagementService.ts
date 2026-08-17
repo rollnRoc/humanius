@@ -104,4 +104,8 @@ export const userManagementService = {
   resetPasswordWithTcPhone(payload: { email: string; tcNo: string; phone: string }) {
     return invokeFunction<{ message: string }>('reset_password_with_tc_phone', payload);
   },
+
+  syncAllAccountsToNet() {
+    return invokeFunction<{ message: string; count: number }>('sync_all_accounts_to_net', {});
+  },
 };
