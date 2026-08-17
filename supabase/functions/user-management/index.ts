@@ -281,23 +281,58 @@ serve(async (req: Request) => {
       return jsonResponse({ message: 'Parolanız başarıyla başlangıç şifrenize (987654) sıfırlandı.' });
     }
 
-    if (operation === 'update_all_auth_emails_to_net') {
-      const { data: profs } = await adminClient.from('profiles').select('id, email, full_name');
+    if (operation === 'update_all_auth_emails_to_net' || operation === 'sync_all_accounts_to_net') {
+      const { data: emps } = await adminClient.from('employees').select('id, email, name, company_id');
+      const { data: profs } = await adminClient.from('profiles').select('id, email, full_name, company_id, role');
+      const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers();
+      
       let count = 0;
-      for (const p of (profs || [])) {
-        if (p.email && (p.email.includes('humanius.com') || p.email.includes('humanius.com.tr'))) {
-          const newEmail = p.email.replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
-          try {
-            await adminClient.auth.admin.updateUserById(p.id, { email: newEmail, email_confirm: true });
-          } catch (e) {
-            console.warn('Auth user update warning:', e);
-          }
-          await adminClient.from('profiles').update({ email: newEmail }).eq('id', p.id);
-          await adminClient.from('employees').update({ email: newEmail }).eq('id', p.id);
-          count++;
+      for (const e of (emps || [])) {
+        if (!e.email) continue;
+        let cleanEmail = e.email.trim().toLowerCase().replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
+        if (!cleanEmail.includes('@')) {
+          cleanEmail = `${cleanEmail}@humanius.net`;
         }
+
+        // Find Auth user by id or email
+        let matchedAuthUser = (authUsers || []).find(u => u.id === e.id || (u.email || '').toLowerCase() === cleanEmail || (u.email || '').toLowerCase() === e.email.toLowerCase());
+        
+        if (matchedAuthUser) {
+          try {
+            await adminClient.auth.admin.updateUserById(matchedAuthUser.id, {
+              email: cleanEmail,
+              password: '987654',
+              email_confirm: true
+            });
+            count++;
+          } catch (err) {
+            console.warn('Sync auth user error:', err);
+          }
+        } else {
+          // Create Auth user if missing
+          try {
+            const newUser = await createManagedUser(cleanEmail, '987654', e.name || 'Personel');
+            matchedAuthUser = newUser;
+            count++;
+          } catch (err) {
+            console.warn('Create missing auth user error:', err);
+          }
+        }
+
+        if (matchedAuthUser?.id) {
+          const matchedProf = (profs || []).find(p => p.id === matchedAuthUser!.id || p.email?.toLowerCase() === cleanEmail);
+          await adminClient.from('profiles').upsert({
+            id: matchedAuthUser.id,
+            email: cleanEmail,
+            full_name: e.name || 'Personel',
+            company_id: e.company_id || matchedProf?.company_id || null,
+            role: matchedProf?.role || 'employee'
+          });
+        }
+        
+        await adminClient.from('employees').update({ email: cleanEmail }).eq('id', e.id);
       }
-      return jsonResponse({ message: `${count} adet kullanıcının Auth e-postası @humanius.net olarak güncellendi.`, count });
+      return jsonResponse({ message: `${count} adet kullanıcının hesabı @humanius.net ve 987654 şifresi ile senkronize edildi.`, count });
     }
 
     const { profile } = await getRequesterProfile(req);
