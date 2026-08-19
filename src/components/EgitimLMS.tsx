@@ -98,44 +98,7 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
   // States loaded dynamically from localStorage scoped to companyId
   const [egitimler, setEgitimler] = useState<Egitim[]>(() => {
     const saved = localStorage.getItem(`humanius_egitimler_${companyId}`);
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 'eg-1',
-        baslik: 'KVKK ve Veri Güvenliği Temel Eğitimi',
-        kategori: 'Hukuk & Uyum',
-        seviye: 'baslangic',
-        aciklama: 'Kişisel verilerin korunması kanunu ve şirket içi güvenlik prosedürleri.',
-        egitmen: 'Av. Merve Aslan',
-        tur: 'video',
-        zorunlu: true,
-        tamamlayanSayisi: 12,
-        toplam: employees.length || 20
-      },
-      {
-        id: 'eg-2',
-        baslik: '4857 Sayılı İş Kanunu ve İK Uygulamaları',
-        kategori: 'İnsan Kaynakları',
-        seviye: 'ileri',
-        aciklama: 'İş akdi feshi, izin hakları, fazla mesai ve Yargıtay emsal kararları.',
-        egitmen: 'Selin Aksoy',
-        tur: 'sunum',
-        zorunlu: true,
-        tamamlayanSayisi: 8,
-        toplam: employees.length || 20
-      },
-      {
-        id: 'eg-3',
-        baslik: 'Clean Architecture & TypeScript Best Practices',
-        kategori: 'Yazılım',
-        seviye: 'ileri',
-        aciklama: 'Yazılım mimarisi, kod kalitesi, refactoring ve TDD ilkeleri.',
-        egitmen: 'Burak Aydın',
-        tur: 'canli',
-        zorunlu: false,
-        tamamlayanSayisi: 5,
-        toplam: employees.length || 20
-      }
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [sertifikalar, setSertifikalar] = useState<SertifikaKaydi[]>(() => {

@@ -457,9 +457,7 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
   const sekmeler: { id: Sekme; label: string; icon: React.ReactNode }[] = [
     { id: 'genel', label: 'War Room', icon: <BarChart2 className="w-4 h-4" /> },
     { id: 'turnover', label: 'Turnover ve Devir Hızı', icon: <RefreshCw className="w-4 h-4" /> },
-    { id: 'ai-risk', label: 'AI Istifa Tahmini', icon: <Brain className="w-4 h-4" /> },
     { id: 'maliyet', label: 'Maliyet Analizi', icon: <DollarSign className="w-4 h-4" /> },
-    { id: 'entegrasyon', label: 'Capraz Tetikleyiciler', icon: <Zap className="w-4 h-4" /> },
   ];
 
   return (
@@ -486,9 +484,6 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
           <button key={s.id} onClick={() => setAktifSekme(s.id)} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${aktifSekme === s.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             {s.icon}
             {s.label}
-            {s.id === 'ai-risk' && yuksekRiskSayisi > 0 && (
-              <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{yuksekRiskSayisi}</span>
-            )}
           </button>
         ))}
       </div>
@@ -847,96 +842,6 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
         </div>
       )}
 
-      {aktifSekme === 'ai-risk' && (
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
-            <Brain className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-red-800">AI Flight Risk Prediction</p>
-              <p className="text-xs text-red-600 mt-0.5">Model girdileri: Son 6 ay izin sikligi, Performans trendi, Egitim eksikligi, Maas artis orani, Kidem</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { label: 'Yuksek Risk (70+)', count: flightRiskler.filter((r) => r.puan >= 70).length, renk: 'bg-red-100 text-red-700' },
-              { label: 'Orta Risk (45-69)', count: flightRiskler.filter((r) => r.puan >= 45 && r.puan < 70).length, renk: 'bg-orange-100 text-orange-700' },
-              { label: 'Dusuk Risk (<45)', count: flightRiskler.filter((r) => r.puan < 45).length, renk: 'bg-green-100 text-green-700' },
-            ].map((g) => (
-              <div key={g.label} className={`rounded-2xl p-4 ${g.renk}`}>
-                <p className="text-3xl font-black">{g.count}</p>
-                <p className="text-xs mt-1 opacity-80">{g.label}</p>
-              </div>
-            ))}
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-            <div className="p-4 border-b border-gray-100">
-              <p className="text-sm font-semibold text-gray-700">Calisan Ucus Riski Skorlari</p>
-              <p className="text-xs text-gray-400 mt-0.5">En yuksek riskten en dusuge sirali</p>
-            </div>
-            <div className="divide-y divide-gray-50">
-              {flightRiskler.map(({ emp, puan }) => {
-                const r = riskRengi(puan);
-                const isExpanded = goruntulenenRisk === emp.id;
-                return (
-                  <div key={emp.id}>
-                    <div className="px-4 py-3 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 flex-shrink-0">
-                        {emp.name.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{emp.name}</p>
-                        <p className="text-[10px] text-gray-400">{emp.department} - {emp.position}</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${puan}%`, backgroundColor: r.bar }} />
-                        </div>
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold w-20 justify-center ${r.bg} ${r.text}`}>
-                          %{puan}
-                        </span>
-                        {puan >= 70 && (
-                          <button onClick={() => setGoruntulenenRisk(isExpanded ? null : emp.id)} className="text-xs text-indigo-600 hover:underline font-medium whitespace-nowrap">
-                            {isExpanded ? 'Kapat' : 'Oneriler'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {isExpanded && (
-                      <div className="px-4 pb-4 bg-orange-50 border-t border-orange-100">
-                        <p className="text-xs font-semibold text-orange-800 mt-3 mb-2">AI Uyarisi - Onerilen Aksiyonlar:</p>
-                        <div className="grid sm:grid-cols-3 gap-2">
-                          {[
-                            { icon: <MessageSquare className="w-3.5 h-3.5" />, text: 'Birebir gorusme planla (bu hafta)' },
-                            { icon: <Award className="w-3.5 h-3.5" />, text: 'Kariyer yol haritasi guncelle' },
-                            { icon: <DollarSign className="w-3.5 h-3.5" />, text: 'Piyasa maas karsilastirmasi yap' },
-                          ].map((a, i) => (
-                            <div key={i} className="flex items-start gap-2 bg-white rounded-xl p-2.5 text-xs text-gray-700 border border-orange-200">
-                              <span className="text-orange-500 mt-0.5">{a.icon}</span>
-                              {a.text}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <ResponsiveContainer width="100%" height={220}>
-              <RadarChart data={radarChartData}>
-                <PolarGrid stroke="#e5e7eb" />
-                <PolarAngleAxis dataKey="faktor" tick={{ fontSize: 11 }} />
-                <Radar name="Risk" dataKey="puan" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} strokeWidth={2} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-
-
-
       {aktifSekme === 'maliyet' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1044,103 +949,6 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
         </div>
       )}
 
-      {aktifSekme === 'entegrasyon' && (
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-2xl p-4 flex items-start gap-3">
-            <Layers className="w-5 h-5 text-violet-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-violet-800">Sistem Entegrasyon Mimarisi</p>
-              <p className="text-xs text-violet-600 mt-0.5">Tum moduller birbirini otomatik tetikler: PDKS-Bordro, Performans-Prim, ATS-Ozluk-SGK</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">Cross-Module Akis Diyagrami</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { baslik: 'PDKS - Bordro', ikon: 'pdks', renk: 'border-red-200 bg-red-50', adimlar: ['Devamsizlik tespit edildi', 'Gun sayisi hesaplandi', 'Bordro kesimine eklendi', 'Bildirim gonderildi'] },
-                { baslik: 'Performans - Prim', ikon: 'perf', renk: 'border-green-200 bg-green-50', adimlar: ['Q1 degerlendirme tamamlandi', 'Hedef asimi tespit edildi', 'Prim onerisi olusturuldu', 'Yonetici onayina sunuldu'] },
-                { baslik: 'ATS - Ozluk - SGK', ikon: 'ats', renk: 'border-blue-200 bg-blue-50', adimlar: ['Aday ise kabul edildi', 'Ozluk dosyasi acildi', 'SGK bildirge hazırlandi', 'Banka entegrasyonu tetiklendi'] },
-              ].map((akis, i) => (
-                <div key={i} className={`rounded-2xl border p-4 ${akis.renk}`}>
-                  <p className="text-sm font-semibold text-gray-800 mb-3">{akis.baslik}</p>
-                  <div className="space-y-2">
-                    {akis.adimlar.map((adim, ai) => (
-                      <div key={ai} className="flex items-start gap-2">
-                        <span className="w-4 h-4 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center text-[9px] font-bold text-gray-500 flex-shrink-0 mt-0.5">{ai + 1}</span>
-                        <p className="text-xs text-gray-600">{adim}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-gray-700">Canli Tetikleyici Akisi</p>
-                <p className="text-xs text-gray-400 mt-0.5">Bugun gerceklesen moduller arasi otomatik islemler</p>
-              </div>
-              <button className="flex items-center gap-1.5 text-xs text-indigo-600 hover:underline">
-                <RefreshCw className="w-3.5 h-3.5" /> Yenile
-              </button>
-            </div>
-            <div className="divide-y divide-gray-50">
-              {crossModuleEvents.map((ev, i) => (
-                <div key={i} className="px-4 py-3 flex items-start gap-3">
-                  <span className="text-[10px] text-gray-400 font-mono mt-0.5 w-10 flex-shrink-0">{ev.zaman}</span>
-                  <div className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold flex-shrink-0 ${eventRengi(ev.tur)}`}>{ev.kaynak}</div>
-                  <ArrowRight className="w-3.5 h-3.5 text-gray-300 flex-shrink-0 mt-0.5" />
-                  <div className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold flex-shrink-0 ${eventRengi(ev.tur)}`}>{ev.hedef}</div>
-                  <p className="text-xs text-gray-600 flex-1">{ev.mesaj}</p>
-                  <span className={`flex-shrink-0 ${ev.durum === 'tamamlandi' ? 'text-green-500' : 'text-yellow-500'}`}>
-                    {ev.durum === 'tamamlandi' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Globe className="w-4 h-4 text-gray-500" />
-              <h3 className="text-sm font-semibold text-gray-700">API Gateway - Dis Entegrasyonlar</h3>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { ad: 'SGK', aciklama: 'Bildirge & Tahakkuk', renk: 'bg-blue-50 border-blue-200 text-blue-700', durum: 'Aktif' },
-                { ad: 'Banka API', aciklama: 'Maas Odeme', renk: 'bg-green-50 border-green-200 text-green-700', durum: 'Aktif' },
-                { ad: 'LinkedIn', aciklama: 'ATS Aday Havuzu', renk: 'bg-sky-50 border-sky-200 text-sky-700', durum: 'Pasif' },
-                { ad: 'LMS', aciklama: 'Egitim Platformu', renk: 'bg-purple-50 border-purple-200 text-purple-700', durum: 'Aktif' },
-              ].map((api) => (
-                <div key={api.ad} className={`rounded-xl border p-3 ${api.renk}`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-bold">{api.ad}</p>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${api.durum === 'Aktif' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{api.durum}</span>
-                  </div>
-                  <p className="text-[10px] opacity-70">{api.aciklama}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">UX Ozeti - Kullanici Tipi Deneyimi</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { tip: 'Calisan', ozellik: 'Seffaflik', ui: 'Tek tikla E-Bordro & Izin Bakiyesi', renk: 'bg-blue-50' },
-                { tip: 'Yonetici', ozellik: 'Hiz', ui: 'Mobil onaylar & ekip grafikleri', renk: 'bg-green-50' },
-                { tip: 'IK Uzmani', ozellik: 'Otomasyon', ui: 'Tek tusla SGK & maas hesabi', renk: 'bg-orange-50' },
-                { tip: 'CEO/GM', ozellik: 'Strateji', ui: 'Turnover & butce analitik dashboardlari', renk: 'bg-purple-50' },
-              ].map((u) => (
-                <div key={u.tip} className={`rounded-xl p-3 ${u.renk}`}>
-                  <p className="text-sm font-bold text-gray-800">{u.tip}</p>
-                  <p className="text-[10px] text-indigo-600 font-semibold mt-0.5">{u.ozellik}</p>
-                  <p className="text-[10px] text-gray-600 mt-1">{u.ui}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

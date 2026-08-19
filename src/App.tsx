@@ -45,7 +45,6 @@ const PerformansYonetimi = lazyWithRetry(() => import('./components/PerformansYo
 const EgitimLMS = lazyWithRetry(() => import('./components/EgitimLMS'));
 const AnalitiKDashboard = lazyWithRetry(() => import('./components/AnalitiKDashboard'));
 const KVKKUyumluluk = lazyWithRetry(() => import('./components/KVKKUyumluluk'));
-const OffboardingManager = lazyWithRetry(() => import('./components/OffboardingManager').then(m => ({ default: m.OffboardingManager })));
 const IzinTanimlari = lazyWithRetry(() => import('./components/IzinTanimlari'));
 const OrganizasyonSemasi = lazyWithRetry(() => import('./components/OrganizasyonSemasi'));
 const ZimmetYonetimi = lazyWithRetry(() => import('./components/ZimmetYonetimi'));
@@ -1524,15 +1523,6 @@ const AppInner: React.FC = () => {
 
         {/* KVKK Uyumluluk */}
         {currentView === 'kvkk' && <KVKKUyumluluk employees={employees} />}
-
-        {/* İşten Çıkış / Offboarding */}
-        {currentView === 'offboarding' && (
-          <OffboardingManager 
-            employees={employees}
-            onDataRefresh={loadData}
-            companyName={companies[0] || 'Humanius'}
-          />
-        )}
 
         {/* Tazminat & Bilirkişi Hesaplama Motoru */}
         {currentView === 'tazminat-hesaplama' && <TazminatHesaplama />}

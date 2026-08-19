@@ -22,6 +22,7 @@ import bcrypt from 'bcryptjs';
 // Belge kategorileri
 const BELGE_KATEGORILER = [
   { id: 'ise_giris_bildirgesi', label: 'İş Yeri Giriş Bildirgesi', aciklama: 'SGK işe giriş bildirge belgesi' },
+  { id: 'is_yeri_cikis_bildirgesi', label: 'İş Yeri Çıkış Bildirgesi', aciklama: 'SGK iş yeri çıkış bildirge belgesi' },
   { id: 'adli_sicil', label: 'Adli Sicil Kaydı', aciklama: 'Cumhuriyet Savcılığından alınan adli sicil belgesi' },
   { id: 'adres_belgesi', label: 'Adres Belgesi', aciklama: 'e-Devlet üzerinden alınan yerleşim yeri belgesi' },
   { id: 'gorev_tanimi_belgesi', label: 'Görev Tanımı Dosyası', aciklama: 'Onaylı görev tanımı belgesi' },

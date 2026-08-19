@@ -36,7 +36,6 @@ export type View =
   | 'izin-listesi'
   | 'is-akisi-menu'
   | 'sifre-degistir'
-  | 'offboarding'
   | 'tazminat-hesaplama';
 
 // ─── Core Entities ───────────────────────────────────────────────────────────

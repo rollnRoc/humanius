@@ -63,7 +63,6 @@ const RAW_NAV_ITEMS = [
     { id: 'org-sema' as View, label: 'Organizasyon Şeması' },
     { id: 'zimmet' as View, label: 'Tüm Zimmetler Listesi' },
     { id: 'kullanicilar' as View, label: 'Kullanıcılar' },
-    { id: 'offboarding' as View, label: 'İşten Çıkış (Offboarding)' },
     { id: 'sirket-bilgileri' as View, label: 'Şirket Bilgileri & Yönetimi' },
     { id: 'ayar' as View, label: 'Kanunlar ve Kurallar' },
   ]},
