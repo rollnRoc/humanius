@@ -91,7 +91,7 @@ const RAW_NAV_ITEMS = [
   { id: 'uyari' as View, label: 'Uyarılar Takvimi', icon: Bell },
   { id: 'egitim' as View, label: 'Eğitim & Gelişim (LMS)', icon: GraduationCap, children: [
     { id: 'egitim' as View, label: 'Eğitim Kataloğu & LMS' },
-    { id: 'yetkinlik' as View, label: 'Yetkinlik Matrisi' },
+    { id: 'yetkinlik' as View, label: 'Gap Analysis' },
   ]},
   { id: 'performans' as View, label: 'Performans & Geri Bildirim', icon: Layout, children: [
     { id: 'performans' as View, label: 'Performans ve Geri Bildirim' },

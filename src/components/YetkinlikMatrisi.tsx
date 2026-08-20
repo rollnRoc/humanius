@@ -1,66 +1,291 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Target, Plus, X, Save, Trash2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, Target, CheckCircle2, ShieldCheck, BookOpen, Briefcase, Filter } from 'lucide-react';
 import type { Employee } from '../types';
 
-interface Yetkinlik {
+export interface PozisyonYetkinlik {
   id: string;
   ad: string;
-  kategori: string;
+  kategori: 'Teknik' | 'Sosyal' | 'Analitik' | 'Yönetim' | 'İş & Süreç' | 'Hukuk & Uyum';
   aciklama: string;
+  minSeviye: number; // 1 to 5
+  onemDerecesi: 'Zorunlu' | 'Kritik' | 'Önemli' | 'Tercih Sebebi';
 }
 
-interface PozisyonGereksinim {
+export interface PozisyonTanimi {
   pozisyon: string;
-  yetkinlikler: { yetkinlikId: string; minSeviye: number }[];
+  departman: string;
+  aciklama: string;
+  yetkinlikler: PozisyonYetkinlik[];
 }
 
-interface PersonelYetkinlik {
-  employeeId: string;
-  yetkinlikId: string;
-  seviye: number; // 0-5
-}
+const SEVIYE_ETIKET = ['', '%20 (Başlangıç)', '%40 (Temel)', '%60 (Orta)', '%80 (İleri)', '%100 (Uzman)'];
+const SEVIYE_RENK = ['', 'bg-red-50 text-red-700 border-red-200', 'bg-orange-50 text-orange-700 border-orange-200', 'bg-amber-50 text-amber-700 border-amber-200', 'bg-blue-50 text-blue-700 border-blue-200', 'bg-emerald-50 text-emerald-700 border-emerald-200'];
 
-const SEVİYE_ETIKET = ['%0 (Yok)', '%20 (Başlangıç)', '%40 (Temel)', '%60 (Orta)', '%80 (İleri)', '%100 (Uzman)'];
-const SEVİYE_RENK = ['bg-gray-100 text-gray-400', 'bg-red-100 text-red-600', 'bg-orange-100 text-orange-600', 'bg-yellow-100 text-yellow-700', 'bg-blue-100 text-blue-700', 'bg-green-100 text-green-700'];
+const ONEM_RENK: Record<string, string> = {
+  'Zorunlu': 'bg-red-100 text-red-800 border-red-200',
+  'Kritik': 'bg-purple-100 text-purple-800 border-purple-200',
+  'Önemli': 'bg-blue-100 text-blue-800 border-blue-200',
+  'Tercih Sebebi': 'bg-gray-100 text-gray-700 border-gray-200',
+};
 
-const DEMO_YETKINLIKLER: Yetkinlik[] = [
-  { id: 'y1', ad: 'İletişim', kategori: 'Sosyal', aciklama: 'Sözlü ve yazılı iletişim becerileri' },
-  { id: 'y2', ad: 'Takım Çalışması', kategori: 'Sosyal', aciklama: 'Ekip içinde uyumlu çalışma' },
-  { id: 'y3', ad: 'Problem Çözme', kategori: 'Analitik', aciklama: 'Karmaşık sorunlara çözüm üretme' },
-  { id: 'y4', ad: 'Excel / Veri Analizi', kategori: 'Teknik', aciklama: 'Tablo, formül, pivot analiz' },
-  { id: 'y5', ad: 'Müşteri Yönetimi', kategori: 'İş', aciklama: 'Müşteri ilişkileri ve memnuniyet' },
-  { id: 'y6', ad: 'Proje Yönetimi', kategori: 'İş', aciklama: 'Planlama, takip, raporlama' },
-  { id: 'y7', ad: 'SQL / Veri Tabanı', kategori: 'Teknik', aciklama: 'Sorgu yazma ve DB yönetimi' },
-  { id: 'y8', ad: 'Sunum Hazırlama', kategori: 'Sosyal', aciklama: 'Etkin sunum hazırlama ve sunma' },
-];
+const KATEGORI_RENK: Record<string, string> = {
+  'Teknik': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  'Sosyal': 'bg-pink-50 text-pink-700 border-pink-200',
+  'Analitik': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'Yönetim': 'bg-amber-50 text-amber-700 border-amber-200',
+  'İş & Süreç': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'Hukuk & Uyum': 'bg-purple-50 text-purple-700 border-purple-200',
+};
 
-const DEMO_POZISYON_GEREKSINIM: PozisyonGereksinim[] = [
-  {
-    pozisyon: 'Satış Müdürü',
-    yetkinlikler: [
-      { yetkinlikId: 'y1', minSeviye: 4 },
-      { yetkinlikId: 'y2', minSeviye: 4 },
-      { yetkinlikId: 'y5', minSeviye: 5 },
-      { yetkinlikId: 'y6', minSeviye: 3 },
-      { yetkinlikId: 'y8', minSeviye: 4 },
-    ],
-  },
-  {
-    pozisyon: 'İK Uzmanı',
-    yetkinlikler: [
-      { yetkinlikId: 'y1', minSeviye: 4 },
-      { yetkinlikId: 'y2', minSeviye: 4 },
-      { yetkinlikId: 'y3', minSeviye: 3 },
-      { yetkinlikId: 'y4', minSeviye: 3 },
-    ],
-  },
+const HAZIR_POZISYON_GEREKSINIMLERI: PozisyonTanimi[] = [
   {
     pozisyon: 'Yazılım Geliştirici',
+    departman: 'Yazılım & Teknoloji',
+    aciklama: 'Modern web ve kurumsal yazılım sistemlerinin mimari tasarımı, kodlanması ve güvenliğinin sağlanması.',
     yetkinlikler: [
-      { yetkinlikId: 'y3', minSeviye: 4 },
-      { yetkinlikId: 'y4', minSeviye: 3 },
-      { yetkinlikId: 'y7', minSeviye: 4 },
-      { yetkinlikId: 'y2', minSeviye: 3 },
+      {
+        id: 'yg-1',
+        ad: 'Clean Code & Yazılım Mimarisi',
+        kategori: 'Teknik',
+        aciklama: 'SOLID prensipleri, tasarım kalıpları (Design Patterns) ve mikroservis mimarilerine hakimiyet.',
+        minSeviye: 4,
+        onemDerecesi: 'Zorunlu',
+      },
+      {
+        id: 'yg-2',
+        ad: 'Veritabanı & SQL / NoSQL Modelleme',
+        kategori: 'Teknik',
+        aciklama: 'İlişkisel veritabanı şema tasarımı, indeksleme, sorgu optimizasyonu ve veri bütünlüğü.',
+        minSeviye: 4,
+        onemDerecesi: 'Kritik',
+      },
+      {
+        id: 'yg-3',
+        ad: 'Siber Güvenlik & OWASP Standartları',
+        kategori: 'Hukuk & Uyum',
+        aciklama: 'Güvenli kod yazımı, veri şifreleme ve yetkilendirme açıklarına karşı önleyici geliştirme.',
+        minSeviye: 3,
+        onemDerecesi: 'Zorunlu',
+      },
+      {
+        id: 'yg-4',
+        ad: 'Problem Çözme & Algoritmik Düşünme',
+        kategori: 'Analitik',
+        aciklama: 'Karmaşık iş mantıklarını hızlı analiz edip optimize algoritmalara dönüştürebilme.',
+        minSeviye: 4,
+        onemDerecesi: 'Kritik',
+      },
+      {
+        id: 'yg-5',
+        ad: 'Çevik (Agile / Scrum) Takım Çalışması',
+        kategori: 'Sosyal',
+        aciklama: 'Sprint planlamalarına uyum, kod inceleme (Code Review) kültürü ve yapıcı iletişim.',
+        minSeviye: 3,
+        onemDerecesi: 'Önemli',
+      },
+    ],
+  },
+  {
+    pozisyon: 'İnsan Kaynakları Uzmanı',
+    departman: 'İnsan Kaynakları',
+    aciklama: 'İşe alım, yetenek yönetimi, özlük mevzuatı ve çalışan deneyimi süreçlerinin uçtan uca yürütülmesi.',
+    yetkinlikler: [
+      {
+        id: 'ik-1',
+        ad: '4857 Sayılı İş Kanunu & Mevzuat Hakimiyeti',
+        kategori: 'Hukuk & Uyum',
+        aciklama: 'İş akdi feshi, izinler, fazla mesai, SGK bildirgeleri ve yasal risklerin önlenmesi.',
+        minSeviye: 4,
+        onemDerecesi: 'Zorunlu',
+      },
+      {
+        id: 'ik-2',
+        ad: 'Yetkinlik Bazlı Mülakat & Seçme-Yerleştirme',
+        kategori: 'İş & Süreç',
+        aciklama: 'STAR metoduyla aday değerlendirme, mülakat teknikleri ve doğru adayı kuruma kazandırma.',
+        minSeviye: 4,
+        onemDerecesi: 'Kritik',
+      },
+      {
+        id: 'ik-3',
+        ad: 'Empati & Çatışma Yönetimi',
+        kategori: 'Sosyal',
+        aciklama: 'Çalışan sorunlarını dinleme, yapıcı arabuluculuk ve şirket içi barış ortamını koruma.',
+        minSeviye: 4,
+        onemDerecesi: 'Önemli',
+      },
+      {
+        id: 'ik-4',
+        ad: 'Performans & Yetenek Değerlendirme',
+        kategori: 'Analitik',
+        aciklama: '360 derece geri bildirim, OKR/KPI hedef takibi ve kariyer planlama süreçleri.',
+        minSeviye: 3,
+        onemDerecesi: 'Önemli',
+      },
+      {
+        id: 'ik-5',
+        ad: 'KVKK & Personel Veri Güvenliği',
+        kategori: 'Hukuk & Uyum',
+        aciklama: 'Özlük dosyaları ve hassas çalışan verilerinin kanuna uygun şekilde saklanması ve korunması.',
+        minSeviye: 4,
+        onemDerecesi: 'Zorunlu',
+      },
+    ],
+  },
+  {
+    pozisyon: 'Satış Müdürü',
+    departman: 'Satış & Pazarlama',
+    aciklama: 'Kurumsal satış hedeflerinin belirlenmesi, büyük müşteri yönetimi ve satış ekibinin liderliği.',
+    yetkinlikler: [
+      {
+        id: 'sm-1',
+        ad: 'B2B Müzakere & İkna Becerisi',
+        kategori: 'Sosyal',
+        aciklama: 'Üst düzey yöneticilerle anlaşma sağlama, itiraz karşılama ve kazan-kazan müzakere yönetimi.',
+        minSeviye: 5,
+        onemDerecesi: 'Zorunlu',
+      },
+      {
+        id: 'sm-2',
+        ad: 'Büyük Müşteri (Key Account) Yönetimi',
+        kategori: 'İş & Süreç',
+        aciklama: 'Stratejik kurumsal müşterilerle uzun vadeli ticari ortaklık ve sadakat yönetimi.',
+        minSeviye: 4,
+        onemDerecesi: 'Kritik',
+      },
+      {
+        id: 'sm-3',
+        ad: 'Satış Ekibi Liderliği & Motivasyon',
+        kategori: 'Yönetim',
+        aciklama: 'Satış kotalarının dağıtımı, saha ekibinin eğitimi, KPI takibi ve yüksek motivasyon sağlama.',
+        minSeviye: 4,
+        onemDerecesi: 'Kritik',
+      },
+      {
+        id: 'sm-4',
+        ad: 'Satış Tahminleme & Finansal Raporlama',
+        kategori: 'Analitik',
+        aciklama: 'Pipeline analizi, gelir projeksiyonu ve pazar trendlerinin finansal analizi.',
+        minSeviye: 4,
+        onemDerecesi: 'Önemli',
+      },
+    ],
+  },
+  {
+    pozisyon: 'Muhasebe / Finans Uzmanı',
+    departman: 'Finans & Muhasebe',
+    aciklama: 'Mali tabloların hazırlanması, vergi beyannameleri, bütçe kontrolü ve nakit akışı yönetimi.',
+    yetkinlikler: [
+      {
+        id: 'fin-1',
+        ad: 'Genel Muhasebe & Tekdüzen Hesap Planı',
+        kategori: 'İş & Süreç',
+        aciklama: 'Yevmiye kayıtları, mizan, bilanço ve gelir tablosu hazırlama süreçlerine tam hakimiyet.',
+        minSeviye: 5,
+        onemDerecesi: 'Zorunlu',
+      },
+      {
+        id: 'fin-2',
+        ad: 'Vergi Mevzuatı & Beyanname Süreçleri',
+        kategori: 'Hukuk & Uyum',
+        aciklama: 'KDV, Muhtasar, Geçici Vergi, Kurumlar Vergisi ve e-Dönüşüm (e-Fatura/e-Defter) mevzuatı.',
+        minSeviye: 4,
+        onemDerecesi: 'Zorunlu',
+      },
+      {
+        id: 'fin-3',
+        ad: 'İleri Seviye Excel & Finansal Modelleme',
+        kategori: 'Teknik',
+        aciklama: 'Pivot tablolar, finansal formüller, nakit akış projeksiyonları ve bütçe sapma analizleri.',
+        minSeviye: 4,
+        onemDerecesi: 'Kritik',
+      },
+      {
+        id: 'fin-4',
+        ad: 'Maliyet Muhasebesi & Bütçe Denetimi',
+        kategori: 'Analitik',
+        aciklama: 'Birim maliyet analizi, gider merkezi dağıtımı ve şirket harcamalarının denetimi.',
+        minSeviye: 4,
+        onemDerecesi: 'Önemli',
+      },
+    ],
+  },
+  {
+    pozisyon: 'Proje Yöneticisi',
+    departman: 'Operasyon & Proje Yönetimi',
+    aciklama: 'Projelerin kapsam, bütçe, zaman ve kalite hedeflerine uygun olarak başarıyla tamamlanması.',
+    yetkinlikler: [
+      {
+        id: 'py-1',
+        ad: 'Proje Planlama & Kapsam Yönetimi',
+        kategori: 'İş & Süreç',
+        aciklama: 'İş kırılım yapısı (WBS), Gantt şeması, kritik yol analizi ve kaynak dengeleme.',
+        minSeviye: 4,
+        onemDerecesi: 'Zorunlu',
+      },
+      {
+        id: 'py-2',
+        ad: 'Risk & Kriz Yönetimi',
+        kategori: 'Analitik',
+        aciklama: 'Proje risk haritası çıkarma, önleyici aksiyon planları ve beklenmedik krizleri yönetme.',
+        minSeviye: 4,
+        onemDerecesi: 'Kritik',
+      },
+      {
+        id: 'py-3',
+        ad: 'Paydaş İletişimi & Yetki Devri',
+        kategori: 'Sosyal',
+        aciklama: 'Müşteriler, yöneticiler ve teknik ekipler arasında şeffaf, sonuç odaklı koordinasyon.',
+        minSeviye: 4,
+        onemDerecesi: 'Önemli',
+      },
+      {
+        id: 'py-4',
+        ad: 'Bütçe & Kaynak Optimizasyonu',
+        kategori: 'Yönetim',
+        aciklama: 'Proje maliyet kontrolü, tedarikçi yönetimi ve bütçe aşımını engelleme.',
+        minSeviye: 3,
+        onemDerecesi: 'Önemli',
+      },
+    ],
+  },
+  {
+    pozisyon: 'DevOps & Bulut Mühendisi',
+    departman: 'Yazılım & Teknoloji',
+    aciklama: 'Bulut altyapılarının kurulumu, CI/CD süreçlerinin otomasyonu ve yüksek erişilebilirlik yönetimi.',
+    yetkinlikler: [
+      {
+        id: 'do-1',
+        ad: 'Kubernetes & Docker Konteyner Yönetimi',
+        kategori: 'Teknik',
+        aciklama: 'Mikroservis orkestrasyonu, pod güvenliği, auto-scaling ve sıfır kesintili dağıtım.',
+        minSeviye: 4,
+        onemDerecesi: 'Zorunlu',
+      },
+      {
+        id: 'do-2',
+        ad: 'CI/CD Pipeline & Otomasyon',
+        kategori: 'Teknik',
+        aciklama: 'GitHub Actions, GitLab CI veya Jenkins ile sürekli entegrasyon ve otomatik test/dağıtım.',
+        minSeviye: 4,
+        onemDerecesi: 'Zorunlu',
+      },
+      {
+        id: 'do-3',
+        ad: 'Infrastructure as Code (Terraform / Ansible)',
+        kategori: 'Teknik',
+        aciklama: 'Bulut sunucu ve ağ mimarilerini kod olarak yönetme ve sürümleme.',
+        minSeviye: 4,
+        onemDerecesi: 'Kritik',
+      },
+      {
+        id: 'do-4',
+        ad: 'Sistem İzleme & Log Analizi (Monitoring)',
+        kategori: 'Analitik',
+        aciklama: 'Grafana, Prometheus, ELK stack ile sistem sağlığı takibi ve anomali tespiti.',
+        minSeviye: 3,
+        onemDerecesi: 'Önemli',
+      },
     ],
   },
 ];
@@ -70,413 +295,274 @@ interface YetkinlikMatrisiProps {
   companyId?: string;
 }
 
-const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees, companyId = 'default' }) => {
+const YetkinlikMatrisi: React.FC<YetkinlikMatrisiProps> = ({ employees }) => {
   const [aramaMetni, setAramaMetni] = useState('');
-  const [secilenPozisyon, setSecilenPozisyon] = useState<string>('');
-  const [secilenEmployee, setSecilenEmployee] = useState<string>('');
-  const [aktifSekme, setAktifSekme] = useState<'matris' | 'gap' | 'takdir'>('matris');
+  const [secilenKategori, setSecilenKategori] = useState<string>('Tümü');
 
+  // Build combined unique positions from presets and actual employee positions
   const tumPozisyonlar = useMemo(() => {
-    const list = new Set([...DEMO_POZISYON_GEREKSINIM.map(p => p.pozisyon), ...employees.map(e => e.position).filter(Boolean)]);
+    const list = new Set([
+      ...HAZIR_POZISYON_GEREKSINIMLERI.map((p) => p.pozisyon),
+      ...employees.map((e) => e.position).filter(Boolean),
+    ]);
     return Array.from(list);
   }, [employees]);
 
-  const [yetkinlikler] = useState<Yetkinlik[]>(DEMO_YETKINLIKLER);
-
-  // Load personelYetkinlikler from localStorage or default to 0 for all pairs
-  const [personelYetkinlikler, setPersonelYetkinlikler] = useState<PersonelYetkinlik[]>(() => {
-    const saved = localStorage.getItem(`humanius_personel_yetkinlikler_${companyId}`);
-    if (saved) return JSON.parse(saved);
-
-    // Default to 0 for all employees and all competencies
-    const sonuc: PersonelYetkinlik[] = [];
-    employees.forEach((emp) => {
-      DEMO_YETKINLIKLER.forEach((y) => {
-        sonuc.push({ employeeId: emp.id, yetkinlikId: y.id, seviye: 0 });
-      });
-    });
-    return sonuc;
+  const [seciliPozisyonAd, setSeciliPozisyonAd] = useState<string>(() => {
+    return tumPozisyonlar[0] || 'Yazılım Geliştirici';
   });
 
-  // Load takdirler from localStorage, empty by default as requested
-  const [takdirler, setTakdirler] = useState<{ id: string; gonderen: string; alan: string; mesaj: string; puan: number; tarih: string }[]>(() => {
-    const saved = localStorage.getItem(`humanius_takdirler_${companyId}`);
-    return saved ? JSON.parse(saved) : []; // Empty by default
-  });
-
-  const [takdirForm, setTakdirForm] = useState(false);
-  const [yeniTakdir, setYeniTakdir] = useState({ alan: '', mesaj: '', puan: 5 });
-
-  // Sync to localStorage
-  useEffect(() => {
-    localStorage.setItem(`humanius_personel_yetkinlikler_${companyId}`, JSON.stringify(personelYetkinlikler));
-  }, [personelYetkinlikler, companyId]);
-
-  useEffect(() => {
-    localStorage.setItem(`humanius_takdirler_${companyId}`, JSON.stringify(takdirler));
-  }, [takdirler, companyId]);
-
-  const filtreliPersonel = useMemo(() => {
-    return employees.filter((emp) =>
-      emp.name.toLowerCase().includes(aramaMetni.toLowerCase()) ||
-      (emp.position && emp.position.toLowerCase().includes(aramaMetni.toLowerCase()))
+  // Find or generate position details
+  const aktifPozisyon = useMemo<PozisyonTanimi>(() => {
+    const hazir = HAZIR_POZISYON_GEREKSINIMLERI.find(
+      (p) => p.pozisyon.toLowerCase().trim() === seciliPozisyonAd.toLowerCase().trim()
     );
-  }, [employees, aramaMetni]);
+    if (hazir) return hazir;
 
-  const getYetkinlikSeviye = (employeeId: string, yetkinlikId: string) =>
-    personelYetkinlikler.find((py) => py.employeeId === employeeId && py.yetkinlikId === yetkinlikId)?.seviye ?? 0;
+    // Auto-generate a clean profile if it's an unconfigured position from employees list
+    const matchedEmp = employees.find((e) => e.position === seciliPozisyonAd);
+    return {
+      pozisyon: seciliPozisyonAd,
+      departman: matchedEmp?.department || 'Genel Departman',
+      aciklama: `${seciliPozisyonAd} rolü için kurumsal standartlarda tanımlanmış temel yetkinlik ve başarı kriterleri.`,
+      yetkinlikler: [
+        {
+          id: 'gen-1',
+          ad: 'Pozisyona Özel Mesleki Uzmanlık',
+          kategori: 'Teknik',
+          aciklama: `${seciliPozisyonAd} görev tanımında yer alan süreçlerin ve iş gereksinimlerinin eksiksiz yürütülmesi.`,
+          minSeviye: 4,
+          onemDerecesi: 'Zorunlu',
+        },
+        {
+          id: 'gen-2',
+          ad: 'Zaman Yönetimi & İş Disiplini',
+          kategori: 'İş & Süreç',
+          aciklama: 'İş teslim tarihlerine riayet, önceliklendirme ve verimli çalışma alışkanlığı.',
+          minSeviye: 4,
+          onemDerecesi: 'Kritik',
+        },
+        {
+          id: 'gen-3',
+          ad: 'Problem Çözme & Çözüm Odaklılık',
+          kategori: 'Analitik',
+          aciklama: 'Operasyonel aksaklıklarda inisiyatif alıp hızlı ve rasyonel çözümler geliştirebilme.',
+          minSeviye: 3,
+          onemDerecesi: 'Önemli',
+        },
+        {
+          id: 'gen-4',
+          ad: 'Etkili İletişim & Takım Uyumu',
+          kategori: 'Sosyal',
+          aciklama: 'Birimler arası sağlıklı bilgi akışı sağlama ve ekip çalışmasına katkı sunma.',
+          minSeviye: 3,
+          onemDerecesi: 'Önemli',
+        },
+      ],
+    };
+  }, [seciliPozisyonAd, employees]);
 
-  const setSeviye = (employeeId: string, yetkinlikId: string, seviye: number) => {
-    setPersonelYetkinlikler((prev) => {
-      const idx = prev.findIndex((py) => py.employeeId === employeeId && py.yetkinlikId === yetkinlikId);
-      const next = [...prev];
-      if (idx === -1) {
-        next.push({ employeeId, yetkinlikId, seviye });
-      } else {
-        next[idx] = { ...next[idx], seviye };
-      }
-      return next;
+  // Filter competencies based on search & category
+  const filtrelenmisYetkinlikler = useMemo(() => {
+    return aktifPozisyon.yetkinlikler.filter((y) => {
+      const matchKategori = secilenKategori === 'Tümü' || y.kategori === secilenKategori;
+      const matchArama =
+        y.ad.toLowerCase().includes(aramaMetni.toLowerCase()) ||
+        y.aciklama.toLowerCase().includes(aramaMetni.toLowerCase()) ||
+        y.kategori.toLowerCase().includes(aramaMetni.toLowerCase());
+      return matchKategori && matchArama;
     });
-  };
+  }, [aktifPozisyon, secilenKategori, aramaMetni]);
 
-  // Gap Analysis
-  const gapAnaliz = useMemo(() => {
-    const emp = employees.find((e) => e.id === secilenEmployee);
-    if (!emp) return null;
-    const poz = secilenPozisyon || emp.position || '';
-    if (!poz) return null;
+  const tumKategoriler = useMemo(() => {
+    return ['Tümü', ...new Set(aktifPozisyon.yetkinlikler.map((y) => y.kategori))];
+  }, [aktifPozisyon]);
 
-    let gereksimler = DEMO_POZISYON_GEREKSINIM.find((p) => p.pozisyon === poz);
-    
-    // Şirket içinde kaydedilen yeni veya farklı bir pozisyon seçildiyse dinamik hedef gereksinimler oluştur
-    if (!gereksimler) {
-      gereksimler = {
-        pozisyon: poz,
-        yetkinlikler: yetkinlikler.map((y) => ({ yetkinlikId: y.id, minSeviye: 3 }))
-      };
-    }
+  const zorunluSayisi = useMemo(() => {
+    return aktifPozisyon.yetkinlikler.filter((y) => y.onemDerecesi === 'Zorunlu' || y.onemDerecesi === 'Kritik').length;
+  }, [aktifPozisyon]);
 
-    return gereksimler.yetkinlikler.map((g) => {
-      const yetk = yetkinlikler.find((y) => y.id === g.yetkinlikId);
-      if (!yetk) return null;
-      const mevcut = getYetkinlikSeviye(emp.id, g.yetkinlikId);
-      const fark = mevcut - g.minSeviye;
-      return { yetkinlik: yetk, minSeviye: g.minSeviye, mevcutSeviye: mevcut, fark };
-    }).filter(Boolean) as { yetkinlik: Yetkinlik; minSeviye: number; mevcutSeviye: number; fark: number }[];
-  }, [secilenEmployee, secilenPozisyon, personelYetkinlikler, employees, yetkinlikler]);
-
-  const kategoriler = useMemo(() => {
-    return [...new Set(yetkinlikler.map((y) => y.kategori))];
-  }, [yetkinlikler]);
-
-  const deleteTakdir = (id: string) => {
-    if (window.confirm('Bu takdir mesajını silmek istediğinize emin misiniz?')) {
-      setTakdirler(takdirler.filter((t) => t.id !== id));
-    }
-  };
+  const ortalamaBeklenen = useMemo(() => {
+    if (aktifPozisyon.yetkinlikler.length === 0) return 0;
+    const top = aktifPozisyon.yetkinlikler.reduce((acc, y) => acc + y.minSeviye, 0);
+    return (top / aktifPozisyon.yetkinlikler.length).toFixed(1);
+  }, [aktifPozisyon]);
 
   return (
-    <div className="space-y-5">
-      {/* Başlık */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="space-y-6">
+      {/* Üst Başlık & Açıklama */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">Yetkinlik Matrisi & Gap Analysis</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Çalışan becerileri ile pozisyon gereksinimleri karşılaştırması
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+              <Target className="w-5 h-5" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800">Gap Analysis</h2>
+          </div>
+          <p className="text-sm text-gray-500 mt-1">
+            Pozisyon bazlı yetkinlik standartları ve kurumsal başarı için gerekli beceri gereksinimleri
           </p>
         </div>
       </div>
 
-      {/* Sekmeler */}
-      <div className="flex gap-2 border-b border-gray-200">
-        {(['matris', 'gap', 'takdir'] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => setAktifSekme(s)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              aktifSekme === s ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {s === 'matris' ? 'Yetkinlik Matrisi' : s === 'gap' ? 'Gap Analysis' : '🏆 Takdir & Rozet'}
-          </button>
-        ))}
-      </div>
-
-      {/* --- MATRİS SEKMESİ --- */}
-      {aktifSekme === 'matris' && (
-        <div className="space-y-4">
-          <div className="flex gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-48 bg-white rounded-xl border border-gray-200">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input value={aramaMetni} onChange={(e) => setAramaMetni(e.target.value)}
-                placeholder="Personel ara..."
-                className="w-full pl-9 pr-3 py-2 text-sm outline-none bg-transparent" />
+      {/* Pozisyon Seçim Çubuğu & Arama */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-4 shadow-xs">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2">
+            <label htmlFor="position-select" className="text-xs font-semibold text-gray-600 block mb-1.5 uppercase tracking-wide">
+              İncelenecek Pozisyonu Seçin
+            </label>
+            <div className="relative">
+              <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500" />
+              <select
+                id="position-select"
+                value={seciliPozisyonAd}
+                onChange={(e) => setSeciliPozisyonAd(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-800 outline-none focus:ring-2 focus:ring-indigo-200 focus:bg-white transition-all cursor-pointer"
+              >
+                {tumPozisyonlar.map((pos) => (
+                  <option key={pos} value={pos}>
+                    {pos}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {kategoriler.map((kategori) => (
-            <div key={kategori} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-              <div className="bg-gray-50 border-b border-gray-100 px-4 py-2">
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{kategori} Yetkinlikleri</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 sticky left-0 bg-white min-w-36">Personel</th>
-                      {yetkinlikler.filter((y) => y.kategori === kategori).map((y) => (
-                        <th key={y.id} className="text-center px-3 py-2 text-xs font-semibold text-gray-500 min-w-24">
-                          {y.ad}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {filtreliPersonel.map((emp) => (
-                      <tr key={emp.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 sticky left-0 bg-white">
-                          <p className="text-sm font-medium text-gray-800 truncate max-w-[130px]">{emp.name}</p>
-                          <p className="text-[10px] text-gray-400 truncate">{emp.position}</p>
-                        </td>
-                        {yetkinlikler.filter((y) => y.kategori === kategori).map((y) => {
-                          const sev = getYetkinlikSeviye(emp.id, y.id);
-                          return (
-                            <td key={y.id} className="px-3 py-2 text-center">
-                              <select
-                                value={sev}
-                                onChange={(e) => setSeviye(emp.id, y.id, parseInt(e.target.value))}
-                                className={`text-[10px] px-2 py-0.5 rounded-full font-medium border-0 outline-none cursor-pointer ${SEVİYE_RENK[sev]}`}
-                              >
-                                {SEVİYE_ETIKET.map((e, i) => <option key={i} value={i}>{e}</option>)}
-                              </select>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-
-          {/* Seviye açıklamaları */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-4">
-            <p className="text-xs font-semibold text-gray-500 mb-2">Yetkinlik Seviyeleri</p>
-            <div className="flex flex-wrap gap-2">
-              {SEVİYE_ETIKET.map((e, i) => (
-                <span key={i} className={`text-xs px-2 py-0.5 rounded-full font-medium ${SEVİYE_RENK[i]}`}>
-                  {e}
-                </span>
-              ))}
+          <div>
+            <label htmlFor="search-competency" className="text-xs font-semibold text-gray-600 block mb-1.5 uppercase tracking-wide">
+              Yetkinlik Filtrele
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                id="search-competency"
+                type="text"
+                value={aramaMetni}
+                onChange={(e) => setAramaMetni(e.target.value)}
+                placeholder="Yetkinlik veya anahtar kelime..."
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-200 focus:bg-white transition-all"
+              />
             </div>
           </div>
         </div>
-      )}
 
-      {/* --- GAP ANALYSIS SEKMESİ --- */}
-      {aktifSekme === 'gap' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Personel Seç</label>
-              <select value={secilenEmployee} onChange={(e) => setSecilenEmployee(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
-                <option value="">Personel seçin</option>
-                {employees.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.position})</option>)}
-              </select>
+        {/* Kategori Filtre Butonları */}
+        <div className="flex items-center gap-1.5 pt-2 border-t border-gray-100 overflow-x-auto">
+          <span className="text-xs text-gray-400 font-medium mr-1 flex items-center gap-1">
+            <Filter className="w-3 h-3" /> Kategori:
+          </span>
+          {tumKategoriler.map((kat) => (
+            <button
+              key={kat}
+              onClick={() => setSecilenKategori(kat)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                secilenKategori === kat
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {kat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Pozisyon Özet Paneli */}
+      <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-6 shadow-md">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="bg-indigo-500/30 text-indigo-300 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-indigo-400/30">
+                {aktifPozisyon.departman}
+              </span>
             </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Karşılaştırılacak Pozisyon</label>
-              <select value={secilenPozisyon} onChange={(e) => setSecilenPozisyon(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
-                <option value="">Mevcut pozisyon</option>
-                {tumPozisyonlar.map((pos) => <option key={pos} value={pos}>{pos}</option>)}
-              </select>
-            </div>
+            <h3 className="text-2xl font-bold text-white tracking-tight">{aktifPozisyon.pozisyon}</h3>
+            <p className="text-xs text-gray-300 mt-1 max-w-2xl leading-relaxed">{aktifPozisyon.aciklama}</p>
           </div>
 
-          {!secilenEmployee && (
-            <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center text-gray-400">
-              <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">Gap analizi için bir personel seçin</p>
+          <div className="flex items-center gap-3 self-start md:self-auto flex-shrink-0">
+            <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3.5 border border-white/10 text-center min-w-24">
+              <p className="text-2xl font-black text-white">{aktifPozisyon.yetkinlikler.length}</p>
+              <p className="text-[11px] text-gray-300 uppercase tracking-wide mt-0.5">Toplam Yetkinlik</p>
             </div>
-          )}
+            <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3.5 border border-white/10 text-center min-w-24">
+              <p className="text-2xl font-black text-amber-300">{zorunluSayisi}</p>
+              <p className="text-[11px] text-gray-300 uppercase tracking-wide mt-0.5">Zorunlu / Kritik</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3.5 border border-white/10 text-center min-w-24">
+              <p className="text-2xl font-black text-emerald-300">%{Number(ortalamaBeklenen) * 20}</p>
+              <p className="text-[11px] text-gray-300 uppercase tracking-wide mt-0.5">Beklenen Seviye</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-          {gapAnaliz && (
-            <div className="space-y-3">
-              <div className="bg-indigo-50 rounded-2xl border border-indigo-100 p-4">
-                <p className="text-sm font-semibold text-indigo-800">
-                  {employees.find((e) => e.id === secilenEmployee)?.name} — {secilenPozisyon || employees.find((e) => e.id === secilenEmployee)?.position}
-                </p>
-                <p className="text-xs text-indigo-600 mt-0.5">
-                  {gapAnaliz.filter((g) => g.fark < 0).length} eksik yetkinlik ·{' '}
-                  {gapAnaliz.filter((g) => g.fark >= 0).length} yeterli alan
-                </p>
-              </div>
+      {/* Gerekli Yetkinlikler Listesi / Kartları */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-base font-bold text-gray-800 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-indigo-600" />
+            Bu Pozisyonda Gerekli Olan Yetkinlikler ({filtrelenmisYetkinlikler.length})
+          </h4>
+        </div>
 
-              {gapAnaliz.map((item) => (
-                <div key={item.yetkinlik.id} className={`bg-white rounded-2xl border p-4 ${item.fark < 0 ? 'border-red-200' : 'border-green-200'}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="font-semibold text-gray-800 text-sm">{item.yetkinlik.ad}</p>
-                      <p className="text-xs text-gray-400">{item.yetkinlik.kategori}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {item.fark > 0 && <TrendingUp className="w-4 h-4 text-green-500" />}
-                      {item.fark === 0 && <Minus className="w-4 h-4 text-blue-500" />}
-                      {item.fark < 0 && <TrendingDown className="w-4 h-4 text-red-500" />}
-                      <span className={`text-sm font-bold ${item.fark > 0 ? 'text-green-600' : item.fark < 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                        {item.fark > 0 ? `+${item.fark}` : item.fark}
+        {filtrelenmisYetkinlikler.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center text-gray-400">
+            <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <p className="text-sm font-medium">Arama kriterinize uygun yetkinlik bulunamadı.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filtrelenmisYetkinlikler.map((item) => (
+              <div
+                key={item.id}
+                className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-indigo-300 transition-all shadow-xs flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-2.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-semibold border ${KATEGORI_RENK[item.kategori] || 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                        {item.kategori}
+                      </span>
+                      <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-semibold border ${ONEM_RENK[item.onemDerecesi] || 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+                        {item.onemDerecesi}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <p className="text-[10px] text-gray-400 mb-1">Mevcut Seviye</p>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                          <div key={i} className={`h-2 flex-1 rounded-full ${i <= item.mevcutSeviye ? 'bg-indigo-500' : 'bg-gray-200'}`} />
-                        ))}
-                      </div>
-                      <p className="text-[10px] text-gray-500 mt-0.5">{SEVİYE_ETIKET[item.mevcutSeviye]}</p>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-[10px] text-gray-400 mb-1">Gerekli Minimum</p>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                          <div key={i} className={`h-2 flex-1 rounded-full ${i <= item.minSeviye ? 'bg-orange-400' : 'bg-gray-200'}`} />
-                        ))}
-                      </div>
-                      <p className="text-[10px] text-gray-500 mt-0.5">{SEVİYE_ETIKET[item.minSeviye]}</p>
-                    </div>
-                  </div>
-                  {item.fark < 0 && (
-                    <div className="mt-2 flex items-center gap-1.5 text-xs text-red-600 bg-red-50 rounded-lg px-2 py-1">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      Gelişim gerekiyor: {Math.abs(item.fark)} seviye eksik
-                    </div>
-                  )}
-                  {item.fark >= 0 && (
-                    <div className="mt-2 flex items-center gap-1.5 text-xs text-green-700 bg-green-50 rounded-lg px-2 py-1">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      Yeterli seviye{item.fark > 0 ? ` (${item.fark} seviye üstünde)` : ''}
-                    </div>
-                  )}
+
+                  <h5 className="text-base font-bold text-gray-900 mb-1.5 leading-snug">{item.ad}</h5>
+                  <p className="text-xs text-gray-600 leading-relaxed mb-4">{item.aciklama}</p>
                 </div>
-              ))}
-            </div>
-          )}
 
-          {secilenEmployee && !gapAnaliz && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-sm text-yellow-700">
-              Bu pozisyon için yetkinlik gereksinimi tanımlı değil. Bir pozisyon seçin veya gereksinimleri tanımlayın.
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* --- TAKDİR & ROZET SEKMESİ --- */}
-      {aktifSekme === 'takdir' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <p className="text-sm text-gray-500">Çalışanlar birbirlerine takdir mesajı ve puan gönderebilir</p>
-            <button
-              onClick={() => setTakdirForm(true)}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Takdir Gönder
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {takdirler.map((t) => (
-              <div key={t.id} className="bg-white rounded-2xl border border-gray-200 p-4 relative group shadow-sm">
-                <button
-                  onClick={() => deleteTakdir(t.id)}
-                  className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-                <div className="flex items-start justify-between flex-wrap gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">
-                      <span className="text-indigo-700">{t.gonderen}</span>
-                      {' → '}
-                      <span className="text-green-700">{t.alan}</span>
-                    </p>
-                    <p className="text-sm text-gray-700 mt-1">{t.mesaj}</p>
-                    <p className="text-xs text-gray-400 mt-1">{t.tarih}</p>
+                <div className="pt-3 border-t border-gray-100 bg-gray-50/50 -mx-5 -mb-5 p-4 rounded-b-2xl">
+                  <div className="flex items-center justify-between text-xs mb-1.5">
+                    <span className="font-semibold text-gray-700 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                      Gerekli Minimum Seviye
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-md font-bold text-xs border ${SEVIYE_RENK[item.minSeviye]}`}>
+                      {SEVIYE_ETIKET[item.minSeviye]}
+                    </span>
                   </div>
-                  <div className="flex flex-shrink-0">
-                    {Array.from({ length: t.puan }).map((_, i) => (
-                      <span key={i} className="text-yellow-400 text-lg">★</span>
+
+                  {/* 5 Kademeli Seviye Barı */}
+                  <div className="flex gap-1.5 mt-2">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div
+                        key={i}
+                        className={`h-2 flex-1 rounded-full transition-colors ${
+                          i <= item.minSeviye ? 'bg-indigo-600' : 'bg-gray-200'
+                        }`}
+                      />
                     ))}
                   </div>
                 </div>
               </div>
             ))}
-
-            {takdirler.length === 0 && (
-              <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-400 text-sm">
-                Henüz takdir mesajı yok
-              </div>
-            )}
           </div>
-
-          {takdirForm && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="font-bold text-gray-800">Takdir Gönder</p>
-                  <button onClick={() => setTakdirForm(false)}><X className="w-5 h-5 text-gray-400" /></button>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">Kime</label>
-                  <select value={yeniTakdir.alan} onChange={(e) => setYeniTakdir({ ...yeniTakdir, alan: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
-                    <option value="">Personel seçin</option>
-                    {employees.map((e) => <option key={e.id} value={e.name}>{e.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">Mesajınız</label>
-                  <textarea value={yeniTakdir.mesaj} onChange={(e) => setYeniTakdir({ ...yeniTakdir, mesaj: e.target.value })}
-                    rows={3} placeholder="Neden takdir ediyorsunuz?"
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 resize-none" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">Puan</label>
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((p) => (
-                      <button key={p} onClick={() => setYeniTakdir({ ...yeniTakdir, puan: p })}
-                        className={`text-2xl transition-colors ${p <= yeniTakdir.puan ? 'text-yellow-400' : 'text-gray-300'}`}>★</button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button onClick={() => setTakdirForm(false)} className="flex-1 border border-gray-200 rounded-xl py-2 text-sm text-gray-600">İptal</button>
-                  <button
-                    disabled={!yeniTakdir.alan || !yeniTakdir.mesaj}
-                    onClick={() => {
-                      setTakdirler((prev) => [{
-                        id: `t${Date.now()}`, gonderen: 'Siz', alan: yeniTakdir.alan,
-                        mesaj: yeniTakdir.mesaj, puan: yeniTakdir.puan,
-                        tarih: new Date().toISOString().split('T')[0],
-                      }, ...prev]);
-                      setTakdirForm(false);
-                      setYeniTakdir({ alan: '', mesaj: '', puan: 5 });
-                    }}
-                    className="flex-1 bg-indigo-600 text-white rounded-xl py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-1.5">
-                    <Save className="w-4 h-4" />Gönder
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
