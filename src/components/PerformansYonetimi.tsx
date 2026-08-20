@@ -77,13 +77,12 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
     ) || employees[0];
   }, [employees, profile]);
 
-  const [aktifSekme, setAktifSekme] = useState<'degerlendirme' | 'okr' | 'geri-bildirim'>('degerlendirme');
+  const [aktifSekme, setAktifSekme] = useState<'degerlendirme' | 'okr'>('degerlendirme');
   const [secilenEmployee, setSecilenEmployee] = useState<string | null>(null);
   
   // Modaller
   const [showNewForm, setShowNewForm] = useState(false);
   const [showOkrForm, setShowOkrForm] = useState(false);
-  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
 
   // Dönem listesi
   const currentYear = new Date().getFullYear();
@@ -100,7 +99,6 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
   // State'ler (Boş başlar, localStorage'dan yüklenir)
   const [degerlendirmeler, setDegerlendirmeler] = useState<PerformansDegerlendirme[]>([]);
   const [okrListesi, setOkrListesi] = useState<OKR[]>([]);
-  const [geriBildirimler, setGeriBildirimler] = useState<GeriBildirim[]>([]);
 
   // Yeni Değerlendirme Formu State
   const [yeniDeg, setYeniDeg] = useState({
@@ -126,13 +124,6 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
     kr3: ''
   });
 
-  // Yeni Geri Bildirim Formu State
-  const [yeniFb, setYeniFb] = useState({
-    aliciEmployeeId: '',
-    mesaj: '',
-    tip: 'olumlu' as 'olumlu' | 'gelistirici' | 'nötr'
-  });
-
   // LocalStorage'dan yükleme
   useEffect(() => {
     const storedDeg = localStorage.getItem(`humanius_performances_${companyId}`);
@@ -146,13 +137,6 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
     if (storedOkr) {
       try {
         setOkrListesi(JSON.parse(storedOkr));
-      } catch {}
-    }
-
-    const storedFb = localStorage.getItem(`humanius_feedbacks_${companyId}`);
-    if (storedFb) {
-      try {
-        setGeriBildirimler(JSON.parse(storedFb));
       } catch {}
     }
   }, [companyId]);
@@ -177,17 +161,6 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
         okr.employeeName?.toLowerCase() === currentEmployee.name?.toLowerCase()
     );
   }, [okrListesi, isManagement, currentEmployee]);
-
-  const goruntulenenFeedbacks = useMemo(() => {
-    if (isManagement) return geriBildirimler;
-    if (!currentEmployee) return [];
-    return geriBildirimler.filter(
-      (gb) =>
-        gb.alici === currentEmployee.name ||
-        gb.gonderen === currentEmployee.name ||
-        gb.alici === profile?.full_name
-    );
-  }, [geriBildirimler, isManagement, currentEmployee, profile?.full_name]);
 
   // Dinamik Hesaplamalar
   const genelOrtalama = goruntulenenDegerlendirmeler.length
@@ -279,33 +252,6 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
     });
   };
 
-  // Yeni Geri Bildirim Kaydet
-  const handleSaveFeedback = () => {
-    if (!yeniFb.aliciEmployeeId || !yeniFb.mesaj) {
-      alert('Lütfen tüm alanları doldurun.');
-      return;
-    }
-    const emp = employees.find(e => e.id === yeniFb.aliciEmployeeId)!;
-    const newFb: GeriBildirim = {
-      id: `fb-custom-${Date.now()}`,
-      gonderen: profile?.full_name || 'Kullanıcı',
-      alici: emp.name,
-      mesaj: yeniFb.mesaj,
-      tarih: new Date().toISOString().split('T')[0],
-      tip: yeniFb.tip
-    };
-
-    const updated = [newFb, ...geriBildirimler];
-    setGeriBildirimler(updated);
-    localStorage.setItem(`humanius_feedbacks_${companyId}`, JSON.stringify(updated));
-    setShowFeedbackForm(false);
-    setYeniFb({
-      aliciEmployeeId: '',
-      mesaj: '',
-      tip: 'olumlu'
-    });
-  };
-
   // Veri Silme İşlemleri
   const handleDeleteEvaluation = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -324,21 +270,13 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
     }
   };
 
-  const handleDeleteFeedback = (id: string) => {
-    if (window.confirm('Bu geri bildirimi silmek istediğinize emin misiniz?')) {
-      const updated = geriBildirimler.filter(f => f.id !== id);
-      setGeriBildirimler(updated);
-      localStorage.setItem(`humanius_feedbacks_${companyId}`, JSON.stringify(updated));
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Başlık */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">Performans & Geri Bildirim</h2>
-          <p className="text-sm text-gray-500 mt-0.5">360° değerlendirme, OKR/KPI takibi ve sürekli geri bildirim</p>
+          <h2 className="text-xl font-bold text-gray-800">Performans Yönetimi</h2>
+          <p className="text-sm text-gray-500 mt-0.5">360° değerlendirme ve OKR/KPI takibi</p>
         </div>
         {isManagement && (
           <div className="flex gap-2">
@@ -365,7 +303,7 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
       </div>
 
       {/* Özet Kartlar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">Genel Ortalama</p>
           <p className={`text-2xl font-bold ${puanRengi(Number(genelOrtalama) || 0)}`}>{genelOrtalama} {goruntulenenDegerlendirmeler.length > 0 ? '/ 5' : ''}</p>
@@ -381,16 +319,11 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
           <p className="text-2xl font-bold text-indigo-600">{aktifOkr}</p>
           <p className="text-xs text-gray-400">{okrTamamlanan} tamamlandı</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">Geri Bildirim</p>
-          <p className="text-2xl font-bold text-purple-600">{goruntulenenFeedbacks.length}</p>
-          <p className="text-xs text-gray-400">bu dönem</p>
-        </div>
       </div>
 
       {/* Sekmeler */}
       <div className="flex gap-2 border-b border-gray-200">
-        {(['degerlendirme', 'okr', 'geri-bildirim'] as const).map((sekme) => (
+        {(['degerlendirme', 'okr'] as const).map((sekme) => (
           <button
             key={sekme}
             onClick={() => setAktifSekme(sekme)}
@@ -400,7 +333,7 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {sekme === 'degerlendirme' ? '360° Değerlendirme' : sekme === 'okr' ? 'OKR / KPI Takibi' : 'Geri Bildirim'}
+            {sekme === 'degerlendirme' ? '360° Değerlendirme' : 'OKR / KPI Takibi'}
           </button>
         ))}
       </div>
@@ -567,307 +500,6 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
         </div>
       )}
 
-      {/* Geri Bildirim */}
-      {aktifSekme === 'geri-bildirim' && (
-        <div className="space-y-4">
-          {isManagement && (
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowFeedbackForm(true)}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-sm"
-              >
-                <MessageSquare className="w-4 h-4" />
-                Geri Bildirim Gönder
-              </button>
-            </div>
-          )}
-          
-          {goruntulenenFeedbacks.length === 0 ? (
-            <div className="text-center p-12 bg-white rounded-2xl border border-gray-200 text-gray-400">
-              <MessageSquare className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-              <p className="font-semibold text-gray-500">Geri Bildirim Bulunmuyor</p>
-              <p className="text-xs mt-1">
-                {isManagement ? 'Henüz gönderilmiş bir geri bildirim yok. İlkini siz yazabilirsiniz!' : 'Size verilmiş veya gönderdiğiniz bir geri bildirim bulunmamaktadır.'}
-              </p>
-            </div>
-          ) : (
-            goruntulenenFeedbacks.map((gb) => (
-              <div key={gb.id} className={`bg-white rounded-2xl border p-5 relative group ${
-                gb.tip === 'olumlu' ? 'border-l-4 border-l-green-400 border-gray-200' :
-                gb.tip === 'gelistirici' ? 'border-l-4 border-l-orange-400 border-gray-200' :
-                'border-gray-200'
-              }`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-xs font-semibold text-gray-600">{gb.gonderen}</span>
-                      <span className="text-gray-300">→</span>
-                      <span className="text-xs font-semibold text-gray-800">{gb.alici}</span>
-                      <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        gb.tip === 'olumlu' ? 'bg-green-100 text-green-700' :
-                        gb.tip === 'gelistirici' ? 'bg-orange-100 text-orange-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {gb.tip === 'olumlu' ? '👍 Olumlu' : gb.tip === 'gelistirici' ? '📈 Geliştirici' : 'Nötr'}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-700 leading-relaxed">{gb.mesaj}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400">{gb.tarih}</span>
-                    {isManagement && (
-                      <button
-                        onClick={() => handleDeleteFeedback(gb.id)}
-                        className="p-1 text-gray-300 hover:text-red-600 rounded transition-colors opacity-0 group-hover:opacity-100"
-                        title="Sil"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Yeni Değerlendirme Modali */}
-      {showNewForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl border border-gray-100 overflow-y-auto max-h-[90vh]">
-            <h3 className="text-lg font-bold text-gray-800 border-b border-gray-100 pb-3 mb-4">Yeni Performans Değerlendirmesi</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Personel</label>
-                <select 
-                  value={yeniDeg.employeeId}
-                  onChange={(e) => setYeniDeg({...yeniDeg, employeeId: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:bg-white focus:border-blue-500"
-                >
-                  <option value="">Personel seçin...</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>{emp.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Değerlendirme Dönemi</label>
-                <select 
-                  value={yeniDeg.donem}
-                  onChange={(e) => setYeniDeg({...yeniDeg, donem: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:bg-white focus:border-blue-500"
-                >
-                  {donemler.map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-5 gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                {(['Teknik', 'İletişim', 'Takım', 'Liderlik', 'Uyum'] as const).map((kriter) => {
-                  const kmap: Record<string, keyof typeof yeniDeg> = {
-                    'Teknik': 'teknikYetkinlik',
-                    'İletişim': 'iletisim',
-                    'Takım': 'takim',
-                    'Liderlik': 'liderlik',
-                    'Uyum': 'uyum'
-                  };
-                  const key = kmap[kriter];
-                  return (
-                    <div key={kriter} className="text-center">
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{kriter}</label>
-                      <select 
-                        value={yeniDeg[key] as number}
-                        onChange={(e) => setYeniDeg({...yeniDeg, [key]: Number(e.target.value)})}
-                        className="w-full bg-white border border-gray-200 rounded-lg py-1.5 text-sm text-center font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Güçlü Yönler (Geri Bildirim)</label>
-                <textarea 
-                  value={yeniDeg.yorumlar}
-                  onChange={(e) => setYeniDeg({...yeniDeg, yorumlar: e.target.value})}
-                  rows={2} 
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500 resize-none" 
-                  placeholder="Çalışanın güçlü yönleri ve başarıları..." 
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Gelişim Alanları</label>
-                <textarea 
-                  value={yeniDeg.gelisimAlanlari}
-                  onChange={(e) => setYeniDeg({...yeniDeg, gelisimAlanlari: e.target.value})}
-                  rows={2} 
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500 resize-none" 
-                  placeholder="Çalışanın odaklanması gereken gelişim alanları..." 
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Gelecek Dönem Hedefleri</label>
-                <textarea 
-                  value={yeniDeg.hedefler}
-                  onChange={(e) => setYeniDeg({...yeniDeg, hedefler: e.target.value})}
-                  rows={2} 
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500 resize-none" 
-                  placeholder="Bir sonraki dönem için hedefler..." 
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6 border-t border-gray-100 pt-4">
-              <button onClick={() => setShowNewForm(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50">İptal</button>
-              <button onClick={handleSaveEvaluation} className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-sm">Kaydet</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Yeni OKR Modali */}
-      {showOkrForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-800 border-b border-gray-100 pb-3 mb-4">Yeni OKR Tanımla</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Çalışan</label>
-                <select 
-                  value={yeniOkr.employeeId}
-                  onChange={(e) => setYeniOkr({...yeniOkr, employeeId: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:bg-white focus:border-blue-500"
-                >
-                  <option value="">Çalışan seçin...</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>{emp.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Hedef (Objective)</label>
-                <input 
-                  type="text"
-                  value={yeniOkr.hedef}
-                  onChange={(e) => setYeniOkr({...yeniOkr, hedef: e.target.value})}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500"
-                  placeholder="Örn: Departman verimliliğini artır"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Dönem</label>
-                <select 
-                  value={yeniOkr.donem}
-                  onChange={(e) => setYeniOkr({...yeniOkr, donem: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:bg-white focus:border-blue-500"
-                >
-                  {donemler.map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Anahtar Sonuçlar (Key Results)</label>
-                <input 
-                  type="text"
-                  value={yeniOkr.kr1}
-                  onChange={(e) => setYeniOkr({...yeniOkr, kr1: e.target.value})}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
-                  placeholder="Kilit Sonuç 1"
-                />
-                <input 
-                  type="text"
-                  value={yeniOkr.kr2}
-                  onChange={(e) => setYeniOkr({...yeniOkr, kr2: e.target.value})}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
-                  placeholder="Kilit Sonuç 2"
-                />
-                <input 
-                  type="text"
-                  value={yeniOkr.kr3}
-                  onChange={(e) => setYeniOkr({...yeniOkr, kr3: e.target.value})}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
-                  placeholder="Kilit Sonuç 3"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6 border-t border-gray-100 pt-4">
-              <button onClick={() => setShowOkrForm(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50">İptal</button>
-              <button onClick={handleSaveOkr} className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-sm">Kaydet</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Yeni Geri Bildirim Modali */}
-      {showFeedbackForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-800 border-b border-gray-100 pb-3 mb-4">Geri Bildirim Gönder</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Kime Gönderilecek</label>
-                <select 
-                  value={yeniFb.aliciEmployeeId}
-                  onChange={(e) => setYeniFb({...yeniFb, aliciEmployeeId: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:bg-white focus:border-blue-500"
-                >
-                  <option value="">Çalışan seçin...</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>{emp.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Geri Bildirim Türü</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {(['olumlu', 'gelistirici', 'nötr'] as const).map((tip) => (
-                    <button
-                      key={tip}
-                      type="button"
-                      onClick={() => setYeniFb({...yeniFb, tip})}
-                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                        yeniFb.tip === tip
-                          ? tip === 'olumlu' ? 'bg-green-50 border-green-300 text-green-700 shadow-sm' :
-                            tip === 'gelistirici' ? 'bg-orange-50 border-orange-300 text-orange-700 shadow-sm' :
-                            'bg-gray-100 border-gray-300 text-gray-700 shadow-sm'
-                          : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      {tip === 'olumlu' ? '👍 Olumlu' : tip === 'gelistirici' ? '📈 Geliştirici' : '😐 Nötr'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Mesajınız</label>
-                <textarea 
-                  value={yeniFb.mesaj}
-                  onChange={(e) => setYeniFb({...yeniFb, mesaj: e.target.value})}
-                  rows={3} 
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500 resize-none" 
-                  placeholder="Geri bildiriminizi detaylandırın..." 
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6 border-t border-gray-100 pt-4">
-              <button onClick={() => setShowFeedbackForm(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50">İptal</button>
-              <button onClick={handleSaveFeedback} className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-sm">Gönder</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

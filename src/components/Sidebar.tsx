@@ -93,8 +93,8 @@ const RAW_NAV_ITEMS = [
     { id: 'egitim' as View, label: 'Eğitim Kataloğu & LMS' },
     { id: 'yetkinlik' as View, label: 'Gap Analysis' },
   ]},
-  { id: 'performans' as View, label: 'Performans & Geri Bildirim', icon: Layout, children: [
-    { id: 'performans' as View, label: 'Performans ve Geri Bildirim' },
+  { id: 'performans' as View, label: 'Performans Yönetimi', icon: Layout, children: [
+    { id: 'performans' as View, label: 'Performans Değerlendirme' },
     { id: 'okr' as View, label: 'OKR Hedefler' },
   ]},
   { id: 'kullanim-kilavuzu' as View, label: 'Kullanım Kılavuzu', icon: BookOpen },
