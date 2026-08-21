@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, FileDown, Search, X } from 'lucide-react';
+import { Plus, FileDown, Search, X, UploadCloud } from 'lucide-react';
 import { Company, Department } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
