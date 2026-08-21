@@ -6,6 +6,7 @@ import {
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 import { companyService } from '../services/companyService';
+import { employeeService } from '../services/employeeService';
 import { userManagementService } from '../services/userManagementService';
 
 interface ExcelImportModalProps {
@@ -230,12 +231,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     setImportResult(null);
 
     try {
-      // Şirket UUID belirle
-      let targetCompId = activeCompanyId && !activeCompanyId.includes('-id-') && activeCompanyId !== 'default' ? activeCompanyId : '';
-      if (!targetCompId) {
-        const comps = await companyService.getCompanies();
-        targetCompId = comps?.[0]?.id || 'aaaaaaaa-0000-0000-0000-000000000001';
-      }
+      let targetCompId = activeCompanyId && !activeCompanyId.includes('-id-') && activeCompanyId !== 'default' ? activeCompanyId : 'demo-company-id-9999';
 
       const insertPayloads = parsedEmployees.map(emp => ({
         company_id: targetCompId,
@@ -244,9 +240,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         sicil_no: emp.sicil_no || '',
         department: emp.department || 'Genel Departman',
         position: emp.position || 'Personel',
-        level: emp.level || 'Mid',
-        status: emp.status || 'active',
-        employee_type: emp.employee_type || 'normal',
+        level: 'Mid',
+        status: 'active',
+        employee_type: 'normal',
         join_date: emp.join_date || new Date().toISOString().split('T')[0],
         email: emp.email || '',
         phone: emp.phone || '',
@@ -254,21 +250,15 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         skills: [],
       }));
 
-      // Toplu Ekleme
-      const { data: inserted, error: insertErr } = await supabase
-        .from('employees')
-        .insert(insertPayloads)
-        .select('id, name, email');
-
-      if (insertErr) throw insertErr;
+      // Toplu Ekleme (Demo ve Canlı Mod uyumlu)
+      const res = await employeeService.batchCreate(insertPayloads);
 
       // Arka planda @humanius.net hesap senkronizasyonu
       try {
         await userManagementService.syncAllAccountsToNet();
       } catch {}
 
-      const successCount = inserted?.length || insertPayloads.length;
-      setImportResult({ count: successCount });
+      setImportResult({ count: res.count || insertPayloads.length });
       setStep(3);
     } catch (err: any) {
       console.error('Toplu aktarım hatası:', err);

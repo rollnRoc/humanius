@@ -95,6 +95,51 @@ export const employeeService = {
     return data;
   },
 
+  async batchCreate(employees: any[]): Promise<{ count: number; error?: any }> {
+    if (demoService.isDemoActive()) {
+      const createdList: any[] = [];
+      for (const emp of employees) {
+        const created = demoService.createEmployee({
+          name: emp.name,
+          tc_no: emp.tc_no || '',
+          sicil_no: emp.sicil_no || '',
+          department: emp.department || 'Genel Departman',
+          position: emp.position || 'Personel',
+          level: emp.level || 'Mid',
+          salary: emp.salary || 0,
+          status: emp.status || 'active',
+          phone: emp.phone || '',
+          email: emp.email || '',
+          join_date: emp.join_date || new Date().toISOString().split('T')[0],
+          address: emp.address || '',
+          skills: emp.skills || [],
+          company_id: 'demo-company-id-9999',
+        });
+        createdList.push(created);
+      }
+      return { count: createdList.length };
+    }
+
+    const cleaned = employees.map(emp => {
+      const { contact_email, personal_email, joinDate, employeeType, role, ...rawPayload } = emp as any;
+      return {
+        ...rawPayload,
+        level: sanitizeLevel(rawPayload.level),
+        join_date: rawPayload.join_date || (joinDate ? String(joinDate).split('T')[0] : new Date().toISOString().split('T')[0]),
+        status: rawPayload.status || 'active',
+        employee_type: rawPayload.employee_type || employeeType || 'normal',
+      };
+    });
+
+    const { data, error } = await supabase
+      .from('employees')
+      .insert(cleaned)
+      .select('id, name, email');
+
+    if (error) throw error;
+    return { count: data?.length || cleaned.length };
+  },
+
   async update(id: string, updates: EmployeeUpdate): Promise<Employee> {
     if (demoService.isDemoActive()) {
       return demoService.updateEmployee(id, updates as any) as any;
