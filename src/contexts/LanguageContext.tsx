@@ -51,7 +51,7 @@ const translations = {
     'toolbar.all': 'Tümü',
     'toolbar.company': 'Şirket:',
     'toolbar.newEmployee': 'Yeni Personel',
-    'toolbar.exportCSV': 'CSV Dışa Aktar',
+    'toolbar.exportCSV': 'Excel İndir',
     'toolbar.logout': 'Çıkış',
     
     // Quick Actions
@@ -238,7 +238,7 @@ const translations = {
     'toolbar.all': 'All',
     'toolbar.company': 'Company:',
     'toolbar.newEmployee': 'New Employee',
-    'toolbar.exportCSV': 'Export CSV',
+    'toolbar.exportCSV': 'Export Excel',
     'toolbar.logout': 'Logout',
     
     // Quick Actions

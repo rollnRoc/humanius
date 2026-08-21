@@ -34,6 +34,7 @@ import PdksDevam from './components/PdksDevam';
 import IsAkisi from './components/IsAkisi';
 import DemoBanner from './components/DemoBanner';
 import ExcelImportModal from './components/ExcelImportModal';
+import * as XLSX from 'xlsx';
 
 import { Suspense } from 'react';
 import { lazyWithRetry } from './utils/lazyWithRetry';
@@ -890,19 +891,27 @@ const AppInner: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    const header = ['Ad Soyad', 'Şirket', 'Departman', 'Pozisyon', 'Seviye', 'Ücret', 'Durum', 'Telefon', 'Email'];
-    const rows = filteredEmployees.map((e) => [
-      e.name, e.company, e.department, e.position, e.level,
-      e.salary, e.status, e.phone, e.email,
-    ]);
-    const csv = [header, ...rows].map((r) => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'personel_listesi.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const exportData = filteredEmployees.map((e) => ({
+        'Adı Soyadı': e.name || '',
+        'TC Kimlik No': e.tc_no || '',
+        'Sicil No': e.sicil_no || '',
+        'Şirket': e.company || '',
+        'Departman': e.department || '',
+        'Pozisyon': e.position || '',
+        'İşe Giriş Tarihi': e.joinDate || e.join_date ? String(e.joinDate || e.join_date).split('T')[0] : '',
+        'Kurumsal E-Posta': e.email || '',
+        'Telefon': e.phone || '',
+        'Adres': e.address || '',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Personel Listesi');
+      XLSX.writeFile(wb, `Humanius_Personel_Listesi_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (err) {
+      console.error('Excel dışa aktarma hatası:', err);
+    }
   };
 
   // ── İzin CRUD ───────────────────────────────────────────────────────────────
