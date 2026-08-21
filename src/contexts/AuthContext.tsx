@@ -245,45 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
-    // 3. Akıllı Personel / Profil Eşleştirme (İsim veya mail yeni değiştiyse 0 saniyede tanıma)
-    if (res.error) {
-      try {
-        const { data: matchedEmp } = await supabase
-          .from('employees')
-          .select('id, name, email')
-          .or(`email.ilike.${cleanEmail},name.ilike.${cleanEmail}`)
-          .limit(1)
-          .maybeSingle();
-
-        const { data: matchedProf } = await supabase
-          .from('profiles')
-          .select('id, email, full_name')
-          .or(`email.ilike.${cleanEmail},full_name.ilike.${cleanEmail}`)
-          .limit(1)
-          .maybeSingle();
-
-        const candidateEmails = [
-          matchedEmp?.email,
-          matchedProf?.email,
-          matchedEmp?.name ? `${matchedEmp.name.toLowerCase().replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/[^a-z0-9]/g, '.')}@humanius.net` : null
-        ].filter(Boolean) as string[];
-
-        for (const candidate of candidateEmails) {
-          if (candidate.toLowerCase() !== cleanEmail) {
-            const retryRes = await supabase.auth.signInWithPassword({
-              email: candidate.toLowerCase(),
-              password
-            });
-            if (!retryRes.error) {
-              return { error: null };
-            }
-          }
-        }
-      } catch (lookupErr) {
-        console.warn('Smart login fallback warning:', lookupErr);
-      }
-    }
-
+    // Güvenli ve doğrudan kimlik doğrulama
     return { error: res.error };
   };
 
