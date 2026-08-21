@@ -33,6 +33,7 @@ import IzinliKisiler from './components/IzinliKisiler';
 import PdksDevam from './components/PdksDevam';
 import IsAkisi from './components/IsAkisi';
 import DemoBanner from './components/DemoBanner';
+import ExcelImportModal from './components/ExcelImportModal';
 
 import { Suspense } from 'react';
 import { lazyWithRetry } from './utils/lazyWithRetry';
@@ -223,6 +224,7 @@ const AppInner: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isNewEmployee, setIsNewEmployee] = useState(false);
   const [globalAccessGranted, setGlobalAccessGranted] = useState(false);
+  const [showExcelImportModal, setShowExcelImportModal] = useState(false);
 
   useEffect(() => {
     if (selectedEmployee) {
@@ -1325,6 +1327,7 @@ const AppInner: React.FC = () => {
               onCompanyChange={setSelectedCompany}
               onNewEmployee={handleNewEmployee}
               onExportCSV={handleExportCSV}
+              onImportExcel={() => setShowExcelImportModal(true)}
               companies={companies}
               departments={departments}
               searchTerm={searchTerm}
@@ -1651,6 +1654,16 @@ const AppInner: React.FC = () => {
         onDelete={handleDeleteEmployee}
         companies={companies}
         departments={departments}
+      />
+
+      <ExcelImportModal
+        isOpen={showExcelImportModal}
+        onClose={() => setShowExcelImportModal(false)}
+        onSuccess={() => {
+          loadData();
+        }}
+        activeCompanyId={profile?.company_id}
+        activeCompanyName={companies[0]}
       />
 
       {selectedBordro && (

@@ -11,6 +11,7 @@ interface ToolbarProps {
   onCompanyChange: (company: string) => void;
   onNewEmployee: () => void;
   onExportCSV: () => void;
+  onImportExcel?: () => void;
   companies: Company[];
   departments: Department[];
   searchTerm?: string;
@@ -25,6 +26,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onCompanyChange,
   onNewEmployee,
   onExportCSV,
+  onImportExcel,
   companies,
   departments,
   searchTerm = '',
@@ -91,15 +93,26 @@ const Toolbar: React.FC<ToolbarProps> = ({
           
           <button
             onClick={onNewEmployee}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm text-sm"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm text-sm cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             {t('toolbar.newEmployee')}
           </button>
+
+          {onImportExcel && (
+            <button
+              onClick={onImportExcel}
+              className="flex items-center gap-2 bg-emerald-50 border border-emerald-300 text-emerald-700 hover:bg-emerald-100 px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm text-sm cursor-pointer"
+              title="Excel veya CSV dosyasından toplu personel aktarımı yapın"
+            >
+              <UploadCloud className="w-4 h-4 text-emerald-600" />
+              <span>Excel'den Aktar</span>
+            </button>
+          )}
           
           <button
             onClick={onExportCSV}
-            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-semibold hover:border-blue-300 hover:bg-blue-50 transition-all text-sm"
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-semibold hover:border-blue-300 hover:bg-blue-50 transition-all text-sm cursor-pointer"
           >
             <FileDown className="w-4 h-4 text-gray-500" />
             {t('toolbar.exportCSV')}
