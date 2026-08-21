@@ -57,8 +57,6 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [importResult, setImportResult] = useState<{ count: number; error?: string } | null>(null);
 
-  if (!isOpen) return null;
-
   // 1. Örnek Excel Şablonu İndirme Fonksiyonu
   const downloadSampleTemplate = () => {
     const sampleData = [
@@ -295,6 +293,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       setLoading(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
