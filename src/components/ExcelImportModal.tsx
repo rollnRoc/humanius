@@ -23,21 +23,17 @@ interface TargetField {
   matchKeywords: string[];
 }
 
-// Personel düzenleme ekranındaki alanlar (Maaş hariç)
+// Personel düzenleme ekranındaki temel alanlar (Maaş, kıdem, kişisel mail, istihdam türü hariç)
 const TARGET_FIELDS: TargetField[] = [
   { key: 'name', label: 'Adı Soyadı', required: true, matchKeywords: ['ad', 'soyad', 'adı soyadı', 'isim', 'personel adı', 'name', 'full name', 'çalışan'] },
   { key: 'tc_no', label: 'TC Kimlik No', matchKeywords: ['tc', 'tckn', 'tc no', 'tc kimlik', 'kimlik no', 'vatandaşlık no'] },
   { key: 'sicil_no', label: 'Sicil No', matchKeywords: ['sicil', 'sicil no', 'personel no', 'kart no', 'employee id', 'özlük no'] },
   { key: 'department', label: 'Departman', matchKeywords: ['departman', 'bölüm', 'birim', 'müdürlük', 'department', 'şube'] },
   { key: 'position', label: 'Pozisyon / Görev', matchKeywords: ['pozisyon', 'görev', 'ünvan', 'unvan', 'rol', 'meslek', 'title', 'position', 'job'] },
-  { key: 'level', label: 'Kıdem Seviyesi', matchKeywords: ['seviye', 'kıdem', 'level', 'derece', 'kademe'] },
   { key: 'join_date', label: 'İşe Giriş Tarihi', matchKeywords: ['giriş', 'işe giriş', 'başlama tarihi', 'giriş tarihi', 'start date', 'tarih', 'başlangıç'] },
   { key: 'email', label: 'Kurumsal E-Posta', matchKeywords: ['kurumsal e-posta', 'e-posta', 'eposta', 'email', 'mail', 'şirket maili'] },
-  { key: 'personal_email', label: 'Kişisel / İletişim E-Posta', matchKeywords: ['kişisel e-posta', 'iletişim maili', 'özel e-posta', 'contact email', 'personal email'] },
   { key: 'phone', label: 'Telefon', matchKeywords: ['tel', 'telefon', 'gsm', 'cep', 'mobil', 'phone', 'iletişim no'] },
   { key: 'address', label: 'Adres', matchKeywords: ['adres', 'ikametgah', 'şehir', 'address', 'yerleşim'] },
-  { key: 'employee_type', label: 'İstihdam Türü', matchKeywords: ['tür', 'istihdam türü', 'çalışma tipi', 'sözleşme', 'tip'] },
-  { key: 'status', label: 'Çalışma Durumu', matchKeywords: ['durum', 'status', 'aktiflik', 'durumu'] },
 ];
 
 export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
@@ -57,7 +53,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [importResult, setImportResult] = useState<{ count: number; error?: string } | null>(null);
 
-  // 1. Örnek Excel Şablonu İndirme Fonksiyonu
+  // 1. Sadeleştirilmiş Örnek Excel Şablonu İndirme Fonksiyonu
   const downloadSampleTemplate = () => {
     const sampleData = [
       {
@@ -66,14 +62,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         'Sicil No': 'SICIL-001',
         'Departman': 'Yazılım',
         'Pozisyon': 'Kıdemli Yazılım Geliştirici',
-        'Kıdem Seviyesi': 'Senior',
         'İşe Giriş Tarihi': '2023-04-15',
-        'E-Posta': 'ahmet.yilmaz@humanius.net',
-        'Kişisel E-Posta': 'ahmetyilmaz@gmail.com',
+        'Kurumsal E-Posta': 'ahmet.yilmaz@humanius.net',
         'Telefon': '05551234567',
         'Adres': 'Kadıköy, İstanbul',
-        'İstihdam Türü': 'normal',
-        'Durum': 'active',
       },
       {
         'Adı Soyadı': 'Ayşe Kaya',
@@ -81,14 +73,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         'Sicil No': 'SICIL-002',
         'Departman': 'İnsan Kaynakları',
         'Pozisyon': 'İK Uzmanı',
-        'Kıdem Seviyesi': 'Mid',
         'İşe Giriş Tarihi': '2024-01-10',
-        'E-Posta': 'ayse.kaya@humanius.net',
-        'Kişisel E-Posta': 'aysekaya@hotmail.com',
+        'Kurumsal E-Posta': 'ayse.kaya@humanius.net',
         'Telefon': '05329876543',
         'Adres': 'Çankaya, Ankara',
-        'İstihdam Türü': 'normal',
-        'Durum': 'active',
       },
       {
         'Adı Soyadı': 'Mehmet Demir',
@@ -96,14 +84,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         'Sicil No': 'SICIL-003',
         'Departman': 'Satış & Pazarlama',
         'Pozisyon': 'Satış Yöneticisi',
-        'Kıdem Seviyesi': 'Lead',
         'İşe Giriş Tarihi': '2022-08-01',
-        'E-Posta': 'mehmet.demir@humanius.net',
-        'Kişisel E-Posta': 'mdemir@yahoo.com',
+        'Kurumsal E-Posta': 'mehmet.demir@humanius.net',
         'Telefon': '05445556677',
         'Adres': 'Bornova, İzmir',
-        'İstihdam Türü': 'normal',
-        'Durum': 'active',
       }
     ];
 
