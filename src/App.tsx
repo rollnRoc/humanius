@@ -736,13 +736,17 @@ const AppInner: React.FC = () => {
       }
 
       // E-posta girilmemişse ad.soyad üzerinden otomatik kurumsal e-posta üret
-      let targetEmail = emp.email ? emp.email.trim() : '';
+      let targetEmail = emp.email
+        ? emp.email.trim().toLowerCase().replace(/\.+@/, '@').replace(/^\.+/, '').replace(/\.{2,}/g, '.')
+        : '';
       if (!targetEmail && emp.name) {
         const slug = emp.name
           .toLowerCase()
           .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
           .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
-          .replace(/[^a-z0-9]/g, '.');
+          .replace(/[^a-z0-9]/g, '.')
+          .replace(/\.+/g, '.')
+          .replace(/^\.+|\.+$/g, '');
         targetEmail = `${slug}@humanius.net`;
       }
 

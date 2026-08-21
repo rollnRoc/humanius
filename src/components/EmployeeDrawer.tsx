@@ -226,9 +226,16 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       alert('Bu e-posta adresi sistemde zaten kayıtlı. Lütfen başka bir e-posta tanımlayın.');
       return;
     }
+    const rawEmail = (formData.email || '').trim().toLowerCase();
+    const cleanEmail = rawEmail
+      .replace(/\.+@/, '@')
+      .replace(/^\.+/, '')
+      .replace(/\.{2,}/g, '.');
+
     const finalJd = formData.joinDate || formData.join_date || new Date().toISOString().split('T')[0];
     onSave({
       ...formData,
+      email: cleanEmail,
       joinDate: finalJd,
       join_date: finalJd,
       approval_passcode: formData.approval_passcode || '987654',

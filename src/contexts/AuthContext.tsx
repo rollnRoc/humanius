@@ -195,7 +195,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = email
+      .trim()
+      .toLowerCase()
+      .replace(/\.+@/, '@')
+      .replace(/^\.+/, '')
+      .replace(/\.{2,}/g, '.');
 
     // Süper Yönetici için otomatik esnek giriş desteği
     if (cleanEmail === 'superadmin@humanius.net' || cleanEmail === 'superadmin@humanius.local' || cleanEmail === 'superadmin') {
