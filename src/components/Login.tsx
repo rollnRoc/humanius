@@ -33,22 +33,7 @@ export default function Login() {
         return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('company_id, role')
-          .eq('id', user.id)
-          .maybeSingle() as { data: { company_id: string | null; role: string | null } | null };
-
-        if (!profile) {
-          setError('Kullanıcı profili bulunamadı. Yöneticinizle iletişime geçin.');
-          await supabase.auth.signOut();
-        } else if (!profile.company_id && profile.role !== 'superadmin') {
-          setError('Bu hesap için şirket ataması yok. Yöneticinizle iletişime geçin.');
-          await supabase.auth.signOut();
-        }
-      }
+      // Giriş başarılı - AuthContext onAuthStateChange oturumu otomatik olarak yönetecektir
     } catch (err: any) {
       setError(translateErrorMessage(err.message));
     } finally {
