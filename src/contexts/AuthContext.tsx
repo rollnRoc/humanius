@@ -254,73 +254,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
-    // Eğer oturum başarısız olduysa ve personelin e-postası veya adı yeni değiştiyse
+    // Eğer oturum başarısız olduysa varyasyonları dene ve başarı halinde auth hesabını yeni maile kalıcı olarak yükselt
     if (res.error) {
-      try {
-        const { data: empRecord } = await supabase
-          .from('employees')
-          .select('id, email, name, company_id')
-          .or(`email.ilike.${cleanEmail},name.ilike.${cleanEmail}`)
-          .limit(1)
-          .maybeSingle();
+      const localPart = cleanEmail.split('@')[0];
+      const domain = cleanEmail.split('@')[1] || 'humanius.net';
 
-        if (empRecord) {
-          // Bu personele ait mevcut veya eski profil/hesapları ara
-          const { data: matchedProfiles } = await supabase
-            .from('profiles')
-            .select('id, email, full_name, company_id')
-            .or(`id.eq.${empRecord.id},full_name.ilike.${empRecord.name}`);
+      const candidateEmails: string[] = [];
 
-          const candidateEmails = (matchedProfiles || [])
-            .map(p => p.email?.toLowerCase().trim())
-            .filter(Boolean) as string[];
+      // Harf tekrarlarını sadeleştirme (Örn: ahmett -> ahmet, mehmett -> mehmet)
+      const singleLetterLocal = localPart.replace(/([a-z])\1+/g, '$1');
+      if (singleLetterLocal !== localPart) {
+        candidateEmails.push(`${singleLetterLocal}@${domain}`);
+        candidateEmails.push(`${singleLetterLocal}@humanius.net`);
+        candidateEmails.push(`${singleLetterLocal}@humanius.com`);
+      }
 
-          // Eski email veya türetilmiş email adayları
-          const slugEmail = `${empRecord.name.toLowerCase().replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/[^a-z0-9]/g, '.')}@humanius.net`;
-          if (!candidateEmails.includes(slugEmail)) candidateEmails.push(slugEmail);
+      // Domain varyasyonları
+      if (domain === 'humanius.net') {
+        candidateEmails.push(`${localPart}@humanius.com`);
+        candidateEmails.push(`${localPart}@humanius.com.tr`);
+      } else if (domain === 'humanius.com') {
+        candidateEmails.push(`${localPart}@humanius.net`);
+      }
 
-          for (const cand of candidateEmails) {
-            if (cand !== cleanEmail) {
-              const authRes = await supabase.auth.signInWithPassword({
-                email: cand,
-                password
-              });
-
-              if (!authRes.error && authRes.data.user) {
-                // Oturum açıldı! Yeni e-postayı auth.users ve profiles üzerinde kalıcı olarak anında güncelle
-                try {
-                  await supabase.auth.updateUser({ email: cleanEmail });
-                  await supabase.from('profiles').update({ email: cleanEmail, full_name: empRecord.name }).eq('id', authRes.data.user.id);
-                  await supabase.from('employees').update({ email: cleanEmail }).eq('id', empRecord.id);
-                } catch (updateErr) {
-                  console.warn('Post-login email upgrade warning:', updateErr);
-                }
-                return { error: null };
-              }
-            }
-          }
-
-          // Edge Function üzerinden zorunlu senkronizasyon çağrısı
+      for (const cand of candidateEmails) {
+        if (cand !== cleanEmail) {
           try {
-            const { userManagementService } = await import('../services/userManagementService');
-            await userManagementService.updateEmployeeDetails({
-              email: cleanEmail,
-              employeeId: empRecord.id,
-              companyId: empRecord.company_id,
-              fullName: empRecord.name,
-            });
-
-            const retryRes = await supabase.auth.signInWithPassword({
-              email: cleanEmail,
+            const candRes = await supabase.auth.signInWithPassword({
+              email: cand,
               password
             });
-            if (!retryRes.error) {
+
+            if (!candRes.error && candRes.data.user) {
+              // Oturum açıldı! Yeni e-postayı auth.users ve profiles üzerinde kalıcı olarak anında güncelle
+              try {
+                await supabase.auth.updateUser({ email: cleanEmail });
+                await supabase.from('profiles').update({ email: cleanEmail }).eq('id', candRes.data.user.id);
+                await supabase.from('employees').update({ email: cleanEmail }).eq('email', cand);
+              } catch (upErr) {
+                console.warn('Auto-upgrading user email error:', upErr);
+              }
+              demoService.clearDatabase();
+              setIsDemo(false);
               return { error: null };
             }
           } catch {}
         }
-      } catch (syncErr) {
-        console.warn('Login on-the-fly sync warning:', syncErr);
       }
     }
 
