@@ -24,27 +24,53 @@ export function fixUtf8Encoding(str: string | null | undefined): string {
 
 export const companyService = {
   async getCompanies() {
-    const { data, error } = await supabase
-      .from('companies')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return (data || []).map(c => ({ ...c, name: fixUtf8Encoding(c.name) }));
+      if (!error && data && data.length > 0) {
+        return (data || []).map(c => ({ ...c, name: fixUtf8Encoding(c.name) }));
+      }
+    } catch {}
+
+    try {
+      const { data: res } = await supabase.functions.invoke('user-management', {
+        body: { operation: 'list_companies' }
+      });
+      if (res?.companies) {
+        return (res.companies || []).map((c: any) => ({ ...c, name: fixUtf8Encoding(c.name) }));
+      }
+    } catch {}
+
+    return [];
   },
 
   async getById(id: string) {
-    const { data, error } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+    if (!id) return null;
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
 
-    if (error) throw error;
-    if (data) {
-      return { ...data, name: fixUtf8Encoding(data.name) };
-    }
-    return data;
+      if (!error && data) {
+        return { ...data, name: fixUtf8Encoding(data.name) };
+      }
+    } catch {}
+
+    try {
+      const { data: res } = await supabase.functions.invoke('user-management', {
+        body: { operation: 'get_company', id }
+      });
+      if (res?.company) {
+        return { ...res.company, name: fixUtf8Encoding(res.company.name) };
+      }
+    } catch {}
+
+    return null;
   },
 
   async create(company: CompanyInsert) {

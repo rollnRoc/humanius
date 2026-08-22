@@ -132,6 +132,23 @@ serve(async (req: Request) => {
       return jsonResponse({ employees: emps || [] });
     }
 
+    if (operation === 'list_companies') {
+      const { data: comps, error: compErr } = await adminClient.from('companies').select('*').order('created_at', { ascending: false });
+      if (compErr) {
+        return jsonResponse({ error: compErr.message }, 500);
+      }
+      return jsonResponse({ companies: comps || [] });
+    }
+
+    if (operation === 'get_company') {
+      const id = payload.id as string;
+      const { data: comp, error: compErr } = await adminClient.from('companies').select('*').eq('id', id).maybeSingle();
+      if (compErr) {
+        return jsonResponse({ error: compErr.message }, 500);
+      }
+      return jsonResponse({ company: comp || null });
+    }
+
     if (!operation) {
       return jsonResponse({ error: 'operation alanı zorunludur' }, 400);
     }
