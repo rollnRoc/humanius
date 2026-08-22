@@ -79,6 +79,7 @@ export const userManagementService = {
 
   updateEmployeeDetails(payload: {
     email: string;
+    oldEmail?: string;
     employeeId?: string;
     companyId?: string;
     fullName?: string;

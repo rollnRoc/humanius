@@ -425,6 +425,7 @@ serve(async (req: Request) => {
 
     if (operation === 'update_employee_details') {
       const email = String(payload.email ?? '').trim().toLowerCase();
+      const oldEmail = payload.oldEmail ? String(payload.oldEmail).trim().toLowerCase() : '';
       const employeeId = payload.employeeId ? String(payload.employeeId).trim() : '';
       const companyId = String(payload.companyId ?? '').trim();
       const role = payload.role ? String(payload.role).trim() as ProfileRole : undefined;
@@ -439,41 +440,48 @@ serve(async (req: Request) => {
 
       let targetAuthId: string | null = employeeId || null;
 
-      if (email && employeeId) {
-        let authUpdated = false;
-        try {
-          await adminClient.auth.admin.updateUserById(employeeId, { email, password: '987654', email_confirm: true });
-          authUpdated = true;
-        } catch (e) {
-          console.warn('Direct auth update by employeeId failed, trying lookup/create:', e);
+      if (email) {
+        const candidateSearchEmails = [email];
+        if (oldEmail) {
+          candidateSearchEmails.push(oldEmail);
+          candidateSearchEmails.push(oldEmail.replace('humanius.net', 'humanius.com'));
+          candidateSearchEmails.push(oldEmail.replace('humanius.net', 'humanius.com.tr'));
         }
 
-        if (!authUpdated) {
-          try {
-            const { data: existingEmp } = await adminClient.from('employees').select('email, name').eq('id', employeeId).maybeSingle();
-            const oldEmail = existingEmp?.email?.toLowerCase().trim();
-            const searchEmails = [email];
-            if (oldEmail) {
-              searchEmails.push(oldEmail);
-              searchEmails.push(oldEmail.replace('humanius.net', 'humanius.com'));
-              searchEmails.push(oldEmail.replace('humanius.net', 'humanius.com.tr'));
-            }
-
-            const { data: profs } = await adminClient.from('profiles').select('id, email').or(searchEmails.map(e => `email.eq.${e}`).join(','));
-            if (profs && profs.length > 0) {
-              targetAuthId = profs[0].id;
-              await adminClient.auth.admin.updateUserById(targetAuthId, { email, password: '987654', email_confirm: true });
-            } else {
-              try {
-                const newAuthUser = await createManagedUser(email, '987654', fullName || 'Personel');
-                targetAuthId = newAuthUser.id;
-              } catch (cErr) {
-                console.warn('Create missing Auth user failed:', cErr);
-              }
-            }
-          } catch (lookupErr) {
-            console.warn('Auth user lookup/create failed:', lookupErr);
+        try {
+          // 1. Direct check in profiles
+          let targetProfile: { id: string; email: string } | null = null;
+          if (employeeId) {
+            const { data: pById } = await adminClient.from('profiles').select('id, email').eq('id', employeeId).maybeSingle();
+            if (pById) targetProfile = pById;
           }
+          if (!targetProfile && candidateSearchEmails.length > 0) {
+            const { data: pByEmail } = await adminClient.from('profiles').select('id, email').or(candidateSearchEmails.map(e => `email.eq.${e}`).join(',')).limit(1).maybeSingle();
+            if (pByEmail) targetProfile = pByEmail;
+          }
+          if (!targetProfile && fullName) {
+            const { data: pByName } = await adminClient.from('profiles').select('id, email').ilike('full_name', fullName).limit(1).maybeSingle();
+            if (pByName) targetProfile = pByName;
+          }
+
+          if (targetProfile) {
+            targetAuthId = targetProfile.id;
+            try {
+              await adminClient.auth.admin.updateUserById(targetAuthId, { email, email_confirm: true });
+            } catch (authErr) {
+              console.warn('Update user by targetAuthId warning:', authErr);
+            }
+          } else {
+            // Check if user exists in auth.users by email lookup
+            try {
+              const newAuthUser = await createManagedUser(email, '987654', fullName || 'Personel');
+              targetAuthId = newAuthUser.id;
+            } catch (cErr) {
+              console.warn('Create or lookup Auth user warning:', cErr);
+            }
+          }
+        } catch (lookupErr) {
+          console.warn('Auth user lookup warning:', lookupErr);
         }
       }
 

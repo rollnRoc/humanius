@@ -778,10 +778,13 @@ const AppInner: React.FC = () => {
         }
       }
 
+      const oldEmail = selectedEmployee?.email || (emp as any).oldEmail || emp.email;
+
       if (targetEmail || emp.id) {
         try {
           await userManagementService.updateEmployeeDetails({
             email: targetEmail || emp.email,
+            oldEmail: oldEmail || undefined,
             employeeId: emp.id || undefined,
             companyId: targetCompanyId,
             fullName: emp.name,
@@ -828,15 +831,19 @@ const AppInner: React.FC = () => {
         } else if (!isNewEmployee && emp.id) {
           await employeeService.update(emp.id, cleanPayload as any);
 
-          // Update profiles table safely with only columns that exist in profiles schema
+          // Update profiles table safely with email and name
           try {
-            await supabase
-              .from('profiles')
-              .update({
-                full_name: emp.name,
-                role: emp.role ?? 'employee'
-              })
-              .eq('id', emp.id);
+            const profPayload: any = {
+              full_name: emp.name,
+              role: emp.role ?? 'employee',
+              email: targetEmail || emp.email,
+            };
+            if (emp.id) {
+              await supabase.from('profiles').update(profPayload).eq('id', emp.id);
+            }
+            if (oldEmail && oldEmail !== (targetEmail || emp.email)) {
+              await supabase.from('profiles').update(profPayload).eq('email', oldEmail);
+            }
           } catch {}
         }
       } catch (clientEmpErr) {

@@ -243,7 +243,19 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   };
 
   const handleInputChange = (field: keyof Employee, value: any) => {
-    if (field === 'joinDate' || field === 'join_date') {
+    if (field === 'name') {
+      const prevName = formData?.name || '';
+      const prevDerivedEmail = prevName ? `${toAsciiEmail(prevName)}@humanius.net` : '';
+      const currentEmail = formData?.email || '';
+      const shouldSyncEmail = !currentEmail || currentEmail === prevDerivedEmail || isNew;
+      const newDerivedEmail = value ? `${toAsciiEmail(value)}@humanius.net` : '';
+
+      setFormData(prev => prev ? {
+        ...prev,
+        name: value,
+        email: shouldSyncEmail ? newDerivedEmail : prev.email
+      } : null);
+    } else if (field === 'joinDate' || field === 'join_date') {
       const cleanValue = value ? String(value).split('T')[0] : '';
       setFormData(prev => prev ? { ...prev, joinDate: cleanValue, join_date: cleanValue } : null);
     } else if (field === 'contact_email' || field === 'personal_email') {

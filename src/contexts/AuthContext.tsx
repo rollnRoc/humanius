@@ -195,12 +195,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    const cleanEmail = email
+    let cleanEmail = email
       .trim()
       .toLowerCase()
       .replace(/\.+@/, '@')
       .replace(/^\.+/, '')
       .replace(/\.{2,}/g, '.');
+
+    if (!cleanEmail.includes('@')) {
+      cleanEmail = `${cleanEmail}@humanius.net`;
+    }
 
     // Süper Yönetici için otomatik esnek giriş desteği
     if (cleanEmail === 'superadmin@humanius.net' || cleanEmail === 'superadmin@humanius.local' || cleanEmail === 'superadmin') {
@@ -248,6 +252,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: fallbackNet,
         password
       });
+    }
+
+    // Eğer oturum başarısız olduysa ve personelin e-postası yeni değiştiyse arka planda 0 gecikmeyle senkronize et ve tekrar dene
+    if (res.error) {
+      try {
+        const { data: empRecord } = await supabase
+          .from('employees')
+          .select('id, email, name, company_id')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+
+        if (empRecord) {
+          const { userManagementService } = await import('../services/userManagementService');
+          await userManagementService.updateEmployeeDetails({
+            email: cleanEmail,
+            employeeId: empRecord.id,
+            companyId: empRecord.company_id,
+            fullName: empRecord.name,
+          });
+
+          // Senkronizasyon sonrası anında tekrar dene
+          const retryRes = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password
+          });
+          if (!retryRes.error) {
+            return { error: null };
+          }
+        }
+      } catch (syncErr) {
+        console.warn('Login on-the-fly sync warning:', syncErr);
+      }
     }
 
     // Güvenli ve doğrudan kimlik doğrulama
