@@ -306,8 +306,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
-        <p className="text-sm font-semibold text-gray-800">{profile?.full_name || 'Demo Kullanıcı'}</p>
-        <p className="mt-0.5 text-xs text-gray-400">{profile?.company_id ? '' : 'Humanius Demo Şirketi'}</p>
+        <p className="text-sm font-semibold text-gray-800">{profile?.full_name || user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : 'Kullanıcı')}</p>
+        <p className="mt-0.5 text-xs text-gray-400">{profile?.company_name || 'Humanius Şirketi'}</p>
         <p className="mt-1 text-xs text-gray-500">{getRoleLabel(effectiveRole)}</p>
       </div>
 
