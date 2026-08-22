@@ -56,6 +56,17 @@ export default function SifreDegistir() {
           <Key className="w-5 h-5 text-indigo-600" />
           <h3 className="font-bold text-gray-800 text-base">Giriş Şifresi Güncelleme</h3>
         </div>
+
+        {/* Güvenlik ve Onay Bildirgesi */}
+        <div className="mb-5 p-4 bg-indigo-50/70 border border-indigo-100 rounded-xl text-xs text-indigo-900 leading-relaxed space-y-1.5">
+          <div className="flex items-center gap-2 font-bold text-indigo-700 text-sm">
+            <ShieldCheck className="w-4 h-4" />
+            <span>Güvenlik & Onay Bildirgesi</span>
+          </div>
+          <p className="text-gray-600">
+            Hesap güvenliğiniz için şifrenizi en az 6 karakterli güçlü bir kombinasyon olarak belirleyiniz. Şifrenizi güncellediğinizde bir sonraki tüm oturum açma işlemlerinizde bu yeni şifreniz geçerli olacaktır.
+          </p>
+        </div>
         
         {passwordMessage && (
           <div className="mb-4 p-3.5 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm flex items-center gap-2.5">
@@ -103,10 +114,22 @@ export default function SifreDegistir() {
             />
           </div>
 
+          {/* Kurallar Özeti */}
+          <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl space-y-1.5 text-xs text-gray-500">
+            <div className={`flex items-center gap-1.5 ${newPassword.length >= 6 ? 'text-emerald-600 font-semibold' : ''}`}>
+              <span className="text-sm">•</span>
+              <span>En az 6 karakter uzunluğunda</span>
+            </div>
+            <div className={`flex items-center gap-1.5 ${newPassword && confirmPassword && newPassword === confirmPassword ? 'text-emerald-600 font-semibold' : ''}`}>
+              <span className="text-sm">•</span>
+              <span>Şifreler birbiriyle eşleşiyor</span>
+            </div>
+          </div>
+
           <div className="pt-2">
             <button
               type="submit"
-              disabled={passwordLoading || !newPassword || !confirmPassword}
+              disabled={passwordLoading || !newPassword || !confirmPassword || newPassword.length < 6 || newPassword !== confirmPassword}
               className="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {passwordLoading ? (
