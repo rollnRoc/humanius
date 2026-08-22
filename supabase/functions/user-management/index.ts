@@ -83,15 +83,15 @@ async function getRequesterProfile(req: Request) {
   return { user: authData.user, profile };
 }
 
-async function createManagedUser(email: string, password: string, fullName: string) {
+async function createManagedUser(email: string, password: string, fullName: string, forceChange: boolean = true) {
   const { data, error } = await adminClient.auth.admin.createUser({
     email,
     password: password || '987654',
     email_confirm: true,
     user_metadata: {
       full_name: fullName,
-      must_change_password: false,
-      is_first_login: false,
+      must_change_password: forceChange,
+      is_first_login: forceChange,
     },
   });
 
