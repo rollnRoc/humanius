@@ -106,6 +106,10 @@ export const userManagementService = {
     return invokeFunction<{ message: string }>('reset_password_with_tc_phone', payload);
   },
 
+  flagForcePasswordChange(payload: { email?: string; userId?: string; forceState: boolean }) {
+    return invokeFunction<{ message: string }>('flag_force_password_change', payload);
+  },
+
   syncAllAccountsToNet() {
     return invokeFunction<{ message: string; count: number }>('sync_all_accounts_to_net', {});
   },

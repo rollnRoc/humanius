@@ -381,7 +381,6 @@ serve(async (req: Request) => {
           try {
             await adminClient.auth.admin.updateUserById(matchedAuthUser.id, {
               email: cleanEmail,
-              password: '987654',
               email_confirm: true
             });
             count++;
@@ -389,7 +388,7 @@ serve(async (req: Request) => {
             console.warn('Sync auth user error:', err);
           }
         } else {
-          // Create Auth user if missing
+          // Create Auth user ONLY if completely missing
           try {
             const newUser = await createManagedUser(cleanEmail, '987654', e.name || 'Personel');
             matchedAuthUser = newUser;
@@ -412,7 +411,13 @@ serve(async (req: Request) => {
         
         await adminClient.from('employees').update({ email: cleanEmail }).eq('id', e.id);
       }
-      return jsonResponse({ message: `${count} adet aktif kullanıcı senkronize edildi. ${deletedDuplicates} adet eski/çift hesap temizlendi.`, count, deletedDuplicates });
+      return jsonResponse({
+        message: `${count} adet aktif kullanıcı senkronize edildi. ${deletedDuplicates} adet eski/çift hesap temizlendi.`,
+        count,
+        deletedDuplicates,
+        ahmetEmployees: (emps || []).filter(e => (e.name || '').includes('Ahmet') || (e.email || '').includes('mici')),
+        ahmetAuthUsers: (authUsers || []).filter(u => (u.email || '').includes('mici') || (u.email || '').includes('ahmet'))
+      });
     }
 
     const { profile } = await getRequesterProfile(req);
