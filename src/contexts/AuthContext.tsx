@@ -166,9 +166,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Profil tablosunda ID ile henüz yoksa veya company_id boşsa oturum açan kullanıcının e-postası ile eşle
         const { data: authUserData } = await supabase.auth.getUser();
         const userEmail = authUserData.user?.email?.toLowerCase().trim();
-        let matchedCompanyId = data?.company_id || '735825a4-f12b-4ee7-959c-a8a29e674617';
+        let matchedCompanyId = data?.company_id || null;
         let matchedFullName = data?.full_name || authUserData.user?.user_metadata?.full_name || 'Personel';
-        let matchedRole = data?.role || 'admin';
+        let matchedRole = data?.role || 'employee';
 
         if (userEmail) {
           const { data: emp } = await supabase
