@@ -503,19 +503,28 @@ serve(async (req: Request) => {
           if (targetProfile) {
             targetAuthId = targetProfile.id;
             try {
+              const { data: existingUserObj } = await adminClient.auth.admin.getUserById(targetAuthId);
+              const existingMeta = existingUserObj?.user?.user_metadata || {};
+              const mustChange = existingMeta.must_change_password === true || existingMeta.is_first_login === true;
+
               await adminClient.auth.admin.updateUserById(targetAuthId, {
                 email,
                 email_confirm: true,
-                user_metadata: { must_change_password: false, is_first_login: false }
+                user_metadata: {
+                  ...existingMeta,
+                  full_name: fullName || existingMeta.full_name,
+                  must_change_password: mustChange,
+                  is_first_login: mustChange,
+                }
               });
-              await adminClient.from('profiles').update({ must_change_password: false } as any).eq('id', targetAuthId);
+              await adminClient.from('profiles').update({ must_change_password: mustChange } as any).eq('id', targetAuthId);
             } catch (authErr) {
               console.warn('Update user by targetAuthId warning:', authErr);
             }
           } else {
             // Check if user exists in auth.users by email lookup
             try {
-              const newAuthUser = await createManagedUser(email, '987654', fullName || 'Personel');
+              const newAuthUser = await createManagedUser(email, '987654', fullName || 'Personel', true);
               targetAuthId = newAuthUser.id;
             } catch (cErr) {
               console.warn('Create or lookup Auth user warning:', cErr);
