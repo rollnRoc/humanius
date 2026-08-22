@@ -90,7 +90,8 @@ async function createManagedUser(email: string, password: string, fullName: stri
     email_confirm: true,
     user_metadata: {
       full_name: fullName,
-      must_change_password: true,
+      must_change_password: false,
+      is_first_login: false,
     },
   });
 
@@ -381,7 +382,12 @@ serve(async (req: Request) => {
           try {
             await adminClient.auth.admin.updateUserById(matchedAuthUser.id, {
               email: cleanEmail,
-              email_confirm: true
+              email_confirm: true,
+              user_metadata: {
+                ...(matchedAuthUser.user_metadata || {}),
+                must_change_password: false,
+                is_first_login: false
+              }
             });
             count++;
           } catch (err) {
@@ -405,7 +411,8 @@ serve(async (req: Request) => {
             email: cleanEmail,
             full_name: e.name || 'Personel',
             company_id: e.company_id || matchedProf?.company_id || null,
-            role: matchedProf?.role || 'employee'
+            role: matchedProf?.role || 'employee',
+            must_change_password: false
           });
         }
         
@@ -496,7 +503,12 @@ serve(async (req: Request) => {
           if (targetProfile) {
             targetAuthId = targetProfile.id;
             try {
-              await adminClient.auth.admin.updateUserById(targetAuthId, { email, email_confirm: true });
+              await adminClient.auth.admin.updateUserById(targetAuthId, {
+                email,
+                email_confirm: true,
+                user_metadata: { must_change_password: false, is_first_login: false }
+              });
+              await adminClient.from('profiles').update({ must_change_password: false } as any).eq('id', targetAuthId);
             } catch (authErr) {
               console.warn('Update user by targetAuthId warning:', authErr);
             }

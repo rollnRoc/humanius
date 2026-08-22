@@ -120,16 +120,7 @@ const AppInner: React.FC = () => {
   const effectiveAppRole = user ? appRole : 'admin';
   const isEmployeeOnly = ['employee', 'user'].includes(effectiveAppRole);
 
-  const isForcePasswordChangeRequired = Boolean(
-    !isDemo &&
-    user &&
-    (
-      user?.user_metadata?.must_change_password === true ||
-      user?.user_metadata?.is_first_login === true ||
-      (profile as any)?.must_change_password === true ||
-      (profile as any)?.is_first_login === true
-    )
-  );
+  const isForcePasswordChangeRequired = false;
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [currentView, setCurrentView] = useState<View>('arama');
