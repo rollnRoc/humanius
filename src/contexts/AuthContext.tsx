@@ -254,55 +254,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
-    // Eğer oturum başarısız olduysa varyasyonları dene ve başarı halinde auth hesabını yeni maile kalıcı olarak yükselt
-    if (res.error) {
-      const localPart = cleanEmail.split('@')[0];
-      const domain = cleanEmail.split('@')[1] || 'humanius.net';
-
-      const candidateEmails: string[] = [];
-
-      // Harf tekrarlarını sadeleştirme (Örn: ahmett -> ahmet, mehmett -> mehmet)
-      const singleLetterLocal = localPart.replace(/([a-z])\1+/g, '$1');
-      if (singleLetterLocal !== localPart) {
-        candidateEmails.push(`${singleLetterLocal}@${domain}`);
-        candidateEmails.push(`${singleLetterLocal}@humanius.net`);
-        candidateEmails.push(`${singleLetterLocal}@humanius.com`);
-      }
-
-      // Domain varyasyonları
-      if (domain === 'humanius.net') {
-        candidateEmails.push(`${localPart}@humanius.com`);
-        candidateEmails.push(`${localPart}@humanius.com.tr`);
-      } else if (domain === 'humanius.com') {
-        candidateEmails.push(`${localPart}@humanius.net`);
-      }
-
-      for (const cand of candidateEmails) {
-        if (cand !== cleanEmail) {
-          try {
-            const candRes = await supabase.auth.signInWithPassword({
-              email: cand,
-              password
-            });
-
-            if (!candRes.error && candRes.data.user) {
-              // Oturum açıldı! Yeni e-postayı auth.users ve profiles üzerinde kalıcı olarak anında güncelle
-              try {
-                await supabase.auth.updateUser({ email: cleanEmail });
-                await supabase.from('profiles').update({ email: cleanEmail }).eq('id', candRes.data.user.id);
-                await supabase.from('employees').update({ email: cleanEmail }).eq('email', cand);
-              } catch (upErr) {
-                console.warn('Auto-upgrading user email error:', upErr);
-              }
-              demoService.clearDatabase();
-              setIsDemo(false);
-              return { error: null };
-            }
-          } catch {}
-        }
-      }
-    }
-
     // Güvenli ve doğrudan kimlik doğrulama
     return { error: res.error };
   };

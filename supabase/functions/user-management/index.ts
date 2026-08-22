@@ -342,6 +342,30 @@ serve(async (req: Request) => {
       const { data: profs } = await adminClient.from('profiles').select('id, email, full_name, company_id, role');
       const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers();
       
+      const validActiveEmails = new Set<string>();
+      for (const e of (emps || [])) {
+        if (!e.email) continue;
+        let clean = e.email.trim().toLowerCase().replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
+        if (!clean.includes('@')) clean = `${clean}@humanius.net`;
+        validActiveEmails.add(clean);
+      }
+
+      // 1. Yetkisiz veya eski/artık auth hesaplarını temizle
+      let deletedDuplicates = 0;
+      for (const u of (authUsers || [])) {
+        const uEmail = (u.email || '').toLowerCase().trim();
+        if (uEmail === 'superadmin@humanius.net' || uEmail === 'superadmin@humanius.local') continue;
+        if (!validActiveEmails.has(uEmail)) {
+          try {
+            await adminClient.auth.admin.deleteUser(u.id);
+            await adminClient.from('profiles').delete().eq('id', u.id);
+            deletedDuplicates++;
+          } catch (delErr) {
+            console.warn('Delete orphaned auth user error:', delErr);
+          }
+        }
+      }
+
       let count = 0;
       for (const e of (emps || [])) {
         if (!e.email) continue;
@@ -351,7 +375,7 @@ serve(async (req: Request) => {
         }
 
         // Find Auth user by id or email
-        let matchedAuthUser = (authUsers || []).find(u => u.id === e.id || (u.email || '').toLowerCase() === cleanEmail || (u.email || '').toLowerCase() === e.email.toLowerCase());
+        let matchedAuthUser = (authUsers || []).find(u => u.id === e.id || (u.email || '').toLowerCase() === cleanEmail);
         
         if (matchedAuthUser) {
           try {
@@ -388,7 +412,7 @@ serve(async (req: Request) => {
         
         await adminClient.from('employees').update({ email: cleanEmail }).eq('id', e.id);
       }
-      return jsonResponse({ message: `${count} adet kullanıcının hesabı @humanius.net ve 987654 şifresi ile senkronize edildi.`, count });
+      return jsonResponse({ message: `${count} adet aktif kullanıcı senkronize edildi. ${deletedDuplicates} adet eski/çift hesap temizlendi.`, count, deletedDuplicates });
     }
 
     const { profile } = await getRequesterProfile(req);
@@ -478,6 +502,20 @@ serve(async (req: Request) => {
               targetAuthId = newAuthUser.id;
             } catch (cErr) {
               console.warn('Create or lookup Auth user warning:', cErr);
+            }
+          }
+
+          // 2. Eski ve mükerrer e-postaları auth.users ve profiles tablosundan tamamen sil
+          if (oldEmail && oldEmail !== email) {
+            try {
+              const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers();
+              const oldUsers = (allAuth || []).filter(u => (u.email || '').toLowerCase() === oldEmail && u.id !== targetAuthId);
+              for (const oldU of oldUsers) {
+                await adminClient.auth.admin.deleteUser(oldU.id);
+              }
+              await adminClient.from('profiles').delete().eq('email', oldEmail);
+            } catch (cleanErr) {
+              console.warn('Old email cleanup warning:', cleanErr);
             }
           }
         } catch (lookupErr) {
