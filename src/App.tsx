@@ -247,11 +247,10 @@ const AppInner: React.FC = () => {
   const [selectedBordro, setSelectedBordro] = useState<BordroItem | null>(null);
 
 
-  // ── Data loading ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     const isManagementRole = ['superadmin', 'admin', 'hr', 'manager'].includes(effectiveAppRole) || ['superadmin', 'admin', 'hr', 'manager'].includes(profile?.role || '');
     const isSuper = effectiveAppRole === 'superadmin' || profile?.role === 'superadmin';
-    const targetCompanyId = isManagementRole ? undefined : (profile?.company_id || undefined);
+    const targetCompanyId = isSuper ? undefined : (profile?.company_id || undefined);
     try {
       let companyMap = new Map<string, string>();
       try {
@@ -330,7 +329,7 @@ const AppInner: React.FC = () => {
 
       let filteredMapped = mapped;
       let currentUserEmpId: string | null = null;
-      const isEmployeeRole = profile?.role === 'employee' || profile?.role === 'user';
+      const isEmployeeRole = !isManagementRole && (profile?.role === 'employee' || profile?.role === 'user');
 
       if (isEmployeeRole) {
         const currentUserEmp = mapped.find((emp) => {

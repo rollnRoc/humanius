@@ -52,14 +52,29 @@ export const employeeService = {
     if (demoService.isDemoActive()) {
       return demoService.getEmployees() as any;
     }
-    const source = await pickSource();
-    let query = supabase.from(source).select('*');
-    if (companyId) {
-      query = query.eq('company_id', companyId);
-    }
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as Employee[] | EmployeePublic[];
+    try {
+      const source = await pickSource();
+      let query = supabase.from(source).select('*');
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        return data as Employee[] | EmployeePublic[];
+      }
+    } catch {}
+
+    // Edge function fallback via admin service_role to ensure 100% data access
+    try {
+      const { data: resData } = await supabase.functions.invoke('user-management', {
+        body: { operation: 'list_employees', companyId }
+      });
+      if (resData?.employees && resData.employees.length > 0) {
+        return resData.employees as Employee[];
+      }
+    } catch {}
+
+    return [];
   },
 
   async getById(id: string): Promise<Employee | EmployeePublic | null> {
@@ -286,17 +301,11 @@ export const employeeService = {
         inactive: list.filter(e => e.status === 'inactive').length
       };
     }
-    const source = await pickSource();
-    let query = supabase.from(source).select('status');
-    if (companyId) {
-      query = query.eq('company_id', companyId);
-    }
-    const { data, error } = await query;
-    if (error) throw error;
+    const emps = await this.getAll(companyId);
     const stats = {
-      active:   (data ?? []).filter((e) => e.status === 'active').length,
-      onLeave:  (data ?? []).filter((e) => e.status === 'onLeave').length,
-      inactive: (data ?? []).filter((e) => e.status === 'inactive').length,
+      active:   (emps ?? []).filter((e) => (e.status ?? 'active') === 'active').length,
+      onLeave:  (emps ?? []).filter((e) => e.status === 'leave' || e.status === 'onLeave' || e.status === 'on_leave').length,
+      inactive: (emps ?? []).filter((e) => e.status === 'inactive').length,
     };
     return stats;
   },

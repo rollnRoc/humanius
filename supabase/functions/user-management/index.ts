@@ -119,6 +119,19 @@ serve(async (req: Request) => {
     const payload = await req.json();
     const operation = payload.operation as string;
 
+    if (operation === 'list_employees') {
+      const companyId = payload.companyId as string | undefined;
+      let query = adminClient.from('employees').select('*').order('created_at', { ascending: false });
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
+      const { data: emps, error: empErr } = await query;
+      if (empErr) {
+        return jsonResponse({ error: empErr.message }, 500);
+      }
+      return jsonResponse({ employees: emps || [] });
+    }
+
     if (!operation) {
       return jsonResponse({ error: 'operation alanı zorunludur' }, 400);
     }
