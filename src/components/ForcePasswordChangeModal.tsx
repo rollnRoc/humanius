@@ -50,7 +50,7 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
       try {
         const { error: authError } = await supabase.auth.updateUser({
           password: newPassword,
-          data: { must_change_password: false, is_first_login: false },
+          data: { must_change_password: false, is_first_login: false, password_customized: true },
         });
         if (!authError) updated = true;
       } catch (e) {

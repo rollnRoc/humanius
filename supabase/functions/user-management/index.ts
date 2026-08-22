@@ -380,13 +380,17 @@ serve(async (req: Request) => {
         
         if (matchedAuthUser) {
           try {
+            const existingMeta = matchedAuthUser.user_metadata || {};
+            const isCustomized = existingMeta.password_customized === true;
+            const requiresPasswordChange = !isCustomized;
+
             await adminClient.auth.admin.updateUserById(matchedAuthUser.id, {
               email: cleanEmail,
               email_confirm: true,
               user_metadata: {
-                ...(matchedAuthUser.user_metadata || {}),
-                must_change_password: false,
-                is_first_login: false
+                ...existingMeta,
+                must_change_password: requiresPasswordChange,
+                is_first_login: requiresPasswordChange
               }
             });
             count++;
@@ -396,7 +400,7 @@ serve(async (req: Request) => {
         } else {
           // Create Auth user ONLY if completely missing
           try {
-            const newUser = await createManagedUser(cleanEmail, '987654', e.name || 'Personel');
+            const newUser = await createManagedUser(cleanEmail, '987654', e.name || 'Personel', true);
             matchedAuthUser = newUser;
             count++;
           } catch (err) {
@@ -406,13 +410,14 @@ serve(async (req: Request) => {
 
         if (matchedAuthUser?.id) {
           const matchedProf = (profs || []).find(p => p.id === matchedAuthUser!.id || p.email?.toLowerCase() === cleanEmail);
+          const isCustom = matchedAuthUser.user_metadata?.password_customized === true;
           await adminClient.from('profiles').upsert({
             id: matchedAuthUser.id,
             email: cleanEmail,
             full_name: e.name || 'Personel',
             company_id: e.company_id || matchedProf?.company_id || null,
             role: matchedProf?.role || 'employee',
-            must_change_password: false
+            must_change_password: !isCustom
           });
         }
         
