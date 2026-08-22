@@ -40,7 +40,7 @@ export default function SifreDegistir() {
 
     setNewPassword('');
     setConfirmPassword('');
-    setPasswordMessage('Şifreniz başarıyla güncellendi.');
+    setPasswordMessage('Şifreniz başarıyla değiştirildi.');
   };
 
   return (
@@ -56,22 +56,11 @@ export default function SifreDegistir() {
           <Key className="w-5 h-5 text-indigo-600" />
           <h3 className="font-bold text-gray-800 text-base">Giriş Şifresi Güncelleme</h3>
         </div>
-
-        {/* Güvenlik ve Onay Bildirgesi */}
-        <div className="mb-5 p-4 bg-indigo-50/70 border border-indigo-100 rounded-xl text-xs text-indigo-900 leading-relaxed space-y-1.5">
-          <div className="flex items-center gap-2 font-bold text-indigo-700 text-sm">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Güvenlik & Onay Bildirgesi</span>
-          </div>
-          <p className="text-gray-600">
-            Hesap güvenliğiniz için şifrenizi en az 6 karakterli güçlü bir kombinasyon olarak belirleyiniz. Şifrenizi güncellediğinizde bir sonraki tüm oturum açma işlemlerinizde bu yeni şifreniz geçerli olacaktır.
-          </p>
-        </div>
         
         {passwordMessage && (
-          <div className="mb-4 p-3.5 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm flex items-center gap-2.5">
-            <ShieldCheck className="w-5 h-5 shrink-0" />
-            <span className="font-medium">{passwordMessage}</span>
+          <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-sm flex items-center gap-3 font-semibold animate-in fade-in">
+            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span>{passwordMessage}</span>
           </div>
         )}
 

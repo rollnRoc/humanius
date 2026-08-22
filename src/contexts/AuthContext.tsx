@@ -150,20 +150,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
       if (error) throw error;
+
       if (!data) {
-        console.error('Profile not found for user:', userId);
-        setProfile(null);
-        return;
+        // Profil ID ile bulunamadıysa kullanıcının auth e-postası ile ara veya otomatik oluştur
+        const { data: authUserData } = await supabase.auth.getUser();
+        const userEmail = authUserData.user?.email?.toLowerCase().trim();
+        if (userEmail) {
+          const { data: pByEmail } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', userEmail)
+            .maybeSingle();
+
+          if (pByEmail) {
+            data = pByEmail;
+          } else {
+            const { data: emp } = await supabase
+              .from('employees')
+              .select('id, email, name, company_id')
+              .eq('email', userEmail)
+              .maybeSingle();
+
+            const newProf: Profile = {
+              id: userId,
+              email: userEmail,
+              full_name: emp?.name || authUserData.user?.user_metadata?.full_name || 'Personel',
+              company_id: emp?.company_id || '735825a4-f12b-4ee7-959c-a8a29e674617',
+              role: 'employee',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            await supabase.from('profiles').upsert(newProf);
+            data = newProf;
+          }
+        }
       }
 
-      setProfile(data);
+      setProfile(data || null);
     } catch (error) {
       console.error('Error fetching profile:', error);
       setProfile(null);
