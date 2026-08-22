@@ -544,7 +544,7 @@ const AppInner: React.FC = () => {
   }, [profile?.company_id, profile?.role, profile?.email, profile?.full_name]);
 
   useEffect(() => {
-    if (user && profile?.company_id) {
+    if (user) {
       loadData();
 
       const channel = supabase
@@ -564,7 +564,7 @@ const AppInner: React.FC = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [user, profile?.company_id, loadData]);
+  }, [user, profile?.company_id, profile?.role, loadData]);
 
   // Hesap değiştirmede önceki kullanıcı verisinin 1-2 sn görünmesini engelleyen temizleyici
   useEffect(() => {
