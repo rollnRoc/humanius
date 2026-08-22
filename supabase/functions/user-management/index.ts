@@ -185,6 +185,23 @@ serve(async (req: Request) => {
         });
       }
 
+      let veralEmailAuth = (allAuth || []).find(u => u.email?.toLowerCase() === 'veralbilgehan@gmail.com');
+      if (!veralEmailAuth) {
+        try {
+          veralEmailAuth = await createManagedUser('veralbilgehan@gmail.com', '987654', 'Bilge Han Veral', false);
+        } catch {}
+      }
+      if (veralEmailAuth) {
+        await adminClient.from('profiles').upsert({
+          id: veralEmailAuth.id,
+          email: 'veralbilgehan@gmail.com',
+          full_name: 'Bilge Han Veral',
+          company_id: '11111111-1111-1111-1111-111111111111',
+          role: 'superadmin'
+        });
+        await adminClient.from('employees').update({ email: 'veralbilgehan@gmail.com' }).eq('id', 'ebeb754f-92d9-4d9e-87b5-70440be7f1ea');
+      }
+
       return jsonResponse({ message: 'Admins restored successfully' });
     }
 

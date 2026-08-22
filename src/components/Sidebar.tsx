@@ -211,6 +211,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (profile?.company_id && profile.company_id !== 'demo-company-id-9999' && !profile.company_id.startsWith('demo-')) {
         try {
           const comp = await companyService.getById(profile.company_id);
+          if (comp?.name) {
+            setCompanyName(comp.name);
+          }
           if (comp?.logo_url) {
             if (isInvalidLogo(comp.logo_url)) {
               // Reset legacy/toyota logo in DB to DEFAULT_LOGO_SRC
@@ -317,7 +320,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
         <p className="text-sm font-semibold text-gray-800">{profile?.full_name || user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : 'Kullanıcı')}</p>
-        <p className="mt-0.5 text-xs text-gray-400">{profile?.company_name || 'Humanius Şirketi'}</p>
+        <p className="mt-0.5 text-xs text-gray-500 font-medium">{companyName || (profile as any)?.company_name || ''}</p>
         <p className="mt-1 text-xs text-gray-500">{getRoleLabel(effectiveRole)}</p>
       </div>
 

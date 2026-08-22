@@ -5,6 +5,7 @@ import { useScrollLock } from '../hooks/useScrollLock';
 import { useAuth } from '../contexts/AuthContext';
 import { canDeleteUsers } from '../auth/roles';
 import { supabase } from '../lib/supabase';
+import { userService } from '../services/userService';
 
 interface EmployeeDrawerProps {
   isOpen: boolean;
@@ -173,18 +174,20 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           role: employee.role || 'employee',
         });
 
-        // Also fetch exact profile role from Supabase to guarantee 100% sync with KullanicilarPage
-        if (employee.id || employee.email) {
+        // Also fetch exact profile role to guarantee 100% sync with real user role
+        if (employee.id || employee.email || employee.name) {
           (async () => {
             try {
               let profRole = null;
-              if (employee.id) {
-                const { data } = await supabase.from('profiles').select('role').eq('id', employee.id).maybeSingle();
-                if (data?.role) profRole = data.role;
-              }
-              if (!profRole && employee.email) {
-                const { data } = await supabase.from('profiles').select('role').eq('email', employee.email.trim().toLowerCase()).maybeSingle();
-                if (data?.role) profRole = data.role;
+              const em = (employee.email || '').trim().toLowerCase();
+              const allUsers = await userService.getAll();
+              const matched = allUsers.find(u => 
+                (em && u.email?.trim().toLowerCase() === em) || 
+                (employee.id && u.id === employee.id) ||
+                (employee.name && u.full_name?.trim().toLowerCase() === employee.name.trim().toLowerCase())
+              );
+              if (matched?.role) {
+                profRole = matched.role;
               }
               if (profRole) {
                 setFormData(prev => prev ? { ...prev, role: profRole } : null);

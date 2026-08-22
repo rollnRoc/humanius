@@ -30,17 +30,29 @@ export default function SifreDegistir() {
     }
 
     setPasswordLoading(true);
-    const { error } = await updatePassword(newPassword);
-    setPasswordLoading(false);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+        data: {
+          must_change_password: false,
+          is_first_login: false,
+          password_customized: true
+        }
+      });
+      setPasswordLoading(false);
 
-    if (error) {
-      setPasswordError(translateErrorMessage(error.message));
-      return;
+      if (error) {
+        setPasswordError(translateErrorMessage(error.message));
+        return;
+      }
+
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordMessage('✅ Şifreniz başarıyla güncellendi.');
+    } catch (err: any) {
+      setPasswordLoading(false);
+      setPasswordError(translateErrorMessage(err?.message || 'Bir hata oluştu'));
     }
-
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordMessage('Şifreniz başarıyla değiştirildi.');
   };
 
   return (
