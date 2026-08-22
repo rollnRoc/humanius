@@ -193,7 +193,11 @@ export const userService = {
         email: userData.email,
         password: userData.password,
         options: {
-          data: { full_name: userData.full_name },
+          data: {
+            full_name: userData.full_name,
+            must_change_password: true,
+            is_first_login: true
+          },
         },
       });
 
@@ -211,7 +215,9 @@ export const userService = {
             full_name: userData.full_name,
             company_id: userData.company_id,
             role: userData.role,
-          });
+            must_change_password: true,
+            is_first_login: true,
+          } as any);
 
         if (profileError) throw profileError;
 

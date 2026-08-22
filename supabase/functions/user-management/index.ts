@@ -805,6 +805,8 @@ serve(async (req: Request) => {
           full_name: fullName,
           company_id: companyId,
           role: nextRole,
+          must_change_password: true,
+          is_first_login: true,
         });
       }
 
