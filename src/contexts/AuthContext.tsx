@@ -254,32 +254,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
-    // Eğer oturum başarısız olduysa ve personelin e-postası yeni değiştiyse arka planda 0 gecikmeyle senkronize et ve tekrar dene
+    // Eğer oturum başarısız olduysa ve personelin e-postası veya adı yeni değiştiyse
     if (res.error) {
       try {
         const { data: empRecord } = await supabase
           .from('employees')
           .select('id, email, name, company_id')
-          .eq('email', cleanEmail)
+          .or(`email.ilike.${cleanEmail},name.ilike.${cleanEmail}`)
+          .limit(1)
           .maybeSingle();
 
         if (empRecord) {
-          const { userManagementService } = await import('../services/userManagementService');
-          await userManagementService.updateEmployeeDetails({
-            email: cleanEmail,
-            employeeId: empRecord.id,
-            companyId: empRecord.company_id,
-            fullName: empRecord.name,
-          });
+          // Bu personele ait mevcut veya eski profil/hesapları ara
+          const { data: matchedProfiles } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, company_id')
+            .or(`id.eq.${empRecord.id},full_name.ilike.${empRecord.name}`);
 
-          // Senkronizasyon sonrası anında tekrar dene
-          const retryRes = await supabase.auth.signInWithPassword({
-            email: cleanEmail,
-            password
-          });
-          if (!retryRes.error) {
-            return { error: null };
+          const candidateEmails = (matchedProfiles || [])
+            .map(p => p.email?.toLowerCase().trim())
+            .filter(Boolean) as string[];
+
+          // Eski email veya türetilmiş email adayları
+          const slugEmail = `${empRecord.name.toLowerCase().replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/[^a-z0-9]/g, '.')}@humanius.net`;
+          if (!candidateEmails.includes(slugEmail)) candidateEmails.push(slugEmail);
+
+          for (const cand of candidateEmails) {
+            if (cand !== cleanEmail) {
+              const authRes = await supabase.auth.signInWithPassword({
+                email: cand,
+                password
+              });
+
+              if (!authRes.error && authRes.data.user) {
+                // Oturum açıldı! Yeni e-postayı auth.users ve profiles üzerinde kalıcı olarak anında güncelle
+                try {
+                  await supabase.auth.updateUser({ email: cleanEmail });
+                  await supabase.from('profiles').update({ email: cleanEmail, full_name: empRecord.name }).eq('id', authRes.data.user.id);
+                  await supabase.from('employees').update({ email: cleanEmail }).eq('id', empRecord.id);
+                } catch (updateErr) {
+                  console.warn('Post-login email upgrade warning:', updateErr);
+                }
+                return { error: null };
+              }
+            }
           }
+
+          // Edge Function üzerinden zorunlu senkronizasyon çağrısı
+          try {
+            const { userManagementService } = await import('../services/userManagementService');
+            await userManagementService.updateEmployeeDetails({
+              email: cleanEmail,
+              employeeId: empRecord.id,
+              companyId: empRecord.company_id,
+              fullName: empRecord.name,
+            });
+
+            const retryRes = await supabase.auth.signInWithPassword({
+              email: cleanEmail,
+              password
+            });
+            if (!retryRes.error) {
+              return { error: null };
+            }
+          } catch {}
         }
       } catch (syncErr) {
         console.warn('Login on-the-fly sync warning:', syncErr);
