@@ -135,6 +135,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
+  const [companyName, setCompanyName] = useState<string>('');
+
+  React.useEffect(() => {
+    if (profile?.company_id) {
+      companyService.getById(profile.company_id).then(comp => {
+        if (comp?.name) setCompanyName(comp.name);
+      }).catch(() => {});
+    }
+  }, [profile?.company_id]);
+
   const companyIdKey = profile?.company_id ? `_${profile.company_id}` : '';
   const logoSrcKey = `logoSrc${companyIdKey}`;
   const logoConfigKey = `logoConfig${companyIdKey}`;

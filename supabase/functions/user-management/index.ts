@@ -352,6 +352,15 @@ serve(async (req: Request) => {
     }
 
     if (operation === 'update_all_auth_emails_to_net' || operation === 'sync_all_accounts_to_net') {
+      try {
+        await adminClient.from('companies').upsert([
+          { id: '11111111-1111-1111-1111-111111111111', name: 'Bigsafer' },
+          { id: '735825a4-f12b-4ee7-959c-a8a29e674617', name: 'Mıçı Otomotiv' },
+          { id: '87ed6f79-6a54-40ea-b188-8b325513dc41', name: 'Çavdarlı' },
+          { id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9', name: 'Kazancı Holding' },
+        ]);
+      } catch {}
+
       const { data: emps } = await adminClient.from('employees').select('id, email, name, company_id');
       const { data: profs } = await adminClient.from('profiles').select('id, email, full_name, company_id, role');
       const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers();
