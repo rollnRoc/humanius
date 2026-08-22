@@ -150,11 +150,55 @@ serve(async (req: Request) => {
     }
 
     if (operation === 'restore_admins') {
-      await adminClient.from('profiles').update({ role: 'admin' }).eq('email', 'yusuf.emre.yildirim@humanius.net');
-      await adminClient.from('profiles').update({ role: 'admin' }).eq('email', 'ahmet.mici@humanius.net');
-      await adminClient.from('profiles').update({ role: 'admin' }).eq('email', 'bilgehan.veral@humanius.net');
-      await adminClient.from('profiles').update({ role: 'superadmin' }).eq('email', 'superadmin@humanius.net');
+      const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers();
+      
+      const ahmetAuth = (allAuth || []).find(u => u.email?.toLowerCase() === 'ahmet.mici@humanius.net');
+      if (ahmetAuth) {
+        await adminClient.from('profiles').upsert({
+          id: ahmetAuth.id,
+          email: 'ahmet.mici@humanius.net',
+          full_name: 'Ahmet Mıçı',
+          company_id: '735825a4-f12b-4ee7-959c-a8a29e674617',
+          role: 'admin'
+        });
+      }
+
+      const yusufAuth = (allAuth || []).find(u => u.email?.toLowerCase() === 'yusuf.emre.yildirim@humanius.net');
+      if (yusufAuth) {
+        await adminClient.from('profiles').upsert({
+          id: yusufAuth.id,
+          email: 'yusuf.emre.yildirim@humanius.net',
+          full_name: 'Yusuf Emre Yıldırım',
+          company_id: '11111111-1111-1111-1111-111111111111',
+          role: 'admin'
+        });
+      }
+
+      const bilgehanAuth = (allAuth || []).find(u => u.email?.toLowerCase() === 'bilge.han.veral@humanius.net' || u.email?.toLowerCase() === 'bilgehan.veral@humanius.net');
+      if (bilgehanAuth) {
+        await adminClient.from('profiles').upsert({
+          id: bilgehanAuth.id,
+          email: bilgehanAuth.email,
+          full_name: 'Bilge Han Veral',
+          company_id: '11111111-1111-1111-1111-111111111111',
+          role: 'admin'
+        });
+      }
+
       return jsonResponse({ message: 'Admins restored successfully' });
+    }
+
+    if (operation === 'list_users') {
+      const companyId = payload.companyId as string | undefined;
+      let query = adminClient.from('profiles').select('*').order('created_at', { ascending: false });
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
+      const { data: profs, error: profErr } = await query;
+      if (profErr) {
+        return jsonResponse({ error: profErr.message }, 500);
+      }
+      return jsonResponse({ users: profs || [] });
     }
 
     if (!operation) {

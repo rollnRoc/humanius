@@ -117,22 +117,50 @@ const getEmployeeRlsWarning = () =>
 
 export const userService = {
   async getAll(): Promise<UserProfile[]> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as UserProfile[];
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        return data as UserProfile[];
+      }
+    } catch {}
+
+    try {
+      const { data: res } = await supabase.functions.invoke('user-management', {
+        body: { operation: 'list_users' }
+      });
+      if (res?.users && res.users.length > 0) {
+        return res.users as UserProfile[];
+      }
+    } catch {}
+
+    return [];
   },
 
   async getByCompany(companyId: string): Promise<UserProfile[]> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as UserProfile[];
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        return data as UserProfile[];
+      }
+    } catch {}
+
+    try {
+      const { data: res } = await supabase.functions.invoke('user-management', {
+        body: { operation: 'list_users', companyId }
+      });
+      if (res?.users && res.users.length > 0) {
+        return res.users as UserProfile[];
+      }
+    } catch {}
+
+    return [];
   },
 
   /**
