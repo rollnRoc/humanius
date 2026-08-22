@@ -231,7 +231,15 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     setImportResult(null);
 
     try {
-      let targetCompId = activeCompanyId && !activeCompanyId.includes('-id-') && activeCompanyId !== 'default' ? activeCompanyId : 'demo-company-id-9999';
+      let targetCompId = activeCompanyId && !activeCompanyId.includes('-id-') && activeCompanyId !== 'default' 
+        ? activeCompanyId 
+        : (demoService.isDemoActive() ? 'demo-company-id-9999' : (profile?.company_id || ''));
+
+      if (!targetCompId && !demoService.isDemoActive()) {
+        alert('Aktarım yapılacak şirket belirlenemedi. Lütfen şirketinizi kontrol edin.');
+        setLoading(false);
+        return;
+      }
 
       const insertPayloads = parsedEmployees.map(emp => ({
         company_id: targetCompId,
