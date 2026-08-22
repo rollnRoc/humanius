@@ -409,14 +409,20 @@ serve(async (req: Request) => {
         }
 
         if (matchedAuthUser?.id) {
+          // E-posta ile eşleşen fakat ID'si farklı olan eski profili temizle
+          await adminClient.from('profiles').delete().eq('email', cleanEmail).neq('id', matchedAuthUser.id);
+
           const matchedProf = (profs || []).find(p => p.id === matchedAuthUser!.id || p.email?.toLowerCase() === cleanEmail);
           const isCustom = matchedAuthUser.user_metadata?.password_customized === true;
+          const targetRole = matchedProf?.role || (e.role as any) || 'admin';
+          const targetCompanyId = e.company_id || matchedProf?.company_id || '735825a4-f12b-4ee7-959c-a8a29e674617';
+
           await adminClient.from('profiles').upsert({
             id: matchedAuthUser.id,
             email: cleanEmail,
             full_name: e.name || 'Personel',
-            company_id: e.company_id || matchedProf?.company_id || null,
-            role: matchedProf?.role || 'employee',
+            company_id: targetCompanyId,
+            role: targetRole,
             must_change_password: !isCustom
           });
         }
