@@ -276,7 +276,6 @@ const AppInner: React.FC = () => {
       let profDataRes: any = { data: [] };
       try {
         profDataRes = await supabase.from('profiles').select('id, email, role');
-        userManagementService.syncAllAccountsToNet().catch(() => {});
       } catch {}
 
       const [empData, empStats] = await Promise.all([

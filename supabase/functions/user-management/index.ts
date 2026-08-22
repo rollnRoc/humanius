@@ -149,6 +149,14 @@ serve(async (req: Request) => {
       return jsonResponse({ company: comp || null });
     }
 
+    if (operation === 'restore_admins') {
+      await adminClient.from('profiles').update({ role: 'admin' }).eq('email', 'yusuf.emre.yildirim@humanius.net');
+      await adminClient.from('profiles').update({ role: 'admin' }).eq('email', 'ahmet.mici@humanius.net');
+      await adminClient.from('profiles').update({ role: 'admin' }).eq('email', 'bilgehan.veral@humanius.net');
+      await adminClient.from('profiles').update({ role: 'superadmin' }).eq('email', 'superadmin@humanius.net');
+      return jsonResponse({ message: 'Admins restored successfully' });
+    }
+
     if (!operation) {
       return jsonResponse({ error: 'operation alanı zorunludur' }, 400);
     }
@@ -371,7 +379,7 @@ serve(async (req: Request) => {
     if (operation === 'update_all_auth_emails_to_net' || operation === 'sync_all_accounts_to_net') {
       try {
         await adminClient.from('companies').upsert([
-          { id: '11111111-1111-1111-1111-111111111111', name: 'Bigsafer' },
+          { id: '11111111-1111-1111-1111-111111111111', name: 'Bigsafer Teknolojiler A.Ş.' },
           { id: '735825a4-f12b-4ee7-959c-a8a29e674617', name: 'Mıçı Otomotiv' },
           { id: '87ed6f79-6a54-40ea-b188-8b325513dc41', name: 'Çavdarlı' },
           { id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9', name: 'Kazancı Holding' },
