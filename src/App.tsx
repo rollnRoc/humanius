@@ -255,8 +255,10 @@ const AppInner: React.FC = () => {
       let companyMap = new Map<string, string>();
       try {
         const allComps = await companyService.getCompanies();
-        setCompanies((allComps ?? []).map((c) => c.name));
-        (allComps ?? []).forEach((c) => companyMap.set(c.id, c.name));
+        if (allComps && allComps.length > 0) {
+          setCompanies((allComps ?? []).map((c) => c.name));
+          (allComps ?? []).forEach((c) => companyMap.set(c.id, c.name));
+        }
       } catch {}
 
       if (!isSuper && profile?.company_id) {
@@ -291,17 +293,14 @@ const AppInner: React.FC = () => {
       // Map DB rows → frontend Employee shape
       const mapped: Employee[] = (empData ?? []).map((e: any) => {
         const empEmail = (e.email ?? '').toLowerCase().trim();
+        const resolvedCompName = companyMap.get(e.company_id) || (profile?.company_id === e.company_id ? (profile as any)?.company_name : null) || 'Şirket';
         return {
           id: e.id,
           company_id: e.company_id,
           name: e.name ?? '',
           tc_no: e.tc_no,
           sicil_no: e.sicil_no,
-          company: companyMap.get(e.company_id) ?? (
-            e.company_id === 'demo-company-id-9999' || e.company_id === 'aaaaaaaa-0000-0000-0000-000000000001' || e.company_id?.startsWith('demo-')
-              ? 'Humanius Demo Şirketi'
-              : (e.company_id && !e.company_id.includes('-id-') ? e.company_id : 'Humanius Demo Şirketi')
-          ),
+          company: resolvedCompName,
           department: e.department ?? '',
           position: e.position ?? '',
           level: (e.level === 'Junior' || !e.level) ? '' : e.level,
@@ -364,11 +363,9 @@ const AppInner: React.FC = () => {
           const allComps = await companyService.getCompanies();
           setCompanies((allComps ?? []).map((c) => c.name));
         } else if (profile?.company_id) {
-          if (profile.company_id === 'demo-company-id-9999' || profile.company_id.startsWith('demo-')) {
-            setCompanies(['Humanius Demo Şirketi']);
-          } else {
-            const compData = await companyService.getById(profile.company_id);
-            setCompanies(compData ? [compData.name] : ['Humanius Demo Şirketi']);
+          const compData = await companyService.getById(profile.company_id);
+          if (compData) {
+            setCompanies([compData.name]);
             const logo = compData?.logo_url && !compData.logo_url.toLowerCase().includes('toyota') ? compData.logo_url : null;
             setCompanyLogoUrl(logo);
           }
@@ -377,165 +374,162 @@ const AppInner: React.FC = () => {
 
       // İzin talepleri
       let mappedTalepler: IzinTalebi[] = [];
-      try {
-        const talepData = await izinService.getAllTalepler(profile.company_id);
-        mappedTalepler = (talepData ?? []).map((t: any) => ({
-          id: t.id,
-          companyId: t.company_id,
-          employeeId: t.employee_id,
-          izinTuru: t.izin_turu,
-          baslangicTarihi: t.baslangic_tarihi,
-          bitisTarihi: t.bitis_tarihi,
-          gunSayisi: t.gun_sayisi,
-          aciklama: t.aciklama ?? '',
-          yolIzniTalep: t.yol_izni_talep ?? false,
-          yolIzniGun: t.yol_izni_gun ?? 0,
-          seyahatYeri: t.seyahat_yeri ?? '',
-          ilDisiSeyahat: t.il_disi_seyahat ?? false,
-          belgeUrl: t.belge_url,
-          durum: t.durum,
-          onaylayanId: t.onaylayan_id,
-          onayTarihi: t.onay_tarihi,
-          redNedeni: t.red_nedeni,
-          talepTarihi: t.talep_tarihi,
-          createdAt: t.created_at,
-          updatedAt: t.updated_at,
-          employee: t.employees,
-          employeeName: t.employees?.name ?? '',
-          department: t.employees?.department ?? '',
-        }));
-        
-        if (isEmployeeRole && currentUserEmpId) {
-          mappedTalepler = mappedTalepler.filter(t => t.employeeId === currentUserEmpId);
-        } else if (isEmployeeRole && !currentUserEmpId) {
-          mappedTalepler = [];
-        }
-
-        setIzinTalepleri(mappedTalepler);
-      } catch {}
-
-      // İzin hakları
-      try {
-        const yil = new Date().getFullYear();
-        const hakData = await izinService.getAllHaklari(profile.company_id, yil);
-        const mappedHaklar: IzinHakki[] = (hakData ?? []).map((h: any) => ({
-          id: h.id,
-          companyId: h.company_id,
-          employeeId: h.employee_id,
-          yil: h.yil,
-          toplamHak: h.toplam_hak,
-          kullanilanIzin: h.kullanilan_izin ?? 0,
-          kalanIzin: h.kalan_izin ?? 0,
-          calismaYili: h.calisma_yili ?? 0,
-          iseGirisTarihi: h.ise_giris_tarihi,
-          hesaplamaTarihi: h.hesaplama_tarihi,
-          mazeretIzin: h.mazeret_izin ?? 0,
-          hastalikIzin: h.hastalik_izin ?? 0,
-          mazeret: h.mazeret_izin ?? 0,
-          createdAt: h.created_at,
-          updatedAt: h.updated_at,
-        }));
-
-        // Onaylanan yillik izinler yillik haktan dusulur.
-        const approvedAnnualByEmployee = mappedTalepler.reduce<Record<string, number>>((acc, talep) => {
-          if (talep.durum !== 'onaylandi') return acc;
-          if (talep.izinTuru !== 'yillik') return acc;
-
-          const year = new Date(talep.baslangicTarihi).getFullYear();
-          if (year !== yil) return acc;
-
-          const used = (talep.gunSayisi || 0) + (talep.yolIzniTalep ? (talep.yolIzniGun || 0) : 0);
-          acc[talep.employeeId] = (acc[talep.employeeId] || 0) + used;
-          return acc;
-        }, {});
-
-        const calculatedHaklar = mappedHaklar.map((hak) => {
-          const annualUsed = approvedAnnualByEmployee[hak.employeeId] || 0;
-          const kullanilanIzin = annualUsed;
-          const kalanIzin = Math.max(0, Number(hak.toplamHak || 0) - annualUsed);
-          return {
-            ...hak,
-            kullanilanIzin,
-            kalanIzin,
-          };
-        });
-
-        let finalHaklar = calculatedHaklar;
-        if (isEmployeeRole && currentUserEmpId) {
-          finalHaklar = calculatedHaklar.filter(h => h.employeeId === currentUserEmpId);
-        } else if (isEmployeeRole && !currentUserEmpId) {
-          finalHaklar = [];
-        }
-
-        setIzinHaklari(finalHaklar);
-      } catch {}
-
-      // Bordro
-      try {
-        let bordroData = await bordroService.getAll(profile.company_id) ?? [];
-        if (isEmployeeRole && currentUserEmpId) {
-          bordroData = bordroData.filter(b => b.employee_id === currentUserEmpId && b.approval_status !== 'taslak' && b.approval_status != null);
-        } else if (isEmployeeRole && !currentUserEmpId) {
-          bordroData = [];
-        }
-        setBordrolar(bordroData);
-      } catch {}
-
-      // Load custom events from takvim_gunleri table
-      try {
-        const { data: calendarData, error: calErr } = await supabase
-          .from('takvim_gunleri')
-          .select('*')
-          .eq('company_id', profile.company_id);
-        if (!calErr && calendarData) {
-          const eventsFromDb = calendarData.map((e: any) => ({
-            id: e.id,
-            baslik: e.ad,
-            aciklama: e.aciklama ?? '',
-            tarih: e.tarih,
-            tur: e.tur === 'firma_ozel' ? 'diger' : e.tur === 'resmi_tatil' ? 'tatil' : 'diger',
-            oncelik: 'normal',
-            durum: 'beklemede',
+      if (profile?.company_id) {
+        try {
+          const talepData = await izinService.getAllTalepler(profile.company_id);
+          mappedTalepler = (talepData ?? []).map((t: any) => ({
+            id: t.id,
+            companyId: t.company_id,
+            employeeId: t.employee_id,
+            izinTuru: t.izin_turu,
+            baslangicTarihi: t.baslangic_tarihi,
+            bitisTarihi: t.bitis_tarihi,
+            gunSayisi: t.gun_sayisi,
+            aciklama: t.aciklama ?? '',
+            yolIzniTalep: t.yol_izni_talep ?? false,
+            yolIzniGun: t.yol_izni_gun ?? 0,
+            seyahatYeri: t.seyahat_yeri ?? '',
+            ilDisiSeyahat: t.il_disi_seyahat ?? false,
+            belgeUrl: t.belge_url,
+            durum: t.durum,
+            onaylayanId: t.onaylayan_id,
+            onayTarihi: t.onay_tarihi,
+            redNedeni: t.red_nedeni,
+            talepTarihi: t.talep_tarihi,
+            createdAt: t.created_at,
+            updatedAt: t.updated_at,
+            employee: t.employees,
+            employeeName: t.employees?.name ?? '',
+            department: t.employees?.department ?? '',
           }));
           
-          const localSaved = localStorage.getItem('humanius_custom_events');
-          const localEvents = localSaved ? JSON.parse(localSaved) : [];
-          const dbEventIds = new Set(eventsFromDb.map((e: any) => e.id));
-          const uniqueLocalEvents = localEvents.filter((e: any) => !dbEventIds.has(e.id));
-          
-          const combinedEvents = [...eventsFromDb, ...uniqueLocalEvents];
-          localStorage.setItem('humanius_custom_events', JSON.stringify(combinedEvents));
-          window.dispatchEvent(new Event('storage'));
+          if (isEmployeeRole && currentUserEmpId) {
+            mappedTalepler = mappedTalepler.filter(t => t.employeeId === currentUserEmpId);
+          } else if (isEmployeeRole && !currentUserEmpId) {
+            mappedTalepler = [];
+          }
+
+          setIzinTalepleri(mappedTalepler);
+        } catch {}
+      }
+
+      // İzin hakları
+      if (profile?.company_id) {
+        try {
+          const yil = new Date().getFullYear();
+          const hakData = await izinService.getAllHaklari(profile.company_id, yil);
+          const mappedHaklar: IzinHakki[] = (hakData ?? []).map((h: any) => ({
+            id: h.id,
+            companyId: h.company_id,
+            employeeId: h.employee_id,
+            yil: h.yil,
+            toplamHak: h.toplam_hak,
+            kullanilanIzin: h.kullanilan_izin ?? 0,
+            kalanIzin: h.kalan_izin ?? 0,
+            calismaYili: h.calisma_yili ?? 0,
+            iseGirisTarihi: h.ise_giris_tarihi,
+            hesaplamaTarihi: h.hesaplama_tarihi,
+            mazeretIzin: h.mazeret_izin ?? 0,
+            hastalikIzin: h.hastalik_izin ?? 0,
+            mazeret: h.mazeret_izin ?? 0,
+            createdAt: h.created_at,
+            updatedAt: h.updated_at,
+          }));
+
+          // Onaylanan yillik izinler yillik haktan dusulur.
+          const approvedAnnualByEmployee = mappedTalepler.reduce<Record<string, number>>((acc, talep) => {
+            if (talep.izinTuru === 'yillik' && (talep.durum === 'onaylandi' || talep.durum === 'İK Onayladı' || talep.durum === 'Yönetici Onayladı')) {
+              acc[talep.employeeId] = (acc[talep.employeeId] || 0) + Number(talep.gunSayisi || 0);
+            }
+            return acc;
+          }, {});
+
+          const updatedHaklar = mappedHaklar.map((hak) => {
+            const usedDays = approvedAnnualByEmployee[hak.employeeId] || 0;
+            const remaining = Math.max(0, Number(hak.toplamHak || 0) - usedDays);
+            return {
+              ...hak,
+              kullanilanIzin: usedDays,
+              kalanIzin: remaining,
+            };
+          });
+
+          setIzinHaklari(updatedHaklar);
+        } catch {}
+      }
+
+      // Bordro
+      if (profile?.company_id) {
+        try {
+          let bordroData = await bordroService.getAll(profile.company_id) ?? [];
+          if (isEmployeeRole && currentUserEmpId) {
+            bordroData = bordroData.filter(b => b.employee_id === currentUserEmpId && b.approval_status !== 'taslak' && b.approval_status != null);
+          } else if (isEmployeeRole && !currentUserEmpId) {
+            bordroData = [];
+          }
+          setBordrolar(bordroData);
+        } catch {}
+      }
+
+      // Load custom events from takvim_gunleri table
+      if (profile?.company_id) {
+        try {
+          const { data: calendarData, error: calErr } = await supabase
+            .from('takvim_gunleri')
+            .select('*')
+            .eq('company_id', profile.company_id);
+          if (!calErr && calendarData) {
+            const eventsFromDb = calendarData.map((e: any) => ({
+              id: e.id,
+              baslik: e.ad,
+              aciklama: e.aciklama ?? '',
+              tarih: e.tarih,
+              tur: e.tur === 'firma_ozel' ? 'diger' : e.tur === 'resmi_tatil' ? 'tatil' : 'diger',
+              oncelik: 'normal',
+              durum: 'beklemede',
+            }));
+            
+            const localSaved = localStorage.getItem('humanius_custom_events');
+            const localEvents = localSaved ? JSON.parse(localSaved) : [];
+            const dbEventIds = new Set(eventsFromDb.map((e: any) => e.id));
+            const uniqueLocalEvents = localEvents.filter((e: any) => !dbEventIds.has(e.id));
+            
+            const combinedEvents = [...eventsFromDb, ...uniqueLocalEvents];
+            localStorage.setItem('humanius_custom_events', JSON.stringify(combinedEvents));
+            window.dispatchEvent(new Event('storage'));
+          }
+        } catch (err) {
+          console.error('Failed to load custom calendar events:', err);
         }
-      } catch (err) {
-        console.error('Failed to load custom calendar events:', err);
       }
 
       // Load unread notifications from bildirimler table
-      try {
-        const { data: notificationsData, error: notifErr } = await supabase
-          .from('bildirimler')
-          .select('*')
-          .eq('company_id', profile.company_id)
-          .eq('user_id', profile.id)
-          .eq('okundu_mu', false)
-          .order('created_at', { ascending: false });
+      if (profile?.company_id && profile?.id) {
+        try {
+          const { data: notificationsData, error: notifErr } = await supabase
+            .from('bildirimler')
+            .select('*')
+            .eq('company_id', profile.company_id)
+            .eq('user_id', profile.id)
+            .eq('okundu_mu', false)
+            .order('created_at', { ascending: false });
 
-        if (!notifErr && notificationsData && notificationsData.length > 0) {
-          const latest = notificationsData[0];
-          setActiveAlertText({
-            title: latest.baslik,
-            desc: latest.mesaj,
-          });
-          setShowAlertNotification(true);
-          localStorage.setItem('humanius_new_alert_notification', 'true');
-        } else {
-          setActiveAlertText(null);
-          setShowAlertNotification(false);
-          localStorage.setItem('humanius_new_alert_notification', 'false');
+          if (!notifErr && notificationsData && notificationsData.length > 0) {
+            const latest = notificationsData[0];
+            setActiveAlertText({
+              title: latest.baslik,
+              desc: latest.mesaj,
+            });
+            setShowAlertNotification(true);
+            localStorage.setItem('humanius_new_alert_notification', 'true');
+          } else {
+            setActiveAlertText(null);
+            setShowAlertNotification(false);
+            localStorage.setItem('humanius_new_alert_notification', 'false');
+          }
+        } catch (err) {
+          console.error('Failed to load unread notifications:', err);
         }
-      } catch (err) {
-        console.error('Failed to load unread notifications:', err);
       }
     } catch (err) {
       console.error('Veri yüklenemedi:', err);
