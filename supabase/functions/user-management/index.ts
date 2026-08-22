@@ -152,11 +152,11 @@ serve(async (req: Request) => {
     if (operation === 'restore_admins') {
       const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers();
       
-      const ahmetAuth = (allAuth || []).find(u => u.email?.toLowerCase() === 'ahmet.mici@humanius.net');
+      const ahmetAuth = (allAuth || []).find(u => u.email?.toLowerCase() === 'ahmet.mici@humanius.net' || u.email?.toLowerCase() === 'ahmett.mici@humanius.net');
       if (ahmetAuth) {
         await adminClient.from('profiles').upsert({
           id: ahmetAuth.id,
-          email: 'ahmet.mici@humanius.net',
+          email: ahmetAuth.email,
           full_name: 'Ahmet Mıçı',
           company_id: '735825a4-f12b-4ee7-959c-a8a29e674617',
           role: 'admin'
@@ -650,7 +650,7 @@ serve(async (req: Request) => {
             }
           }
 
-          // 2. Eski ve mükerrer e-postaları auth.users ve profiles tablosundan tamamen sil
+          // 2. Eski ve mükerrer e-postaları auth.users ve profiles tablosundan tamamen sil (hedef kullanıcı hariç)
           if (oldEmail && oldEmail !== email) {
             try {
               const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers();
@@ -658,7 +658,11 @@ serve(async (req: Request) => {
               for (const oldU of oldUsers) {
                 await adminClient.auth.admin.deleteUser(oldU.id);
               }
-              await adminClient.from('profiles').delete().eq('email', oldEmail);
+              if (targetAuthId) {
+                await adminClient.from('profiles').delete().eq('email', oldEmail).neq('id', targetAuthId);
+              } else {
+                await adminClient.from('profiles').delete().eq('email', oldEmail);
+              }
             } catch (cleanErr) {
               console.warn('Old email cleanup warning:', cleanErr);
             }
@@ -668,19 +672,20 @@ serve(async (req: Request) => {
         }
       }
 
-      if (role || companyId || fullName || email) {
-        const profUpdates: Record<string, unknown> = {};
-        if (role) profUpdates.role = role;
-        if (companyId) profUpdates.company_id = companyId;
-        if (fullName) profUpdates.full_name = fullName;
-        if (email) profUpdates.email = email;
+      if (targetAuthId) {
+        const { data: existingProf } = await adminClient.from('profiles').select('*').eq('id', targetAuthId).maybeSingle();
+        const targetRole = role || existingProf?.role || 'employee';
+        const targetCompany = companyId || existingProf?.company_id || null;
+        const targetFullName = fullName || existingProf?.full_name || 'Personel';
+        const targetEmail = email || existingProf?.email || '';
 
-        if (employeeId) {
-          await adminClient.from('profiles').update(profUpdates).eq('id', employeeId);
-        }
-        if (targetAuthId && targetAuthId !== employeeId) {
-          await adminClient.from('profiles').update(profUpdates).eq('id', targetAuthId);
-        }
+        await adminClient.from('profiles').upsert({
+          id: targetAuthId,
+          email: targetEmail,
+          full_name: targetFullName,
+          company_id: targetCompany,
+          role: targetRole
+        });
       }
 
       const empUpdates: Record<string, unknown> = {};
