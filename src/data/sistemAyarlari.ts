@@ -6,12 +6,12 @@ export const VARSAYILAN_SISTEM_AYARLARI: SistemAyarlari = {
       birIlaBesYil: 14,
       besIlaOnbesYil: 20,
       onbesYilUstunde: 26,
-      elliYasUstundeEkIzin: 2
+      elliYasUstundeEkIzin: 6
     },
     ozelIzinler: {
       mazeretIzni: 5,
-      dogumIzni: 112,
-      babalikIzni: 5,
+      dogumIzni: 168,
+      babalikIzni: 10,
       evlilikIzni: 3,
       olumIzni: 3,
       yolIzni: 4
@@ -109,143 +109,143 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     kategori: 'is_kanunu',
     ad: '1-5 Yıl Çalışan Yıllık İzin',
     deger: 14,
-    aciklama: 'İş Kanunu Madde 53: 1-5 yıl arası çalışanlar için yıllık izin süresi',
+    aciklama: 'İş Kanunu Madde 53: 1 yıldan 5 yıla kadar (5 yıl dahil) çalışanlar için en az 14 gün yıllık izin',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'yillik_izin_5_15_yil',
     kategori: 'is_kanunu',
     ad: '5-15 Yıl Çalışan Yıllık İzin',
     deger: 20,
-    aciklama: 'İş Kanunu Madde 53: 5-15 yıl arası çalışanlar için yıllık izin süresi',
+    aciklama: 'İş Kanunu Madde 53: 5 yıldan fazla 15 yıldan az çalışanlar için en az 20 gün yıllık izin',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'yillik_izin_15_yil_ustu',
     kategori: 'is_kanunu',
     ad: '15+ Yıl Çalışan Yıllık İzin',
     deger: 26,
-    aciklama: 'İş Kanunu Madde 53: 15 yıl ve üzeri çalışanlar için yıllık izin süresi',
+    aciklama: 'İş Kanunu Madde 53: 15 yıl (dahil) ve daha fazla çalışanlar için en az 26 gün yıllık izin',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'elli_yas_ek_izin',
     kategori: 'is_kanunu',
-    ad: '50+ Yaş Ek İzin',
-    deger: 2,
-    aciklama: 'İş Kanunu: 50 yaş üstü çalışanlar için ek yıllık izin',
+    ad: '50+ Yaş İzin Tabanı',
+    deger: 20,
+    aciklama: 'İş Kanunu Madde 53: 18 ve daha küçük yaştaki işçiler ile 50 ve daha yukarı yaştaki işçilere verilecek yıllık ücretli izin süresi 20 günden az olamaz',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'mazeret_izni',
     kategori: 'is_kanunu',
     ad: 'Mazeret İzni',
     deger: 5,
-    aciklama: 'İş Kanunu Madde 56: Yıllık toplam mazeret izni süresi',
+    aciklama: 'İş Kanunu Ek Madde 2: Yıllık mazeret izni üst sınırı',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'dogum_izni',
     kategori: 'is_kanunu',
-    ad: 'Doğum İzni',
-    deger: 112,
-    aciklama: 'İş Kanunu Madde 74: 16 hafta (112 gün) doğum izni',
+    ad: 'Doğum İzni (Analık İzni)',
+    deger: 168,
+    aciklama: 'İş Kanunu Madde 74 (7578 sayılı Kanun): Doğum öncesi 8 ve doğum sonrası 16 hafta olmak üzere toplam 24 hafta (168 gün) ücretli analık izni (Çoğul gebelikte 26 hafta / 182 gün)',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-05-01',
+    sonGuncelleme: '2026-05-01'
   },
   {
     id: 'babalik_izni',
     kategori: 'is_kanunu',
     ad: 'Babalık İzni',
-    deger: 5,
-    aciklama: 'İş Kanunu: Babalık izni süresi',
+    deger: 10,
+    aciklama: 'İş Kanunu Ek Madde 2 (7578 sayılı Kanun): Eşin doğum yapması halinde 10 gün ücretli babalık izni',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-05-01',
+    sonGuncelleme: '2026-05-01'
   },
   {
     id: 'evlilik_izni',
     kategori: 'is_kanunu',
     ad: 'Evlilik İzni',
     deger: 3,
-    aciklama: 'İş Kanunu: Evlilik izni süresi',
+    aciklama: 'İş Kanunu Ek Madde 2: İşçinin evlenmesi halinde 3 gün ücretli izin',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'olum_izni',
     kategori: 'is_kanunu',
     ad: 'Ölüm İzni',
     deger: 3,
-    aciklama: 'İş Kanunu: Yakın akraba ölümü için izin süresi',
+    aciklama: 'İş Kanunu Ek Madde 2: Ana, baba, eş, kardeş veya çocuk vefatı halinde 3 gün ücretli izin',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'yol_izni',
     kategori: 'is_kanunu',
     ad: 'Yol İzni',
     deger: 4,
-    aciklama: 'İş Kanunu: Yıllık izin ile birlikte kullanılabilecek yol izni',
+    aciklama: 'İş Kanunu Madde 56: Yıllık iznini işyerinden başka ilde geçirecek işçiye talep halinde verilen 4 güne kadar ücretsiz yol izni',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'haftalik_calisma_saati',
     kategori: 'is_kanunu',
     ad: 'Haftalık Çalışma Saati',
     deger: 45,
-    aciklama: 'İş Kanunu Madde 63: Haftalık normal çalışma süresi',
+    aciklama: 'İş Kanunu Madde 63: Haftalık yasal normal çalışma süresi',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'gunluk_calisma_saati',
     kategori: 'is_kanunu',
     ad: 'Günlük Çalışma Saati',
     deger: 9,
-    aciklama: 'İş Kanunu: Günlük normal çalışma süresi',
+    aciklama: 'İş Kanunu Madde 63: Günlük yasal azami çalışma süresi (Günde 11 saati aşamaz)',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'fazla_mesai_siniri',
     kategori: 'is_kanunu',
     ad: 'Fazla Mesai Sınırı',
     deger: 270,
-    aciklama: 'İş Kanunu Madde 64: Yıllık fazla mesai saat sınırı',
+    aciklama: 'İş Kanunu Madde 41: Yıllık fazla çalışma süresi azami 270 saattir',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'yillik_izin_minimum_bolum',
@@ -255,8 +255,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'İş Kanunu Madde 53: Yıllık ücretli izin süreleri, tarafların anlaşması ile bir bölümü 10 günden aşağı olmamak üzere bölümler halinde kullanılabilir. Yıllık ücretli izin günlerinin hesabında izin süresine rastlayan ulusal bayram, hafta tatili ve genel tatil günleri izin süresinden sayılmaz.',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2026-02-07'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
 
   // Bordro ve SGK Parametreleri
@@ -268,8 +268,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'Aylık bordro hazırlık işlemleri için ayrılan gün sayısı',
     zorunlu: true,
     degistirilebilir: true,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'bordro_odeme_gunleri',
@@ -279,8 +279,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'Maaş ödemelerinin yapılması için ayrılan gün sayısı',
     zorunlu: true,
     degistirilebilir: true,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'sgk_bildirimi_gunu',
@@ -290,8 +290,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'SGK prim ve hizmet belgesi bildirimi son günü (ayın kaçıncı günü)',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'vergi_beyannamesi_gunu',
@@ -301,8 +301,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'Aylık gelir vergisi beyannamesi son günü (ayın kaçıncı günü)',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
 
   // Vergi ve Sigorta Oranları
@@ -314,8 +314,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'Gelir vergisi kesinti oranı (%15 - basitleştirilmiş)',
     zorunlu: true,
     degistirilebilir: true,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'damga_vergisi_orani',
@@ -325,8 +325,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'Damga vergisi kesinti oranı (%0.759)',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'sgk_isci_payi_orani',
@@ -336,8 +336,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'SGK işçi payı kesinti oranı (%14)',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'sgk_isveren_payi_orani',
@@ -358,8 +358,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'İşsizlik sigortası işçi payı oranı (%1)',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'issizlik_isveren_payi_orani',
@@ -369,8 +369,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'İşsizlik sigortası işveren payı oranı (%2)',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'asgari_ucret',
@@ -459,8 +459,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'Yeni personel için işe giriş eğitimi süresi (gün)',
     zorunlu: true,
     degistirilebilir: true,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'is_sagligi_egitimi',
@@ -470,8 +470,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'İş sağlığı ve güvenliği eğitimi süresi (saat)',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'periyodik_egitim_araligi',
@@ -481,8 +481,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'Periyodik eğitimlerin tekrar aralığı (gün)',
     zorunlu: true,
     degistirilebilir: true,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'performans_degerlendirme_araligi',
@@ -492,8 +492,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'Performans değerlendirmelerinin tekrar aralığı (gün)',
     zorunlu: true,
     degistirilebilir: true,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
 
   // Belge Kuralları
@@ -505,8 +505,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'Yüklenebilecek dosyaların maksimum boyutu (MB)',
     zorunlu: true,
     degistirilebilir: true,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'il_disi_seyahat_belge_zorunlu',
@@ -516,8 +516,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'İl dışı seyahat için belge yükleme zorunluluğu',
     zorunlu: true,
     degistirilebilir: false,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
 
   // Sistem Kuralları
@@ -529,8 +529,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'İzin talebi için minimum gün sayısı',
     zorunlu: true,
     degistirilebilir: true,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'izin_talep_maksimum_ileri_tarih',
@@ -540,8 +540,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'İzin talebinin kaç gün önceden yapılabileceği',
     zorunlu: true,
     degistirilebilir: true,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'bordro_gecikme_uyari_gunu',
@@ -551,8 +551,8 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'Bordro işlemleri için kaç gün önceden uyarı verilecek',
     zorunlu: true,
     degistirilebilir: true,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   },
   {
     id: 'sgk_bildirimi_uyari_gunu',
@@ -562,7 +562,7 @@ export const SISTEM_PARAMETRELERI: SistemParametresi[] = [
     aciklama: 'SGK bildirimi için kaç gün önceden uyarı verilecek',
     zorunlu: true,
     degistirilebilir: true,
-    yapilandirmaTarihi: '2024-01-01',
-    sonGuncelleme: '2024-01-01'
+    yapilandirmaTarihi: '2026-01-01',
+    sonGuncelleme: '2026-01-01'
   }
 ];

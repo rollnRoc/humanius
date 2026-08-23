@@ -73,7 +73,7 @@ const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
   },
   {
     id: 'dogum',
-    ad: 'Doğum İzni',
+    ad: 'Doğum İzni (Analık İzni)',
     kod: 'DO',
     renk: '#ec4899',
     ucretli: false,
@@ -84,8 +84,8 @@ const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
     belgeGerekli: true,
     maksBekleme: 0,
     kademeli: false,
-    kademe: [{ yilAlt: 0, yilUst: null, gunHak: 112 }],
-    aciklama: 'Doğum öncesi 8 ve sonrası 8 hafta olmak üzere 16 haftadır. Ücreti SGK tarafından geçici iş göremezlik ödeneği olarak karşılanır.',
+    kademe: [{ yilAlt: 0, yilUst: null, gunHak: 168 }],
+    aciklama: '7578 sayılı Kanun uyarınca doğum öncesi 8 ve sonrası 16 hafta olmak üzere toplam 24 haftadır (168 gün). Çoğul gebelikte 26 haftadır (182 gün). Ücreti SGK tarafından geçici iş göremezlik ödeneği olarak karşılanır.',
   },
   {
     id: 'babalik',
@@ -100,8 +100,8 @@ const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
     belgeGerekli: true,
     maksBekleme: 0,
     kademeli: false,
-    kademe: [{ yilAlt: 0, yilUst: null, gunHak: 5 }],
-    aciklama: 'İş Kanunu Ek Madde 2 uyarınca eşi doğum yapan erkek çalışana tanınan 5 günlük ücretli izin.',
+    kademe: [{ yilAlt: 0, yilUst: null, gunHak: 10 }],
+    aciklama: 'İş Kanunu Ek Madde 2 (7578 sayılı Kanun) uyarınca eşi doğum yapan erkek çalışana tanınan 10 günlük ücretli izin.',
   },
   {
     id: 'evlilik',
