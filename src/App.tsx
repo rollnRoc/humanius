@@ -1243,7 +1243,7 @@ const AppInner: React.FC = () => {
 
     // ── Tüm diğer görünümler ─────────────────────────────────────────────────
     return (
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 relative">
+      <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-gray-50 relative">
         <SmartHeader currentView={currentView} onNavigate={setCurrentView} />
         
         {!isEmployeeOnly && (
@@ -1263,7 +1263,7 @@ const AppInner: React.FC = () => {
             </button>
           </div>
         )}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 relative">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 relative">
             {showAlertNotification && currentView !== 'uyari' && (
               <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl flex items-center justify-between shadow-sm animate-pulse">
                 <div className="flex items-center gap-3">
