@@ -199,7 +199,21 @@ serve(async (req: Request) => {
           company_id: '11111111-1111-1111-1111-111111111111',
           role: 'superadmin'
         });
-        await adminClient.from('employees').update({ email: 'veralbilgehan@gmail.com' }).eq('id', 'ebeb754f-92d9-4d9e-87b5-70440be7f1ea');
+        const { data: existingVeralEmp } = await adminClient.from('employees').select('id').eq('email', 'veralbilgehan@gmail.com').maybeSingle();
+        if (!existingVeralEmp) {
+          await adminClient.from('employees').insert({
+            company_id: '11111111-1111-1111-1111-111111111111',
+            name: 'Bilge Han Veral',
+            email: 'veralbilgehan@gmail.com',
+            department: 'Yönetim',
+            position: 'Genel Müdür',
+            level: 'Senior',
+            salary: 0,
+            status: 'active',
+            employee_type: 'normal',
+            join_date: '2026-05-01'
+          });
+        }
       }
 
       return jsonResponse({ message: 'Admins restored successfully' });
@@ -1104,17 +1118,37 @@ serve(async (req: Request) => {
         return jsonResponse({ error: 'Kullanıcı ve personel silme yetkisi Şirket Yöneticisi ve İK Uzmanındadır.' }, 403);
       }
 
-      const email = String(payload.email ?? '').trim().toLowerCase();
+      let email = String(payload.email ?? '').trim().toLowerCase();
       const employeeId = String(payload.employeeId ?? '').trim();
-      const userId = String(payload.userId ?? '').trim();
+      let userId = String(payload.userId ?? '').trim();
 
+      // 1. E-posta boşsa ve employeeId verilmişse, personelden e-postayı bul
+      if (!email && employeeId) {
+        const { data: empRecord } = await adminClient.from('employees').select('email').eq('id', employeeId).maybeSingle();
+        if (empRecord?.email) {
+          email = empRecord.email.trim().toLowerCase();
+        }
+      }
+
+      // 2. E-posta boşsa ve userId verilmişse, profilden e-postayı bul
+      if (!email && userId) {
+        const { data: profRecord } = await adminClient.from('profiles').select('email').eq('id', userId).maybeSingle();
+        if (profRecord?.email) {
+          email = profRecord.email.trim().toLowerCase();
+        }
+      }
+
+      // 3. Personel tablosundan sil (id ve email ile)
       if (employeeId) {
         await adminClient.from('employees').delete().eq('id', employeeId);
       }
       if (email) {
         await adminClient.from('employees').delete().eq('email', email);
+        await adminClient.from('employees').delete().eq('email', email.replace('humanius.net', 'humanius.com'));
+        await adminClient.from('employees').delete().eq('email', email.replace('humanius.net', 'humanius.com.tr'));
       }
 
+      // 4. Kullanıcı profili ve Auth tablosundan sil
       let targetUserId = userId;
       if (!targetUserId && email) {
         const { data: prof } = await adminClient
@@ -1134,7 +1168,20 @@ serve(async (req: Request) => {
         }
       }
 
-      return jsonResponse({ message: 'Personel ve kullanıcı hesabı tamamen silindi.' });
+      if (email) {
+        await adminClient.from('profiles').delete().eq('email', email);
+        try {
+          const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers();
+          const matchedUsers = (allAuth || []).filter(u => (u.email || '').toLowerCase() === email);
+          for (const mu of matchedUsers) {
+            await adminClient.auth.admin.deleteUser(mu.id);
+          }
+        } catch (authListErr) {
+          console.warn('Auth list/delete error:', authListErr);
+        }
+      }
+
+      return jsonResponse({ message: 'Personel ve kullanıcı hesabı iki taraflı olarak tamamen silindi.' });
     }
 
     return jsonResponse({ error: 'Bilinmeyen işlem.' }, 400);

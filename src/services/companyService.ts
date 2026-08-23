@@ -5,6 +5,8 @@ type Company = Database['public']['Tables']['companies']['Row'];
 type CompanyInsert = Database['public']['Tables']['companies']['Insert'];
 type CompanyUpdate = Database['public']['Tables']['companies']['Update'];
 
+import { demoService } from './demoService';
+
 export function fixUtf8Encoding(str: string | null | undefined): string {
   if (!str) return '';
   return str
@@ -24,6 +26,22 @@ export function fixUtf8Encoding(str: string | null | undefined): string {
 
 export const companyService = {
   async getCompanies() {
+    if (demoService.isDemoActive()) {
+      return [{
+        id: 'demo-company-id-9999',
+        name: 'Humanius Demo Şirketi',
+        address: '',
+        tax_number: '',
+        sgk_sicil_no: '',
+        phone: '',
+        email: 'demo@humanius.net',
+        city: 'İstanbul',
+        logo_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }] as Company[];
+    }
+
     try {
       const { data, error } = await supabase
         .from('companies')
@@ -49,6 +67,22 @@ export const companyService = {
 
   async getById(id: string) {
     if (!id) return null;
+    if (demoService.isDemoActive() || id === 'demo-company-id-9999') {
+      return {
+        id: 'demo-company-id-9999',
+        name: 'Humanius Demo Şirketi',
+        address: '',
+        tax_number: '',
+        sgk_sicil_no: '',
+        phone: '',
+        email: 'demo@humanius.net',
+        city: 'İstanbul',
+        logo_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      } as Company;
+    }
+
     try {
       const { data, error } = await supabase
         .from('companies')

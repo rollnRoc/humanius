@@ -7,6 +7,7 @@ import { getRoleLabel } from '../auth/roles';
 import { companyService } from '../services/companyService';
 import { userService, type UserProfile } from '../services/userService';
 import { userManagementService } from '../services/userManagementService';
+import { demoService } from '../services/demoService';
 
 interface CompanyRow {
   id: string;
@@ -335,6 +336,22 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
   }, [canManage, loadManageData]);
 
   useEffect(() => {
+    if (demoService.isDemoActive() || profile?.company_id === 'demo-company-id-9999' || !profile?.company_id) {
+      setSistemAyarlari(prev => ({
+        ...prev,
+        sirketBilgileri: {
+          ad: 'Humanius Demo Şirketi',
+          adres: '',
+          vergiNo: '',
+          sgkSicilNo: '',
+          telefon: '',
+          email: 'demo@humanius.net',
+          bulunduguIl: 'İstanbul',
+        }
+      }));
+      return;
+    }
+
     if (companies.length > 0) {
       const myCompany = companies.find(c => c.id === profile?.company_id) || companies[0];
       if (myCompany) {
@@ -1250,7 +1267,10 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => {
-                        const myCompany = companies.find(c => c.id === profile?.company_id) || companies[0];
+                        const isDemoSession = demoService.isDemoActive() || profile?.company_id === 'demo-company-id-9999' || !profile?.company_id;
+                        const myCompany = isDemoSession
+                          ? { id: 'demo-company-id-9999', name: 'Humanius Demo Şirketi', address: '', tax_number: '', sgk_sicil_no: '', phone: '', email: 'demo@humanius.net', city: 'İstanbul' } as CompanyRow
+                          : (companies.find(c => c.id === profile?.company_id) || companies[0]);
                         if (myCompany) {
                           startEditCompany(myCompany);
                         } else {
