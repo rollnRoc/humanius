@@ -127,15 +127,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         localStorage.removeItem('humanius_demo_mode');
         localStorage.removeItem('humanius_demo_start_time');
         setIsDemo(false);
         setSession(session);
         setUser(session.user);
-        setProfile(null);
-        setLoading(true);
+        
+        // Sadece yeni bir kullanıcı girişi varsa yükleme ekranı tetiklenir; şifre ve kullanıcı güncellemelerinde sayfa yenilenmez
+        if (event === 'SIGNED_IN' && !user) {
+          setLoading(true);
+        }
         fetchProfile(session.user.id);
       } else if (localStorage.getItem('humanius_demo_mode') !== 'true') {
         setSession(null);
