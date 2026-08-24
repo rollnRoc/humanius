@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldAlert, Key, Eye, EyeOff, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { translateErrorMessage } from '../utils/errorTranslator';
 
 export default function SifreDegistir() {
@@ -31,14 +32,7 @@ export default function SifreDegistir() {
 
     setPasswordLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-        data: {
-          must_change_password: false,
-          is_first_login: false,
-          password_customized: true
-        }
-      });
+      const { error } = await updatePassword(newPassword);
       setPasswordLoading(false);
 
       if (error) {

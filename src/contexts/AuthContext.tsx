@@ -310,9 +310,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   const updatePassword = async (newPassword: string) => {
+    if (isDemo) {
+      return { error: null };
+    }
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
+      data: {
+        must_change_password: false,
+        is_first_login: false,
+        password_customized: true
+      }
     });
+
+    if (!error && user) {
+      try {
+        await supabase.from('profiles').update({
+          must_change_password: false
+        }).eq('id', user.id);
+      } catch {}
+    }
   
     return { error };
   };
