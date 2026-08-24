@@ -42,7 +42,7 @@ export default function SifreDegistir() {
 
       setNewPassword('');
       setConfirmPassword('');
-      setPasswordMessage('✅ Şifreniz başarıyla güncellendi.');
+      setPasswordMessage('Şifreniz başarıyla güncellendi! Yeni şifreniz artık aktif ve geçerlidir.');
     } catch (err: any) {
       setPasswordLoading(false);
       setPasswordError(translateErrorMessage(err?.message || 'Bir hata oluştu'));
@@ -64,9 +64,14 @@ export default function SifreDegistir() {
         </div>
         
         {passwordMessage && (
-          <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-sm flex items-center gap-3 font-semibold animate-in fade-in">
-            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span>{passwordMessage}</span>
+          <div className="mb-5 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-400 rounded-2xl text-emerald-900 text-sm flex items-start gap-3.5 shadow-sm animate-in zoom-in-95 duration-200">
+            <div className="p-2 bg-emerald-500 text-white rounded-xl shadow-xs shrink-0 mt-0.5">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-emerald-950 text-sm">Tebrikler, Şifreniz Güncellendi!</h4>
+              <p className="text-xs text-emerald-800 mt-0.5 font-medium leading-relaxed">{passwordMessage}</p>
+            </div>
           </div>
         )}
 
