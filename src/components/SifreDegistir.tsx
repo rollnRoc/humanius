@@ -50,7 +50,18 @@ export default function SifreDegistir() {
   };
 
   return (
-    <div className="max-w-md mx-auto space-y-6">
+    <div className="max-w-md mx-auto space-y-6 relative">
+      {/* Sağ Üst Kayan Bildirim (Toast) */}
+      {passwordMessage && (
+        <div className="fixed top-6 right-6 z-50 max-w-sm bg-emerald-600 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 duration-300 border border-emerald-400">
+          <ShieldCheck className="w-6 h-6 shrink-0 text-emerald-200" />
+          <div>
+            <p className="text-sm font-bold">Şifreniz Başarıyla Güncellendi!</p>
+            <p className="text-xs text-emerald-100 mt-0.5">Yeni şifreniz başarıyla kaydedildi ve aktif edildi.</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-1 text-center">
         <h2 className="text-2xl font-bold text-gray-800">Şifre Ayarları</h2>
         <p className="text-sm text-gray-500">Hesap giriş şifrenizi buradan yönetebilirsiniz.</p>
