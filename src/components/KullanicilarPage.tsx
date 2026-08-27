@@ -585,6 +585,7 @@ const KullanicilarPage: React.FC = () => {
   const { user: currentUser, appRole, profile } = useAuth();
   const [users, setUsers]               = useState<UserProfile[]>([]);
   const [companies, setCompanies]       = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('all');
   const [totalEmployeesCount, setTotalEmployeesCount] = useState<number>(0);
   const [syncing, setSyncing]           = useState<boolean>(false);
   const [loading, setLoading]           = useState(true);
@@ -683,9 +684,13 @@ const KullanicilarPage: React.FC = () => {
     }
   };
 
-  const companyUsers = profile?.role === 'superadmin'
-    ? users
-    : users.filter((u) => u.company_id === profile?.company_id);
+  const isSuper = profile?.role === 'superadmin' || appRole === 'superadmin';
+  const companyUsers = users.filter((u) => {
+    if (selectedCompanyId !== 'all') {
+      return u.company_id === selectedCompanyId;
+    }
+    return true;
+  });
 
   // Stats
   const totalUsers      = companyUsers.length;
@@ -789,6 +794,18 @@ const KullanicilarPage: React.FC = () => {
               className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+          {companies.length > 1 && (
+            <select
+              value={selectedCompanyId}
+              onChange={(e) => setSelectedCompanyId(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">Tüm Şirketler ({companies.length})</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}

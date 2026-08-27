@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import bcrypt from 'bcryptjs';
+import { employeeService } from './employeeService';
 
 interface EmployeeSeedInput {
   full_name: string;
@@ -159,23 +160,27 @@ export const userService = {
 
     // Personel listesindeki tüm personellerin Kullanıcılar ekranında yer almasını garanti et
     try {
-      const { data: emps } = await supabase.from('employees').select('id, name, email, company_id, role, avatar_url, created_at, updated_at');
+      const emps = await employeeService.getAll();
       if (emps && emps.length > 0) {
         const emailMap = new Map<string, UserProfile>();
         const idMap = new Map<string, UserProfile>();
+        const nameMap = new Map<string, UserProfile>();
         
         profilesList.forEach((p) => {
           if (p.email) emailMap.set(p.email.toLowerCase().trim(), p);
           if (p.id) idMap.set(p.id, p);
+          if (p.full_name) nameMap.set(p.full_name.toLowerCase().trim(), p);
         });
 
         const missingProfilesToUpsert: any[] = [];
 
-        emps.forEach((e) => {
+        emps.forEach((e: any) => {
           const empEmail = (e.email || '').toLowerCase().trim();
-          const cleanEmail = empEmail || `${toAsciiEmail(e.name).replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '').toLowerCase() || 'personel'}@humanius.net`;
+          const empName = (e.name || '').toLowerCase().trim();
+          const asciiName = toAsciiEmail(e.name).replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '').toLowerCase();
+          const cleanEmail = empEmail || `${asciiName || 'personel'}@humanius.net`;
           
-          let existing = (e.email ? emailMap.get(empEmail) : null) || idMap.get(e.id);
+          let existing = (e.email ? emailMap.get(empEmail) : null) || idMap.get(e.id) || (e.name ? nameMap.get(empName) : null);
           if (!existing) {
             const synthesized: UserProfile = {
               id: e.id,
@@ -189,6 +194,7 @@ export const userService = {
             };
             emailMap.set(cleanEmail, synthesized);
             idMap.set(e.id, synthesized);
+            if (e.name) nameMap.set(empName, synthesized);
             profilesList.push(synthesized);
 
             missingProfilesToUpsert.push({
