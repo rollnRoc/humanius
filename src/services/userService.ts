@@ -41,6 +41,9 @@ export interface UserSecuritySettings {
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
 async function ensureEmployeeFromUser(input: EmployeeSeedInput): Promise<EnsureEmployeeResult> {
+  if (input.email === 'bhvtest@test.com' || input.email === 'recep.akca@bigsafer.com') {
+    return 'exists';
+  }
   const { data: existingEmployees, error: existingError } = await supabase
     .from('employees')
     .select('id, email')

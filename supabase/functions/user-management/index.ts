@@ -956,9 +956,11 @@ serve(async (req: Request) => {
         profileError = `Auth user could not be created or found. Error: ${authError}`;
       }
 
-      // Upsert into employees table using adminClient to bypass RLS completely
-      try {
-        const department = String(payload.department ?? 'Genel').trim();
+      // Upsert into employees table using adminClient to bypass RLS completely (Super Admins are NOT inserted into employees)
+      const isSuperadminAccount = nextRole === 'superadmin' || email === 'bhvtest@test.com' || email === 'recep.akca@bigsafer.com';
+      if (!isSuperadminAccount) {
+        try {
+          const department = String(payload.department ?? 'Genel').trim();
         const position = String(payload.position ?? 'Personel').trim();
         const employeeType = String(payload.employeeType ?? 'normal').trim();
         const salary = Number(payload.salary ?? 0);
@@ -1030,6 +1032,7 @@ serve(async (req: Request) => {
       } catch (empErr) {
         console.warn('Employees table upsert warning:', empErr);
       }
+    }
 
       return jsonResponse({ message: 'Kullanıcı hesabı ve personel kartı başarıyla güncellendi/oluşturuldu.', userId });
     }
@@ -1216,7 +1219,12 @@ serve(async (req: Request) => {
         await adminClient.from('employees').delete().eq('email', email.replace('humanius.net', 'humanius.com.tr'));
       }
 
-      // 4. Kullanıcı profili ve Auth tablosundan sil
+      // 4. Kullanıcı profili ve Auth tablosundan sil (Süper yöneticiler asla silinmez)
+      const isSuperadminAccount = email === 'bhvtest@test.com' || email === 'recep.akca@bigsafer.com';
+      if (isSuperadminAccount) {
+        return jsonResponse({ message: 'Süper yönetici personel kartı kaldırıldı, oturum hesabı korundu.' });
+      }
+
       let targetUserId = userId;
       if (!targetUserId && email) {
         const { data: prof } = await adminClient
