@@ -210,7 +210,7 @@ serve(async (req: Request) => {
           { id: '11111111-1111-1111-1111-111111111111', name: 'Bigsafer Teknolojiler A.Ş.' },
           { id: '735825a4-f12b-4ee7-959c-a8a29e674617', name: 'Mıçı Otomotiv' },
           { id: '87ed6f79-6a54-40ea-b188-8b325513dc41', name: 'Çavdarlı' },
-          { id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9', name: 'Toyota Hızel' },
+          { id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9', name: 'Hızel Otomotiv A.Ş.' },
         ]);
       } catch {}
 
@@ -464,7 +464,7 @@ serve(async (req: Request) => {
           { id: '11111111-1111-1111-1111-111111111111', name: 'Bigsafer Teknolojiler A.Ş.' },
           { id: '735825a4-f12b-4ee7-959c-a8a29e674617', name: 'Mıçı Otomotiv' },
           { id: '87ed6f79-6a54-40ea-b188-8b325513dc41', name: 'Çavdarlı' },
-          { id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9', name: 'Toyota Hızel' },
+          { id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9', name: 'Hızel Otomotiv A.Ş.' },
         ]);
       } catch {}
 
