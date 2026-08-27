@@ -384,7 +384,7 @@ serve(async (req: Request) => {
       let authUserId = profiles && profiles.length > 0 ? profiles[0].id : null;
 
       if (!authUserId) {
-        const { data: { users } } = await adminClient.auth.admin.listUsers();
+        const { data: { users } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
         const foundUser = (users || []).find(u => {
           const uEm = (u.email || '').toLowerCase();
           return uEm === email || uEm === altEmailCom || uEm === altEmailComTr;
@@ -427,7 +427,7 @@ serve(async (req: Request) => {
         }
         if (origBulent) {
           await adminClient.from('employees').update({ email: 'bulent.mici@humanius.net' }).eq('id', origBulent.id);
-          const { data: { users } } = await adminClient.auth.admin.listUsers();
+          const { data: { users } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
           const authUser = (users || []).find(u => u.email?.toLowerCase() === 'bulent.mici@humanius.net');
           if (authUser) {
             await adminClient.auth.admin.updateUserById(authUser.id, { email: 'bulent.mici@humanius.net', password: '987654', email_confirm: true });
@@ -446,7 +446,7 @@ serve(async (req: Request) => {
         }
         if (origIlknur) {
           await adminClient.from('employees').update({ email: 'ilknur.mici@humanius.net' }).eq('id', origIlknur.id);
-          const { data: { users } } = await adminClient.auth.admin.listUsers();
+          const { data: { users } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
           const authUser = (users || []).find(u => u.email?.toLowerCase() === 'ilknur.mici@humanius.net');
           if (authUser) {
             await adminClient.auth.admin.updateUserById(authUser.id, { email: 'ilknur.mici@humanius.net', password: '987654', email_confirm: true });
@@ -459,57 +459,21 @@ serve(async (req: Request) => {
     }
 
     if (operation === 'update_all_auth_emails_to_net' || operation === 'sync_all_accounts_to_net') {
-      try {
-        await adminClient.from('companies').upsert([
-          { id: '11111111-1111-1111-1111-111111111111', name: 'Bigsafer Teknolojiler A.Ş.' },
-          { id: '735825a4-f12b-4ee7-959c-a8a29e674617', name: 'Mıçı Otomotiv' },
-          { id: '87ed6f79-6a54-40ea-b188-8b325513dc41', name: 'Çavdarlı' },
-          { id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9', name: 'Hızel Otomotiv A.Ş.' },
-        ]);
-      } catch {}
+      const { data: emps, error: empListErr } = await adminClient.from('employees').select('*');
+      if (empListErr) {
+        return jsonResponse({ error: empListErr.message }, 500);
+      }
 
-      const { data: emps } = await adminClient.from('employees').select('id, email, name, company_id, role');
       const { data: profs } = await adminClient.from('profiles').select('id, email, full_name, company_id, role');
-      const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers();
+      const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
       
-      const validActiveEmails = new Set<string>();
-      const usedEmails = new Set<string>();
+      let syncedCount = 0;
+      const errors: string[] = [];
 
-      for (const e of (emps || [])) {
-        let clean = '';
-        if (e.email && e.email.trim()) {
-          clean = e.email.trim().toLowerCase().replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
-          if (!clean.includes('@')) clean = `${clean}@humanius.net`;
-        } else if (e.name) {
-          const asciiName = toAsciiEmail(e.name).replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '').toLowerCase();
-          clean = `${asciiName || 'personel'}@humanius.net`;
-        }
-        if (clean) validActiveEmails.add(clean);
-      }
-
-      // 1. Yetkisiz veya eski/artık auth hesaplarını temizle (superadmin'leri koru)
-      let deletedDuplicates = 0;
-      for (const u of (authUsers || [])) {
-        const uEmail = (u.email || '').toLowerCase().trim();
-        if (uEmail.includes('superadmin') || uEmail.endsWith('@humanius.local')) continue;
-        if (!validActiveEmails.has(uEmail)) {
-          try {
-            await adminClient.auth.admin.deleteUser(u.id);
-            await adminClient.from('profiles').delete().eq('id', u.id);
-            deletedDuplicates++;
-          } catch (delErr) {
-            console.warn('Delete orphaned auth user error:', delErr);
-          }
-        } else {
-          usedEmails.add(uEmail);
-        }
-      }
-
-      let count = 0;
       for (const e of (emps || [])) {
         let cleanEmail = '';
         if (e.email && e.email.trim()) {
-          cleanEmail = e.email.trim().toLowerCase().replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
+          cleanEmail = toAsciiEmail(e.email.trim()).replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
           if (!cleanEmail.includes('@')) {
             cleanEmail = `${cleanEmail}@humanius.net`;
           }
@@ -522,66 +486,75 @@ serve(async (req: Request) => {
           cleanEmail = `personel.${e.id?.slice(0, 6) || Math.floor(Math.random() * 10000)}@humanius.net`;
         }
 
-        // Find Auth user by id or email
-        let matchedAuthUser = (authUsers || []).find(u => u.id === e.id || (u.email || '').toLowerCase() === cleanEmail);
-        
-        if (matchedAuthUser) {
-          try {
-            const existingMeta = matchedAuthUser.user_metadata || {};
-            const isCustomized = existingMeta.password_customized === true;
-            const requiresPasswordChange = !isCustomized;
+        let targetAuthId = '';
+        const matchedAuth = (authUsers || []).find(u => u.id === e.id || (u.email || '').toLowerCase() === cleanEmail.toLowerCase());
 
-            await adminClient.auth.admin.updateUserById(matchedAuthUser.id, {
+        if (matchedAuth) {
+          targetAuthId = matchedAuth.id;
+          try {
+            await adminClient.auth.admin.updateUserById(targetAuthId, {
               email: cleanEmail,
               email_confirm: true,
               user_metadata: {
-                ...existingMeta,
-                full_name: e.name || existingMeta.full_name || 'Personel',
-                must_change_password: requiresPasswordChange,
-                is_first_login: requiresPasswordChange
+                ...matchedAuth.user_metadata,
+                full_name: e.name || 'Personel'
               }
             });
-            count++;
-          } catch (err) {
-            console.warn('Sync auth user error:', err);
+          } catch (upErr: any) {
+            console.warn(`Update auth user error for ${cleanEmail}:`, upErr);
           }
         } else {
-          // Create Auth user for ANY missing employee
           try {
             const newUser = await createManagedUser(cleanEmail, '987654', e.name || 'Personel', true);
-            matchedAuthUser = newUser;
-            count++;
-          } catch (err) {
-            console.warn('Create missing auth user error:', err);
+            targetAuthId = newUser.id;
+          } catch (createErr: any) {
+            console.warn(`Create auth user error for ${cleanEmail}:`, createErr);
+            // Check if it already exists despite search
+            const { data: { users: recheckAuth } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+            const foundRecheck = (recheckAuth || []).find(u => (u.email || '').toLowerCase() === cleanEmail.toLowerCase());
+            if (foundRecheck) {
+              targetAuthId = foundRecheck.id;
+            } else {
+              errors.push(`${e.name} (${cleanEmail}): ${createErr.message}`);
+            }
           }
         }
 
-        if (matchedAuthUser?.id) {
-          // E-posta ile eşleşen fakat ID'si farklı olan eski profili temizle
-          await adminClient.from('profiles').delete().eq('email', cleanEmail).neq('id', matchedAuthUser.id);
+        if (targetAuthId) {
+          const targetRole = e.role || 'employee';
+          const targetCompanyId = e.company_id || null;
 
-          const matchedProf = (profs || []).find(p => p.id === matchedAuthUser!.id || p.email?.toLowerCase() === cleanEmail);
-          const isCustom = matchedAuthUser.user_metadata?.password_customized === true;
-          const targetRole = matchedProf?.role || (e.role as any) || 'employee';
-          const targetCompanyId = e.company_id || matchedProf?.company_id || null;
-
-          await adminClient.from('profiles').upsert({
-            id: matchedAuthUser.id,
+          const { error: pErr } = await adminClient.from('profiles').upsert({
+            id: targetAuthId,
             email: cleanEmail,
             full_name: e.name || 'Personel',
             company_id: targetCompanyId,
             role: targetRole,
-            must_change_password: !isCustom
           });
+
+          if (pErr) {
+            errors.push(`Profile error for ${cleanEmail}: ${pErr.message}`);
+          } else {
+            syncedCount++;
+          }
         }
-        
-        await adminClient.from('employees').update({ email: cleanEmail }).eq('id', e.id);
+
+        // Keep employees table email synchronized with cleanEmail
+        if (cleanEmail !== e.email) {
+          await adminClient.from('employees').update({ email: cleanEmail }).eq('id', e.id);
+        }
+      }
+
+      // Ensure superadmins exist and have superadmin role
+      for (const superEmail of ['bhvtest@test.com', 'recep.akca@bigsafer.com']) {
+        await adminClient.from('profiles').update({ role: 'superadmin', company_id: null }).ilike('email', superEmail);
       }
 
       return jsonResponse({
-        message: `Tüm personel ve kullanıcı hesapları senkronize edildi (${count} kullanıcı eşitlendi).`,
-        count,
-        deletedDuplicates
+        message: `Tüm personel ve kullanıcı hesapları senkronize edildi (${syncedCount}/${(emps || []).length} kullanıcı eşitlendi).`,
+        syncedCount,
+        totalEmployees: (emps || []).length,
+        errors: errors.length > 0 ? errors : undefined
       });
     }
 
@@ -692,7 +665,7 @@ serve(async (req: Request) => {
           // 2. Eski ve mükerrer e-postaları auth.users ve profiles tablosundan tamamen sil (hedef kullanıcı hariç)
           if (oldEmail && oldEmail !== email) {
             try {
-              const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers();
+              const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
               const oldUsers = (allAuth || []).filter(u => (u.email || '').toLowerCase() === oldEmail && u.id !== targetAuthId);
               for (const oldU of oldUsers) {
                 await adminClient.auth.admin.deleteUser(oldU.id);
@@ -916,15 +889,8 @@ serve(async (req: Request) => {
       const password = String(payload.password ?? '').trim();
       const requestedRole = String(payload.role ?? 'employee').trim() as ProfileRole;
 
-      let companyId = String(payload.companyId ?? '').trim() || (profile?.company_id || '');
-      if (!companyId || companyId === 'default') {
-        try {
-          const { data: firstComp } = await adminClient.from('companies').select('id').limit(1).maybeSingle();
-          companyId = firstComp?.id || 'aaaaaaaa-0000-0000-0000-000000000001';
-        } catch {
-          companyId = 'aaaaaaaa-0000-0000-0000-000000000001';
-        }
-      }
+      let rawCompanyId = String(payload.companyId ?? '').trim();
+      let companyId: string | null = rawCompanyId && rawCompanyId !== 'default' && rawCompanyId !== 'null' ? rawCompanyId : (profile?.company_id || null);
 
       if (!fullName || !email) {
         return jsonResponse({ error: 'Ad Soyad ve E-posta alanları zorunludur.' }, 400);
@@ -934,10 +900,12 @@ serve(async (req: Request) => {
       let nextRole: ProfileRole = allowedRoles.includes(requestedRole) ? requestedRole : 'employee';
 
       let userId = '';
+      let authError: string | null = null;
       try {
         const managedUser = await createManagedUser(email, password || '987654', fullName);
         userId = managedUser.id;
-      } catch (_err) {
+      } catch (err: any) {
+        authError = err?.message || String(err);
         const { data: existingProf } = await adminClient
           .from('profiles')
           .select('id')
@@ -948,7 +916,7 @@ serve(async (req: Request) => {
           userId = existingProf.id;
         } else {
           try {
-            const { data: { users } } = await adminClient.auth.admin.listUsers();
+            const { data: { users } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
             const found = (users || []).find(u => (u.email || '').toLowerCase() === email);
             if (found?.id) userId = found.id;
           } catch {}
@@ -967,16 +935,21 @@ serve(async (req: Request) => {
         }
       }
 
+      let profileError: string | null = null;
       if (userId) {
-        await adminClient.from('profiles').upsert({
+        const { error: pErr } = await adminClient.from('profiles').upsert({
           id: userId,
           email,
           full_name: fullName,
           company_id: companyId,
           role: nextRole,
-          must_change_password: true,
-          is_first_login: true,
         });
+        if (pErr) {
+          console.error('PROFILES UPSERT ERROR:', pErr);
+          profileError = pErr.message;
+        }
+      } else {
+        profileError = `Auth user could not be created or found. Error: ${authError}`;
       }
 
       // Upsert into employees table using adminClient to bypass RLS completely
@@ -1212,7 +1185,7 @@ serve(async (req: Request) => {
       if (email) {
         await adminClient.from('profiles').delete().eq('email', email);
         try {
-          const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers();
+          const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
           const matchedUsers = (allAuth || []).filter(u => (u.email || '').toLowerCase() === email);
           for (const mu of matchedUsers) {
             await adminClient.auth.admin.deleteUser(mu.id);

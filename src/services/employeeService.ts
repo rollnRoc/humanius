@@ -110,16 +110,24 @@ export const employeeService = {
 
     if (data?.id) {
       try {
+        const { userManagementService } = await import('./userManagementService');
         const empEmail = data.email || `${String(data.name || 'personel').toLowerCase().replace(/[^a-z0-9]+/g, '.')}@humanius.net`;
-        supabase.from('profiles').upsert({
-          id: data.id,
+        await userManagementService.createCompanyUser({
+          companyId: data.company_id || undefined,
+          fullName: data.name,
           email: empEmail,
-          full_name: data.name || 'Personel',
-          company_id: data.company_id || null,
-          role: role || 'employee',
-          must_change_password: true
-        }).then().catch(console.warn);
-      } catch {}
+          password: '987654',
+          role: (role as any) || 'employee',
+          department: data.department,
+          position: data.position,
+          employeeType: data.employee_type || 'normal',
+          salary: data.salary,
+          tc_no: data.tc_no ?? '',
+          employeeId: data.id,
+        });
+      } catch (userErr) {
+        console.warn('Otomatik kullanıcı hesabı oluşturma uyarısı:', userErr);
+      }
     }
 
     return data;
@@ -240,6 +248,14 @@ export const employeeService = {
     if (demoService.isDemoActive()) {
       demoService.deleteEmployee(id);
       return;
+    }
+    try {
+      const { userManagementService } = await import('./userManagementService');
+      await userManagementService.deleteUserAndEmployee({
+        employeeId: id,
+      });
+    } catch (edgeDelErr) {
+      console.warn('Edge function kullanıcı ve personel silme uyarısı:', edgeDelErr);
     }
     const { error } = await supabase
       .from('employees')
