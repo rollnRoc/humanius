@@ -731,10 +731,10 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   const isSelf = selectedEmpId === currentEmployeeMatch?.id;
 
   const loadGorevTanimlari = () => {
-    if (!selectedEmpId || !effectiveCompanyId) { setGorevTanimlari([]); return; }
+    if (!selectedEmpId) { setGorevTanimlari([]); return; }
     setGorevTanimiLoading(true);
     gorevTanimiService
-      .getGorevTanimlari(effectiveCompanyId)
+      .getGorevTanimlari(selectedEmp?.company_id || effectiveCompanyId || undefined)
       .then((data) => {
         const filtrelenmis = (data ?? []).filter(
           (g: GorevTanimi) => g.employee_id === selectedEmpId && 
@@ -749,7 +749,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   // Görev tanımlarını yükle
   useEffect(() => {
     loadGorevTanimlari();
-  }, [selectedEmpId, effectiveCompanyId]);
+  }, [selectedEmpId, selectedEmp?.company_id, effectiveCompanyId]);
 
   // PDKS Kayıtları
   const [pdksKayitlari, setPdksKayitlari] = useState<VardiyaKaydi[]>([]);
@@ -1038,7 +1038,11 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
 
   const empIzinTalepleri = selectedEmpId
     ? izinTalepleri
-        .filter((t) => t.employeeId === selectedEmpId)
+        .filter((t) => {
+          if (t.employeeId === selectedEmpId) return true;
+          if (selectedEmp?.name && t.employeeName && t.employeeName.trim().toLowerCase() === selectedEmp.name.trim().toLowerCase()) return true;
+          return false;
+        })
         .sort(
           (a, b) =>
             new Date(b.baslangicTarihi).getTime() - new Date(a.baslangicTarihi).getTime()
@@ -1048,7 +1052,13 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   // Bordro verileri
   const empBordrolar = selectedEmpId
     ? [...bordrolar]
-        .filter((b) => b.employee_id === selectedEmpId)
+        .filter((b) => {
+          if (b.employee_id === selectedEmpId) return true;
+          const bEmpName = b.employeeName || (b as any).employees?.name;
+          if (selectedEmp?.name && bEmpName && bEmpName.trim().toLowerCase() === selectedEmp.name.trim().toLowerCase()) return true;
+          if (selectedEmp?.tc_no && b.tcNo && b.tcNo === selectedEmp.tc_no) return true;
+          return false;
+        })
         .sort((a, b) => b.period.localeCompare(a.period))
     : [];
 
@@ -1346,7 +1356,111 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                 </div>
               )}
 
-              {/*  Bordro zeti  */}
+              {/*    PDKS & Giriş-Çıkış                          */}
+              {activeTab === 'pdks' && (
+                <div className="space-y-5">
+                  {/* PDKS İstatistik Kartları */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3 text-center">
+                      <p className="text-xs text-blue-700 font-medium">Toplam Kayıt</p>
+                      <p className="text-xl font-bold text-blue-900 mt-1">{pdksKayitlari.length}</p>
+                    </div>
+                    <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 text-center">
+                      <p className="text-xs text-emerald-700 font-medium">Zamanında Giriş</p>
+                      <p className="text-xl font-bold text-emerald-900 mt-1">
+                        {pdksKayitlari.filter(v => v.durum === 'zamaninda').length}
+                      </p>
+                    </div>
+                    <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 text-center">
+                      <p className="text-xs text-amber-700 font-medium">Geç Kalma</p>
+                      <p className="text-xl font-bold text-amber-900 mt-1">
+                        {pdksKayitlari.filter(v => v.durum === 'gec-kaldi').length}
+                      </p>
+                    </div>
+                    <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3 text-center">
+                      <p className="text-xs text-purple-700 font-medium">Devam Oranı</p>
+                      <p className="text-xl font-bold text-purple-900 mt-1">
+                        {pdksKayitlari.length > 0 
+                          ? `%${Math.round((pdksKayitlari.filter(v => v.durum === 'zamaninda').length / pdksKayitlari.length) * 100)}` 
+                          : '%100'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* PDKS Kayıtları Tablosu */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-semibold text-gray-700">
+                        Son Giriş-Çıkış ve Mesai Hareketleri ({pdksKayitlari.length} kayıt)
+                      </p>
+                    </div>
+
+                    {pdksLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <div className="w-6 h-6 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+                      </div>
+                    ) : pdksKayitlari.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center">
+                        <Clock className="w-10 h-10 text-gray-200 mx-auto mb-2" />
+                        <p className="text-sm text-gray-400">Bu personel için PDKS kaydı bulunamadı</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-xl border border-gray-200">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Tarih</th>
+                              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Vardiya</th>
+                              <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500">Giriş Saati</th>
+                              <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500">Çıkış Saati</th>
+                              <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500">Durum</th>
+                              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Not / Açıklama</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {pdksKayitlari.map((v) => {
+                              const isZamaninda = v.durum === 'zamaninda';
+                              const isGec = v.durum === 'gec-kaldi';
+                              return (
+                                <tr key={v.id} className="hover:bg-gray-50 transition-colors">
+                                  <td className="px-4 py-2.5 font-medium text-gray-800 whitespace-nowrap">
+                                    {v.tarih ? new Date(v.tarih).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', weekday: 'short' }) : '-'}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-gray-600 capitalize">
+                                    {v.vardiya_tipi === 'sabah' ? 'Sabah Vardiyası' : v.vardiya_tipi === 'aksam' ? 'Akşam Vardiyası' : v.vardiya_tipi === 'gece' ? 'Gece Vardiyası' : 'Standart (09:00 - 18:00)'}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-center font-mono font-medium text-gray-700">
+                                    {v.giris_saati || '--:--'}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-center font-mono font-medium text-gray-700">
+                                    {v.cikis_saati || '--:--'}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-center">
+                                    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                      isZamaninda
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : isGec
+                                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    }`}>
+                                      {isZamaninda ? 'Zamanında' : isGec ? 'Geç Kaldı' : v.durum || 'Normal'}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-xs text-gray-500">
+                                    {v.notlar || '-'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/*    Bordro  zeti                                */}
               {activeTab === 'bordro' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -1689,28 +1803,6 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                   </div>
                 );
               })()}
-
-              {/*    Şikayetler                                   */}
-              {activeTab === 'sikayetler' && (
-                <TutanakSikayetPanel
-                  kategori="sikayet"
-                  baslik="Şikayetler"
-                  aciklama="Çalışana yapılan şikayet bildirimleri ve ilgili belgeler"
-                  dosyalar={dosyaByKategori('sikayet')}
-                  yeniYazi={yeniYazi['sikayet'] ?? ''}
-                  kaydediliyor={yaziKaydediliyor['sikayet'] ?? false}
-                  uploadingKategori={uploadingKategori}
-                  disabled={ozlukSetupEksik || !storageEnabled}
-                  selectedEmp={selectedEmp}
-                  companyName={(selectedEmp as any)?.company || 'Kurumsal Şirket'}
-                  fileInputRef={(el) => { fileInputRefs.current['sikayet'] = el; }}
-                  onYaziChange={(v) => setYeniYazi((prev) => ({ ...prev, sikayet: v }))}
-                  onSaveYazi={() => handleSaveYazi('sikayet')}
-                  onFileSelect={(e) => handleFileSelect(e, 'sikayet')}
-                  onDelete={handleDelete}
-                  onDownload={handleDownload}
-                />
-              )}
             </div>
           </div>
         </div>
