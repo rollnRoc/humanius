@@ -19,15 +19,6 @@ interface IzinHakedisModalProps {
   }) => Promise<void>;
 }
 
-const HAKEDIS_IZIN_TURLERI = [
-  { id: 'yillik', label: '🌴 Yıllık İzin', desc: 'Yıllık kanuni veya sözleşmeli izin hakkı' },
-  { id: 'mazeret', label: '📌 Mazeret İzni', desc: 'Yıllık mazeret / acil durum izni' },
-  { id: 'idari', label: '🏢 İdari / Şirket Özel İzni', desc: 'Şirket inisiyatifi ile verilen ücretli izin' },
-  { id: 'kidem', label: '🎖️ Kıdem / Performans Ek İzni', desc: 'Başarı veya hizmet yılı ödül izni' },
-  { id: 'babalik', label: '👶 Babalık İzni', desc: 'Yeni baba olan personel için ek hakediş' },
-  { id: 'evlilik', label: '💍 Evlilik İzni', desc: 'Evlilik münasebetiyle tanımlanan izin' },
-];
-
 export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
   isOpen,
   onClose,
@@ -39,7 +30,6 @@ export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
   const currentYear = new Date().getFullYear();
 
   const [selectedEmpId, setSelectedEmpId] = useState<string>(initialEmployeeId || '');
-  const [izinTuru, setIzinTuru] = useState<string>('yillik');
   const [islemTipi, setIslemTipi] = useState<'ekle' | 'belirle'>('ekle');
   const [gunSayisi, setGunSayisi] = useState<number>(14);
   const [yil, setYil] = useState<number>(currentYear);
@@ -85,11 +75,11 @@ export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
     try {
       await onSubmit({
         employeeId: selectedEmpId,
-        izinTuru,
+        izinTuru: 'yillik',
         gunSayisi: Number(gunSayisi),
         islemTipi,
         yil: Number(yil),
-        aciklama: aciklama.trim() || `${yil} yılı izin hak ediş güncellemesi`
+        aciklama: aciklama.trim() || `${yil} yılı yıllık izin hak ediş güncellemesi`
       });
       onClose();
     } catch (err: any) {
@@ -112,8 +102,8 @@ export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
               <Sparkles className="w-6 h-6 text-yellow-300" />
             </div>
             <div>
-              <h3 className="text-lg font-bold">Personel İzin Hak Edişi Tanımla</h3>
-              <p className="text-xs text-blue-100 mt-0.5">Şirket yöneticisi izin hakkı ekleme ve bakiye belirleme paneli</p>
+              <h3 className="text-lg font-bold">Yıllık İzin Hak Edişi Tanımla</h3>
+              <p className="text-xs text-blue-100 mt-0.5">Personel yıllık izin hakkı ekleme ve bakiye belirleme paneli</p>
             </div>
           </div>
           <button
@@ -180,31 +170,15 @@ export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
             </div>
           )}
 
-          {/* İzin Türü */}
-          <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
-              İzin Türü <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {HAKEDIS_IZIN_TURLERI.map((tur) => {
-                const isSelected = izinTuru === tur.id;
-                return (
-                  <button
-                    key={tur.id}
-                    type="button"
-                    onClick={() => setIzinTuru(tur.id)}
-                    className={`text-left p-3 rounded-xl border transition-all flex flex-col ${
-                      isSelected
-                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 ring-2 ring-blue-500/20 font-semibold'
-                        : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                    }`}
-                  >
-                    <span className="text-sm font-bold">{tur.label}</span>
-                    <span className="text-[11px] text-gray-500 mt-0.5">{tur.desc}</span>
-                  </button>
-                );
-              })}
+          {/* İzin Türü Bilgisi */}
+          <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-blue-900">🌴 İzin Türü:</span>
+              <span className="text-xs font-semibold text-blue-800 bg-white px-2.5 py-1 rounded-lg border border-blue-200 shadow-2xs">
+                Yıllık İzin (Ücretli İzin Hakkı)
+              </span>
             </div>
+            <span className="text-[11px] text-blue-600 font-medium">Bakiye ve hakedişe dahil edilir</span>
           </div>
 
           {/* İşlem Tipi & Yıl */}
