@@ -60,7 +60,7 @@ export const gorevTanimiService = {
     return result;
   },
 
-  async getGorevTanimlari(companyId: string) {
+  async getGorevTanimlari(companyId?: string) {
     if (demoService.isDemoActive()) {
       const records = localStorage.getItem('humanius_demo_gorev_tanimlari');
       if (!records) {
@@ -87,13 +87,39 @@ export const gorevTanimiService = {
         localStorage.setItem('humanius_demo_gorev_tanimlari', JSON.stringify(initial));
         return initial;
       }
-      return JSON.parse(records);
+      const list: GorevTanimi[] = JSON.parse(records);
+      if (companyId) {
+        return list.filter(g => g.company_id === companyId);
+      }
+      return list;
+    }
+    let query = supabase
+      .from('gorev_tanimlari')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getGorevTanimiByEmployeeId(employeeId: string) {
+    if (demoService.isDemoActive()) {
+      const list = await this.getGorevTanimlari();
+      return list.find((g: GorevTanimi) => g.employee_id === employeeId) || null;
     }
     const { data, error } = await supabase
       .from('gorev_tanimlari')
       .select('*')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
+      .eq('employee_id', employeeId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (error) throw error;
     return data;

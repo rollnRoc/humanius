@@ -153,12 +153,12 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
   };
 
   async function kaydet() {
-    if (!profile?.company_id) return;
+    const targetCompId = profile?.company_id || (employees.find(e => e.company_id)?.company_id) || '11111111-1111-1111-1111-111111111111';
     setIsSaving(true);
     
     try {
       const payload: ZimmetInsert = {
-        company_id: profile.company_id,
+        company_id: targetCompId,
         seri_no: form.seriNo,
         ad: form.ad,
         kategori: form.kategori,

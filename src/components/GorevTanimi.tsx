@@ -167,10 +167,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
         setIsBirimi(emp.department || '');
         
         // Check if there is an existing job description for this employee in the database
-        gorevTanimiService.getGorevTanimlari(effectiveCompanyId).then((data) => {
-          const existing = (data ?? []).find(
-            (g: any) => g.employee_id === selectedEmployeeId
-          );
+        gorevTanimiService.getGorevTanimiByEmployeeId(selectedEmployeeId).then((existing) => {
           if (existing) {
             setPozisyonAdi(existing.gorev_adi || emp.position || '');
             setIsBirimi(existing.is_birimi || emp.department || '');
@@ -200,27 +197,23 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
         });
       }
     }
-  }, [selectedEmployeeId, employees, effectiveCompanyId]);
+  }, [selectedEmployeeId, employees]);
 
   const loadEmployees = async () => {
-    if (!effectiveCompanyId) {
-      setSaveError('Şirket bilgisi alınamadı. Lütfen tekrar giriş yapın.');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setCompanyId(effectiveCompanyId);
-      const empList = await employeeService.getAll(effectiveCompanyId);
+      const empList = await employeeService.getAll(effectiveCompanyId || undefined);
       console.log('loadEmployees - yüklenen personel sayısı:', empList?.length || 0);
 
       if (empList) {
-        setEmployees(empList.map(emp => ({
+        setEmployees(empList.map((emp: any) => ({
           id: emp.id,
           name: emp.name || 'İsimsiz Personel',
           department: emp.department || 'Belirtilmemiş',
-          position: emp.position || 'Belirtilmemiş'
-        })));
+          position: emp.position || 'Belirtilmemiş',
+          company_id: emp.company_id,
+          company: emp.company,
+        } as Employee)));
       }
     } catch (error) {
       console.error('loadEmployees - Hata:', error);
@@ -230,16 +223,10 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
   };
 
   const loadRecords = async () => {
-    if (!effectiveCompanyId) {
-      setRecordsLoading(false);
-      setRecordsError('Şirket bilgisi alınamadı.');
-      return;
-    }
-
     setRecordsLoading(true);
     setRecordsError('');
     try {
-      const data = await gorevTanimiService.getGorevTanimlari(effectiveCompanyId);
+      const data = await gorevTanimiService.getGorevTanimlari(effectiveCompanyId || undefined);
       setSavedRecords(data ?? []);
     } catch (error: any) {
       console.error('Görev tanımı kayıtları yüklenemedi:', error);
@@ -338,19 +325,16 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       return;
     }
 
-    if (!profile?.company_id) {
-      setSaveError('Kullanıcı şirket bilgisi eksik. Lütfen tekrar giriş yapın.');
-      return;
-    }
-
     const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
     if (!selectedEmployee) {
       alert('Seçilen personel bulunamadı.');
       return;
     }
 
+    const targetCompanyId = selectedEmployee.company_id || profile?.company_id || (employees.find(e => e.company_id)?.company_id) || '11111111-1111-1111-1111-111111111111';
+
     const gorevTanimi = {
-      company_id: profile.company_id,
+      company_id: targetCompanyId,
       employee_id: selectedEmployeeId,
       employee_name: selectedEmployee.name,
       gorev_adi: pozisyonAdi,
