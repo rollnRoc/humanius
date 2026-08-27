@@ -168,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // Profil tablosunda ID ile henüz yoksa veya rolü boşsa oturum açan kullanıcının e-postası ile eşle
+      // 2. Profil tablosunda ID ile henüz yoksa veya rolü boşsa oturum açan kullanıcının e-postası ile eşle
       const { data: authUserData } = await supabase.auth.getUser();
       const userEmail = authUserData.user?.email?.toLowerCase().trim();
 
@@ -185,6 +185,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
+      // 3. Edge function (service_role) fallback to bypass any client RLS restrictions
+      try {
+        const { data: edgeData } = await supabase.functions.invoke('user-management', {
+          body: { operation: 'list_users' }
+        });
+        const matched = (edgeData?.users || []).find((u: any) => u.id === userId || (userEmail && u.email?.toLowerCase().trim() === userEmail));
+        if (matched && matched.role) {
+          setProfile(matched);
+          return;
+        }
+      } catch {}
+
       let matchedCompanyId = data?.company_id || null;
       let matchedFullName = data?.full_name || authUserData.user?.user_metadata?.full_name || 'Personel';
       let matchedRole = data?.role || (authUserData.user?.user_metadata as any)?.role || 'employee';
@@ -197,7 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
 
         if (emp) {
-          matchedCompanyId = emp.company_id || matchedCompanyId;
+          matchedCompanyId = matchedRole === 'superadmin' ? null : (emp.company_id || matchedCompanyId);
           matchedFullName = emp.name || matchedFullName;
         }
       }
@@ -206,7 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: userId,
         email: userEmail || data?.email || '',
         full_name: matchedFullName,
-        company_id: matchedCompanyId,
+        company_id: matchedRole === 'superadmin' ? null : matchedCompanyId,
         role: matchedRole,
         created_at: data?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
