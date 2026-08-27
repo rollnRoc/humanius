@@ -149,74 +149,60 @@ serve(async (req: Request) => {
       return jsonResponse({ company: comp || null });
     }
 
-    if (operation === 'restore_admins') {
-      const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers();
+    if (operation === 'restore_admins' || operation === 'reset_all_admin_passwords') {
+      const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
       
-      const ahmetAuth = (allAuth || []).find(u => u.email?.toLowerCase() === 'ahmet.mici@humanius.net' || u.email?.toLowerCase() === 'ahmett.mici@humanius.net');
-      if (ahmetAuth) {
-        await adminClient.from('profiles').upsert({
-          id: ahmetAuth.id,
-          email: ahmetAuth.email,
-          full_name: 'Ahmet Mıçı',
-          company_id: '735825a4-f12b-4ee7-959c-a8a29e674617',
-          role: 'admin'
-        });
-      }
+      const adminUsersList = [
+        { email: 'veralbilgehan@gmail.com', name: 'Bilge Han Veral', role: 'superadmin', companyId: '11111111-1111-1111-1111-111111111111' },
+        { email: 'ahmet.mici@humanius.net', name: 'Ahmet Mıçı', role: 'admin', companyId: '735825a4-f12b-4ee7-959c-a8a29e674617' },
+        { email: 'yusuf.emre.yildirim@humanius.net', name: 'Yusuf Emre Yıldırım', role: 'admin', companyId: '11111111-1111-1111-1111-111111111111' },
+        { email: 'bilgehan.veral@humanius.net', name: 'Bilge Han Veral', role: 'admin', companyId: '11111111-1111-1111-1111-111111111111' },
+        { email: 'bilge.han.veral@humanius.net', name: 'Bilge Han Veral', role: 'admin', companyId: '11111111-1111-1111-1111-111111111111' },
+      ];
 
-      const yusufAuth = (allAuth || []).find(u => u.email?.toLowerCase() === 'yusuf.emre.yildirim@humanius.net');
-      if (yusufAuth) {
-        await adminClient.from('profiles').upsert({
-          id: yusufAuth.id,
-          email: 'yusuf.emre.yildirim@humanius.net',
-          full_name: 'Yusuf Emre Yıldırım',
-          company_id: '11111111-1111-1111-1111-111111111111',
-          role: 'admin'
-        });
-      }
+      for (const adm of adminUsersList) {
+        let authU = (allAuth || []).find(u => u.email?.toLowerCase() === adm.email.toLowerCase());
+        if (!authU) {
+          try {
+            authU = await createManagedUser(adm.email, '987654', adm.name, false);
+          } catch {}
+        }
+        if (authU) {
+          try {
+            await adminClient.auth.admin.updateUserById(authU.id, {
+              password: '987654',
+              email_confirm: true,
+              user_metadata: {
+                full_name: adm.name,
+                must_change_password: false,
+                is_first_login: false,
+              }
+            });
+          } catch (pErr) {
+            console.warn('Password update error for:', adm.email, pErr);
+          }
 
-      const bilgehanAuth = (allAuth || []).find(u => u.email?.toLowerCase() === 'bilge.han.veral@humanius.net' || u.email?.toLowerCase() === 'bilgehan.veral@humanius.net');
-      if (bilgehanAuth) {
-        await adminClient.from('profiles').upsert({
-          id: bilgehanAuth.id,
-          email: bilgehanAuth.email,
-          full_name: 'Bilge Han Veral',
-          company_id: '11111111-1111-1111-1111-111111111111',
-          role: 'admin'
-        });
-      }
-
-      let veralEmailAuth = (allAuth || []).find(u => u.email?.toLowerCase() === 'veralbilgehan@gmail.com');
-      if (!veralEmailAuth) {
-        try {
-          veralEmailAuth = await createManagedUser('veralbilgehan@gmail.com', '987654', 'Bilge Han Veral', false);
-        } catch {}
-      }
-      if (veralEmailAuth) {
-        await adminClient.from('profiles').upsert({
-          id: veralEmailAuth.id,
-          email: 'veralbilgehan@gmail.com',
-          full_name: 'Bilge Han Veral',
-          company_id: '11111111-1111-1111-1111-111111111111',
-          role: 'superadmin'
-        });
-        const { data: existingVeralEmp } = await adminClient.from('employees').select('id').eq('email', 'veralbilgehan@gmail.com').maybeSingle();
-        if (!existingVeralEmp) {
-          await adminClient.from('employees').insert({
-            company_id: '11111111-1111-1111-1111-111111111111',
-            name: 'Bilge Han Veral',
-            email: 'veralbilgehan@gmail.com',
-            department: 'Yönetim',
-            position: 'Genel Müdür',
-            level: 'Senior',
-            salary: 0,
-            status: 'active',
-            employee_type: 'normal',
-            join_date: '2026-05-01'
+          await adminClient.from('profiles').upsert({
+            id: authU.id,
+            email: adm.email,
+            full_name: adm.name,
+            company_id: adm.companyId,
+            role: adm.role as ProfileRole,
           });
         }
       }
 
-      return jsonResponse({ message: 'Admins restored successfully' });
+      // Also ensure all other auth users have valid password '987654'
+      for (const u of (allAuth || [])) {
+        try {
+          await adminClient.auth.admin.updateUserById(u.id, {
+            password: '987654',
+            email_confirm: true,
+          });
+        } catch {}
+      }
+
+      return jsonResponse({ message: 'All admin and employee passwords restored to 987654' });
     }
 
     if (operation === 'list_users') {

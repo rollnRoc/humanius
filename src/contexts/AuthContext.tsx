@@ -163,42 +163,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Profile fetch warning:', error.message);
       }
 
-      if (data && data.company_id) {
+      if (data && data.role) {
         setProfile(data);
-      } else {
-        // Profil tablosunda ID ile henüz yoksa veya company_id boşsa oturum açan kullanıcının e-postası ile eşle
-        const { data: authUserData } = await supabase.auth.getUser();
-        const userEmail = authUserData.user?.email?.toLowerCase().trim();
-        let matchedCompanyId = data?.company_id || null;
-        let matchedFullName = data?.full_name || authUserData.user?.user_metadata?.full_name || 'Personel';
-        let matchedRole = data?.role || 'employee';
-
-        if (userEmail) {
-          const { data: emp } = await supabase
-            .from('employees')
-            .select('id, name, company_id, role')
-            .eq('email', userEmail)
-            .maybeSingle();
-
-          if (emp) {
-            matchedCompanyId = emp.company_id || matchedCompanyId;
-            matchedFullName = emp.name || matchedFullName;
-            matchedRole = (emp.role as any) || matchedRole;
-          }
-        }
-
-        const fallbackProf: Profile = {
-          id: userId,
-          email: userEmail || data?.email || '',
-          full_name: matchedFullName,
-          company_id: matchedCompanyId,
-          role: matchedRole,
-          created_at: data?.created_at || new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        setProfile(fallbackProf);
+        return;
       }
+
+      // Profil tablosunda ID ile henüz yoksa veya rolü boşsa oturum açan kullanıcının e-postası ile eşle
+      const { data: authUserData } = await supabase.auth.getUser();
+      const userEmail = authUserData.user?.email?.toLowerCase().trim();
+
+      if (userEmail) {
+        const { data: pByEmail } = await supabase
+          .from('profiles')
+          .select('*')
+          .ilike('email', userEmail)
+          .maybeSingle();
+
+        if (pByEmail && pByEmail.role) {
+          setProfile(pByEmail);
+          return;
+        }
+      }
+
+      let matchedCompanyId = data?.company_id || null;
+      let matchedFullName = data?.full_name || authUserData.user?.user_metadata?.full_name || 'Personel';
+      let matchedRole = data?.role || (authUserData.user?.user_metadata as any)?.role || 'employee';
+
+      if (userEmail) {
+        const { data: emp } = await supabase
+          .from('employees')
+          .select('id, name, company_id')
+          .eq('email', userEmail)
+          .maybeSingle();
+
+        if (emp) {
+          matchedCompanyId = emp.company_id || matchedCompanyId;
+          matchedFullName = emp.name || matchedFullName;
+        }
+      }
+
+      const fallbackProf: Profile = {
+        id: userId,
+        email: userEmail || data?.email || '',
+        full_name: matchedFullName,
+        company_id: matchedCompanyId,
+        role: matchedRole,
+        created_at: data?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setProfile(fallbackProf);
     } catch (error) {
       console.warn('Error fetching profile:', error);
       setProfile(null);
