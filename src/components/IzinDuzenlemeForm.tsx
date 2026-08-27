@@ -1,306 +1,345 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Upload, CheckCircle, AlertCircle } from 'lucide-react';
-import { Employee } from '../types';
-import { IzinTalebi } from '../types/izin';
-import { formatDate } from '../utils/izinCalculations';
+import { X, Calendar, MapPin, CheckCircle, Clock, XCircle, Ban, Trash2, Save, ShieldAlert, Sparkles, User } from 'lucide-react';
+import type { Employee } from '../types';
+import type { IzinTalebi, IzinTuru, IzinDurum } from '../types/izin';
+import { calculateWorkingDays } from '../utils/izinCalculations';
 import { useScrollLock } from '../hooks/useScrollLock';
+import { useAuth } from '../contexts/AuthContext';
 
 interface IzinDuzenlemeFormProps {
   talep: IzinTalebi;
   employee: Employee;
   onSubmit: (updatedTalep: Partial<IzinTalebi>) => void;
+  onDelete?: (id: string) => void;
   onClose: () => void;
 }
+
+const IZIN_TURLERI_LIST = [
+  { id: 'yillik', label: '🌴 Yıllık İzin' },
+  { id: 'mazeret', label: '📌 Mazeret İzni' },
+  { id: 'hastalik', label: '⚕️ Hastalık / Rapor' },
+  { id: 'dogum', label: '🤰 Doğum / Analık İzni' },
+  { id: 'babalik', label: '👶 Babalık İzni' },
+  { id: 'evlilik', label: '💍 Evlilik İzni' },
+  { id: 'olum', label: '🖤 Vefat / Ölüm İzni' },
+  { id: 'askerlik', label: '🎖️ Askerlik İzni' },
+  { id: 'ucretsiz', label: '⛔ Ücretsiz İzin' },
+];
+
+const IZIN_DURUMLARI = [
+  { id: 'onaylandi', label: 'Onaylandı', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  { id: 'beklemede', label: 'Onay Bekliyor', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+  { id: 'reddedildi', label: 'Reddedildi', color: 'bg-red-100 text-red-800 border-red-300' },
+  { id: 'iptal', label: 'İptal Edildi', color: 'bg-gray-100 text-gray-800 border-gray-300' },
+];
 
 const IzinDuzenlemeForm: React.FC<IzinDuzenlemeFormProps> = ({
   talep,
   employee,
   onSubmit,
+  onDelete,
   onClose
 }) => {
   useScrollLock(true);
+  const { isSuperAdmin, isAdmin } = useAuth();
 
-  const [formData, setFormData] = useState({
-    yolIzniTalep: talep.yolIzniTalep,
-    yolIzniGun: talep.yolIzniGun,
-    seyahatYeri: talep.seyahatYeri,
-    ilDisiSeyahat: talep.ilDisiSeyahat,
-    aciklama: talep.aciklama
-  });
+  const [izinTuru, setIzinTuru] = useState<IzinTuru>(talep.izinTuru || 'yillik');
+  const [baslangicTarihi, setBaslangicTarihi] = useState(talep.baslangicTarihi || '');
+  const [bitisTarihi, setBitisTarihi] = useState(talep.bitisTarihi || '');
+  const [gunSayisi, setGunSayisi] = useState<number>(talep.gunSayisi || 1);
+  const [durum, setDurum] = useState<IzinDurum>(talep.durum || 'onaylandi');
+  const [aciklama, setAciklama] = useState(talep.aciklama || '');
+  
+  const [yolIzniTalep, setYolIzniTalep] = useState(Boolean(talep.yolIzniTalep));
+  const [yolIzniGun, setYolIzniGun] = useState<number>(talep.yolIzniGun || 0);
+  const [seyahatYeri, setSeyahatYeri] = useState(talep.seyahatYeri || '');
+  const [ilDisiSeyahat, setIlDisiSeyahat] = useState(Boolean(talep.ilDisiSeyahat));
 
-  const [belgeDosyasi, setBelgeDosyasi] = useState<File | null>(null);
-  const [belgeYuklendi, setBelgeYuklendi] = useState(false);
+  const [autoCalculate, setAutoCalculate] = useState(false);
 
-  // Yol izni değiştiğinde kontroller
+  // Tarih değiştiğinde otomatik gün hesabı (istenirse)
   useEffect(() => {
-    if (formData.yolIzniTalep) {
-      setFormData(prev => ({ ...prev, yolIzniGun: prev.yolIzniGun || 4 }));
-    } else {
-      setFormData(prev => ({ ...prev, yolIzniGun: 0, seyahatYeri: '', ilDisiSeyahat: false }));
-      setBelgeDosyasi(null);
-      setBelgeYuklendi(false);
+    if (autoCalculate && baslangicTarihi && bitisTarihi) {
+      const calcDays = calculateWorkingDays(baslangicTarihi, bitisTarihi);
+      if (calcDays > 0) setGunSayisi(calcDays);
     }
-  }, [formData.yolIzniTalep]);
-
-  // Belge yükleme
-  const handleBelgeYukle = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Dosya türü kontrolü
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-      if (!allowedTypes.includes(file.type)) {
-        alert('Sadece PDF, JPG, PNG dosyaları yükleyebilirsiniz.');
-        return;
-      }
-
-      // Dosya boyutu kontrolü (5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Dosya boyutu 5MB\'dan küçük olmalıdır.');
-        return;
-      }
-
-      setBelgeDosyasi(file);
-      setBelgeYuklendi(true);
-    }
-  };
+  }, [baslangicTarihi, bitisTarihi, autoCalculate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (formData.yolIzniTalep && formData.ilDisiSeyahat && !belgeYuklendi && !talep.belgeUrl) {
-      alert('İl dışı seyahat için belge yüklemeniz gereklidir!');
+    if (!baslangicTarihi || !bitisTarihi) {
+      alert('Lütfen başlangıç ve bitiş tarihlerini giriniz.');
       return;
     }
-
-    if (formData.yolIzniTalep && !formData.seyahatYeri.trim()) {
-      alert('Seyahat yeri belirtmeniz gereklidir!');
+    if (gunSayisi <= 0) {
+      alert('Gün sayısı en az 1 olmalıdır.');
       return;
     }
 
     onSubmit({
-      ...formData,
-      belgeDosyasi: belgeDosyasi
+      ...talep,
+      izinTuru,
+      baslangicTarihi,
+      bitisTarihi,
+      gunSayisi: Number(gunSayisi),
+      durum,
+      aciklama,
+      yolIzniTalep,
+      yolIzniGun: yolIzniTalep ? (Number(yolIzniGun) || 4) : 0,
+      seyahatYeri: yolIzniTalep ? seyahatYeri : '',
+      ilDisiSeyahat: yolIzniTalep ? ilDisiSeyahat : false
     });
   };
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete(talep.id);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 max-w-2xl w-full bg-white border-l border-gray-200 transform transition-transform duration-300 translate-x-0 flex flex-col">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 p-6 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <MapPin className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold text-gray-800">Yol İzni Ekle/Düzenle</h2>
+            <div className="p-2.5 bg-white/10 rounded-2xl backdrop-blur-xs">
+              <Calendar className="w-6 h-6 text-indigo-300" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold">İzin Kaydını Düzenle / Yönet</h3>
+                <span className="text-[10px] uppercase font-extrabold bg-blue-500/30 text-blue-200 border border-blue-400/30 px-2 py-0.5 rounded-full">
+                  Yönetici Yetkisi
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">Önceden kullanılmış veya onaylanmış izin kayıtlarını düzenleme ve kaldırma</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Current Leave Information */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Mevcut Yıllık İzin Bilgileri</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">Personel:</span>
-                <span className="text-gray-800 ml-2 font-medium">{talep.employeeName}</span>
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+          
+          {/* Personel Bilgi Kartı */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-sm shrink-0">
+                {employee?.name ? employee.name.slice(0, 2).toUpperCase() : 'PE'}
               </div>
               <div>
-                <span className="text-gray-600">İzin Türü:</span>
-                <span className="text-gray-800 ml-2 font-medium">Yıllık İzin</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Tarih Aralığı:</span>
-                <span className="text-gray-800 ml-2 font-medium">
-                  {formatDate(talep.baslangicTarihi)} - {formatDate(talep.bitisTarihi)}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-600">Gün Sayısı:</span>
-                <span className="text-gray-800 ml-2 font-medium">{talep.gunSayisi} gün</span>
+                <h4 className="text-sm font-bold text-gray-900">{employee?.name || talep.employeeName || 'Personel'}</h4>
+                <p className="text-xs text-gray-500">{employee?.department || 'Departman'} · {employee?.position || 'Pozisyon'}</p>
               </div>
             </div>
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-700">
-                <strong>Not:</strong> Onaylanan yıllık izne yol izni eklenebilir. İzin tarihleri ve süresi değiştirilemez.
-              </p>
+            <div className="text-right">
+              <span className="text-[11px] text-gray-400 block">Talep Tarihi</span>
+              <span className="text-xs font-semibold text-gray-700">{talep.talepTarihi || talep.createdAt?.split('T')[0] || '-'}</span>
             </div>
           </div>
 
-          {/* Travel Leave Editing */}
-          <div className="space-y-4">
-            <div className="border-2 border-blue-300 rounded-xl p-5 bg-gradient-to-r from-blue-50 to-blue-100">
-              <div className="flex items-center gap-3 mb-3">
-                <MapPin className="w-5 h-5 text-blue-600" />
-                <h4 className="text-base font-bold text-blue-800">🚗 Yol İzni Düzenle (4 Güne Kadar)</h4>
-              </div>
+          {/* İzin Türü Seçimi */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
+              İzin Türü <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={izinTuru}
+              onChange={(e) => setIzinTuru(e.target.value as IzinTuru)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-gray-800 focus:bg-white focus:border-blue-500 outline-none"
+            >
+              {IZIN_TURLERI_LIST.map((tur) => (
+                <option key={tur.id} value={tur.id}>
+                  {tur.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-              <div className="bg-white rounded-lg p-3 mb-4 border border-blue-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <input
-                    type="checkbox"
-                    id="yolIzni"
-                    checked={formData.yolIzniTalep}
-                    onChange={(e) => handleInputChange('yolIzniTalep', e.target.checked)}
-                    className="w-5 h-5 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="yolIzni" className="text-sm font-medium text-blue-800">
-                    ✅ Yıllık iznime ek olarak yol izni kullanmak istiyorum
-                  </label>
-                </div>
-                <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
-                  💡 <strong>Bilgi:</strong> Yol izni, yıllık izninizle birlikte kullanabileceğiniz ek bir izindir.
-                </div>
-              </div>
-              
-              {formData.yolIzniTalep && (
-                <div className="space-y-4 border-t-2 border-blue-200 pt-4">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-green-600 font-bold">🎯 Yol İzni Aktif!</span>
-                    </div>
-                    <p className="text-sm text-green-700">
-                      Toplam izin süresi: <strong>{talep.gunSayisi} gün yıllık izin + {formData.yolIzniGun} gün yol izni = {talep.gunSayisi + formData.yolIzniGun} gün</strong>
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-blue-800 mb-2">
-                      📅 Yol İzni Günü (1-4 gün) *
-                    </label>
-                    <select
-                      value={formData.yolIzniGun}
-                      onChange={(e) => handleInputChange('yolIzniGun', parseInt(e.target.value))}
-                      className="w-full bg-white border-2 border-blue-300 text-gray-800 rounded-lg px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      required
-                    >
-                      <option value={1}>1 gün</option>
-                      <option value={2}>2 gün</option>
-                      <option value={3}>3 gün</option>
-                      <option value={4}>4 gün</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-blue-800 mb-2">
-                      🗺️ Seyahat Yeri *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.seyahatYeri}
-                      onChange={(e) => handleInputChange('seyahatYeri', e.target.value)}
-                      placeholder="Örn: Antalya, İzmir, Trabzon, Bodrum..."
-                      className="w-full bg-white border-2 border-blue-300 text-gray-800 rounded-lg px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      required
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="ilDisi"
-                      checked={formData.ilDisiSeyahat}
-                      onChange={(e) => handleInputChange('ilDisiSeyahat', e.target.checked)}
-                      className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <label htmlFor="ilDisi" className="text-sm text-blue-700">
-                      İşyerinin bulunduğu şehir dışına seyahat edeceğim
-                    </label>
-                  </div>
-                  
-                  {formData.ilDisiSeyahat && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="w-4 h-4 text-yellow-600" />
-                        <span className="text-sm font-medium text-yellow-800">
-                          Belge Yükleme Gereksinimi
-                        </span>
-                      </div>
-                      <p className="text-xs text-yellow-700 mb-3">
-                        Şehir dışı seyahat için rezervasyon belgesi, uçak bileti veya benzeri kanıt belgesi yüklemeniz gerekmektedir.
-                      </p>
-
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-yellow-800">
-                          Belge Yükle (PDF, JPG, PNG - Maks 5MB) *
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            onChange={handleBelgeYukle}
-                            className="hidden"
-                            id="belgeYukle"
-                          />
-                          <label
-                            htmlFor="belgeYukle"
-                            className="flex items-center gap-2 bg-white border border-yellow-300 text-yellow-700 px-3 py-2 rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors"
-                          >
-                            <Upload className="w-4 h-4" />
-                            Belge Seç
-                          </label>
-                          {(belgeYuklendi || talep.belgeUrl) && (
-                            <div className="flex items-center gap-2 text-green-600">
-                              <CheckCircle className="w-4 h-4" />
-                              <span className="text-sm">
-                                {belgeDosyasi?.name || 'Mevcut belge mevcut'}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+          {/* Tarih Aralığı & Gün Sayısı */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
+                Başlangıç Tarihi <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={baslangicTarihi}
+                onChange={(e) => {
+                  setBaslangicTarihi(e.target.value);
+                  setAutoCalculate(true);
+                }}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 focus:bg-white focus:border-blue-500 outline-none"
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Açıklama</label>
-              <textarea
-                value={formData.aciklama}
-                onChange={(e) => handleInputChange('aciklama', e.target.value)}
-                rows={3}
-                placeholder="İzin talebi hakkında açıklama..."
-                className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none"
+              <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
+                Bitiş Tarihi <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={bitisTarihi}
+                onChange={(e) => {
+                  setBitisTarihi(e.target.value);
+                  setAutoCalculate(true);
+                }}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 focus:bg-white focus:border-blue-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Gün Sayısı <span className="text-red-500">*</span>
+                </label>
+              </div>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={gunSayisi}
+                onChange={(e) => {
+                  setAutoCalculate(false);
+                  setGunSayisi(Math.max(1, parseInt(e.target.value) || 1));
+                }}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-extrabold text-blue-700 focus:bg-white focus:border-blue-500 outline-none"
               />
             </div>
           </div>
-        </form>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-200 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-          >
-            İptal
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={
-              formData.yolIzniTalep && formData.ilDisiSeyahat && !belgeYuklendi && !talep.belgeUrl
-            }
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Güncelle
-          </button>
-        </div>
+          {/* İzin Durumu */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
+              İzin Onay / Geçerlilik Durumu <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {IZIN_DURUMLARI.map((d) => {
+                const isSelected = durum === d.id;
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDurum(d.id as IzinDurum)}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      isSelected
+                        ? `${d.color} ring-2 ring-blue-500/20 shadow-xs`
+                        : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {d.id === 'onaylandi' && <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
+                    {d.id === 'beklemede' && <Clock className="w-3.5 h-3.5 text-amber-600" />}
+                    {d.id === 'reddedildi' && <XCircle className="w-3.5 h-3.5 text-red-600" />}
+                    {d.id === 'iptal' && <Ban className="w-3.5 h-3.5 text-gray-600" />}
+                    <span>{d.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1.5">
+              * Durum "Onaylandı" olduğunda çalışanın yıllık izin kotasından düşülür; "İptal" veya "Reddedildi" olduğunda bakiye personelin hesabına iade edilir.
+            </p>
+          </div>
+
+          {/* Yol İzni Bölümü */}
+          <div className="border border-blue-100 rounded-2xl p-4 bg-blue-50/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={yolIzniTalep}
+                  onChange={(e) => setYolIzniTalep(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <span className="text-xs font-bold text-blue-900">🚗 Yol İzni Dahil Edilsin</span>
+              </label>
+              {yolIzniTalep && (
+                <span className="text-xs font-bold text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200">
+                  +{yolIzniGun || 4} Gün Yol İzni
+                </span>
+              )}
+            </div>
+
+            {yolIzniTalep && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-600 mb-1">Yol İzni Gün Sayısı</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="4"
+                    value={yolIzniGun || 4}
+                    onChange={(e) => setYolIzniGun(Math.min(4, Math.max(1, parseInt(e.target.value) || 0)))}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-600 mb-1">Seyahat Yeri / Şehir</label>
+                  <input
+                    type="text"
+                    value={seyahatYeri}
+                    onChange={(e) => setSeyahatYeri(e.target.value)}
+                    placeholder="Örn: Ankara, İzmir"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-800"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Açıklama */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
+              Açıklama / Yönetici Notu
+            </label>
+            <textarea
+              rows={2}
+              value={aciklama}
+              onChange={(e) => setAciklama(e.target.value)}
+              placeholder="İzin gerekçesi veya yönetici düzenleme notu..."
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-800 placeholder-gray-400 focus:bg-white focus:border-blue-500 outline-none"
+            />
+          </div>
+
+          {/* Footer Actions */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100">
+            {onDelete && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="px-4 py-2.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 font-bold text-xs transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4 text-red-600" />
+                <span>Bu İzni Kalıcı Olarak Sil</span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-xs hover:bg-gray-50 transition-colors"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-all flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                <span>Değişiklikleri Kaydet</span>
+              </button>
+            </div>
+          </div>
+
+        </form>
       </div>
     </div>
   );

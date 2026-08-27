@@ -1030,17 +1030,36 @@ const AppInner: React.FC = () => {
     if (!editingIzin) return;
     try {
       await izinService.updateTalep(editingIzin.id, {
+        izin_turu: updatedTalep.izinTuru,
         baslangic_tarihi: updatedTalep.baslangicTarihi,
         bitis_tarihi: updatedTalep.bitisTarihi,
         gun_sayisi: updatedTalep.gunSayisi,
+        durum: updatedTalep.durum,
         aciklama: updatedTalep.aciklama,
         yol_izni_talep: updatedTalep.yolIzniTalep,
+        yol_izni_gun: updatedTalep.yolIzniGun,
+        seyahat_yeri: updatedTalep.seyahatYeri,
+        il_disi_seyahat: updatedTalep.ilDisiSeyahat,
       });
       setEditingIzin(null);
       await loadData();
+      alert('İzin kaydı başarıyla güncellendi.');
     } catch (err: any) {
       console.error('İzin güncellenemedi:', err);
       alert(`İzin güncellenemedi!${err?.message ? `\nDetay: ${err.message}` : ''}`);
+    }
+  };
+
+  const handleDeleteIzin = async (id: string) => {
+    if (!window.confirm('Bu izin kaydını kalıcı olarak silmek / kaldırmak istediğinize emin misiniz?\nKullanılan izin günleri personelin izin bakiyesine otomatik olarak iade edilecektir.')) return;
+    try {
+      await izinService.deleteTalep(id);
+      setEditingIzin(null);
+      await loadData();
+      alert('İzin kaydı başarıyla silindi ve bakiye iade edildi.');
+    } catch (err: any) {
+      console.error('İzin silinemedi:', err);
+      alert(`İzin silinemedi!${err?.message ? `\nDetay: ${err.message}` : ''}`);
     }
   };
 
@@ -1524,6 +1543,8 @@ const AppInner: React.FC = () => {
                   talepleri={izinTalepleri}
                   onOnay={handleIzinOnay}
                   onRed={handleIzinRed}
+                  onEdit={(talep) => setEditingIzin(talep)}
+                  onDelete={handleDeleteIzin}
                 />
                 <IzinOzetKartlari
                   employees={employees}
@@ -1534,6 +1555,8 @@ const AppInner: React.FC = () => {
                     setHakedisEmployeeId(empId || null);
                     setShowHakedisModal(true);
                   }}
+                  onEditIzin={(talep) => setEditingIzin(talep)}
+                  onDeleteIzin={handleDeleteIzin}
                 />
               </>
             )}
@@ -1967,6 +1990,7 @@ const AppInner: React.FC = () => {
           talep={editingIzin}
           employee={employees.find((e) => e.id === editingIzin.employeeId) ?? employees[0]}
           onSubmit={handleIzinUpdate}
+          onDelete={handleDeleteIzin}
           onClose={() => setEditingIzin(null)}
         />
       )}

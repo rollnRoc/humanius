@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Calendar, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, PlusCircle } from 'lucide-react';
+import { Users, Calendar, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, PlusCircle, Edit2, Trash2 } from 'lucide-react';
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +10,8 @@ interface IzinOzetKartlariProps {
   izinHaklari: IzinHakki[];
   onUpdateHak?: (employeeId: string, toplamHak: number, mazeretHak: number, hakId?: string) => void;
   onOpenHakedisModal?: (employeeId?: string) => void;
+  onEditIzin?: (talep: IzinTalebi) => void;
+  onDeleteIzin?: (id: string) => void;
 }
 
 const IZIN_TURU_LABEL: Record<string, string> = {
@@ -34,6 +36,8 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
   izinHaklari,
   onUpdateHak,
   onOpenHakedisModal,
+  onEditIzin,
+  onDeleteIzin,
 }) => {
   const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
   const { profile } = useAuth();
@@ -411,7 +415,37 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
                               </span>
                               <span className="font-medium text-gray-700 shrink-0">{IZIN_TURU_LABEL[t.izinTuru] ?? t.izinTuru}</span>
                               <span className="text-gray-400 text-xs shrink-0">{t.baslangicTarihi} – {t.bitisTarihi}</span>
-                              <span className="ml-auto text-gray-500 text-xs shrink-0">{t.gunSayisi} gün</span>
+                              <span className="ml-auto text-gray-700 font-semibold text-xs shrink-0">{t.gunSayisi} gün</span>
+                              
+                              {/* Düzenle / Sil */}
+                              {isAuthorized && (onEditIzin || onDeleteIzin) && (
+                                <div className="flex items-center gap-1 shrink-0 border-l border-gray-100 pl-2">
+                                  {onEditIzin && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEditIzin(t);
+                                      }}
+                                      title="İzni Düzenle / Değiştir"
+                                      className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  {onDeleteIzin && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteIzin(t.id);
+                                      }}
+                                      title="İzni Sil / Kaldır"
+                                      className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

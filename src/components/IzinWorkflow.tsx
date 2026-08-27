@@ -1,11 +1,13 @@
 import React from 'react';
-import { CheckCircle, Clock, XCircle, User, UserCheck, Briefcase, CreditCard, ChevronRight } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, User, UserCheck, Briefcase, CreditCard, ChevronRight, Edit2, Trash2 } from 'lucide-react';
 import type { IzinTalebi } from '../types/izin';
 
 interface IzinWorkflowProps {
   talep: IzinTalebi;
   onOnay?: (id: string) => void;
   onRed?: (id: string) => void;
+  onEdit?: (talep: IzinTalebi) => void;
+  onDelete?: (id: string) => void;
   compact?: boolean;
   talepleri?: IzinTalebi[];
 }
@@ -201,27 +203,50 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({ talep, onOnay, onRed, compa
         );
       })()}
 
-      {/* Onay/Red butonları - sadece beklemede olan talepler için */}
-      {talep.durum === 'beklemede' && (onOnay || onRed) && (
-        <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
-          {onRed && (
+      {/* Onay/Red/Düzenle butonları */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t border-gray-100">
+        <div className="flex gap-2">
+          {onEdit && (
             <button
-              onClick={() => onRed(talep.id)}
-              className="flex-1 py-2 rounded-xl border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors"
+              onClick={() => onEdit(talep)}
+              className="py-1.5 px-3 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-bold transition-colors flex items-center gap-1.5"
             >
-              Reddet
+              <Edit2 className="w-3.5 h-3.5 text-blue-600" />
+              <span>Düzenle</span>
             </button>
           )}
-          {onOnay && (
+          {onDelete && (
             <button
-              onClick={() => onOnay(talep.id)}
-              className="flex-1 py-2 rounded-xl bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
+              onClick={() => onDelete(talep.id)}
+              className="py-1.5 px-3 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 text-xs font-bold transition-colors flex items-center gap-1.5"
             >
-              Onayla
+              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+              <span>Sil / Kaldır</span>
             </button>
           )}
         </div>
-      )}
+
+        {talep.durum === 'beklemede' && (onOnay || onRed) && (
+          <div className="flex gap-2 ml-auto">
+            {onRed && (
+              <button
+                onClick={() => onRed(talep.id)}
+                className="py-1.5 px-4 rounded-xl border border-red-200 text-red-600 text-xs font-bold hover:bg-red-50 transition-colors"
+              >
+                Reddet
+              </button>
+            )}
+            {onOnay && (
+              <button
+                onClick={() => onOnay(talep.id)}
+                className="py-1.5 px-4 rounded-xl bg-green-600 text-white text-xs font-bold hover:bg-green-700 transition-colors shadow-xs"
+              >
+                Onayla
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Red nedeni */}
       {talep.durum === 'reddedildi' && talep.redNedeni && (
@@ -238,9 +263,11 @@ interface IzinWorkflowListesiProps {
   talepleri: IzinTalebi[];
   onOnay?: (id: string) => void;
   onRed?: (id: string) => void;
+  onEdit?: (talep: IzinTalebi) => void;
+  onDelete?: (id: string) => void;
 }
 
-export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({ talepleri, onOnay, onRed }) => {
+export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({ talepleri, onOnay, onRed, onEdit, onDelete }) => {
   const bekleyenler = talepleri.filter((t) => t.durum === 'beklemede');
   const digerler = talepleri.filter((t) => t.durum !== 'beklemede');
 
@@ -280,22 +307,68 @@ export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({ talepl
       ) : (
         <div className="space-y-3">
           {bekleyenler.map((talep) => (
-            <IzinWorkflow key={talep.id} talep={talep} onOnay={onOnay} onRed={onRed} talepleri={talepleri} />
+            <IzinWorkflow
+              key={talep.id}
+              talep={talep}
+              onOnay={onOnay}
+              onRed={onRed}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              talepleri={talepleri}
+            />
           ))}
         </div>
       )}
 
       {digerler.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Son İşlemler</p>
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-            {digerler.map((talep, i) => (
-              <div key={talep.id} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{talep.employeeName}</p>
-                  <p className="text-xs text-gray-500 font-medium">{talep.izinTuru} İzni • {talep.gunSayisi} gün • 📅 {formatDateRange(talep.baslangicTarihi, talep.bitisTarihi)}</p>
+          <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Son İşlemler / Kullanılmış İzinler</p>
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+            {digerler.map((talep) => (
+              <div key={talep.id} className="flex flex-wrap items-center justify-between px-4 py-3 hover:bg-slate-50/70 transition-colors gap-3">
+                <div className="flex-1 min-w-[200px]">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold text-gray-900">{talep.employeeName}</p>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+                      talep.durum === 'onaylandi' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                      talep.durum === 'reddedildi' ? 'bg-red-50 text-red-700 border border-red-200' :
+                      'bg-gray-100 text-gray-600 border border-gray-200'
+                    }`}>
+                      {talep.durum === 'onaylandi' ? 'Onaylandı / Kullanıldı' : talep.durum === 'reddedildi' ? 'Reddedildi' : 'İptal'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 font-medium mt-0.5">
+                    {talep.izinTuru} İzni • <b>{talep.gunSayisi} gün</b> • 📅 {formatDateRange(talep.baslangicTarihi, talep.bitisTarihi)}
+                  </p>
                 </div>
-                <IzinWorkflow talep={talep} compact talepleri={talepleri} />
+
+                <div className="flex items-center gap-3">
+                  <IzinWorkflow talep={talep} compact talepleri={talepleri} />
+                  
+                  {/* Düzenle / Sil butonları */}
+                  {(onEdit || onDelete) && (
+                    <div className="flex items-center gap-1.5 border-l border-gray-200 pl-3">
+                      {onEdit && (
+                        <button
+                          onClick={() => onEdit(talep)}
+                          title="İzin Kaydını Düzenle / Değiştir"
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button
+                          onClick={() => onDelete(talep.id)}
+                          title="İzin Kaydını Sil / Kaldır"
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
