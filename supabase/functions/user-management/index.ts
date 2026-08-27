@@ -204,7 +204,26 @@ serve(async (req: Request) => {
         } catch {}
       }
 
+      // Ensure correct company names
+      try {
+        await adminClient.from('companies').upsert([
+          { id: '11111111-1111-1111-1111-111111111111', name: 'Bigsafer Teknolojiler A.Ş.' },
+          { id: '735825a4-f12b-4ee7-959c-a8a29e674617', name: 'Mıçı Otomotiv' },
+          { id: '87ed6f79-6a54-40ea-b188-8b325513dc41', name: 'Çavdarlı' },
+          { id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9', name: 'Toyota Hızel' },
+        ]);
+      } catch {}
+
       return jsonResponse({ message: 'All admin and employee passwords restored to 987654' });
+    }
+
+    if (operation === 'update_company') {
+      const id = payload.id as string;
+      const name = payload.name as string;
+      if (id && name) {
+        await adminClient.from('companies').update({ name }).eq('id', id);
+      }
+      return jsonResponse({ message: 'Company updated' });
     }
 
     if (operation === 'list_users') {
@@ -445,7 +464,7 @@ serve(async (req: Request) => {
           { id: '11111111-1111-1111-1111-111111111111', name: 'Bigsafer Teknolojiler A.Ş.' },
           { id: '735825a4-f12b-4ee7-959c-a8a29e674617', name: 'Mıçı Otomotiv' },
           { id: '87ed6f79-6a54-40ea-b188-8b325513dc41', name: 'Çavdarlı' },
-          { id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9', name: 'Kazancı Holding' },
+          { id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9', name: 'Toyota Hızel' },
         ]);
       } catch {}
 
