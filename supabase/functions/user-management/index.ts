@@ -704,6 +704,7 @@ serve(async (req: Request) => {
       if (email) empUpdates.email = email;
       if (companyId) empUpdates.company_id = companyId;
       if (fullName) empUpdates.name = fullName;
+      if (role) empUpdates.role = role;
       if (department !== undefined) empUpdates.department = department;
       if (position !== undefined) empUpdates.position = position;
       if (level !== undefined) {
@@ -728,6 +729,9 @@ serve(async (req: Request) => {
       if (Object.keys(empUpdates).length > 0) {
         if (employeeId) {
           await adminClient.from('employees').update(empUpdates).eq('id', employeeId);
+        }
+        if (email) {
+          await adminClient.from('employees').update(empUpdates).ilike('email', email);
         }
       }
 
@@ -1067,37 +1071,87 @@ serve(async (req: Request) => {
     if (operation === 'update_user_profile') {
       try {
         const email = String(payload.email ?? '').trim().toLowerCase();
-        const companyId = payload.companyId && String(payload.companyId).trim() !== '' ? String(payload.companyId).trim() : null;
-        const role = String(payload.role ?? 'admin').trim() as ProfileRole;
+        const userId = String(payload.userId ?? '').trim();
+        const rawCompanyId = payload.companyId !== undefined ? String(payload.companyId ?? '').trim() : undefined;
+        let companyId: string | null = rawCompanyId && rawCompanyId !== 'default' && rawCompanyId !== 'null' ? rawCompanyId : null;
+        let role = payload.role ? String(payload.role).trim() as ProfileRole : undefined;
         const fullName = payload.fullName ? String(payload.fullName).trim() : undefined;
 
-        if (!email) {
-          return jsonResponse({ error: 'email zorunludur.' }, 400);
+        if (!email && !userId) {
+          return jsonResponse({ error: 'email veya userId zorunludur.' }, 400);
+        }
+
+        // Protect Superadmins (bhvtest and recep.akca)
+        const isSuperadminAccount = email === 'bhvtest@test.com' || email === 'recep.akca@bigsafer.com';
+        if (isSuperadminAccount) {
+          role = 'superadmin';
+          companyId = null;
+        }
+
+        let targetId = userId;
+        if (!targetId && email) {
+          const { data: p } = await adminClient.from('profiles').select('id').ilike('email', email).maybeSingle();
+          if (p?.id) targetId = p.id;
+        }
+
+        if (!targetId && email) {
+          const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          const authUser = (allAuth || []).find(u => (u.email || '').toLowerCase() === email.toLowerCase());
+          if (authUser) targetId = authUser.id;
         }
 
         const updates: Record<string, unknown> = {};
         if (role) updates.role = role;
-        if (companyId !== undefined) updates.company_id = companyId;
+        if (payload.companyId !== undefined || isSuperadminAccount) updates.company_id = companyId;
         if (fullName) updates.full_name = fullName;
+        if (email) updates.email = email;
 
-        const { error: profErr } = await adminClient
-          .from('profiles')
-          .update(updates)
-          .ilike('email', email);
+        if (targetId) {
+          const { error: profErr } = await adminClient
+            .from('profiles')
+            .update(updates)
+            .eq('id', targetId);
 
-        if (profErr) {
-          console.error('profErr:', profErr);
-          return jsonResponse({ error: profErr.message }, 500);
+          if (profErr) {
+            console.error('profErr by id:', profErr);
+          }
         }
 
-        if (companyId) {
-          await adminClient
-            .from('employees')
-            .update({ company_id: companyId })
-            .eq('email', email);
+        if (email) {
+          const { error: profEmailErr } = await adminClient
+            .from('profiles')
+            .update(updates)
+            .ilike('email', email);
+
+          if (profEmailErr) {
+            console.error('profErr by email:', profEmailErr);
+          }
         }
 
-        return jsonResponse({ message: 'Profil güncellendi.' });
+        // Also update employees table (both role and company)
+        const empUpdates: Record<string, unknown> = {};
+        if (role) empUpdates.role = role;
+        if (payload.companyId !== undefined || isSuperadminAccount) empUpdates.company_id = companyId;
+        if (fullName) empUpdates.name = fullName;
+
+        if (Object.keys(empUpdates).length > 0) {
+          if (email) {
+            await adminClient.from('employees').update(empUpdates).ilike('email', email);
+          }
+          if (targetId) {
+            await adminClient.from('employees').update(empUpdates).eq('id', targetId);
+          }
+        }
+
+        if (targetId && fullName) {
+          try {
+            await adminClient.auth.admin.updateUserById(targetId, {
+              user_metadata: { full_name: fullName }
+            });
+          } catch {}
+        }
+
+        return jsonResponse({ message: 'Profil ve rol başarıyla güncellendi.' });
       } catch (err: any) {
         console.error('update_user_profile error:', err);
         return jsonResponse({ error: err.message }, 500);

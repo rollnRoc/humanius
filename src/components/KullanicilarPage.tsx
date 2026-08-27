@@ -481,12 +481,15 @@ const UserModal: React.FC<UserModalProps> = ({
             <select
               value={form.role}
               onChange={set('role')}
-              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              disabled={initial?.role === 'superadmin' && creatorRole !== 'superadmin'}
+              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white disabled:bg-gray-50 disabled:text-gray-500"
             >
+              {(form.role === 'superadmin' || initial?.role === 'superadmin') && (
+                <option value="superadmin">👑 Süper Yönetici</option>
+              )}
               {ROLE_OPTIONS
                 .filter((opt) => {
                   if (creatorRole === 'superadmin') return true;
-                  if (opt.value === 'superadmin') return false;
                   if (opt.value === 'admin' && creatorRole !== 'superadmin') return false;
                   if (opt.value === 'admin' && creatorRole === 'hr') return false;
                   return true;
@@ -500,11 +503,14 @@ const UserModal: React.FC<UserModalProps> = ({
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Şirket</label>
             <select
-              value={form.company_id}
+              value={form.role === 'superadmin' ? '' : form.company_id}
               onChange={set('company_id')}
-              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              disabled={form.role === 'superadmin'}
+              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white disabled:bg-gray-50 disabled:text-gray-500"
             >
-              <option value="">— Şirket Seçin —</option>
+              <option value="">
+                {form.role === 'superadmin' ? '— Şirketsiz (Tüm Şirketlere Yetkili) —' : '— Şirket Seçin —'}
+              </option>
               {companies.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}

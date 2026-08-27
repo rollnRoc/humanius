@@ -238,6 +238,28 @@ export const userService = {
     try {
       const { data: edgeRes, error: edgeErr } = await supabase.functions.invoke('user-management', {
         body: {
+          operation: 'update_user_profile',
+          email: targetEmail,
+          userId: targetId,
+          employeeId: targetId,
+          fullName: updates.full_name,
+          role: updates.role,
+          companyId: updates.company_id,
+        }
+      });
+      if (!edgeErr && edgeRes && !edgeRes.error) {
+        return;
+      }
+      if (edgeErr || edgeRes?.error) {
+        console.warn('Edge function update_user_profile returned error, trying update_employee_details:', edgeErr || edgeRes?.error);
+      }
+    } catch (edgeCallErr) {
+      console.warn('Edge function update_user_profile call exception:', edgeCallErr);
+    }
+
+    try {
+      const { data: edgeRes2 } = await supabase.functions.invoke('user-management', {
+        body: {
           operation: 'update_employee_details',
           email: targetEmail,
           employeeId: targetId,
@@ -246,15 +268,10 @@ export const userService = {
           companyId: updates.company_id || undefined,
         }
       });
-      if (!edgeErr && edgeRes && !edgeRes.error) {
+      if (edgeRes2 && !edgeRes2.error) {
         return;
       }
-      if (edgeErr || edgeRes?.error) {
-        console.warn('Edge function update_employee_details returned error, falling back:', edgeErr || edgeRes?.error);
-      }
-    } catch (edgeCallErr) {
-      console.warn('Edge function update_employee_details call exception:', edgeCallErr);
-    }
+    } catch {}
 
     // 2. Fallback: Doğrudan SQL / RPC ile güncelle
     if (targetId === currentUserId) {

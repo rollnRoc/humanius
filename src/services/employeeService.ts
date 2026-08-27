@@ -207,11 +207,13 @@ export const employeeService = {
         updatedRow = data as Employee;
       }
       
-      if (updates.email || updates.name || updates.company_id) {
+      const updatedRole = (updates as any).role || role;
+      if (updates.email || updates.name || updates.company_id || updatedRole) {
         const profUp: any = {};
         if (updates.email) profUp.email = updates.email;
         if (updates.name) profUp.full_name = updates.name;
         if (updates.company_id) profUp.company_id = updates.company_id;
+        if (updatedRole) profUp.role = updatedRole;
         await supabase.from('profiles').update(profUp).eq('id', id);
       }
     } catch (dbErr) {
@@ -220,6 +222,7 @@ export const employeeService = {
 
     try {
       const { userManagementService } = await import('./userManagementService');
+      const updatedRole = (updates as any).role || role;
       await userManagementService.updateEmployeeDetails({
         employeeId: id,
         email: updates.email || '',
@@ -228,6 +231,7 @@ export const employeeService = {
         join_date: cleanJoinDate,
         companyId: updates.company_id,
         fullName: updates.name,
+        role: updatedRole,
         department: updates.department,
         position: updates.position,
         level: cleanLevel ?? undefined,
