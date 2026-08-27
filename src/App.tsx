@@ -461,9 +461,17 @@ const AppInner: React.FC = () => {
       }
 
       // Bordro
-      if (profile?.company_id) {
+      if (profile?.company_id || isSuper) {
         try {
-          let bordroData = await bordroService.getAll(profile.company_id) ?? [];
+          let bordroData = await bordroService.getAll(isSuper ? undefined : profile?.company_id) ?? [];
+          if (!isSuper) {
+            bordroData = bordroData.filter(b => {
+              const bEmp = (empData || []).find((e: any) => e.id === b.employee_id);
+              const bRole = (b as any).role || bEmp?.role;
+              const bName = String(b.employeeName || (b as any).employees?.name || '').toLowerCase();
+              return bRole !== 'superadmin' && !bName.includes('süper admin') && !bName.includes('bhv test');
+            });
+          }
           if (isEmployeeRole && currentUserEmpId) {
             bordroData = bordroData.filter(b => b.employee_id === currentUserEmpId && b.approval_status !== 'taslak' && b.approval_status != null);
           } else if (isEmployeeRole && !currentUserEmpId) {

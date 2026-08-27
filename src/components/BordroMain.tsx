@@ -4,6 +4,7 @@ import BordroCalculator from './BordroCalculator';
 import BordroList from './BordroList';
 import { Employee } from '../types';
 import { BordroItem } from '../types/bordro';
+import { useAuth } from '../contexts/AuthContext';
 
 interface BordroMainProps {
   employees: Employee[];
@@ -26,11 +27,28 @@ export default function BordroMain({
   onImport = () => {},
   onSendForApproval = () => {}
 }: BordroMainProps) {
+  const { profile, appRole } = useAuth();
+  const isSuper = profile?.role === 'superadmin' || appRole === 'superadmin';
+
   const [activeTab, setActiveTab] = useState<'normal' | 'emekli'>('normal');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [period, setPeriod] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  // Sadece seçili personelin bordroları ve süper yönetici gizliliği
+  const employeeBordrolar = bordrolar.filter(b => {
+    const bName = String(b.employeeName || (b as any).employees?.name || '').toLowerCase();
+    const isSuperAdminBordro = 
+      (b as any).role === 'superadmin' || 
+      bName.includes('süper admin') || 
+      bName.includes('bhv test');
+
+    if (!isSuper && isSuperAdminBordro) return false;
+
+    if (!selectedEmployee) return true;
+    return b.employee_id === selectedEmployee.id || b.employeeName === selectedEmployee.name;
   });
 
   return (
@@ -119,7 +137,7 @@ export default function BordroMain({
               isEmekli={false}
             />
             <BordroList
-              bordrolar={bordrolar}
+              bordrolar={employeeBordrolar}
               onEdit={onEdit}
               onDelete={onDelete}
               onView={onView}
@@ -145,7 +163,7 @@ export default function BordroMain({
               isEmekli={true}
             />
             <BordroList
-              bordrolar={bordrolar}
+              bordrolar={employeeBordrolar}
               onEdit={onEdit}
               onDelete={onDelete}
               onView={onView}

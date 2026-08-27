@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Download, Search, Filter, X } from 'lucide-react';
 import type { BordroItem } from '../types/bordro';
+import { useAuth } from '../contexts/AuthContext';
 
 interface BordroIcmalProps {
   bordrolar: BordroItem[];
@@ -22,6 +23,9 @@ const getToplamKesinti = (b: any) => parseSafeNumber(b.toplam_kesinti ?? b.kesin
 const getDamgaVergisi = (b: any) => parseSafeNumber(b.damga_vergisi ?? b.damga);
 
 const BordroIcmal: React.FC<BordroIcmalProps> = ({ bordrolar }) => {
+  const { profile, appRole } = useAuth();
+  const isSuper = profile?.role === 'superadmin' || appRole === 'superadmin';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
 
@@ -32,14 +36,23 @@ const BordroIcmal: React.FC<BordroIcmalProps> = ({ bordrolar }) => {
 
   const filteredBordrolar = useMemo(() => {
     return bordrolar.filter(b => {
+      const bName = String(b.employeeName || (b as any).employees?.name || '').toLowerCase();
+      const isSuperAdminBordro = 
+        (b as any).role === 'superadmin' || 
+        bName.includes('süper admin') || 
+        bName.includes('bhv test');
+
+      if (!isSuper && isSuperAdminBordro) return false;
+
       const matchPeriod = selectedPeriod === 'all' || b.period === selectedPeriod;
       const matchSearch = !searchTerm || 
         (b.employees?.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (b.employeeName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
         (b.employees?.department?.toLowerCase() || '').includes(searchTerm.toLowerCase());
       
       return matchPeriod && matchSearch;
     });
-  }, [bordrolar, selectedPeriod, searchTerm]);
+  }, [bordrolar, selectedPeriod, searchTerm, isSuper]);
 
   // Icmal Toplamlari
   const totals = useMemo(() => {
