@@ -620,15 +620,6 @@ const KullanicilarPage: React.FC = () => {
       setCompanies((companiesData ?? []).map((c: any) => ({ id: c.id, name: c.name })));
       const empCount = empsData?.length ?? 0;
       setTotalEmployeesCount(empCount);
-
-      // Otomatik eşitleme: Eğer personel sayısı kullanıcı sayısından yüksekse arka planda eşitle
-      if (empCount > usersData.length) {
-        userManagementService.syncAllAccountsToNet().then(() => {
-          userService.getAll().then((updated) => {
-            if (updated && updated.length > 0) setUsers(updated);
-          }).catch(console.warn);
-        }).catch(console.warn);
-      }
     } catch (err: any) {
       showToast('error', `Veriler yüklenemedi: ${err.message}`);
     } finally {
@@ -687,6 +678,9 @@ const KullanicilarPage: React.FC = () => {
 
   const isSuper = profile?.role === 'superadmin' || appRole === 'superadmin';
   const companyUsers = users.filter((u) => {
+    if (!isSuper && profile?.company_id) {
+      return u.company_id === profile.company_id;
+    }
     if (selectedCompanyId !== 'all') {
       return u.company_id === selectedCompanyId;
     }
