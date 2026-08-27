@@ -134,7 +134,7 @@ const AppInner: React.FC = () => {
   );
 
   // ── Navigation ──────────────────────────────────────────────────────────────
-  const [currentView, setCurrentView] = useState<View>('arama');
+  const [currentView, setCurrentView] = useState<View>('personel');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedCompany, setSelectedCompany] = useState('all');

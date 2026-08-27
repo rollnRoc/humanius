@@ -25,7 +25,7 @@ export function getRoleLabel(role: AppRole): string {
 }
 
 export function getDefaultViewForRole(role: AppRole): View {
-  return 'arama';
+  return 'personel';
 }
 
 // ─── Kurumsal Erişim Matrisi ──────────────────────────────────────────────────
