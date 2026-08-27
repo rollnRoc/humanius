@@ -107,6 +107,21 @@ export const employeeService = {
       .select()
       .single();
     if (error) throw error;
+
+    if (data?.id) {
+      try {
+        const empEmail = data.email || `${String(data.name || 'personel').toLowerCase().replace(/[^a-z0-9]+/g, '.')}@humanius.net`;
+        supabase.from('profiles').upsert({
+          id: data.id,
+          email: empEmail,
+          full_name: data.name || 'Personel',
+          company_id: data.company_id || null,
+          role: role || 'employee',
+          must_change_password: true
+        }).then().catch(console.warn);
+      } catch {}
+    }
+
     return data;
   },
 

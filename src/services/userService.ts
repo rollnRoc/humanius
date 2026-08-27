@@ -115,52 +115,106 @@ async function findEmployeeByUser(profile: UserProfile) {
 const getEmployeeRlsWarning = () =>
   'Kullanıcı oluşturuldu, ancak Personel listesine otomatik ekleme yapılamadı. Bunun için employees RLS migration\'ını uygulamanız gerekir.';
 
+function toAsciiEmail(name: string): string {
+  return String(name ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/ı/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .replace(/İ/g, 'i')
+    .replace(/Ğ/g, 'g')
+    .replace(/Ü/g, 'u')
+    .replace(/Ş/g, 's')
+    .replace(/Ö/g, 'o')
+    .replace(/Ç/g, 'c');
+}
+
 export const userService = {
   async getAll(): Promise<UserProfile[]> {
+    let profilesList: UserProfile[] = [];
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
-      if (!error && data && data.length > 0) {
-        return data as UserProfile[];
+      if (!error && data) {
+        profilesList = data as UserProfile[];
       }
     } catch {}
 
+    if (profilesList.length === 0) {
+      try {
+        const { data: res } = await supabase.functions.invoke('user-management', {
+          body: { operation: 'list_users' }
+        });
+        if (res?.users && res.users.length > 0) {
+          profilesList = res.users as UserProfile[];
+        }
+      } catch {}
+    }
+
+    // Personel listesindeki tüm personellerin Kullanıcılar ekranında yer almasını garanti et
     try {
-      const { data: res } = await supabase.functions.invoke('user-management', {
-        body: { operation: 'list_users' }
-      });
-      if (res?.users && res.users.length > 0) {
-        return res.users as UserProfile[];
+      const { data: emps } = await supabase.from('employees').select('id, name, email, company_id, role, avatar_url, created_at, updated_at');
+      if (emps && emps.length > 0) {
+        const emailMap = new Map<string, UserProfile>();
+        const idMap = new Map<string, UserProfile>();
+        
+        profilesList.forEach((p) => {
+          if (p.email) emailMap.set(p.email.toLowerCase().trim(), p);
+          if (p.id) idMap.set(p.id, p);
+        });
+
+        const missingProfilesToUpsert: any[] = [];
+
+        emps.forEach((e) => {
+          const empEmail = (e.email || '').toLowerCase().trim();
+          const cleanEmail = empEmail || `${toAsciiEmail(e.name).replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '').toLowerCase() || 'personel'}@humanius.net`;
+          
+          let existing = (e.email ? emailMap.get(empEmail) : null) || idMap.get(e.id);
+          if (!existing) {
+            const synthesized: UserProfile = {
+              id: e.id,
+              email: cleanEmail,
+              full_name: e.name || 'Personel',
+              company_id: e.company_id || null,
+              role: e.role || 'employee',
+              avatar_url: e.avatar_url || null,
+              created_at: e.created_at || new Date().toISOString(),
+              updated_at: e.updated_at || new Date().toISOString(),
+            };
+            emailMap.set(cleanEmail, synthesized);
+            idMap.set(e.id, synthesized);
+            profilesList.push(synthesized);
+
+            missingProfilesToUpsert.push({
+              id: e.id,
+              email: cleanEmail,
+              full_name: e.name || 'Personel',
+              company_id: e.company_id || null,
+              role: e.role || 'employee',
+              must_change_password: true
+            });
+          }
+        });
+
+        // Arka planda profiles tablosuna da kaydet
+        if (missingProfilesToUpsert.length > 0) {
+          supabase.from('profiles').upsert(missingProfilesToUpsert).then().catch(console.warn);
+        }
       }
     } catch {}
 
-    return [];
+    return profilesList;
   },
 
   async getByCompany(companyId: string): Promise<UserProfile[]> {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
-      if (!error && data && data.length > 0) {
-        return data as UserProfile[];
-      }
-    } catch {}
-
-    try {
-      const { data: res } = await supabase.functions.invoke('user-management', {
-        body: { operation: 'list_users', companyId }
-      });
-      if (res?.users && res.users.length > 0) {
-        return res.users as UserProfile[];
-      }
-    } catch {}
-
-    return [];
+    const all = await this.getAll();
+    return all.filter((u) => u.company_id === companyId);
   },
 
   /**
