@@ -387,6 +387,7 @@ const UserModal: React.FC<UserModalProps> = ({
             full_name:  form.full_name.trim(),
             role:       form.role,
             company_id: form.company_id || null,
+            email:      initial.email || form.email,
           },
           currentUserId,
         );

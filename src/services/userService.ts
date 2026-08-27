@@ -229,36 +229,94 @@ export const userService = {
    */
   async updateProfile(
     targetId: string,
-    updates: { role?: string; full_name?: string; company_id?: string | null },
+    updates: { role?: string; full_name?: string; company_id?: string | null; email?: string },
     currentUserId: string,
   ): Promise<void> {
+    const targetEmail = (updates.email || '').trim().toLowerCase();
+
+    // 1. Edge function ile güncelleme dene (service_role yetkisi ile hem auth, hem profile hem employees günceller)
+    try {
+      const { data: edgeRes, error: edgeErr } = await supabase.functions.invoke('user-management', {
+        body: {
+          operation: 'update_employee_details',
+          email: targetEmail,
+          employeeId: targetId,
+          fullName: updates.full_name,
+          role: updates.role,
+          companyId: updates.company_id || undefined,
+        }
+      });
+      if (!edgeErr && edgeRes && !edgeRes.error) {
+        return;
+      }
+      if (edgeErr || edgeRes?.error) {
+        console.warn('Edge function update_employee_details returned error, falling back:', edgeErr || edgeRes?.error);
+      }
+    } catch (edgeCallErr) {
+      console.warn('Edge function update_employee_details call exception:', edgeCallErr);
+    }
+
+    // 2. Fallback: Doğrudan SQL / RPC ile güncelle
     if (targetId === currentUserId) {
       // Kendi profili — normal UPDATE (RLS: id = auth.uid())
       const { error } = await supabase
         .from('profiles')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update({
+          role: updates.role,
+          full_name: updates.full_name,
+          company_id: updates.company_id,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', targetId);
       if (error) throw error;
     } else {
-      // Başkasının profili — SECURITY DEFINER RPC
-      const { error } = await supabase.rpc('admin_update_user_profile', {
-        target_id: targetId,
-        new_role: updates.role ?? null,
-        new_full_name: updates.full_name ?? null,
-        new_company_id: updates.company_id ?? null,
-      });
-      if (error) throw error;
+      // Başkasının profili — targetId bir employee UUID olabilir veya profiles tablosunda farklı bir id olabilir.
+      let profileId = targetId;
+      const { data: profById } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('id', targetId)
+        .maybeSingle();
+
+      if (!profById && targetEmail) {
+        const { data: profByEmail } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .ilike('email', targetEmail)
+          .maybeSingle();
+        if (profByEmail) {
+          profileId = profByEmail.id;
+        }
+      }
+
+      if (profById || profileId !== targetId) {
+        const { error } = await supabase.rpc('admin_update_user_profile', {
+          target_id: profileId,
+          new_role: updates.role ?? null,
+          new_full_name: updates.full_name ?? null,
+          new_company_id: updates.company_id ?? null,
+        });
+        if (error && !profById && profileId === targetId) {
+          console.warn('RPC admin_update_user_profile error (user likely exists only in employees):', error);
+        } else if (error) {
+          throw error;
+        }
+      }
     }
 
-    // Eşzamanlı olarak employees tablosunu da güncelle
+    // 3. Eşzamanlı olarak employees tablosunu da güncelle
     try {
-      const { data: prof } = await supabase.from('profiles').select('email').eq('id', targetId).maybeSingle();
-      if (prof?.email) {
-        const empUpdates: Record<string, any> = {};
-        if (updates.full_name) empUpdates.name = updates.full_name;
-        if (updates.company_id) empUpdates.company_id = updates.company_id;
-        if (Object.keys(empUpdates).length > 0) {
-          await supabase.from('employees').update(empUpdates).ilike('email', prof.email);
+      const empUpdates: Record<string, any> = {};
+      if (updates.full_name) empUpdates.name = updates.full_name;
+      if (updates.company_id) empUpdates.company_id = updates.company_id;
+      if (updates.role) empUpdates.role = updates.role;
+      
+      if (Object.keys(empUpdates).length > 0) {
+        if (targetId) {
+          await supabase.from('employees').update(empUpdates).eq('id', targetId);
+        }
+        if (targetEmail) {
+          await supabase.from('employees').update(empUpdates).ilike('email', targetEmail);
         }
       }
     } catch (empSyncErr) {
