@@ -121,14 +121,36 @@ const BordroList: React.FC<BordroListProps> = ({
                     {fmt(bordro.toplam_kesinti)} ₺
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => onView(bordro)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Görüntüle"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                    <div className="flex items-center gap-1.5">
+                      {!isEmployeeView ? (
+                        <>
+                          <button
+                            onClick={() => onEdit(bordro)}
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                            title="Bordroyu Düzenle"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span>Düzenle</span>
+                          </button>
+                          <button
+                            onClick={() => onDelete(bordro.id)}
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors"
+                            title="Bordroyu Sil"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Sil</span>
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => onView(bordro)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Görüntüle"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Görüntüle</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

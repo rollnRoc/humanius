@@ -138,6 +138,7 @@ export default function BordroMain({
             />
             <BordroList
               bordrolar={employeeBordrolar}
+              employees={employees}
               onEdit={onEdit}
               onDelete={onDelete}
               onView={onView}
@@ -164,6 +165,7 @@ export default function BordroMain({
             />
             <BordroList
               bordrolar={employeeBordrolar}
+              employees={employees}
               onEdit={onEdit}
               onDelete={onDelete}
               onView={onView}

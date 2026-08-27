@@ -11,6 +11,7 @@ import BordroMain from './components/BordroMain';
 import BordroList from './components/BordroList';
 import BordroIcmal from './components/BordroIcmal';
 import BordroViewModal from './components/BordroViewModal';
+import { BordroDuzenlemeModal } from './components/BordroDuzenlemeModal';
 import GorevTanimi from './components/GorevTanimi';
 import IzinTalepForm from './components/IzinTalepForm';
 import TopluIzinForm from './components/TopluIzinForm';
@@ -248,6 +249,7 @@ const AppInner: React.FC = () => {
   // ── Bordro data ─────────────────────────────────────────────────────────────
   const [bordrolar, setBordrolar] = useState<BordroItem[]>([]);
   const [selectedBordro, setSelectedBordro] = useState<BordroItem | null>(null);
+  const [editingBordro, setEditingBordro] = useState<BordroItem | null>(null);
 
 
   const loadData = useCallback(async () => {
@@ -1172,8 +1174,22 @@ const AppInner: React.FC = () => {
   };
 
   const handleEditBordro = (bordro: BordroItem) => {
-    // Edit ekranı henüz ayrı değil; mevcutta detay modalı üzerinden işlem akışını açıyoruz.
-    setSelectedBordro(bordro);
+    setEditingBordro(bordro);
+  };
+
+  const handleUpdateBordro = async (updatedBordro: Partial<BordroItem>) => {
+    if (!updatedBordro.id) return;
+    try {
+      await bordroService.update(updatedBordro.id, updatedBordro as any);
+      setBordrolar((prev) =>
+        prev.map((b) => (b.id === updatedBordro.id ? ({ ...b, ...updatedBordro } as BordroItem) : b))
+      );
+      setEditingBordro(null);
+      await loadData();
+    } catch (err: any) {
+      console.error('Bordro güncellenemedi:', err);
+      throw err;
+    }
   };
 
   const handleSendBordroForApproval = async (bordro: BordroItem) => {
@@ -1760,11 +1776,32 @@ const AppInner: React.FC = () => {
         activeCompanyName={companies[0]}
       />
 
+      {editingBordro && (
+        <BordroDuzenlemeModal
+          bordro={editingBordro}
+          employeeName={
+            editingBordro.employeeName ??
+            (editingBordro as any).employees?.name ??
+            employees.find((e) => e.id === editingBordro.employee_id)?.name ??
+            'Personel'
+          }
+          employeeDepartment={
+            (editingBordro as any).employees?.department ??
+            employees.find((e) => e.id === editingBordro.employee_id)?.department ??
+            ''
+          }
+          onClose={() => setEditingBordro(null)}
+          onSave={handleUpdateBordro}
+          onDelete={handleDeleteBordro}
+        />
+      )}
+
       {selectedBordro && (
         <BordroViewModal
           bordro={selectedBordro}
           employeeId={selectedBordro.employee_id}
           employeeName={
+            (selectedBordro as any).employeeName ??
             (selectedBordro as any).employees?.name ??
             employees.find((employee) => employee.id === selectedBordro.employee_id)?.name ??
             'Personel'
