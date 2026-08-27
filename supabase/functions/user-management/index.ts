@@ -153,11 +153,13 @@ serve(async (req: Request) => {
       const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
       
       const adminUsersList = [
-        { email: 'veralbilgehan@gmail.com', name: 'Bilge Han Veral', role: 'superadmin', companyId: '11111111-1111-1111-1111-111111111111' },
+        { email: 'veralbilgehan@gmail.com', name: 'Bilge Han Veral', role: 'superadmin', companyId: null },
+        { email: 'bhvtest@test.com', name: 'BHV Test Kullanıcısı', role: 'superadmin', companyId: null },
         { email: 'ahmet.mici@humanius.net', name: 'Ahmet Mıçı', role: 'admin', companyId: '735825a4-f12b-4ee7-959c-a8a29e674617' },
         { email: 'yusuf.emre.yildirim@humanius.net', name: 'Yusuf Emre Yıldırım', role: 'admin', companyId: '11111111-1111-1111-1111-111111111111' },
-        { email: 'bilgehan.veral@humanius.net', name: 'Bilge Han Veral', role: 'admin', companyId: '11111111-1111-1111-1111-111111111111' },
-        { email: 'bilge.han.veral@humanius.net', name: 'Bilge Han Veral', role: 'admin', companyId: '11111111-1111-1111-1111-111111111111' },
+        { email: 'bilgehan.veral@humanius.net', name: 'Bilge Han Veral', role: 'superadmin', companyId: null },
+        { email: 'bilge.han.veral@humanius.net', name: 'Bilge Han Veral', role: 'superadmin', companyId: null },
+        { email: 'cagla.cavdarli@humanius.net', name: 'Çağla Çavdarlı', role: 'admin', companyId: '87ed6f79-6a54-40ea-b188-8b325513dc41' },
       ];
 
       for (const adm of adminUsersList) {
