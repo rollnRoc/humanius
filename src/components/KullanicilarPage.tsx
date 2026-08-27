@@ -725,19 +725,8 @@ const KullanicilarPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-gray-900">Kullanıcı Yönetimi</h2>
-            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
-              totalUsers >= totalEmployeesCount && totalEmployeesCount > 0
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : 'bg-amber-50 text-amber-700 border-amber-200'
-            }`}>
-              {totalUsers >= totalEmployeesCount && totalEmployeesCount > 0
-                ? `✅ Personellerle Eşit (${totalUsers})`
-                : `⚠️ ${Math.abs(totalEmployeesCount - totalUsers)} Hesap Eşitleniyor`}
-            </span>
-          </div>
-          <p className="text-sm text-gray-500 mt-0.5">Sisteme kayıtlı tüm kullanıcıları ve personel hesaplarını yönetin</p>
+          <h2 className="text-xl font-bold text-gray-900">Kullanıcı Yönetimi</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Sisteme kayıtlı tüm kullanıcıları ve erişim hesaplarını yönetin</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -760,10 +749,9 @@ const KullanicilarPage: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Toplam Kullanıcı',   value: totalUsers,            color: 'bg-blue-50 text-blue-700',      icon: Users },
-          { label: 'Toplam Personel',    value: totalEmployeesCount,   color: 'bg-indigo-50 text-indigo-700',  icon: UserCheck },
           { label: 'Yönetici Hesabı',    value: admins + superadmins,  color: 'bg-emerald-50 text-emerald-700', icon: Shield },
           { label: 'Personel Hesabı',    value: regularUsers,          color: 'bg-gray-50 text-gray-700',      icon: User },
         ].map((stat) => {
