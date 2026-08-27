@@ -22,6 +22,7 @@ import {
 import { userService, type UserProfile } from '../services/userService';
 import { userManagementService } from '../services/userManagementService';
 import { companyService } from '../services/companyService';
+import { employeeService } from '../services/employeeService';
 import { useAuth } from '../contexts/AuthContext';
 import { getRoleLabel, canManageUsers, canDeleteUsers, canAssignUserRoles, type AppRole } from '../auth/roles';
 import { supabase } from '../lib/supabase';
@@ -584,6 +585,8 @@ const KullanicilarPage: React.FC = () => {
   const { user: currentUser, appRole, profile } = useAuth();
   const [users, setUsers]               = useState<UserProfile[]>([]);
   const [companies, setCompanies]       = useState<Array<{ id: string; name: string }>>([]);
+  const [totalEmployeesCount, setTotalEmployeesCount] = useState<number>(0);
+  const [syncing, setSyncing]           = useState<boolean>(false);
   const [loading, setLoading]           = useState(true);
   const [searchTerm, setSearchTerm]     = useState('');
   const [roleFilter, setRoleFilter]     = useState('all');
@@ -602,18 +605,47 @@ const KullanicilarPage: React.FC = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersData, companiesData] = await Promise.all([
+      const isSuper = profile?.role === 'superadmin';
+      const targetCompanyId = isSuper ? undefined : (profile?.company_id || undefined);
+
+      const [usersData, companiesData, empsData] = await Promise.all([
         userService.getAll(),
         companyService.getCompanies(),
+        employeeService.getAll(targetCompanyId),
       ]);
+      
       setUsers(usersData);
       setCompanies((companiesData ?? []).map((c: any) => ({ id: c.id, name: c.name })));
+      const empCount = empsData?.length ?? 0;
+      setTotalEmployeesCount(empCount);
+
+      // Otomatik eşitleme: Eğer personel sayısı kullanıcı sayısından yüksekse arka planda eşitle
+      if (empCount > usersData.length) {
+        userManagementService.syncAllAccountsToNet().then(() => {
+          userService.getAll().then((updated) => {
+            if (updated && updated.length > 0) setUsers(updated);
+          }).catch(console.warn);
+        }).catch(console.warn);
+      }
     } catch (err: any) {
       showToast('error', `Veriler yüklenemedi: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [profile?.role, profile?.company_id]);
+
+  const handleSyncWithEmployees = async () => {
+    setSyncing(true);
+    try {
+      const res = await userManagementService.syncAllAccountsToNet();
+      showToast('success', res?.message || 'Tüm personel ve kullanıcı hesapları eşitlendi.');
+      await loadData();
+    } catch (err: any) {
+      showToast('error', `Senkronizasyon hatası: ${err.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -686,12 +718,32 @@ const KullanicilarPage: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Kullanıcı Yönetimi</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Sisteme kayıtlı tüm kullanıcıları yönetin</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-900">Kullanıcı Yönetimi</h2>
+            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+              totalUsers >= totalEmployeesCount && totalEmployeesCount > 0
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}>
+              {totalUsers >= totalEmployeesCount && totalEmployeesCount > 0
+                ? `✅ Personellerle Eşit (${totalUsers})`
+                : `⚠️ ${Math.abs(totalEmployeesCount - totalUsers)} Hesap Eşitleniyor`}
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 mt-0.5">Sisteme kayıtlı tüm kullanıcıları ve personel hesaplarını yönetin</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncWithEmployees}
+            disabled={syncing}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-bold transition-all shadow-xs disabled:opacity-50"
+            title="Eksik kullanıcıları personellerle eşitle"
+          >
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+            <span>{syncing ? 'Eşitleniyor...' : '🔄 Personellerle Eşitle'}</span>
+          </button>
           <button
             onClick={loadData}
             className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
@@ -703,11 +755,12 @@ const KullanicilarPage: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Toplam Kullanıcı', value: totalUsers,   color: 'bg-blue-50 text-blue-700',    icon: Users },
-          { label: 'Yönetici',         value: admins,        color: 'bg-emerald-50 text-emerald-700', icon: Shield },
-          { label: 'Diğer Kullanıcılar', value: regularUsers, color: 'bg-gray-50 text-gray-700',    icon: User },
+          { label: 'Toplam Kullanıcı',   value: totalUsers,            color: 'bg-blue-50 text-blue-700',      icon: Users },
+          { label: 'Toplam Personel',    value: totalEmployeesCount,   color: 'bg-indigo-50 text-indigo-700',  icon: UserCheck },
+          { label: 'Yönetici Hesabı',    value: admins + superadmins,  color: 'bg-emerald-50 text-emerald-700', icon: Shield },
+          { label: 'Personel Hesabı',    value: regularUsers,          color: 'bg-gray-50 text-gray-700',      icon: User },
         ].map((stat) => {
           const Icon = stat.icon;
           return (

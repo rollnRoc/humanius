@@ -461,23 +461,30 @@ serve(async (req: Request) => {
         ]);
       } catch {}
 
-      const { data: emps } = await adminClient.from('employees').select('id, email, name, company_id');
+      const { data: emps } = await adminClient.from('employees').select('id, email, name, company_id, role');
       const { data: profs } = await adminClient.from('profiles').select('id, email, full_name, company_id, role');
       const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers();
       
       const validActiveEmails = new Set<string>();
+      const usedEmails = new Set<string>();
+
       for (const e of (emps || [])) {
-        if (!e.email) continue;
-        let clean = e.email.trim().toLowerCase().replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
-        if (!clean.includes('@')) clean = `${clean}@humanius.net`;
-        validActiveEmails.add(clean);
+        let clean = '';
+        if (e.email && e.email.trim()) {
+          clean = e.email.trim().toLowerCase().replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
+          if (!clean.includes('@')) clean = `${clean}@humanius.net`;
+        } else if (e.name) {
+          const asciiName = toAsciiEmail(e.name).replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '').toLowerCase();
+          clean = `${asciiName || 'personel'}@humanius.net`;
+        }
+        if (clean) validActiveEmails.add(clean);
       }
 
-      // 1. Yetkisiz veya eski/artık auth hesaplarını temizle
+      // 1. Yetkisiz veya eski/artık auth hesaplarını temizle (superadmin'leri koru)
       let deletedDuplicates = 0;
       for (const u of (authUsers || [])) {
         const uEmail = (u.email || '').toLowerCase().trim();
-        if (uEmail === 'superadmin@humanius.net' || uEmail === 'superadmin@humanius.local') continue;
+        if (uEmail.includes('superadmin') || uEmail.endsWith('@humanius.local')) continue;
         if (!validActiveEmails.has(uEmail)) {
           try {
             await adminClient.auth.admin.deleteUser(u.id);
@@ -486,15 +493,26 @@ serve(async (req: Request) => {
           } catch (delErr) {
             console.warn('Delete orphaned auth user error:', delErr);
           }
+        } else {
+          usedEmails.add(uEmail);
         }
       }
 
       let count = 0;
       for (const e of (emps || [])) {
-        if (!e.email) continue;
-        let cleanEmail = e.email.trim().toLowerCase().replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
-        if (!cleanEmail.includes('@')) {
-          cleanEmail = `${cleanEmail}@humanius.net`;
+        let cleanEmail = '';
+        if (e.email && e.email.trim()) {
+          cleanEmail = e.email.trim().toLowerCase().replace('humanius.com.tr', 'humanius.net').replace('humanius.com', 'humanius.net');
+          if (!cleanEmail.includes('@')) {
+            cleanEmail = `${cleanEmail}@humanius.net`;
+          }
+        } else if (e.name) {
+          const asciiName = toAsciiEmail(e.name).replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '').toLowerCase();
+          cleanEmail = `${asciiName || 'personel'}@humanius.net`;
+        }
+
+        if (!cleanEmail) {
+          cleanEmail = `personel.${e.id?.slice(0, 6) || Math.floor(Math.random() * 10000)}@humanius.net`;
         }
 
         // Find Auth user by id or email
@@ -511,6 +529,7 @@ serve(async (req: Request) => {
               email_confirm: true,
               user_metadata: {
                 ...existingMeta,
+                full_name: e.name || existingMeta.full_name || 'Personel',
                 must_change_password: requiresPasswordChange,
                 is_first_login: requiresPasswordChange
               }
@@ -520,7 +539,7 @@ serve(async (req: Request) => {
             console.warn('Sync auth user error:', err);
           }
         } else {
-          // Create Auth user ONLY if completely missing
+          // Create Auth user for ANY missing employee
           try {
             const newUser = await createManagedUser(cleanEmail, '987654', e.name || 'Personel', true);
             matchedAuthUser = newUser;
@@ -551,12 +570,11 @@ serve(async (req: Request) => {
         
         await adminClient.from('employees').update({ email: cleanEmail }).eq('id', e.id);
       }
+
       return jsonResponse({
-        message: `${count} adet aktif kullanıcı senkronize edildi. ${deletedDuplicates} adet eski/çift hesap temizlendi.`,
+        message: `Tüm personel ve kullanıcı hesapları senkronize edildi (${count} kullanıcı eşitlendi).`,
         count,
-        deletedDuplicates,
-        ahmetEmployees: (emps || []).filter(e => (e.name || '').includes('Ahmet') || (e.email || '').includes('mici')),
-        ahmetAuthUsers: (authUsers || []).filter(u => (u.email || '').includes('mici') || (u.email || '').includes('ahmet'))
+        deletedDuplicates
       });
     }
 
