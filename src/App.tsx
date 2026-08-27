@@ -15,6 +15,7 @@ import GorevTanimi from './components/GorevTanimi';
 import IzinTalepForm from './components/IzinTalepForm';
 import TopluIzinForm from './components/TopluIzinForm';
 import IzinDuzenlemeForm from './components/IzinDuzenlemeForm';
+import { IzinHakedisModal } from './components/IzinHakedisModal';
 import IzinTakvimi from './components/IzinTakvimi';
 import IzinRaporlari from './components/IzinRaporlari';
 import TakvimYonetimi from './components/TakvimYonetimi';
@@ -240,6 +241,8 @@ const AppInner: React.FC = () => {
   const [izinHaklari, setIzinHaklari] = useState<IzinHakki[]>([]);
   const [showIzinForm, setShowIzinForm] = useState(false);
   const [showTopluIzinForm, setShowTopluIzinForm] = useState(false);
+  const [showHakedisModal, setShowHakedisModal] = useState(false);
+  const [hakedisEmployeeId, setHakedisEmployeeId] = useState<string | null>(null);
   const [editingIzin, setEditingIzin] = useState<IzinTalebi | null>(null);
 
   // ── Bordro data ─────────────────────────────────────────────────────────────
@@ -1210,6 +1213,33 @@ const AppInner: React.FC = () => {
     }
   };
 
+  const handleHakedisSubmit = async (params: {
+    employeeId: string;
+    izinTuru: string;
+    gunSayisi: number;
+    islemTipi: 'ekle' | 'belirle';
+    yil: number;
+    aciklama: string;
+  }) => {
+    try {
+      await izinService.addIzinHakedisi({
+        companyId: profile?.company_id,
+        employeeId: params.employeeId,
+        izinTuru: params.izinTuru,
+        gunSayisi: params.gunSayisi,
+        islemTipi: params.islemTipi,
+        yil: params.yil,
+        aciklama: params.aciklama,
+        ekleyen: profile?.full_name || 'Şirket Yöneticisi'
+      });
+      await loadData();
+      alert('İzin hak edişi başarıyla tanımlandı ve bakiyelere yansıtıldı.');
+    } catch (err: any) {
+      console.error('İzin hak edişi kaydedilemedi:', err);
+      alert('İzin hak edişi kaydedilirken bir hata oluştu.');
+    }
+  };
+
   // ── Auth guard ──────────────────────────────────────────────────────────────
   if (authLoading) {
     return (
@@ -1418,14 +1448,25 @@ const AppInner: React.FC = () => {
           <div className="space-y-6">
             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
               <h2 className="text-xl font-bold text-gray-800">İzin Yönetimi</h2>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {!['employee', 'user'].includes(effectiveAppRole) && (
-                  <button
-                    onClick={() => setShowTopluIzinForm(true)}
-                    className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
-                  >
-                    👥 Toplu İzin Tanımla
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setHakedisEmployeeId(null);
+                        setShowHakedisModal(true);
+                      }}
+                      className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-xs transition-all"
+                    >
+                      ✨ İzin Hak Edişi Tanımla
+                    </button>
+                    <button
+                      onClick={() => setShowTopluIzinForm(true)}
+                      className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
+                    >
+                      👥 Toplu İzin Tanımla
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => setShowIzinForm(true)}
@@ -1489,6 +1530,10 @@ const AppInner: React.FC = () => {
                   izinTalepleri={izinTalepleri}
                   izinHaklari={izinHaklari}
                   onUpdateHak={handleUpdateIzinHakki}
+                  onOpenHakedisModal={(empId?: string) => {
+                    setHakedisEmployeeId(empId || null);
+                    setShowHakedisModal(true);
+                  }}
                 />
               </>
             )}
@@ -1900,6 +1945,20 @@ const AppInner: React.FC = () => {
           employees={employees}
           onSubmit={handleTopluIzinSubmit}
           onClose={() => setShowTopluIzinForm(false)}
+        />
+      )}
+
+      {showHakedisModal && (
+        <IzinHakedisModal
+          isOpen={showHakedisModal}
+          onClose={() => {
+            setShowHakedisModal(false);
+            setHakedisEmployeeId(null);
+          }}
+          employees={employees}
+          izinHaklari={izinHaklari}
+          initialEmployeeId={hakedisEmployeeId}
+          onSubmit={handleHakedisSubmit}
         />
       )}
 

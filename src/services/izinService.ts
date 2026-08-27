@@ -146,27 +146,8 @@ export const izinService = {
 
   async getEmployeeHakki(employeeId: string, yil: number) {
     if (demoService.isDemoActive()) {
-      const emp = demoService.getEmployees().find(e => e.id === employeeId);
-      if (!emp) return null;
-      const hakedis = await this.calculateIzinHakki(emp.join_date);
-      
-      // Calculate approved/used annual leaves
-      const used = demoService.getIzinTalepleri()
-        .filter(t => t.employee_id === employeeId && t.durum === 'onaylandi' && t.izin_turu === 'yillik' && new Date(t.baslangic_tarihi).getFullYear() === yil)
-        .reduce((sum, t) => sum + (t.gun_sayisi || 0) + (t.yol_izni_talep ? (t.yol_izni_gun || 0) : 0), 0);
-
-      return {
-        id: 'hak-' + employeeId,
-        company_id: 'demo-company-id-9999',
-        employee_id: employeeId,
-        yil,
-        toplam_hak: hakedis,
-        kullanilan_izin: used,
-        kalan_izin: Math.max(0, hakedis - used),
-        calisma_yili: Math.max(0, new Date().getFullYear() - new Date(emp.join_date).getFullYear()),
-        ise_giris_tarihi: emp.join_date,
-        hesaplama_tarihi: new Date().toISOString()
-      };
+      const haklar = demoService.getIzinHaklari(yil);
+      return haklar.find(h => h.employee_id === employeeId) || null;
     }
     const { data, error } = await supabase
       .from('izin_haklari')
@@ -181,7 +162,7 @@ export const izinService = {
 
   async createOrUpdateHakki(hakki: IzinHakkiInsert) {
     if (demoService.isDemoActive()) {
-      return hakki as any;
+      return demoService.createOrUpdateIzinHakki(hakki as any) as any;
     }
     const { data, error } = await supabase
       .from('izin_haklari')
@@ -195,15 +176,15 @@ export const izinService = {
 
   async getAllHaklari(companyId: string, yil: number) {
     if (demoService.isDemoActive()) {
+      const haklar = demoService.getIzinHaklari(yil);
       const employees = demoService.getEmployees();
-      const haklarPromises = employees.map(async emp => {
-        const hak = await this.getEmployeeHakki(emp.id, yil);
+      return haklar.map(h => {
+        const emp = employees.find(e => e.id === h.employee_id);
         return {
-          ...hak,
-          employees: { name: emp.name, department: emp.department }
+          ...h,
+          employees: emp ? { name: emp.name, department: emp.department } : undefined
         };
       });
-      return Promise.all(haklarPromises);
     }
     const { data, error } = await supabase
       .from('izin_haklari')
@@ -211,6 +192,56 @@ export const izinService = {
       .eq('company_id', companyId)
       .eq('yil', yil)
       .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async addIzinHakedisi(params: {
+    companyId?: string;
+    employeeId: string;
+    izinTuru: string;
+    gunSayisi: number;
+    islemTipi: 'ekle' | 'belirle';
+    yil?: number;
+    aciklama?: string;
+    ekleyen?: string;
+  }) {
+    if (demoService.isDemoActive()) {
+      return demoService.addIzinHakedis(params);
+    }
+
+    const currentYear = params.yil || new Date().getFullYear();
+    const { data: existing } = await supabase
+      .from('izin_haklari')
+      .select('*')
+      .eq('employee_id', params.employeeId)
+      .eq('yil', currentYear)
+      .maybeSingle();
+
+    let currentToplam = existing?.toplam_hak || 14;
+    let currentMazeret = existing?.mazeret_izin || 5;
+    const gun = Number(params.gunSayisi) || 0;
+
+    if (params.izinTuru === 'yillik') {
+      currentToplam = params.islemTipi === 'ekle' ? currentToplam + gun : gun;
+    } else if (params.izinTuru === 'mazeret') {
+      currentMazeret = params.islemTipi === 'ekle' ? currentMazeret + gun : gun;
+    }
+
+    const { data, error } = await supabase
+      .from('izin_haklari')
+      .upsert({
+        id: existing?.id,
+        company_id: params.companyId,
+        employee_id: params.employeeId,
+        yil: currentYear,
+        toplam_hak: currentToplam,
+        mazeret_izin: currentMazeret,
+        hesaplama_tarihi: new Date().toISOString()
+      })
+      .select()
+      .single();
 
     if (error) throw error;
     return data;

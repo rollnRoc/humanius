@@ -48,6 +48,34 @@ export interface DemoIzinTalebi {
   employees?: { name: string; department: string };
 }
 
+export interface DemoIzinHakki {
+  id: string;
+  company_id: string;
+  employee_id: string;
+  yil: number;
+  toplam_hak: number;
+  kullanilan_izin: number;
+  kalan_izin: number;
+  calisma_yili: number;
+  ise_giris_tarihi: string | null;
+  hesaplama_tarihi: string;
+  mazeret_izin: number;
+  hastalik_izin: number;
+  idari_izin?: number;
+  ekstra_izin?: number;
+  hakedis_gecmisi?: {
+    id: string;
+    izin_turu: string;
+    gun_sayisi: number;
+    islem_tipi: 'ekle' | 'belirle';
+    tarih: string;
+    aciklama: string;
+    ekleyen: string;
+  }[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DemoBordroItem {
   id: string;
   company_id: string;
@@ -947,6 +975,161 @@ export const demoService = {
   deleteIzinTalebi(id: string): void {
     const list = this.getIzinTalepleri();
     this.saveIzinTalepleri(list.filter(t => t.id !== id));
+  },
+
+  // -------------------------------------------------------------
+  // CRUD & Management Helpers for Leave Entitlements (İzin Hakları / Hakediş)
+  // -------------------------------------------------------------
+  getIzinHaklari(yil?: number): DemoIzinHakki[] {
+    this.seedDatabase();
+    const currentYear = yil || new Date().getFullYear();
+    const employees = this.getEmployees();
+    const stored: DemoIzinHakki[] = JSON.parse(localStorage.getItem('humanius_demo_izin_haklari') || '[]');
+    const talepler = this.getIzinTalepleri();
+
+    // Map each employee, using stored hak or calculating default based on labor law (4857 s.K.)
+    const result: DemoIzinHakki[] = employees.map(emp => {
+      const existing = stored.find(s => s.employee_id === emp.id && s.yil === currentYear);
+
+      const joinDate = emp.join_date ? new Date(emp.join_date) : new Date();
+      const calismaYili = Math.max(0, currentYear - joinDate.getFullYear());
+      let defaultHak = 14;
+      if (calismaYili >= 5 && calismaYili < 15) defaultHak = 20;
+      else if (calismaYili >= 15) defaultHak = 26;
+
+      const toplamHak = existing ? existing.toplam_hak : defaultHak;
+      const mazeretHak = existing ? existing.mazeret_izin : 5;
+      const idariHak = existing?.idari_izin || 0;
+      const ekstraHak = existing?.ekstra_izin || 0;
+
+      // Used annual leaves for this employee
+      const used = talepler
+        .filter(t => t.employee_id === emp.id && t.durum === 'onaylandi' && t.izin_turu === 'yillik' && new Date(t.baslangic_tarihi).getFullYear() === currentYear)
+        .reduce((sum, t) => sum + (t.gun_sayisi || 0) + (t.yol_izni_talep ? (t.yol_izni_gun || 0) : 0), 0);
+
+      const remaining = Math.max(0, toplamHak - used);
+
+      return {
+        id: existing?.id || 'hak-' + emp.id + '-' + currentYear,
+        company_id: 'demo-company-id-9999',
+        employee_id: emp.id,
+        yil: currentYear,
+        toplam_hak: toplamHak,
+        kullanilan_izin: used,
+        kalan_izin: remaining,
+        calisma_yili: calismaYili,
+        ise_giris_tarihi: emp.join_date,
+        hesaplama_tarihi: existing?.hesaplama_tarihi || new Date().toISOString(),
+        mazeret_izin: mazeretHak,
+        hastalik_izin: existing?.hastalik_izin || 10,
+        idari_izin: idariHak,
+        ekstra_izin: ekstraHak,
+        hakedis_gecmisi: existing?.hakedis_gecmisi || [],
+        created_at: existing?.created_at || new Date().toISOString(),
+        updated_at: existing?.updated_at || new Date().toISOString()
+      };
+    });
+
+    return result;
+  },
+
+  saveIzinHaklari(list: DemoIzinHakki[]): void {
+    localStorage.setItem('humanius_demo_izin_haklari', JSON.stringify(list));
+  },
+
+  createOrUpdateIzinHakki(data: Partial<DemoIzinHakki>): DemoIzinHakki {
+    const yil = data.yil || new Date().getFullYear();
+    const list = this.getIzinHaklari(yil);
+    const idx = list.findIndex(h => h.employee_id === data.employee_id && h.yil === yil);
+
+    const now = new Date().toISOString();
+    let updated: DemoIzinHakki;
+
+    if (idx >= 0) {
+      updated = {
+        ...list[idx],
+        ...data,
+        updated_at: now
+      };
+      list[idx] = updated;
+    } else {
+      updated = {
+        id: data.id || 'hak-' + data.employee_id + '-' + yil,
+        company_id: 'demo-company-id-9999',
+        employee_id: data.employee_id || '',
+        yil,
+        toplam_hak: data.toplam_hak || 14,
+        kullanilan_izin: data.kullanilan_izin || 0,
+        kalan_izin: Math.max(0, (data.toplam_hak || 14) - (data.kullanilan_izin || 0)),
+        calisma_yili: data.calisma_yili || 1,
+        ise_giris_tarihi: data.ise_giris_tarihi || null,
+        hesaplama_tarihi: now,
+        mazeret_izin: data.mazeret_izin || 5,
+        hastalik_izin: data.hastalik_izin || 10,
+        idari_izin: data.idari_izin || 0,
+        ekstra_izin: data.ekstra_izin || 0,
+        hakedis_gecmisi: data.hakedis_gecmisi || [],
+        created_at: now,
+        updated_at: now
+      };
+      list.push(updated);
+    }
+
+    this.saveIzinHaklari(list);
+    return updated;
+  },
+
+  addIzinHakedis(params: {
+    employeeId: string;
+    izinTuru: string;
+    gunSayisi: number;
+    islemTipi: 'ekle' | 'belirle';
+    yil?: number;
+    aciklama?: string;
+    ekleyen?: string;
+  }): DemoIzinHakki {
+    const yil = params.yil || new Date().getFullYear();
+    const haklar = this.getIzinHaklari(yil);
+    const existing = haklar.find(h => h.employee_id === params.employeeId && h.yil === yil);
+
+    let currentToplam = existing ? existing.toplam_hak : 14;
+    let currentMazeret = existing ? existing.mazeret_izin : 5;
+    let currentIdari = existing?.idari_izin || 0;
+    let currentEkstra = existing?.ekstra_izin || 0;
+
+    const gun = Number(params.gunSayisi) || 0;
+
+    if (params.izinTuru === 'yillik') {
+      currentToplam = params.islemTipi === 'ekle' ? currentToplam + gun : gun;
+    } else if (params.izinTuru === 'mazeret') {
+      currentMazeret = params.islemTipi === 'ekle' ? currentMazeret + gun : gun;
+    } else if (params.izinTuru === 'idari') {
+      currentIdari = params.islemTipi === 'ekle' ? currentIdari + gun : gun;
+    } else {
+      currentEkstra = params.islemTipi === 'ekle' ? currentEkstra + gun : gun;
+    }
+
+    const gecmisItem = {
+      id: 'hkh-' + Math.random().toString(36).substr(2, 9),
+      izin_turu: params.izinTuru,
+      gun_sayisi: gun,
+      islem_tipi: params.islemTipi,
+      tarih: new Date().toISOString(),
+      aciklama: params.aciklama || 'Yönetici tarafından tanımlandı',
+      ekleyen: params.ekleyen || 'Şirket Yöneticisi'
+    };
+
+    const gecmis = existing?.hakedis_gecmisi ? [gecmisItem, ...existing.hakedis_gecmisi] : [gecmisItem];
+
+    return this.createOrUpdateIzinHakki({
+      employee_id: params.employeeId,
+      yil,
+      toplam_hak: currentToplam,
+      mazeret_izin: currentMazeret,
+      idari_izin: currentIdari,
+      ekstra_izin: currentEkstra,
+      hakedis_gecmisi: gecmis
+    });
   },
 
   // -------------------------------------------------------------
