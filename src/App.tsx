@@ -1141,18 +1141,24 @@ const AppInner: React.FC = () => {
 
   // ── Bordro save ─────────────────────────────────────────────────────────────
   const handleSaveBordro = async (bordro: BordroItem) => {
+    const matchedEmp = employees.find(e => e.id === bordro.employee_id || e.name === bordro.employeeName);
+    const resolvedName = bordro.employeeName || (bordro as any).employees?.name || matchedEmp?.name || selectedEmployee?.name || 'Personel';
+    const resolvedDept = (bordro as any).employees?.department || matchedEmp?.department || selectedEmployee?.department || '';
+
     const normalizedBordro = {
       ...bordro,
+      employeeName: resolvedName,
       brut_maas: bordro.brut_maas ?? (bordro as any).temelKazanc ?? 0,
       net_maas: bordro.net_maas ?? (bordro as any).netMaas ?? 0,
       toplam_kesinti: bordro.toplam_kesinti ?? (bordro as any).toplamKesinti ?? 0,
-      employees: (bordro as any).employees ?? (selectedEmployee
-        ? { name: selectedEmployee.name, department: selectedEmployee.department }
-        : undefined),
+      employees: {
+        name: resolvedName,
+        department: resolvedDept,
+      },
     } as BordroItem;
 
     setBordrolar((prev) => {
-      const idx = prev.findIndex((item) => item.id === normalizedBordro.id);
+      const idx = prev.findIndex((item) => item.id === normalizedBordro.id || (item.employee_id === normalizedBordro.employee_id && item.period === normalizedBordro.period));
       if (idx === -1) return [normalizedBordro, ...prev];
 
       const next = [...prev];

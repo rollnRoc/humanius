@@ -193,6 +193,11 @@ const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBo
         id: saved.id,
         company_id: effectiveCompanyId,
         employee_id: selectedEmployee.id,
+        employeeName: selectedEmployee.name,
+        employees: {
+          name: selectedEmployee.name,
+          department: selectedEmployee.department,
+        },
       } as BordroItem;
 
       setSavedBordro(uiBordro);
@@ -207,6 +212,11 @@ const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBo
         id: calculatedBordro.id || crypto.randomUUID(),
         company_id: effectiveCompanyId,
         employee_id: selectedEmployee.id,
+        employeeName: selectedEmployee.name,
+        employees: {
+          name: selectedEmployee.name,
+          department: selectedEmployee.department,
+        },
       } as BordroItem;
 
       setSavedBordro(localBordro);

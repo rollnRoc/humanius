@@ -5,6 +5,7 @@ import { BordroItem } from '../types/bordro';
 interface BordroListProps {
   isEmployeeView?: boolean;
   bordrolar: BordroItem[];
+  employees?: any[];
   onEdit: (bordro: BordroItem) => void;
   onDelete: (id: string) => void;
   onView: (bordro: BordroItem) => void;
@@ -14,6 +15,7 @@ interface BordroListProps {
 
 const BordroList: React.FC<BordroListProps> = ({
   bordrolar,
+  employees = [],
   onEdit,
   onDelete,
   onView,
@@ -102,10 +104,10 @@ const BordroList: React.FC<BordroListProps> = ({
                 <tr key={bordro.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="text-sm font-medium text-gray-800">
-                      {(bordro as any).employees?.name ?? bordro.employee_id}
+                      {(bordro as any).employeeName ?? (bordro as any).employees?.name ?? (employees?.find((e: any) => e.id === bordro.employee_id)?.name) ?? 'Personel'}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {(bordro as any).employees?.department ?? ''}
+                      {(bordro as any).employees?.department ?? (employees?.find((e: any) => e.id === bordro.employee_id)?.department) ?? ''}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">{bordro.period}</td>
