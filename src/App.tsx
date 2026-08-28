@@ -325,6 +325,8 @@ const AppInner: React.FC = () => {
           role: profileRoleMap.get(e.id) ?? profileRoleMap.get(empEmail) ?? e.role ?? 'employee',
           joinDate: e.join_date,
           join_date: e.join_date,
+          birthDate: e.birth_date,
+          birth_date: e.birth_date,
           address: e.address ?? '',
           avatar_url: e.avatar_url,
           skills: e.skills ?? [],
@@ -795,6 +797,15 @@ const AppInner: React.FC = () => {
         }
       }
 
+      const rawBirthDate = (emp as any).birth_date || (emp as any).birthDate || (emp as any).dogum_tarihi || null;
+      let cleanBirthDate: string | null = null;
+      if (rawBirthDate && String(rawBirthDate).trim() !== '' && String(rawBirthDate) !== 'null') {
+        const dateOnly = String(rawBirthDate).split('T')[0].trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+          cleanBirthDate = dateOnly;
+        }
+      }
+
       if (isNewEmployee && targetEmail) {
         try {
           await userManagementService.createCompanyUser({
@@ -808,6 +819,7 @@ const AppInner: React.FC = () => {
             employeeType: emp.employeeType,
             salary: emp.salary,
             tc_no: emp.tc_no ?? '',
+            birth_date: cleanBirthDate,
           } as any);
         } catch (authErr) {
           console.warn('Oturum kaydı uyarısı:', authErr);
@@ -832,6 +844,7 @@ const AppInner: React.FC = () => {
             salary: emp.salary,
             status: emp.status,
             join_date: cleanJoinDate,
+            birth_date: cleanBirthDate,
             tc_no: emp.tc_no ?? '',
             sicil_no: emp.sicil_no ?? '',
             employee_type: emp.employeeType ?? emp.employee_type ?? 'normal',
@@ -859,6 +872,7 @@ const AppInner: React.FC = () => {
           tc_no: emp.tc_no ?? '',
           sicil_no: emp.sicil_no ?? '',
           join_date: cleanJoinDate,
+          birth_date: cleanBirthDate,
         };
 
         if (isNewEmployee) {

@@ -93,6 +93,8 @@ export const userManagementService = {
     status?: string;
     join_date?: string | null;
     joinDate?: string | null;
+    birth_date?: string | null;
+    birthDate?: string | null;
     tc_no?: string;
     sicil_no?: string;
     address?: string;

@@ -730,6 +730,8 @@ serve(async (req: Request) => {
       if (payload.address !== undefined) empUpdates.address = String(payload.address);
       if (payload.employee_type !== undefined) empUpdates.employee_type = String(payload.employee_type);
       if (payload.employeeType !== undefined) empUpdates.employee_type = String(payload.employeeType);
+      if (payload.birth_date !== undefined) empUpdates.birth_date = payload.birth_date ? String(payload.birth_date).split('T')[0] : null;
+      if (payload.birthDate !== undefined) empUpdates.birth_date = payload.birthDate ? String(payload.birthDate).split('T')[0] : null;
 
       if (Object.keys(empUpdates).length > 0) {
         if (employeeId) {
@@ -741,6 +743,19 @@ serve(async (req: Request) => {
       }
 
       return jsonResponse({ message: 'Personel bilgileri ve rolü başarıyla güncellendi.' });
+    }
+
+    if (operation === 'ensure_birth_date_column') {
+      const dbUrl = Deno.env.get('SUPABASE_DB_URL') || Deno.env.get('DATABASE_URL');
+      if (dbUrl) {
+        const { Client } = await import("https://deno.land/x/postgres@v0.17.0/mod.ts");
+        const client = new Client(dbUrl);
+        await client.connect();
+        await client.queryArray(`ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS birth_date text;`);
+        await client.end();
+        return jsonResponse({ success: true, message: 'Column birth_date ensured successfully.' });
+      }
+      return jsonResponse({ error: 'DB URL not found' }, 500);
     }
 
     if (operation === 'reset_company_data') {

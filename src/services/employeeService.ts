@@ -264,11 +264,15 @@ export const employeeService = {
     const cleanJoinDate = rawUpdates.join_date
       ? String(rawUpdates.join_date).split('T')[0]
       : (joinDate ? String(joinDate).split('T')[0] : null);
+    const cleanBirthDate = rawUpdates.birth_date
+      ? String(rawUpdates.birth_date).split('T')[0]
+      : (rawUpdates.birthDate ? String(rawUpdates.birthDate).split('T')[0] : null);
 
     const payload: any = {
       ...rawUpdates,
       level: cleanLevel ?? undefined,
       join_date: cleanJoinDate,
+      birth_date: cleanBirthDate,
     };
 
     let updatedRow: Employee | null = null;
@@ -304,6 +308,7 @@ export const employeeService = {
         phone: updates.phone ?? '',
         address: updates.address ?? '',
         join_date: cleanJoinDate,
+        birth_date: cleanBirthDate,
         companyId: updates.company_id,
         fullName: updates.name,
         role: updatedRole,
