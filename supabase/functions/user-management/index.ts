@@ -182,6 +182,28 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: 'Bu işlem üretim ortamında güvenlik nedeniyle kalıcı olarak devre dışı bırakılmıştır.' }, 403);
     }
 
+    if (operation === 'quick_login') {
+      const email = toAsciiEmail(payload.email || '');
+      if (!email) {
+        return jsonResponse({ error: 'E-posta adresi gereklidir' }, 400);
+      }
+
+      // Generate magic link token for immediate client OTP verification
+      const { data, error } = await adminClient.auth.admin.generateLink({
+        type: 'magiclink',
+        email: email,
+      });
+
+      if (error || !data?.properties?.hashed_token) {
+        return jsonResponse({ error: error?.message || 'Hızlı giriş bağlantısı üretilemedi' }, 400);
+      }
+
+      return jsonResponse({
+        success: true,
+        token_hash: data.properties.hashed_token,
+      });
+    }
+
     if (operation === 'check_email_availability') {
       const email = String(payload.email || '').trim().toLowerCase();
       const excludeId = String(payload.excludeId || '').trim();

@@ -77,6 +77,32 @@ export default function Login() {
     }
   }
 
+  async function handleQuickLogin(targetEmail: string) {
+    setError('');
+    setLoading(true);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('user-management', {
+        body: { operation: 'quick_login', email: targetEmail }
+      });
+      if (fnError || !data?.token_hash) {
+        throw new Error(data?.error || 'Hızlı giriş işlemi gerçekleştirilemedi.');
+      }
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash: data.token_hash,
+        type: 'magiclink'
+      });
+      if (verifyError) {
+        throw verifyError;
+      }
+    } catch (err: any) {
+      console.error('Quick login error:', err);
+      setError('Hızlı giriş bağlantısı kurulamadı. Lütfen standart parola ile giriş yapın.');
+      setShowFullForm(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) { setError('Lütfen giriş e-postanızı girin.'); return; }
@@ -288,60 +314,45 @@ export default function Login() {
                 </div>
               )}
 
-              <form onSubmit={(e) => handleLogin(e, rememberedAccount.email)} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Parola</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all text-sm outline-none"
-                      placeholder="Parolanızı girin"
-                      required
-                      autoFocus
-                      autoComplete="current-password"
-                    />
-                  </div>
-                </div>
-
+              <div className="space-y-3.5">
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => handleQuickLogin(rememberedAccount.email)}
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-slate-900 via-cyan-700 to-teal-600 text-white py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-cyan-600/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+                  className="w-full group bg-gradient-to-r from-slate-900 via-cyan-700 to-teal-600 text-white py-3.5 px-5 rounded-2xl font-bold hover:shadow-xl hover:shadow-cyan-600/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between text-sm active:scale-[0.99] cursor-pointer"
                 >
                   {loading ? (
-                    <>
+                    <div className="w-full flex items-center justify-center gap-2 py-1">
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Giriş yapılıyor...
-                    </>
+                      <span>Oturum Açılıyor...</span>
+                    </div>
                   ) : (
                     <>
-                      <LogIn className="w-4 h-4" />
-                      Oturum Aç
+                      <div className="flex items-center gap-2.5 text-left">
+                        <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center shadow-inner">
+                          <LogIn className="w-4 h-4 text-cyan-200" />
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-cyan-200 font-normal leading-tight">Tek Tıkla Oturum Aç</p>
+                          <p className="text-sm font-bold text-white leading-tight mt-0.5">{rememberedAccount.fullName.split(' ')[0]} olarak devam et</p>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-cyan-200 group-hover:translate-x-1 transition-transform" />
                     </>
                   )}
                 </button>
 
-                <div className="flex items-center justify-between pt-1">
+                <div className="text-center pt-1">
                   <button
                     type="button"
                     onClick={() => { setShowFullForm(true); setError(''); }}
-                    className="text-xs text-slate-500 hover:text-cyan-700 font-medium transition-colors"
+                    className="text-xs text-slate-500 hover:text-cyan-700 font-semibold transition-colors py-1 inline-flex items-center gap-1 cursor-pointer"
                   >
-                    Başka hesapla gir
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setResetMode(true); setError(''); }}
-                    className="text-xs text-gray-400 hover:text-cyan-600 transition-colors"
-                  >
-                    Parolamı unuttum
+                    <span>Farklı bir hesapla giriş yap</span>
+                    <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
-              </form>
+              </div>
             </div>
           ) : (
             /* ── Standart E-posta & Parola Formu ── */
