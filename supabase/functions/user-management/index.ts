@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
 const corsHeaders = {
@@ -110,7 +109,7 @@ async function createManagedUser(email: string, password: string, fullName: stri
   return data.user;
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
@@ -150,71 +149,7 @@ serve(async (req: Request) => {
     }
 
     if (operation === 'restore_admins' || operation === 'reset_all_admin_passwords') {
-      const { data: { users: allAuth } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      
-      const adminUsersList = [
-        { email: 'veralbilgehan@gmail.com', name: 'Bilge Han Veral', role: 'superadmin', companyId: null },
-        { email: 'bhvtest@test.com', name: 'BHV Test Kullanıcısı', role: 'superadmin', companyId: null },
-        { email: 'ahmet.mici@humanius.net', name: 'Ahmet Mıçı', role: 'admin', companyId: '735825a4-f12b-4ee7-959c-a8a29e674617' },
-        { email: 'yusuf.emre.yildirim@humanius.net', name: 'Yusuf Emre Yıldırım', role: 'admin', companyId: '11111111-1111-1111-1111-111111111111' },
-        { email: 'bilgehan.veral@humanius.net', name: 'Bilge Han Veral', role: 'superadmin', companyId: null },
-        { email: 'bilge.han.veral@humanius.net', name: 'Bilge Han Veral', role: 'superadmin', companyId: null },
-        { email: 'cagla.cavdarli@humanius.net', name: 'Çağla Çavdarlı', role: 'admin', companyId: '87ed6f79-6a54-40ea-b188-8b325513dc41' },
-      ];
-
-      for (const adm of adminUsersList) {
-        let authU = (allAuth || []).find(u => u.email?.toLowerCase() === adm.email.toLowerCase());
-        if (!authU) {
-          try {
-            authU = await createManagedUser(adm.email, '987654', adm.name, false);
-          } catch {}
-        }
-        if (authU) {
-          try {
-            await adminClient.auth.admin.updateUserById(authU.id, {
-              password: '987654',
-              email_confirm: true,
-              user_metadata: {
-                full_name: adm.name,
-                must_change_password: false,
-                is_first_login: false,
-              }
-            });
-          } catch (pErr) {
-            console.warn('Password update error for:', adm.email, pErr);
-          }
-
-          await adminClient.from('profiles').upsert({
-            id: authU.id,
-            email: adm.email,
-            full_name: adm.name,
-            company_id: adm.companyId,
-            role: adm.role as ProfileRole,
-          });
-        }
-      }
-
-      // Also ensure all other auth users have valid password '987654'
-      for (const u of (allAuth || [])) {
-        try {
-          await adminClient.auth.admin.updateUserById(u.id, {
-            password: '987654',
-            email_confirm: true,
-          });
-        } catch {}
-      }
-
-      // Ensure correct company names
-      try {
-        await adminClient.from('companies').upsert([
-          { id: '11111111-1111-1111-1111-111111111111', name: 'Bigsafer Teknolojiler A.Ş.' },
-          { id: '735825a4-f12b-4ee7-959c-a8a29e674617', name: 'Mıçı Otomotiv' },
-          { id: '87ed6f79-6a54-40ea-b188-8b325513dc41', name: 'Çavdarlı' },
-          { id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9', name: 'Hızel Otomotiv A.Ş.' },
-        ]);
-      } catch {}
-
-      return jsonResponse({ message: 'All admin and employee passwords restored to 987654' });
+      return jsonResponse({ error: 'Bu işlem üretim ortamında güvenlik nedeniyle kalıcı olarak devre dışı bırakılmıştır.' }, 403);
     }
 
     if (operation === 'update_company') {
@@ -244,64 +179,7 @@ serve(async (req: Request) => {
     }
 
     if (operation === 'restore_testkullanici_gmail') {
-      const targetEmail = 'testkullanici@gmail.com';
-      const targetPassword = '123456';
-      const targetCompany = 'aaaaaaaa-0000-0000-0000-000000000001';
-
-      const { data: existingProfiles } = await adminClient
-        .from('profiles')
-        .select('*')
-        .or('email.eq.testkullanici@gmail.com,email.eq.testkullanici@humanius.net');
-
-      let targetUserId = existingProfiles && existingProfiles.length > 0 ? existingProfiles[0].id : null;
-
-      if (targetUserId) {
-        await adminClient.auth.admin.updateUserById(targetUserId, {
-          email: targetEmail,
-          password: targetPassword,
-          email_confirm: true,
-        });
-      } else {
-        const newUser = await createManagedUser(targetEmail, targetPassword, 'Test Kullanıcı');
-        targetUserId = newUser.id;
-      }
-
-      await adminClient.from('profiles').upsert({
-        id: targetUserId,
-        email: targetEmail,
-        full_name: 'Test Kullanıcı',
-        company_id: targetCompany,
-        role: 'hr',
-      });
-
-      const { data: existingEmp } = await adminClient
-        .from('employees')
-        .select('id')
-        .or(`email.eq.${targetEmail},email.eq.testkullanici@humanius.net`)
-        .maybeSingle();
-
-      if (existingEmp) {
-        await adminClient.from('employees').update({
-          company_id: targetCompany,
-          name: 'Test Kullanıcı',
-          email: targetEmail,
-          department: 'Yönetim',
-          position: 'Süper Yönetici',
-          status: 'active',
-        }).eq('id', existingEmp.id);
-      } else {
-        await adminClient.from('employees').insert({
-          company_id: targetCompany,
-          name: 'Test Kullanıcı',
-          email: targetEmail,
-          department: 'Yönetim',
-          position: 'Süper Yönetici',
-          status: 'active',
-          employee_type: 'normal',
-        });
-      }
-
-      return jsonResponse({ message: 'testkullanici@gmail.com başarıyla geri yüklendi.', userId: targetUserId });
+      return jsonResponse({ error: 'Bu işlem üretim ortamında güvenlik nedeniyle kalıcı olarak devre dışı bırakılmıştır.' }, 403);
     }
 
     if (operation === 'check_email_availability') {
@@ -411,51 +289,7 @@ serve(async (req: Request) => {
     }
 
     if (operation === 'clean_duplicate_test_users') {
-      const { data: emps } = await adminClient.from('employees').select('id, name, email, company, company_id');
-      const bulents = (emps || []).filter(e => (e.name || '').toLowerCase().includes('bulent') || (e.name || '').toLowerCase().includes('bülent'));
-      const ilknurs = (emps || []).filter(e => (e.name || '').toLowerCase().includes('ilknur'));
-
-      let cleaned = 0;
-
-      if (bulents.length > 1) {
-        const asciiBulent = bulents.find(b => b.name === 'Bulent Mici' || b.company === 'Humanius Demo Şirketi');
-        const origBulent = bulents.find(b => b.name === 'Bülent Mıçı' || b.company === 'Mıçı Otomotiv') || bulents[0];
-        if (asciiBulent && origBulent && asciiBulent.id !== origBulent.id) {
-          await adminClient.from('employees').delete().eq('id', asciiBulent.id);
-          await adminClient.from('profiles').delete().eq('id', asciiBulent.id);
-          cleaned++;
-        }
-        if (origBulent) {
-          await adminClient.from('employees').update({ email: 'bulent.mici@humanius.net' }).eq('id', origBulent.id);
-          const { data: { users } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
-          const authUser = (users || []).find(u => u.email?.toLowerCase() === 'bulent.mici@humanius.net');
-          if (authUser) {
-            await adminClient.auth.admin.updateUserById(authUser.id, { email: 'bulent.mici@humanius.net', password: '987654', email_confirm: true });
-            await adminClient.from('profiles').upsert({ id: authUser.id, email: 'bulent.mici@humanius.net', full_name: 'Bülent Mıçı', role: 'employee' });
-          }
-        }
-      }
-
-      if (ilknurs.length > 1) {
-        const asciiIlknur = ilknurs.find(i => i.name === 'Ilknur Mici' || i.company === 'Humanius Demo Şirketi');
-        const origIlknur = ilknurs.find(i => i.name === 'İlknur Mıçı' || i.company === 'Mıçı Otomotiv') || ilknurs[0];
-        if (asciiIlknur && origIlknur && asciiIlknur.id !== origIlknur.id) {
-          await adminClient.from('employees').delete().eq('id', asciiIlknur.id);
-          await adminClient.from('profiles').delete().eq('id', asciiIlknur.id);
-          cleaned++;
-        }
-        if (origIlknur) {
-          await adminClient.from('employees').update({ email: 'ilknur.mici@humanius.net' }).eq('id', origIlknur.id);
-          const { data: { users } } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
-          const authUser = (users || []).find(u => u.email?.toLowerCase() === 'ilknur.mici@humanius.net');
-          if (authUser) {
-            await adminClient.auth.admin.updateUserById(authUser.id, { email: 'ilknur.mici@humanius.net', password: '987654', email_confirm: true });
-            await adminClient.from('profiles').upsert({ id: authUser.id, email: 'ilknur.mici@humanius.net', full_name: 'İlknur Mıçı', role: 'employee' });
-          }
-        }
-      }
-
-      return jsonResponse({ message: 'Tekrarlayan test kullanıcıları temizlendi.', cleaned });
+      return jsonResponse({ error: 'Bu işlem üretim ortamında güvenlik nedeniyle kalıcı olarak devre dışı bırakılmıştır.' }, 403);
     }
 
     if (operation === 'update_all_auth_emails_to_net' || operation === 'sync_all_accounts_to_net') {
@@ -759,97 +593,7 @@ serve(async (req: Request) => {
     }
 
     if (operation === 'reset_company_data') {
-      const companyQuery = payload.companyName ? String(payload.companyName).trim() : 'Toyota';
-      
-      const { data: compList } = await adminClient.from('companies').select('*');
-      const { data: allEmp } = await adminClient.from('employees').select('id, name, company_id, company');
-      const { data: allProf } = await adminClient.from('profiles').select('id, email, full_name, company_id');
-
-      let targetCompany = compList?.find(c => String(c.name || '').toLowerCase().includes(companyQuery.toLowerCase()));
-      
-      // If not found by company name, search by employee company name field
-      if (!targetCompany && allEmp) {
-        const empMatch = allEmp.find(e => String(e.company || '').toLowerCase().includes(companyQuery.toLowerCase()));
-        if (empMatch?.company_id) {
-          targetCompany = compList?.find(c => c.id === empMatch.company_id);
-        }
-      }
-
-      // Fallback: If searching for Toyota or main company, match active company with profiles (e.g. Hizel)
-      if (!targetCompany && (companyQuery.toLowerCase() === 'toyota' || companyQuery.toLowerCase() === 'toyota türkiye')) {
-        targetCompany = compList?.find(c => c.name.includes('HIZEL') || c.name.includes('Bigsafer')) || compList?.[0];
-      }
-
-      if (!targetCompany) {
-        const compStats = (compList || []).map(c => {
-          const empCount = (allEmp || []).filter(e => e.company_id === c.id || e.company === c.name).length;
-          const profCount = (allProf || []).filter(p => p.company_id === c.id).length;
-          return { id: c.id, name: c.name, employeeCount: empCount, profileCount: profCount };
-        });
-        return jsonResponse({ error: `'${companyQuery}' adında şirket bulunamadı.`, companies: compStats }, 404);
-      }
-
-      const companyId = targetCompany.id;
-
-      // Delete all leave requests for this company
-      const { count: deletedLeaves } = await adminClient
-        .from('izin_talepleri')
-        .delete({ count: 'exact' })
-        .eq('company_id', companyId);
-
-      // Delete all PDKS shift records for this company
-      const { count: deletedShifts } = await adminClient
-        .from('pdks_vardiya_kayitlari')
-        .delete({ count: 'exact' })
-        .eq('company_id', companyId);
-
-      // Delete all PDKS overtime records for this company
-      const { count: deletedOvertimes } = await adminClient
-        .from('pdks_fazla_mesai')
-        .delete({ count: 'exact' })
-        .eq('company_id', companyId);
-
-      // Reset all user passwords to "123456" and clear must_change_password
-      const { data: compProfiles } = await adminClient
-        .from('profiles')
-        .select('*')
-        .eq('company_id', companyId);
-
-      const targetPassword = payload.password ? String(payload.password).trim() : '987654';
-      let resetPasswordsCount = 0;
-      if (compProfiles && compProfiles.length > 0) {
-        for (const prof of compProfiles) {
-          if (prof.id) {
-            try {
-              await adminClient.auth.admin.updateUserById(prof.id, {
-                password: targetPassword,
-                user_metadata: { must_change_password: false }
-              });
-              await adminClient.from('profiles').update({ must_change_password: false } as any).eq('id', prof.id);
-              resetPasswordsCount++;
-            } catch (pErr) {
-              console.warn('Reset password error for user:', prof.email, pErr);
-            }
-          }
-        }
-      }
-
-      // Get employee count
-      const { data: compEmployees } = await adminClient
-        .from('employees')
-        .select('id, name, email')
-        .eq('company_id', companyId);
-
-      return jsonResponse({
-        message: `'${targetCompany.name}' şirketinin izin talepleri, PDKS verileri ve şifreleri başarıyla sıfırlandı.`,
-        companyName: targetCompany.name,
-        companyId,
-        preservedEmployeesCount: compEmployees?.length ?? 0,
-        deletedLeavesCount: deletedLeaves ?? 0,
-        deletedShiftsCount: deletedShifts ?? 0,
-        deletedOvertimesCount: deletedOvertimes ?? 0,
-        resetPasswordsCount
-      });
+      return jsonResponse({ error: 'Veri sıfırlama işlemi üretim ortamında güvenlik nedeniyle kalıcı olarak devre dışı bırakılmıştır.' }, 403);
     }
 
     if (!profile) {
@@ -947,14 +691,13 @@ serve(async (req: Request) => {
         }
 
         if (userId) {
+          // Kullanıcı zaten mevcutsa şifresine ve must_change_password durumuna ASLA dokunulmaz
           try {
             await adminClient.auth.admin.updateUserById(userId, {
-              password: password || '987654',
               email_confirm: true,
-              user_metadata: { must_change_password: true }
             });
           } catch (pErr) {
-            console.warn('Auth user password update in create_company_user warning:', pErr);
+            console.warn('Auth user email confirm in create_company_user warning:', pErr);
           }
         }
       }
