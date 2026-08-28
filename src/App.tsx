@@ -651,21 +651,23 @@ const AppInner: React.FC = () => {
     const matchDept =
       selectedDepartment === 'all' || emp.department === selectedDepartment;
 
-    const selCompLower = (selectedCompany || '').toLowerCase();
-    const empCompLower = (emp.company || '').toLowerCase();
-    const isDemoSelected = selCompLower.includes('demo') || selCompLower.includes('humanius') || selectedCompany === 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9' || selectedCompany === 'aaaaaaaa-0000-0000-0000-000000000001';
-    const isEmpDemo = empCompLower.includes('demo') || empCompLower.includes('humanius') || emp.company_id === 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9' || !emp.company_id || emp.company_id === 'aaaaaaaa-0000-0000-0000-000000000001';
+    const matchCompany = (() => {
+      if (selectedCompany === 'all' || !selectedCompany) return true;
+      const target = selectedCompany.toLowerCase().trim();
+      const empCompName = (emp.company || '').toLowerCase().trim();
+      const empCompId = (emp.company_id || '').toLowerCase().trim();
 
-    const matchCompany =
-      selectedCompany === 'all' ||
-      !selectedCompany ||
-      emp.company === selectedCompany ||
-      emp.company_id === selectedCompany ||
-      (emp.company && selectedCompany && emp.company.toLowerCase().trim() === selectedCompany.toLowerCase().trim()) ||
-      (isDemoSelected && isEmpDemo);
+      return empCompName === target || empCompId === target;
+    })();
 
     return matchSearch && matchDept && matchCompany;
   });
+
+  const dynamicStats: Stats = {
+    active: filteredEmployees.filter((e) => e.status === 'active').length,
+    onLeave: filteredEmployees.filter((e) => e.status === 'onLeave').length,
+    inactive: filteredEmployees.filter((e) => e.status === 'inactive').length,
+  };
 
   const currentEmployeeMatch = employees.find((emp) => {
     const profileEmail = String(profile?.email ?? '').trim().toLowerCase();
@@ -1453,7 +1455,7 @@ const AppInner: React.FC = () => {
               onSearchChange={setSearchTerm}
               totalResultCount={filteredEmployees.length}
             />
-            <StatsCards stats={stats} />
+            <StatsCards stats={dynamicStats} />
             <EmployeeTable
               employees={filteredEmployees}
               onEmployeeClick={handleEmployeeClick}
