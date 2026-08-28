@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
-import { LogIn, Building2, Mail, Lock, CheckCircle, Phone, CreditCard, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LogIn, Building2, Mail, Lock, CheckCircle, Phone, CreditCard, ShieldCheck, UserCheck, X, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, RememberedAccount } from '../contexts/AuthContext';
 import { translateErrorMessage } from '../utils/errorTranslator';
 import { userManagementService } from '../services/userManagementService';
 
+function getInitials(name: string): string {
+  if (!name) return 'H';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export default function Login() {
-  const { signIn, startDemoSession, startSuperAdminSession } = useAuth();
+  const { signIn, startDemoSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,12 +25,41 @@ export default function Login() {
   const [resetTcNo, setResetTcNo] = useState('');
   const [resetPhone, setResetPhone] = useState('');
 
-  async function handleLogin(e: React.FormEvent) {
+  // Hatırlanan hesap state'i
+  const [rememberedAccount, setRememberedAccount] = useState<RememberedAccount | null>(null);
+  const [showFullForm, setShowFullForm] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('humanius_remembered_account');
+      if (saved) {
+        const parsed: RememberedAccount = JSON.parse(saved);
+        if (parsed && parsed.email && parsed.fullName) {
+          setRememberedAccount(parsed);
+          setEmail(parsed.email);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const handleForgetAccount = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      localStorage.removeItem('humanius_remembered_account');
+    } catch {}
+    setRememberedAccount(null);
+    setShowFullForm(true);
+    setEmail('');
+    setPassword('');
+  };
+
+  async function handleLogin(e: React.FormEvent, targetEmail?: string) {
     e.preventDefault();
     setError('');
     setLoading(true);
+    const loginEmail = (targetEmail || email).trim().toLowerCase();
     try {
-      const { error: signInError } = await signIn(email.trim().toLowerCase(), password);
+      const { error: signInError } = await signIn(loginEmail, password);
       if (signInError) {
         setError(
           signInError.message.includes('Invalid login credentials')
@@ -33,7 +69,7 @@ export default function Login() {
         return;
       }
 
-      // Giriş başarılı - AuthContext onAuthStateChange oturumu otomatik olarak yönetecektir
+      // Giriş başarılı - AuthContext oturumu otomatik yönetecektir
     } catch (err: any) {
       setError(translateErrorMessage(err.message));
     } finally {
@@ -87,15 +123,15 @@ export default function Login() {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-500 rounded-2xl mb-4 shadow-lg">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-500 rounded-2xl mb-4 shadow-lg shadow-cyan-500/20">
             <Building2 className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Humanius</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Humanius</h1>
           <p className="text-slate-400 text-sm mt-1">İK Yönetim Sistemi</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-3xl shadow-2xl p-8">
+        <div className="bg-white rounded-3xl shadow-2xl p-8 relative">
 
           {resetSent ? (
             <div className="text-center py-2">
@@ -206,7 +242,109 @@ export default function Login() {
                 </button>
               </form>
             </>
+          ) : rememberedAccount && !showFullForm ? (
+            /* ── Hızlı Giriş Kartı (Kayıtlı Kullanıcı) ── */
+            <div>
+              {/* Cihazdan Unut Butonu */}
+              <button
+                type="button"
+                onClick={handleForgetAccount}
+                title="Bu hesabı bu cihazdan kaldır"
+                className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="text-center mb-6">
+                {/* İsim Baş Harflerinden Oluşan Şık Avatar Rozeti */}
+                <div className="relative inline-block mx-auto mb-3">
+                  <div className="w-20 h-20 bg-gradient-to-br from-indigo-600 via-cyan-600 to-teal-500 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-xl shadow-cyan-500/25 ring-4 ring-white">
+                    {getInitials(rememberedAccount.fullName)}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow">
+                    <UserCheck className="w-3.5 h-3.5 text-white" />
+                  </div>
+                </div>
+
+                <h2 className="text-xl font-bold text-gray-900 leading-snug">
+                  {rememberedAccount.fullName}
+                </h2>
+                
+                {rememberedAccount.companyName && (
+                  <div className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1 rounded-full text-xs font-semibold text-slate-700 mt-2">
+                    <Building2 className="w-3.5 h-3.5 text-cyan-600" />
+                    <span>{rememberedAccount.companyName}</span>
+                  </div>
+                )}
+                
+                <p className="text-xs text-gray-400 font-mono mt-1.5">
+                  {rememberedAccount.email}
+                </p>
+              </div>
+
+              {error && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3">
+                  <p className="text-xs text-red-700 font-medium">{error}</p>
+                </div>
+              )}
+
+              <form onSubmit={(e) => handleLogin(e, rememberedAccount.email)} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Parola</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all text-sm outline-none"
+                      placeholder="Parolanızı girin"
+                      required
+                      autoFocus
+                      autoComplete="current-password"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-slate-900 via-cyan-700 to-teal-600 text-white py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-cyan-600/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Giriş yapılıyor...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="w-4 h-4" />
+                      Oturum Aç
+                    </>
+                  )}
+                </button>
+
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setShowFullForm(true); setError(''); }}
+                    className="text-xs text-slate-500 hover:text-cyan-700 font-medium transition-colors"
+                  >
+                    Başka hesapla gir
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setResetMode(true); setError(''); }}
+                    className="text-xs text-gray-400 hover:text-cyan-600 transition-colors"
+                  >
+                    Parolamı unuttum
+                  </button>
+                </div>
+              </form>
+            </div>
           ) : (
+            /* ── Standart E-posta & Parola Formu ── */
             <>
               <h2 className="text-xl font-bold text-gray-800 mb-1">Giriş Yap</h2>
               <p className="text-gray-500 text-sm mb-6">Hesap bilgilerinizi girin</p>
@@ -230,7 +368,7 @@ export default function Login() {
                       placeholder="adsoyad@humanius.net"
                       required
                       autoComplete="email"
-                      autoFocus
+                      autoFocus={!rememberedAccount}
                     />
                   </div>
                 </div>
@@ -270,7 +408,17 @@ export default function Login() {
                   )}
                 </button>
 
-                <div className="text-center">
+                <div className="flex items-center justify-between pt-1">
+                  {rememberedAccount ? (
+                    <button
+                      type="button"
+                      onClick={() => { setShowFullForm(false); setError(''); }}
+                      className="text-xs text-cyan-600 hover:text-cyan-700 font-medium transition-colors"
+                    >
+                      ← {rememberedAccount.fullName} ile gir
+                    </button>
+                  ) : <span />}
+
                   <button
                     type="button"
                     onClick={() => { setResetMode(true); setError(''); }}

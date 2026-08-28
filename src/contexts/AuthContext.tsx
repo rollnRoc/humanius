@@ -52,6 +52,49 @@ const mockSuperAdminProfile: Profile = {
   updated_at: new Date().toISOString()
 };
 
+export interface RememberedAccount {
+  email: string;
+  fullName: string;
+  companyName?: string;
+  roleTitle?: string;
+  lastLoginAt: number;
+}
+
+export function saveRememberedAccount(prof: any, companyNameOverride?: string) {
+  if (!prof || !prof.email) return;
+  try {
+    let companyName = companyNameOverride || prof.company_name || '';
+    if (!companyName && prof.company_id) {
+      const companyMap: Record<string, string> = {
+        '11111111-1111-1111-1111-111111111111': 'Bigsafer Teknolojiler A.Ş.',
+        '735825a4-f12b-4ee7-959c-a8a29e674617': 'Mıçı Otomotiv',
+        '87ed6f79-6a54-40ea-b188-8b325513dc41': 'Çavdarlı',
+        'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9': 'Hızel Otomotiv A.Ş.',
+        'aaaaaaaa-0000-0000-0000-000000000001': 'Humanius Demo Şirketi',
+      };
+      companyName = companyMap[prof.company_id] || '';
+    }
+    const roleLabels: Record<string, string> = {
+      superadmin: 'Süper Yönetici',
+      admin: 'Şirket Yöneticisi',
+      hr: 'İnsan Kaynakları',
+      manager: 'Departman Yöneticisi',
+      employee: 'Personel',
+      user: 'Personel'
+    };
+    const remembered: RememberedAccount = {
+      email: prof.email.trim().toLowerCase(),
+      fullName: prof.full_name || 'Kullanıcı',
+      companyName: companyName || (prof.role === 'superadmin' ? 'Humanius Sistem' : 'Humanius'),
+      roleTitle: roleLabels[prof.role] || 'Personel',
+      lastLoginAt: Date.now()
+    };
+    localStorage.setItem('humanius_remembered_account', JSON.stringify(remembered));
+  } catch (e) {
+    console.warn('Failed to save remembered account:', e);
+  }
+}
+
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
@@ -150,6 +193,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (profile && !isDemo) {
+      saveRememberedAccount(profile);
+    }
+  }, [profile, isDemo]);
 
   const fetchProfile = async (userId: string) => {
     try {
