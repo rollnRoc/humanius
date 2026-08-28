@@ -214,6 +214,493 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
 
   const getEmpName = (id: string | null) => employees.find((e) => e.id === id)?.name ?? '-';
 
+  const getCompanyDisplayName = () => {
+    return profile?.company_id 
+      ? (employees.find(e => e.company_id === profile.company_id)?.company || 'Humanius Şirket Grubu')
+      : (employees.find(e => e.company)?.company || 'Humanius Şirket Grubu');
+  };
+
+  const yazdirAtananZimmetler = () => {
+    const atananlar = zimmetler.filter((z) => z.atanan_employee_id);
+    if (atananlar.length === 0) {
+      alert('Henüz personele atanmış aktif bir zimmet kaydı bulunmamaktadır.');
+      return;
+    }
+
+    const companyName = getCompanyDisplayName();
+    const toplamDeger = atananlar.reduce((sum, z) => sum + Number(z.deger || 0), 0);
+    const uniqueEmployees = new Set(atananlar.map(z => z.atanan_employee_id)).size;
+
+    const rowsHtml = atananlar.map((z, idx) => {
+      const emp = employees.find(e => e.id === z.atanan_employee_id);
+      const atanmaTarihiFormatted = z.atanma_tarihi ? new Date(z.atanma_tarihi).toLocaleDateString('tr-TR') : '-';
+      return `
+        <tr>
+          <td style="text-align:center;font-weight:600;color:#64748b;">${idx + 1}</td>
+          <td>
+            <strong>${z.ad}</strong>
+            ${z.aciklama ? `<br><small style="color:#64748b;">${z.aciklama}</small>` : ''}
+          </td>
+          <td><span class="badge">${z.kategori || 'Genel'}</span></td>
+          <td>${[z.marka, z.model].filter(Boolean).join(' ') || '-'}</td>
+          <td><code class="seri-no">${z.seri_no}</code></td>
+          <td style="text-align:right;font-weight:600;">₺${Number(z.deger || 0).toLocaleString('tr-TR')}</td>
+          <td>
+            <strong>${emp?.name || 'Bilinmeyen Personel'}</strong>
+            ${emp?.tc_no ? `<br><small style="color:#64748b;">TC: ${emp.tc_no}</small>` : ''}
+          </td>
+          <td>${emp?.department || '-'}${emp?.position ? ` / ${emp.position}` : ''}</td>
+          <td style="text-align:center;">${atanmaTarihiFormatted}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="tr">
+      <head>
+        <meta charset="utf-8">
+        <title>Atanan Zimmetler ve Teslimat Raporu - ${companyName}</title>
+        <style>
+          @page { size: A4 landscape; margin: 12mm; }
+          * { box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #1e293b;
+            margin: 0;
+            padding: 20px;
+            font-size: 11px;
+            background: #fff;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 18px;
+            color: #1e293b;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+          }
+          .header h2 {
+            margin: 4px 0 0 0;
+            font-size: 13px;
+            color: #2563eb;
+            font-weight: 600;
+          }
+          .header-meta {
+            text-align: right;
+            font-size: 10px;
+            color: #64748b;
+          }
+          .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+          }
+          .stat-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 12px;
+          }
+          .stat-card .label {
+            font-size: 9px;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 700;
+          }
+          .stat-card .value {
+            font-size: 15px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-top: 2px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 24px;
+          }
+          th {
+            background: #f1f5f9;
+            color: #334155;
+            font-weight: 700;
+            text-align: left;
+            padding: 8px 6px;
+            border: 1px solid #cbd5e1;
+            font-size: 10px;
+            text-transform: uppercase;
+          }
+          td {
+            padding: 7px 6px;
+            border: 1px solid #e2e8f0;
+            font-size: 10px;
+            vertical-align: middle;
+          }
+          tr:nth-child(even) {
+            background-color: #f8fafc;
+          }
+          .badge {
+            display: inline-block;
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 9px;
+            text-transform: capitalize;
+          }
+          .seri-no {
+            font-family: monospace;
+            background: #f1f5f9;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-size: 10px;
+          }
+          .footer-signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 30px;
+            page-break-inside: avoid;
+          }
+          .sig-box {
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+          }
+          .sig-title {
+            font-weight: 700;
+            color: #334155;
+            font-size: 11px;
+            margin-bottom: 35px;
+          }
+          .sig-line {
+            border-top: 1px solid #94a3b8;
+            margin: 0 30px 6px 30px;
+          }
+          .sig-sub {
+            font-size: 9px;
+            color: #64748b;
+          }
+          @media print {
+            body { padding: 0; }
+            .no-print { display: none !important; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1>${companyName}</h1>
+            <h2>ZİMMETLİ EKİPMANLAR VE PERSONEL TESLİMAT RAPORU</h2>
+          </div>
+          <div class="header-meta">
+            <div><strong>Rapor Tarihi:</strong> ${new Date().toLocaleDateString('tr-TR')} ${new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</div>
+            <div><strong>Sistem:</strong> Humanius HRMS Zimmet Takip</div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="label">Zimmetli Ekipman Sayısı</div>
+            <div class="value">${atananlar.length} Adet</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Zimmet Sahibi Personel</div>
+            <div class="value">${uniqueEmployees} Kişi</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Toplam Envanter Değeri</div>
+            <div class="value">₺${toplamDeger.toLocaleString('tr-TR')}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width:28px;text-align:center;">#</th>
+              <th>Zimmet Adı / Tanım</th>
+              <th>Kategori</th>
+              <th>Marka / Model</th>
+              <th>Seri Numarası</th>
+              <th style="text-align:right;">Değer (₺)</th>
+              <th>Atanan Personel</th>
+              <th>Departman / Pozisyon</th>
+              <th style="text-align:center;">Atanma Tarihi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div class="footer-signatures">
+          <div class="sig-box">
+            <div class="sig-title">Raporu Hazırlayan / İnsan Kaynakları Yetkilisi</div>
+            <div class="sig-line"></div>
+            <div class="sig-sub">İsim - İmza - Kaşe</div>
+          </div>
+          <div class="sig-box">
+            <div class="sig-title">Şirket Yöneticisi / İdari İşler Onayı</div>
+            <div class="sig-line"></div>
+            <div class="sig-sub">İsim - İmza - Kaşe</div>
+          </div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+      printWin.document.write(htmlContent);
+      printWin.document.close();
+    }
+  };
+
+  const yazdirTekZimmet = (z: Zimmet) => {
+    const emp = employees.find(e => e.id === z.atanan_employee_id);
+    const companyName = getCompanyDisplayName();
+    const atanmaTarihiFormatted = z.atanma_tarihi ? new Date(z.atanma_tarihi).toLocaleDateString('tr-TR') : new Date().toLocaleDateString('tr-TR');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="tr">
+      <head>
+        <meta charset="utf-8">
+        <title>Zimmet Teslim Tutanağı - ${z.ad} - ${emp?.name || 'Personel'}</title>
+        <style>
+          @page { size: A4 portrait; margin: 15mm; }
+          * { box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            margin: 0;
+            padding: 24px;
+            font-size: 12px;
+            line-height: 1.5;
+            background: #fff;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+          }
+          .header h1 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
+            font-weight: 800;
+            text-transform: uppercase;
+          }
+          .header h2 {
+            margin: 0;
+            font-size: 14px;
+            color: #2563eb;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+          }
+          .doc-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 16px;
+            padding: 6px 12px;
+            background: #f8fafc;
+            border-radius: 6px;
+          }
+          .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #1e293b;
+            background: #e2e8f0;
+            padding: 6px 10px;
+            margin-top: 16px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+          }
+          table.details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+          }
+          table.details-table td {
+            padding: 6px 8px;
+            border: 1px solid #e2e8f0;
+            font-size: 11px;
+          }
+          table.details-table td.label {
+            width: 28%;
+            background: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+          }
+          .taahhut-text {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 11px;
+            color: #334155;
+            text-align: justify;
+            margin-top: 16px;
+            margin-bottom: 24px;
+          }
+          .signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 24px;
+            page-break-inside: avoid;
+          }
+          .sig-box {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+          }
+          .sig-box .title {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 11px;
+            margin-bottom: 45px;
+          }
+          .sig-box .line {
+            border-top: 1px solid #475569;
+            margin: 0 20px 6px 20px;
+          }
+          .sig-box .name {
+            font-weight: 600;
+            font-size: 11px;
+          }
+          .sig-box .sub {
+            font-size: 10px;
+            color: #64748b;
+          }
+          @media print {
+            body { padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${companyName}</h1>
+          <h2>ZİMMET TESLİM VE TAAHHÜT TUTANAĞI</h2>
+        </div>
+
+        <div class="doc-info">
+          <div><strong>Belge No:</strong> ZMM-${z.seri_no}</div>
+          <div><strong>Düzenlenme Tarihi:</strong> ${atanmaTarihiFormatted}</div>
+        </div>
+
+        <div class="section-title">1. TESLİM ALAN PERSONEL BİLGİLERİ</div>
+        <table class="details-table">
+          <tr>
+            <td class="label">Adı Soyadı:</td>
+            <td><strong>${emp?.name || '-'}</strong></td>
+            <td class="label">TC Kimlik No:</td>
+            <td>${emp?.tc_no || '-'}</td>
+          </tr>
+          <tr>
+            <td class="label">Departman:</td>
+            <td>${emp?.department || '-'}</td>
+            <td class="label">Görevi / Pozisyon:</td>
+            <td>${emp?.position || '-'}</td>
+          </tr>
+          <tr>
+            <td class="label">İletişim Telefonu:</td>
+            <td>${emp?.phone || '-'}</td>
+            <td class="label">E-posta:</td>
+            <td>${emp?.email || '-'}</td>
+          </tr>
+        </table>
+
+        <div class="section-title">2. TESLİM EDİLEN ZİMMET / EKİPMAN BİLGİLERİ</div>
+        <table class="details-table">
+          <tr>
+            <td class="label">Ekipman / Zimmet Adı:</td>
+            <td><strong>${z.ad}</strong></td>
+            <td class="label">Kategori:</td>
+            <td>${z.kategori || 'Genel'}</td>
+          </tr>
+          <tr>
+            <td class="label">Marka:</td>
+            <td>${z.marka || '-'}</td>
+            <td class="label">Model:</td>
+            <td>${z.model || '-'}</td>
+          </tr>
+          <tr>
+            <td class="label">Seri Numarası:</td>
+            <td><strong style="font-family:monospace;letter-spacing:0.5px;">${z.seri_no}</strong></td>
+            <td class="label">Envanter Değeri:</td>
+            <td>₺${Number(z.deger || 0).toLocaleString('tr-TR')}</td>
+          </tr>
+          <tr>
+            <td class="label">Teslim Tarihi:</td>
+            <td>${atanmaTarihiFormatted}</td>
+            <td class="label">Mevcut Durumu:</td>
+            <td>Çalışır / Eksiksiz</td>
+          </tr>
+          <tr>
+            <td class="label">Özel Notlar / Açıklama:</td>
+            <td colspan="3">${z.aciklama || 'Standart iş amaçlı ekipman teslimi.'}</td>
+          </tr>
+        </table>
+
+        <div class="section-title">3. TAAHHÜT VE SORUMLULUK BEYANI</div>
+        <div class="taahhut-text">
+          İşbu tutanak ile yukarıda detayları, marka, model ve seri numarası belirtilen şirket demirbaşını/cihazını eksiksiz, hasarsız ve tam çalışır vaziyette teslim aldım. 
+          Zimmet konusu ekipmanı yalnızca şirket faaliyetleri kapsamında ve gerekli özeni göstererek kullanacağımı; üçüncü şahıslara devretmeyeceğimi veya ödünç vermeyeceğimi; 
+          meydana gelebilecek kasıt veya ağır ihmal kaynaklı hasar ve kayıplardan sorumlu olacağımı; şirket tarafından talep edildiğinde veya iş akdimin herhangi bir nedenle son bulması durumunda 
+          aynı şekilde eksiksiz, hasarsız ve çalışır olarak yetkililere iade edeceğimi gayrikabili rücu kabul, beyan ve taahhüt ederim.
+        </div>
+
+        <div class="signatures">
+          <div class="sig-box">
+            <div class="title">TESLİM EDEN (ŞİRKET YETKİLİSİ)</div>
+            <div class="line"></div>
+            <div class="name">İnsan Kaynakları / İdari İşler</div>
+            <div class="sub">İmza / Kaşe / Tarih</div>
+          </div>
+          <div class="sig-box">
+            <div class="title">TESLİM ALAN (ÇALIŞAN)</div>
+            <div class="line"></div>
+            <div class="name">${emp?.name || 'Personel'}</div>
+            <div class="sub">İmza / Tarih</div>
+          </div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+      printWin.document.write(htmlContent);
+      printWin.document.close();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -234,15 +721,25 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
               : "Size atanmış olan şirket ekipmanları ve cihazlar"}
           </p>
         </div>
-        {isAdminOrHR && (
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => { setFormAcik(true); setDuzenlenenId(null); setForm({ seriNo: '', ad: '', kategori: '', marka: '', model: '', deger: '', aciklama: '' }); }}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700"
+            onClick={yazdirAtananZimmetler}
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 shadow-sm transition-all"
+            title="Personele atanmış zimmetlerin detaylı teslimat listesini yazdır / PDF olarak kaydet"
           >
-            <Plus className="w-4 h-4" />
-            Yeni Zimmet
+            <Printer className="w-4 h-4 text-indigo-600" />
+            Atanan Zimmetler Çıktısı
           </button>
-        )}
+          {isAdminOrHR && (
+            <button
+              onClick={() => { setFormAcik(true); setDuzenlenenId(null); setForm({ seriNo: '', ad: '', kategori: '', marka: '', model: '', deger: '', aciklama: '' }); }}
+              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700 shadow-sm transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Yeni Zimmet
+            </button>
+          )}
+        </div>
       </div>
 
       {/* İstatistik kartları (Sadece yöneticiler tüm istatistiği görür, personel kendi sayılarını görür) */}
@@ -342,6 +839,15 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                         >
                           <Package className="w-4 h-4" />
                         </button>
+                        {z.atanan_employee_id && (
+                          <button
+                            title="Zimmet Teslim Tutanağı Yazdır (PDF)"
+                            onClick={() => yazdirTekZimmet(z)}
+                            className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           title="Düzenle"
                           onClick={() => {
