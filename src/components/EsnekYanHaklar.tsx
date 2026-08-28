@@ -47,7 +47,6 @@ interface EsnekYanHaklarProps {
 }
 
 const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
-  const KISI_BUTCE = 6000; // Yıllık yan hak bütçesi (TL)
   const { appRole } = useAuth();
   const isEmployeeRole = ['employee', 'user'].includes(appRole);
 
@@ -72,7 +71,6 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
 
   const empSecimler = secimler.filter((s) => s.employeeId === secilenEmp);
   const toplamKullanan = empSecimler.reduce((sum, s) => sum + s.tutar, 0);
-  const kalan = KISI_BUTCE - toplamKullanan;
 
   const emp = employees.find((e) => e.id === secilenEmp);
 
@@ -194,39 +192,27 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
 
       {/* Özet */}
       {isEmployeeRole ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-blue-50 rounded-2xl p-4">
-            <p className="text-xs text-gray-500">Kişisel Bütçe</p>
-            <p className="text-2xl font-bold text-blue-700">{KISI_BUTCE.toLocaleString('tr-TR')} ₺</p>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="bg-indigo-50 rounded-2xl p-4">
-            <p className="text-xs text-gray-500">Kullanılan Bütçe</p>
+            <p className="text-xs text-gray-500">Toplam Tanımlı Yan Haklarım</p>
             <p className="text-2xl font-bold text-indigo-700">{toplamKullanan.toLocaleString('tr-TR')} ₺</p>
           </div>
           <div className="bg-green-50 rounded-2xl p-4">
-            <p className="text-xs text-gray-500">Kalan Bütçe</p>
-            <p className={`text-2xl font-bold ${kalan < 0 ? 'text-red-700' : 'text-green-700'}`}>{kalan.toLocaleString('tr-TR')} ₺</p>
+            <p className="text-xs text-gray-500">Aktif Yan Hak Kalem Sayısı</p>
+            <p className="text-2xl font-bold text-green-700">{empSecimler.length} Kalem</p>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="bg-indigo-50 rounded-2xl p-4">
             <p className="text-xs text-gray-500">Toplam Yan Hak Maliyeti</p>
             <p className="text-2xl font-bold text-indigo-700">{toplamYanHakMaliyeti.toLocaleString('tr-TR')} ₺</p>
           </div>
-          <div className="bg-blue-50 rounded-2xl p-4">
-            <p className="text-xs text-gray-500">Kişi Başı Bütçe</p>
-            <p className="text-2xl font-bold text-blue-700">{KISI_BUTCE.toLocaleString('tr-TR')} ₺</p>
-          </div>
           <div className="bg-green-50 rounded-2xl p-4">
-            <p className="text-xs text-gray-500">En Çok Tercih</p>
+            <p className="text-xs text-gray-500">En Çok Tercih Edilen Yan Hak</p>
             <p className="text-lg font-bold text-green-700">
               {kategoriDagilim.sort((a, b) => b.kisiSayisi - a.kisiSayisi)[0]?.icon} {kategoriDagilim[0]?.ad ?? '—'}
             </p>
-          </div>
-          <div className="bg-orange-50 rounded-2xl p-4">
-            <p className="text-xs text-gray-500">Aktif Kategori</p>
-            <p className="text-2xl font-bold text-orange-700">{kategoriDagilim.length}</p>
           </div>
         </div>
       )}
@@ -246,22 +232,16 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
             </div>
 
             {emp && (
-              <div className="bg-gray-50 rounded-xl p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-800">{emp.name}</p>
-                  <span className="text-xs text-gray-500">{emp.position}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5 mb-1">
-                  <div
-                    className={`h-2.5 rounded-full transition-all ${kalan < 500 ? 'bg-red-500' : kalan < 1500 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                    style={{ width: `${Math.min(100, (toplamKullanan / KISI_BUTCE) * 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>Kullanılan: {toplamKullanan.toLocaleString('tr-TR')} ₺</span>
-                  <span className={kalan < 0 ? 'text-red-600 font-semibold' : ''}>
-                    Kalan: {kalan.toLocaleString('tr-TR')} ₺
-                  </span>
+              <div className="bg-gray-50 rounded-xl p-3.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{emp.name}</p>
+                    <p className="text-xs text-gray-500">{emp.department} · {emp.position}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Tanımlı Yan Hak</p>
+                    <p className="text-base font-bold text-indigo-700">{toplamKullanan.toLocaleString('tr-TR')} ₺</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -341,15 +321,11 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
 
       {/* Yeni seçim modal */}
       {yeniSecimModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <p className="font-bold text-gray-800">Yan Hak Ekle</p>
               <button onClick={() => setYeniSecimModal(false)}><X className="w-5 h-5 text-gray-400" /></button>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700 flex items-start gap-2">
-              <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span>Kalan bütçe: <strong>{kalan.toLocaleString('tr-TR')} ₺</strong></span>
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">Kategori</label>
@@ -370,9 +346,6 @@ const EsnekYanHaklar: React.FC<EsnekYanHaklarProps> = ({ employees }) => {
               <input type="number" value={yeniSecim.tutar || ''} onChange={(e) => setYeniSecim({ ...yeniSecim, tutar: parseInt(e.target.value) || 0 })}
                 placeholder="Örn: 1200"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
-              {yeniSecim.tutar > kalan && (
-                <p className="text-xs text-red-600 mt-1">⚠ Bütçeyi aşıyor!</p>
-              )}
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">Açıklama</label>
