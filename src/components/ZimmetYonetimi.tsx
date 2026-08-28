@@ -53,7 +53,7 @@ function ZimmetQRModal({ zimmet, onClose }: { zimmet: Zimmet; onClose: () => voi
   const qrData = `ZIMMET:${zimmet.seri_no}:${zimmet.ad}`;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center space-y-4">
         <div className="flex items-center justify-between">
           <p className="font-bold text-gray-800">Zimmet QR Kodu</p>
@@ -377,7 +377,7 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
 
       {/* Atama Paneli Modal */}
       {atamaPaneli && isAdminOrHR && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <p className="font-bold text-gray-800">Zimmet Atama</p>
@@ -416,7 +416,7 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
 
       {/* Silme onayı */}
       {silOnay && isAdminOrHR && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center space-y-4">
             <AlertTriangle className="w-10 h-10 text-red-500 mx-auto" />
             <p className="font-semibold text-gray-800">Bu zimmeti silmek istiyor musunuz?</p>
@@ -430,7 +430,7 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
 
       {/* Ekle / Düzenle Formu */}
       {formAcik && isAdminOrHR && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
             <div className="flex items-center justify-between">
               <p className="font-bold text-gray-800">{duzenlenenId ? 'Zimmeti Düzenle' : 'Yeni Zimmet Ekle'}</p>
