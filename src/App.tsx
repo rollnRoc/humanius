@@ -1535,7 +1535,7 @@ const AppInner: React.FC = () => {
                       }}
                       className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-xs transition-all"
                     >
-                      ✨ Yıllık İzin Hak Edişi Tanımla
+                      ✨ İzin Hak Edişi Tanımla
                     </button>
                     <button
                       onClick={() => setShowTopluIzinForm(true)}

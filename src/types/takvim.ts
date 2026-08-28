@@ -3,6 +3,8 @@ export type EtkinlikTuru =
   | 'izin'
   | 'egitim'
   | 'toplanti'
+  | 'dogum_gunu'
+  | 'yildonumu'
   | 'diger';
 
 export type EtkinlikOncelik = 'dusuk' | 'normal' | 'yuksek' | 'kritik';

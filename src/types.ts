@@ -58,6 +58,8 @@ export interface Employee {
   personal_email?: string;
   joinDate?: string;
   join_date?: string;
+  birthDate?: string;
+  birth_date?: string;
   address: string;
   avatar_url?: string | null;
   skills: string[];

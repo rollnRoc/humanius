@@ -135,6 +135,13 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
   const weekDays = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
   const departments = [...new Set(employees.map(e => e.department))];
 
+  // Bu ayın kutlamaları (Doğum günleri ve Yıldönümleri)
+  const currentMonthNum = String(currentDate.getMonth() + 1).padStart(2, '0');
+  const monthPrefix = `${currentDate.getFullYear()}-${currentMonthNum}`;
+  const buAyinKutlamalari = etkinlikler
+    .filter((e) => (e.tur === 'dogum_gunu' || e.tur === 'yildonumu') && e.tarih.startsWith(monthPrefix))
+    .sort((a, b) => a.tarih.localeCompare(b.tarih));
+
   // Belirli bir günün etkinliklerini getir
   const getEventsForDate = (date: Date): TakvimEtkinlik[] => {
     const dayStr = formatDateToYYYYMMDD(date);
@@ -192,12 +199,12 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                   onChange={(e) => setFiltreEtkinlikTuru(e.target.value)}
                   className="bg-white border border-gray-200 text-gray-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
-                  <option value="all">Tüm Etkinlikler</option>
+                  <option value="all">Tüm Etkinlikler & Kutlamalar</option>
+                  <option value="dogum_gunu">🎂 Doğum Günü Kutlamaları</option>
+                  <option value="yildonumu">🎉 İşe Giriş Yıldönümleri</option>
                   <option value="izin">İzin Talepleri & Bildirimleri</option>
-                  <option value="bordro">Bordro İşlemleri</option>
                   <option value="tatil">Resmi Tatiller & İzin Günleri</option>
                   <option value="egitim">Eğitimler & Seminerler</option>
-                  <option value="sgk">SGK İşlemleri</option>
                   <option value="diger">Diğer / Duyurular</option>
                 </select>
 
@@ -248,6 +255,35 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* Bu Ayın Kutlamaları & Uyarıları Banner */}
+              {buAyinKutlamalari.length > 0 && (
+                <div className="bg-gradient-to-r from-pink-50 via-purple-50 to-indigo-50 border border-pink-200/80 rounded-2xl p-4 shadow-xs">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xl">🎉</span>
+                    <h4 className="font-bold text-gray-800 text-sm">
+                      {monthYear} Doğum Günü ve Çalışma Yıldönümü Kutlamaları ({buAyinKutlamalari.length})
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    {buAyinKutlamalari.map((kutlama) => (
+                      <div
+                        key={kutlama.id}
+                        onClick={() => setSelectedDate(kutlama.tarih)}
+                        className="bg-white/90 backdrop-blur-xs border border-pink-100 hover:border-pink-300 rounded-xl p-3 cursor-pointer transition-all hover:shadow-xs flex items-center justify-between group"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <p className="text-xs font-bold text-gray-800 truncate group-hover:text-indigo-600 transition-colors">{kutlama.baslik}</p>
+                          <p className="text-[11px] text-gray-500 truncate">{kutlama.departman || 'Genel Departman'}</p>
+                        </div>
+                        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-lg shrink-0">
+                          📅 {new Date(kutlama.tarih).getDate()} {monthYear.split(' ')[0]}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Takvim */}
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">

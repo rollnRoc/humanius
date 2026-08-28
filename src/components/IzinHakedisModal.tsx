@@ -102,8 +102,8 @@ export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
               <Sparkles className="w-6 h-6 text-yellow-300" />
             </div>
             <div>
-              <h3 className="text-lg font-bold">Yıllık İzin Hak Edişi Tanımla</h3>
-              <p className="text-xs text-blue-100 mt-0.5">Personel yıllık izin hakkı ekleme ve bakiye belirleme paneli</p>
+              <h3 className="text-lg font-bold">İzin Hak Edişi Tanımla</h3>
+              <p className="text-xs text-blue-100 mt-0.5">Personel izin hakkı ekleme ve bakiye belirleme paneli</p>
             </div>
           </div>
           <button

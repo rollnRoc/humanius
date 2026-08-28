@@ -32,6 +32,7 @@ const TARGET_FIELDS: TargetField[] = [
   { key: 'department', label: 'Departman', matchKeywords: ['departman', 'bölüm', 'birim', 'müdürlük', 'department', 'şube'] },
   { key: 'position', label: 'Pozisyon / Görev', matchKeywords: ['pozisyon', 'görev', 'ünvan', 'unvan', 'rol', 'meslek', 'title', 'position', 'job'] },
   { key: 'join_date', label: 'İşe Giriş Tarihi', matchKeywords: ['giriş', 'işe giriş', 'başlama tarihi', 'giriş tarihi', 'start date', 'tarih', 'başlangıç'] },
+  { key: 'birth_date', label: 'Doğum Tarihi', matchKeywords: ['doğum', 'dogum', 'doğum tarihi', 'dogum tarihi', 'birth date', 'birthday', 'd.tarihi'] },
   { key: 'email', label: 'Kurumsal E-Posta', matchKeywords: ['kurumsal e-posta', 'e-posta', 'eposta', 'email', 'mail', 'şirket maili'] },
   { key: 'phone', label: 'Telefon', matchKeywords: ['tel', 'telefon', 'gsm', 'cep', 'mobil', 'phone', 'iletişim no'] },
   { key: 'address', label: 'Adres', matchKeywords: ['adres', 'ikametgah', 'şehir', 'address', 'yerleşim'] },
@@ -202,7 +203,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           let val = row[colIdx];
 
           // Tarih Formatlama (YYYY-MM-DD)
-          if (targetKey === 'join_date') {
+          if (targetKey === 'join_date' || targetKey === 'birth_date') {
             val = parseExcelDate(val);
           }
 

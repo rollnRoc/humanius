@@ -204,6 +204,63 @@ export function createAutomaticEvents(
     });
   });
 
+  // 3. Personel Doğum Günleri Kutlamaları
+  employees.forEach((emp) => {
+    const rawBirthDate = (emp as any).birth_date || (emp as any).birthDate || (emp as any).dogum_tarihi;
+    if (rawBirthDate) {
+      const birthStr = String(rawBirthDate).split('T')[0];
+      const parts = birthStr.split('-');
+      if (parts.length === 3) {
+        const month = parts[1];
+        const day = parts[2];
+        const thisYearBday = `${year}-${month}-${day}`;
+        events.push({
+          id: uid(),
+          baslik: `🎂 ${emp.name} - Doğum Günü`,
+          aciklama: `🎉 ${emp.name} personeline mutlu yaşlar dileriz! (${emp.department || 'Genel Departman'} - ${emp.position || 'Personel'})`,
+          tarih: thisYearBday,
+          tur: 'dogum_gunu',
+          oncelik: 'normal',
+          durum: 'tamamlandi',
+          employeeId: emp.id,
+          employeeAdi: emp.name,
+          departman: emp.department,
+          otomatik: true,
+        });
+      }
+    }
+
+    // 4. İşe Giriş Yıldönümü Kutlamaları
+    const rawJoinDate = emp.join_date || emp.joinDate || (emp as any).ise_giris_tarihi;
+    if (rawJoinDate) {
+      const joinStr = String(rawJoinDate).split('T')[0];
+      const parts = joinStr.split('-');
+      if (parts.length === 3) {
+        const hireYear = parseInt(parts[0], 10);
+        const month = parts[1];
+        const day = parts[2];
+        const yearsWorked = year - hireYear;
+
+        if (yearsWorked > 0) {
+          const thisYearAnniversary = `${year}-${month}-${day}`;
+          events.push({
+            id: uid(),
+            baslik: `🎉 ${emp.name} - ${yearsWorked}. Çalışma Yıldönümü`,
+            aciklama: `🏆 ${emp.name} şirketimiz bünyesinde ${yearsWorked}. çalışma yılını doldurdu! Tebrik ve teşekkür ederiz. (${emp.department || 'Genel Departman'})`,
+            tarih: thisYearAnniversary,
+            tur: 'yildonumu',
+            oncelik: 'normal',
+            durum: 'tamamlandi',
+            employeeId: emp.id,
+            employeeAdi: emp.name,
+            departman: emp.department,
+            otomatik: true,
+          });
+        }
+      }
+    }
+  });
+
   return events;
 }
 
@@ -249,6 +306,8 @@ export function getEtkinlikRengi(tur: EtkinlikTuru): string {
     izin: 'bg-amber-50 border-amber-200 text-amber-700',
     egitim: 'bg-blue-50 border-blue-200 text-blue-700',
     toplanti: 'bg-purple-50 border-purple-200 text-purple-700',
+    dogum_gunu: 'bg-pink-50 border-pink-200 text-pink-700 font-semibold',
+    yildonumu: 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold',
     diger: 'bg-slate-50 border-slate-200 text-slate-700',
   };
   return map[tur] ?? map.diger;
@@ -260,6 +319,8 @@ export function getEtkinlikNoktaRengi(tur: EtkinlikTuru): string {
     izin: 'bg-amber-500',
     egitim: 'bg-blue-500',
     toplanti: 'bg-purple-500',
+    dogum_gunu: 'bg-pink-500',
+    yildonumu: 'bg-indigo-500',
     diger: 'bg-slate-500',
   };
   return map[tur] ?? map.diger;
@@ -267,11 +328,13 @@ export function getEtkinlikNoktaRengi(tur: EtkinlikTuru): string {
 
 export function getEtkinlikTuruAdi(tur: EtkinlikTuru): string {
   const map: Record<EtkinlikTuru, string> = {
-    tatil: 'Tatil',
-    izin: 'İzin',
-    egitim: 'Eğitim',
+    tatil: 'Resmi Tatil',
+    izin: 'Personel İzni',
+    egitim: 'Eğitim & Gelişim',
     toplanti: 'Toplantı',
-    diger: 'Diğer',
+    dogum_gunu: '🎂 Doğum Günü Kutlaması',
+    yildonumu: '🎉 Çalışma Yıldönümü',
+    diger: 'Diğer / Duyuru',
   };
   return map[tur] ?? 'Diğer';
 }

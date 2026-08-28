@@ -164,6 +164,8 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       if (employee) {
         const rawJd = employee.joinDate || employee.join_date || (employee as any).ise_giris_tarihi || '';
         const formattedJd = rawJd ? String(rawJd).split('T')[0] : '';
+        const rawBd = (employee as any).birth_date || (employee as any).birthDate || (employee as any).dogum_tarihi || '';
+        const formattedBd = rawBd ? String(rawBd).split('T')[0] : '';
         const cEmail = employee.contact_email ?? (employee as any).personal_email ?? '';
         setFormData({
           ...employee,
@@ -171,6 +173,8 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           personal_email: cEmail,
           joinDate: formattedJd,
           join_date: formattedJd,
+          birthDate: formattedBd,
+          birth_date: formattedBd,
           role: employee.role || 'employee',
         });
 
@@ -261,6 +265,9 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     } else if (field === 'joinDate' || field === 'join_date') {
       const cleanValue = value ? String(value).split('T')[0] : '';
       setFormData(prev => prev ? { ...prev, joinDate: cleanValue, join_date: cleanValue } : null);
+    } else if (field === 'birth_date' || field === 'birthDate') {
+      const cleanValue = value ? String(value).split('T')[0] : '';
+      setFormData(prev => prev ? { ...prev, birth_date: cleanValue, birthDate: cleanValue } : null);
     } else if (field === 'contact_email' || field === 'personal_email') {
       setFormData(prev => prev ? { ...prev, contact_email: value, personal_email: value } : null);
     } else {
@@ -367,6 +374,16 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       type="date"
                       value={formData.joinDate}
                       onChange={(e) => handleInputChange('joinDate', e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="employee-birthdate" className="block text-sm font-medium text-gray-700 mb-2">🎂 Doğum Tarihi</label>
+                    <input
+                      id="employee-birthdate"
+                      type="date"
+                      value={(formData as any).birth_date || (formData as any).birthDate || ''}
+                      onChange={(e) => handleInputChange('birth_date' as any, e.target.value)}
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
