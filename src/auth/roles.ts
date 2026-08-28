@@ -25,6 +25,9 @@ export function getRoleLabel(role: AppRole): string {
 }
 
 export function getDefaultViewForRole(role: AppRole): View {
+  if (role === 'employee' || role === 'user') {
+    return 'arama';
+  }
   return 'personel';
 }
 
@@ -58,12 +61,12 @@ const ALLOWED_VIEWS: Record<AppRole, View[]> = {
   ],
   // PERSONEL: Sadece tamamen kendisine ait kişisel bilgiler & kendi talepleri
   employee: [
-    'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'performans',
+    'arama', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'performans',
     'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
     'sifre-degistir',
   ],
   user: [
-    'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'performans',
+    'arama', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'performans',
     'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
     'sifre-degistir',
   ],
