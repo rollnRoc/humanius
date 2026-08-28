@@ -378,7 +378,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     />
                   </div>
                   <div>
-                    <label htmlFor="employee-birthdate" className="block text-sm font-medium text-gray-700 mb-2">🎂 Doğum Tarihi</label>
+                    <label htmlFor="employee-birthdate" className="block text-sm font-medium text-gray-700 mb-2">Doğum Tarihi</label>
                     <input
                       id="employee-birthdate"
                       type="date"

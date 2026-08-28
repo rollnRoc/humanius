@@ -199,9 +199,9 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                   onChange={(e) => setFiltreEtkinlikTuru(e.target.value)}
                   className="bg-white border border-gray-200 text-gray-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
-                  <option value="all">Tüm Etkinlikler & Kutlamalar</option>
-                  <option value="dogum_gunu">🎂 Doğum Günü Kutlamaları</option>
-                  <option value="yildonumu">🎉 İşe Giriş Yıldönümleri</option>
+                  <option value="all">Tüm Etkinlikler</option>
+                  <option value="dogum_gunu">Doğum Günleri</option>
+                  <option value="yildonumu">Çalışma Yıldönümleri</option>
                   <option value="izin">İzin Talepleri & Bildirimleri</option>
                   <option value="tatil">Resmi Tatiller & İzin Günleri</option>
                   <option value="egitim">Eğitimler & Seminerler</option>
@@ -256,13 +256,13 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                 </div>
               </div>
 
-              {/* Bu Ayın Kutlamaları & Uyarıları Banner */}
+              {/* Bu Ayın Doğum Günü ve Yıldönümleri Banner */}
               {buAyinKutlamalari.length > 0 && (
-                <div className="bg-gradient-to-r from-pink-50 via-purple-50 to-indigo-50 border border-pink-200/80 rounded-2xl p-4 shadow-xs">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-xs">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl">🎉</span>
+                    <Users className="w-4 h-4 text-indigo-600" />
                     <h4 className="font-bold text-gray-800 text-sm">
-                      {monthYear} Doğum Günü ve Çalışma Yıldönümü Kutlamaları ({buAyinKutlamalari.length})
+                      {monthYear} Doğum Günü ve Çalışma Yıldönümü Hatırlatmaları ({buAyinKutlamalari.length})
                     </h4>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">

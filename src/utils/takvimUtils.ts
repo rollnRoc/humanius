@@ -216,8 +216,8 @@ export function createAutomaticEvents(
         const thisYearBday = `${year}-${month}-${day}`;
         events.push({
           id: uid(),
-          baslik: `🎂 ${emp.name} - Doğum Günü`,
-          aciklama: `🎉 ${emp.name} personeline mutlu yaşlar dileriz! (${emp.department || 'Genel Departman'} - ${emp.position || 'Personel'})`,
+          baslik: `${emp.name} - Doğum Günü`,
+          aciklama: `${emp.name} çalışanımızın doğum günü. (${emp.department || 'Genel Departman'} - ${emp.position || 'Personel'})`,
           tarih: thisYearBday,
           tur: 'dogum_gunu',
           oncelik: 'normal',
@@ -245,8 +245,8 @@ export function createAutomaticEvents(
           const thisYearAnniversary = `${year}-${month}-${day}`;
           events.push({
             id: uid(),
-            baslik: `🎉 ${emp.name} - ${yearsWorked}. Çalışma Yıldönümü`,
-            aciklama: `🏆 ${emp.name} şirketimiz bünyesinde ${yearsWorked}. çalışma yılını doldurdu! Tebrik ve teşekkür ederiz. (${emp.department || 'Genel Departman'})`,
+            baslik: `${emp.name} - ${yearsWorked}. Çalışma Yıldönümü`,
+            aciklama: `${emp.name} çalışanımızın şirket bünyesindeki ${yearsWorked}. çalışma yılı. (${emp.department || 'Genel Departman'})`,
             tarih: thisYearAnniversary,
             tur: 'yildonumu',
             oncelik: 'normal',
@@ -332,8 +332,8 @@ export function getEtkinlikTuruAdi(tur: EtkinlikTuru): string {
     izin: 'Personel İzni',
     egitim: 'Eğitim & Gelişim',
     toplanti: 'Toplantı',
-    dogum_gunu: '🎂 Doğum Günü Kutlaması',
-    yildonumu: '🎉 Çalışma Yıldönümü',
+    dogum_gunu: 'Doğum Günü',
+    yildonumu: 'Çalışma Yıldönümü',
     diger: 'Diğer / Duyuru',
   };
   return map[tur] ?? 'Diğer';
