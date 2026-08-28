@@ -134,7 +134,9 @@ const AppInner: React.FC = () => {
   );
 
   // ── Navigation ──────────────────────────────────────────────────────────────
-  const [currentView, setCurrentView] = useState<View>('personel');
+  const [currentView, setCurrentView] = useState<View>(() => {
+    return isEmployeeOnly ? 'arama' : 'personel';
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedCompany, setSelectedCompany] = useState('all');
@@ -166,10 +168,10 @@ const AppInner: React.FC = () => {
 
   // Personel rolündeki kullanıcılar varsayılan olarak personel yönetim tablosuna değil, Ana Sayfa / Portal (arama) ekranına yönlendirilir
   useEffect(() => {
-    if (!authLoading && user && isEmployeeOnly && currentView === 'personel') {
+    if (!authLoading && user && isEmployeeOnly && (currentView === 'personel' || !canAccessView(effectiveAppRole, currentView))) {
       setCurrentView('arama');
     }
-  }, [authLoading, user, isEmployeeOnly]);
+  }, [authLoading, user, isEmployeeOnly, effectiveAppRole, currentView]);
 
   // ── Global Notification & Toplu Uyarı ────────────────────────────────────────
   const [showAlertNotification, setShowAlertNotification] = useState(() => {
@@ -1330,8 +1332,8 @@ const AppInner: React.FC = () => {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   const renderContent = () => {
-    // ── Arama Sayfası — tam ekran ─────────────────────────────────
-    if (currentView === 'arama') {
+    // ── Arama Sayfası — tam ekran (veya Personel rolü için varsayılan karşılama) ─────
+    if (currentView === 'arama' || (isEmployeeOnly && currentView === 'personel')) {
       return (
         <div className="flex-1 overflow-y-auto">
           <SearchPage
