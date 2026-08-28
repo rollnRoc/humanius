@@ -10,18 +10,29 @@ type IzinHakkiInsert = Database['public']['Tables']['izin_haklari']['Insert'];
 type IzinHakkiUpdate = Database['public']['Tables']['izin_haklari']['Update'];
 
 export const izinService = {
-  async getAllTalepler(companyId: string) {
+  async getAll(companyId?: string) {
     if (demoService.isDemoActive()) {
       return demoService.getIzinTalepleri();
     }
-    const { data, error } = await supabase
+    let query = supabase
       .from('izin_talepleri')
       .select('*, employees(name, department, position)')
-      .eq('company_id', companyId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.warn('izinService.getAll warning:', error);
+      return [];
+    }
+    return data || [];
+  },
+
+  async getAllTalepler(companyId?: string) {
+    return this.getAll(companyId);
   },
 
   async getTalepById(id: string) {

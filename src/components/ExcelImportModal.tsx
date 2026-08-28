@@ -261,11 +261,6 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       // Toplu Ekleme (Demo ve Canlı Mod uyumlu)
       const res = await employeeService.batchCreate(insertPayloads);
 
-      // Arka planda @humanius.net hesap senkronizasyonu
-      try {
-        await userManagementService.syncAllAccountsToNet();
-      } catch {}
-
       setImportResult({ count: res.count || insertPayloads.length });
       setStep(3);
     } catch (err: any) {

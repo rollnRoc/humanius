@@ -521,13 +521,18 @@ serve(async (req: Request) => {
         }
 
         if (targetAuthId) {
-          const targetRole = e.role || 'employee';
-          const targetCompanyId = e.company_id || null;
+          const matchedProf = (profs || []).find(p => p.id === targetAuthId || (p.email || '').toLowerCase() === cleanEmail);
+          const existingRole = matchedProf?.role;
+          // Protect existing roles: admin, hr, manager, superadmin
+          const targetRole = (existingRole && existingRole !== 'employee' && existingRole !== 'user')
+            ? existingRole
+            : (e.role || existingRole || 'employee');
+          const targetCompanyId = e.company_id || matchedProf?.company_id || null;
 
           const { error: pErr } = await adminClient.from('profiles').upsert({
             id: targetAuthId,
             email: cleanEmail,
-            full_name: e.name || 'Personel',
+            full_name: e.name || matchedProf?.full_name || 'Personel',
             company_id: targetCompanyId,
             role: targetRole,
           });

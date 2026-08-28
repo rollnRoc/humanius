@@ -24,18 +24,25 @@ export interface BordroApproval {
 }
 
 export const bordroService = {
-  async getAll(companyId: string) {
+  async getAll(companyId?: string) {
     if (demoService.isDemoActive()) {
       return demoService.getBordrolar();
     }
-    const { data, error } = await supabase
+    let query = supabase
       .from('bordro_items')
       .select('*, employees(name, department)')
-      .eq('company_id', companyId)
       .order('period', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.warn('bordroService.getAll warning:', error);
+      return [];
+    }
+    return data || [];
   },
 
   async getById(id: string) {

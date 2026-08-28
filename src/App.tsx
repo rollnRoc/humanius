@@ -164,6 +164,13 @@ const AppInner: React.FC = () => {
     }
   }, [currentView]);
 
+  // Personel rolündeki kullanıcılar varsayılan olarak personel yönetim tablosuna değil, Ana Sayfa / Portal (arama) ekranına yönlendirilir
+  useEffect(() => {
+    if (!authLoading && user && isEmployeeOnly && currentView === 'personel') {
+      setCurrentView('arama');
+    }
+  }, [authLoading, user, isEmployeeOnly]);
+
   // ── Global Notification & Toplu Uyarı ────────────────────────────────────────
   const [showAlertNotification, setShowAlertNotification] = useState(() => {
     try {

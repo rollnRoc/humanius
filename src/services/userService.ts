@@ -199,22 +199,8 @@ export const userService = {
             idMap.set(e.id, synthesized);
             if (e.name) nameMap.set(empName, synthesized);
             profilesList.push(synthesized);
-
-            missingProfilesToUpsert.push({
-              id: e.id,
-              email: cleanEmail,
-              full_name: e.name || 'Personel',
-              company_id: e.company_id || null,
-              role: e.role || 'employee',
-              must_change_password: true
-            });
           }
         });
-
-        // Arka planda profiles tablosuna da kaydet
-        if (missingProfilesToUpsert.length > 0) {
-          supabase.from('profiles').upsert(missingProfilesToUpsert).then().catch(console.warn);
-        }
       }
     } catch {}
 
