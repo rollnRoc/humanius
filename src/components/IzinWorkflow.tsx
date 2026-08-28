@@ -78,7 +78,7 @@ function formatDateRange(start?: string, end?: string): string {
   return s || e || '';
 }
 
-const IzinWorkflow: React.FC<IzinWorkflowProps> = ({ talep, onOnay, onRed, compact = false, talepleri = [] }) => {
+const IzinWorkflow: React.FC<IzinWorkflowProps> = ({ talep, onOnay, onRed, onEdit, onDelete, compact = false, talepleri = [] }) => {
   if (compact) {
     return (
       <div className="flex items-center gap-1">
