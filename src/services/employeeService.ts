@@ -207,13 +207,11 @@ export const employeeService = {
         updatedRow = data as Employee;
       }
       
-      const updatedRole = (updates as any).role || role;
-      if (updates.email || updates.name || updates.company_id || updatedRole) {
+      if (updates.email || updates.name || updates.company_id) {
         const profUp: any = {};
         if (updates.email) profUp.email = updates.email;
         if (updates.name) profUp.full_name = updates.name;
         if (updates.company_id) profUp.company_id = updates.company_id;
-        if (updatedRole) profUp.role = updatedRole;
         await supabase.from('profiles').update(profUp).eq('id', id);
       }
     } catch (dbErr) {

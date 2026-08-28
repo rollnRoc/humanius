@@ -339,33 +339,46 @@ const AppInner: React.FC = () => {
 
       let filteredMapped = mapped;
       let currentUserEmpId: string | null = null;
+      const isManagerRole = effectiveAppRole === 'manager' || profile?.role === 'manager';
       const isEmployeeRole = !isManagementRole && (profile?.role === 'employee' || profile?.role === 'user');
 
+      // Find current user's employee record
+      const currentUserEmp = mapped.find((emp) => {
+        const profileEmail = String(profile?.email ?? '').toLowerCase();
+        const empEmail = String(emp.email ?? '').toLowerCase();
+        if (profileEmail && empEmail && profileEmail === empEmail) return true;
+        const profileName = String(profile?.full_name ?? '').trim().toLocaleLowerCase('tr-TR');
+        const empName = String(emp.name ?? '').trim().toLocaleLowerCase('tr-TR');
+        if (profileName.length > 0 && profileName === empName) return true;
+        
+        const normalizedProfileName = profileName.replace(/[\s-]/g, '');
+        const normalizedEmpName = empName.replace(/[\s-]/g, '');
+        return normalizedProfileName.length > 0 && normalizedProfileName === normalizedEmpName;
+      });
+
+      if (currentUserEmp) {
+        currentUserEmpId = currentUserEmp.id;
+      }
+
+      const managerDepartment = currentUserEmp?.department || (profile as any)?.department || null;
+
       if (isEmployeeRole) {
-        const currentUserEmp = mapped.find((emp) => {
-          const profileEmail = String(profile?.email ?? '').toLowerCase();
-          const empEmail = String(emp.email ?? '').toLowerCase();
-          if (profileEmail && empEmail && profileEmail === empEmail) return true;
-          const profileName = String(profile?.full_name ?? '').trim().toLocaleLowerCase('tr-TR');
-          const empName = String(emp.name ?? '').trim().toLocaleLowerCase('tr-TR');
-          if (profileName.length > 0 && profileName === empName) return true;
-          
-          const normalizedProfileName = profileName.replace(/[\s-]/g, '');
-          const normalizedEmpName = empName.replace(/[\s-]/g, '');
-          return normalizedProfileName.length > 0 && normalizedProfileName === normalizedEmpName;
-        });
         if (currentUserEmp) {
           filteredMapped = [currentUserEmp];
-          currentUserEmpId = currentUserEmp.id;
         } else {
           filteredMapped = [];
         }
+      } else if (isManagerRole && managerDepartment) {
+        // Birim Amiri sadece kendi departmanındaki personelleri görür
+        filteredMapped = mapped.filter((e) => e.department === managerDepartment || e.id === currentUserEmpId || e.email === profile?.email);
       }
 
       setEmployees(filteredMapped);
       setStats(empStats ?? { active: 0, onLeave: 0, inactive: 0 });
 
-      const depts = [...new Set(filteredMapped.map((e) => e.department).filter(Boolean))];
+      const depts = isManagerRole && managerDepartment
+        ? [managerDepartment]
+        : [...new Set(filteredMapped.map((e) => e.department).filter(Boolean))];
       setDepartments(depts);
 
       // Şirket listesi — superadmin ise tüm şirketler, değilse kullanıcının şirketi
@@ -418,6 +431,8 @@ const AppInner: React.FC = () => {
             mappedTalepler = mappedTalepler.filter(t => t.employeeId === currentUserEmpId);
           } else if (isEmployeeRole && !currentUserEmpId) {
             mappedTalepler = [];
+          } else if (isManagerRole && managerDepartment) {
+            mappedTalepler = mappedTalepler.filter(t => t.department === managerDepartment || t.employeeId === currentUserEmpId);
           }
 
           setIzinTalepleri(mappedTalepler);
@@ -485,6 +500,11 @@ const AppInner: React.FC = () => {
             bordroData = bordroData.filter(b => b.employee_id === currentUserEmpId && b.approval_status !== 'taslak' && b.approval_status != null);
           } else if (isEmployeeRole && !currentUserEmpId) {
             bordroData = [];
+          } else if (isManagerRole && managerDepartment) {
+            bordroData = bordroData.filter(b => {
+              const bEmp = mapped.find(e => e.id === b.employee_id);
+              return bEmp?.department === managerDepartment || b.employee_id === currentUserEmpId;
+            });
           }
           setBordrolar(bordroData);
         } catch {}
@@ -843,11 +863,10 @@ const AppInner: React.FC = () => {
         } else if (!isNewEmployee && emp.id) {
           await employeeService.update(emp.id, cleanPayload as any);
 
-          // Update profiles table safely with email and name
+          // Update profiles table safely with email and name (DO NOT touch role)
           try {
             const profPayload: any = {
               full_name: emp.name,
-              role: emp.role ?? 'employee',
               email: targetEmail || emp.email,
             };
             if (emp.id) {

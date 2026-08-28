@@ -354,7 +354,10 @@ Deno.serve(async (req: Request) => {
           authUser = newAuth.user;
         }
 
-        // 2. Profile kaydını güncelle / ekle
+        // 2. Profile kaydını güncelle / ekle (Mevcut yetkiyi koru)
+        const { data: existingProf } = await adminClient.from('profiles').select('role').eq('id', authUser.id).maybeSingle();
+        const finalRole = existingProf?.role ? existingProf.role : 'employee';
+
         const { error: profileErr } = await adminClient
           .from('profiles')
           .upsert({
@@ -362,7 +365,7 @@ Deno.serve(async (req: Request) => {
             email,
             full_name: fullName,
             company_id: companyId,
-            role: 'employee',
+            role: finalRole,
             updated_at: new Date().toISOString()
           }, { onConflict: 'id' });
 

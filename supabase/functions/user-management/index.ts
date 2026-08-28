@@ -691,7 +691,7 @@ serve(async (req: Request) => {
 
       if (targetAuthId) {
         const { data: existingProf } = await adminClient.from('profiles').select('*').eq('id', targetAuthId).maybeSingle();
-        const targetRole = role || existingProf?.role || 'employee';
+        const targetRole = role ? role : (existingProf?.role || 'employee');
         const targetCompany = companyId || existingProf?.company_id || null;
         const targetFullName = fullName || existingProf?.full_name || 'Personel';
         const targetEmail = email || existingProf?.email || '';
