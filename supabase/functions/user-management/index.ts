@@ -579,15 +579,27 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ message: 'Personel bilgileri ve rolü başarıyla güncellendi.' });
     }
 
-    if (operation === 'ensure_birth_date_column') {
+    if (operation === 'ensure_zimmet_kategori_text' || operation === 'ensure_birth_date_column') {
       const dbUrl = Deno.env.get('SUPABASE_DB_URL') || Deno.env.get('DATABASE_URL');
       if (dbUrl) {
         const { Client } = await import("https://deno.land/x/postgres@v0.17.0/mod.ts");
         const client = new Client(dbUrl);
         await client.connect();
         await client.queryArray(`ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS birth_date text;`);
+        await client.queryArray(`
+          DO $$
+          BEGIN
+            IF EXISTS (
+              SELECT 1 FROM information_schema.columns 
+              WHERE table_schema = 'public' AND table_name = 'zimmetler' AND column_name = 'kategori'
+            ) THEN
+              ALTER TABLE public.zimmetler ALTER COLUMN kategori TYPE text USING kategori::text;
+              ALTER TABLE public.zimmetler ALTER COLUMN kategori SET DEFAULT 'Genel';
+            END IF;
+          END $$;
+        `);
         await client.end();
-        return jsonResponse({ success: true, message: 'Column birth_date ensured successfully.' });
+        return jsonResponse({ success: true, message: 'zimmetler kategori converted to text and birth_date ensured.' });
       }
       return jsonResponse({ error: 'DB URL not found' }, 500);
     }

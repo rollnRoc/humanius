@@ -6,9 +6,9 @@ export type ZimmetKategori = string;
 export type ZimmetDurum = 'aktif' | 'iade-edildi' | 'kayip' | 'bakimda';
 
 export function sanitizeZimmetKategori(kategori: any): string {
-  if (!kategori || typeof kategori !== 'string') return 'diger';
+  if (!kategori || typeof kategori !== 'string') return 'Genel';
   const trimmed = kategori.trim();
-  return trimmed || 'diger';
+  return trimmed || 'Genel';
 }
 
 export interface Zimmet {

@@ -116,7 +116,7 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
   const [silOnay, setSilOnay] = useState<string | null>(null);
   
   const [form, setForm] = useState<ZimmetFormState>({
-    seriNo: '', ad: '', kategori: 'bilgisayar', marka: '', model: '', deger: '', aciklama: '',
+    seriNo: '', ad: '', kategori: '', marka: '', model: '', deger: '', aciklama: '',
   });
 
   const loadData = async () => {
@@ -236,7 +236,7 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
         </div>
         {isAdminOrHR && (
           <button
-            onClick={() => { setFormAcik(true); setDuzenlenenId(null); setForm({ seriNo: '', ad: '', kategori: 'bilgisayar', marka: '', model: '', deger: '', aciklama: '' }); }}
+            onClick={() => { setFormAcik(true); setDuzenlenenId(null); setForm({ seriNo: '', ad: '', kategori: '', marka: '', model: '', deger: '', aciklama: '' }); }}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700"
           >
             <Plus className="w-4 h-4" />
@@ -274,14 +274,12 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
         <select
           value={filtreKategori}
           onChange={(e) => setFiltreKategori(e.target.value as any)}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+          className="border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 capitalize"
         >
           <option value="hepsi">Tüm Kategoriler</option>
-          <option value="bilgisayar">Bilgisayar</option>
-          <option value="telefon">Telefon</option>
-          <option value="arac">Araç</option>
-          <option value="monitor">Monitör</option>
-          <option value="diger">Diğer</option>
+          {Array.from(new Set(zimmetler.map((z) => z.kategori).filter(Boolean))).map((kat) => (
+            <option key={kat} value={kat}>{kat}</option>
+          ))}
         </select>
       </div>
 
@@ -455,25 +453,11 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                 <label className="text-xs font-medium text-gray-600 block mb-1">Kategori</label>
                 <input
                   type="text"
-                  list="zimmet-kategorileri"
                   value={form.kategori}
-                  onChange={(e) => setForm({ ...form, kategori: e.target.value as any })}
+                  onChange={(e) => setForm({ ...form, kategori: e.target.value })}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="Kategori yazın veya seçin (Örn: Kulaklık, Yazıcı...)"
+                  placeholder="Kategori yazın (ör. Bilgisayar, Kulaklık, Telefon...)"
                 />
-                <datalist id="zimmet-kategorileri">
-                  <option value="bilgisayar">Bilgisayar</option>
-                  <option value="telefon">Telefon</option>
-                  <option value="arac">Araç</option>
-                  <option value="anahtar">Anahtar</option>
-                  <option value="monitor">Monitör</option>
-                  <option value="yazici">Yazıcı</option>
-                  <option value="kulaklik">Kulaklık</option>
-                  <option value="tablet">Tablet</option>
-                  <option value="mobilya">Mobilya / Masa</option>
-                  <option value="yazilim">Yazılım Lisansı</option>
-                  <option value="diger">Diğer</option>
-                </datalist>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">Marka</label>
