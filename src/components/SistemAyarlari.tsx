@@ -931,6 +931,141 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                   </div>
                 </div>
               </div>
+
+              {/* Emekli Bordro Parametreleri Tablosu */}
+              <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50/60 to-indigo-50/60">
+                  <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">Emekli Bordro Hesaplama Parametreleri</h3>
+                    <p className="text-xs text-gray-600">2026 yılı aylık bordro hesaplama oranları ve SGK tavanları</p>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* Sabit Oranlar */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Sabit Oranlar</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5">
+                        <div className="text-xs text-blue-600 font-medium mb-1">SGK İşçi Payı</div>
+                        <div className="text-xl font-bold text-blue-700">
+                          %{(sistemAyarlari.emeклiBordroParametreleri.sgkIsciPayiOrani * 100).toFixed(0)}
+                        </div>
+                      </div>
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-3.5">
+                        <div className="text-xs text-green-600 font-medium mb-1">İşsizlik İşçi</div>
+                        <div className="text-xl font-bold text-green-700">
+                          %{(sistemAyarlari.emeклiBordroParametreleri.issizlikIsciPayiOrani * 100).toFixed(0)}
+                        </div>
+                      </div>
+                      <div className="bg-teal-50 border border-teal-200 rounded-xl p-3.5">
+                        <div className="text-xs text-teal-600 font-medium mb-1">Damga Vergisi</div>
+                        <div className="text-xl font-bold text-teal-700">
+                          %{(sistemAyarlari.emeклiBordroParametreleri.damgaVergisiOrani * 100).toFixed(3)}
+                        </div>
+                      </div>
+                      <div className="bg-orange-50 border border-orange-200 rounded-xl p-3.5">
+                        <div className="text-xs text-orange-600 font-medium mb-1">SGK İşveren</div>
+                        <div className="text-xl font-bold text-orange-700">
+                          %{(sistemAyarlari.emeклiBordroParametreleri.sgkIsverenPayiOrani * 100).toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-3.5">
+                        <div className="text-xs text-red-600 font-medium mb-1">İşsizlik İşveren</div>
+                        <div className="text-xl font-bold text-red-700">
+                          %{(sistemAyarlari.emeклiBordroParametreleri.issizlikIsverenPayiOrani * 100).toFixed(0)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SGK Tavanları & Gelir Vergisi Dilimleri */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* SGK Tavanları */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">2026 Yılı Aylık SGK Tavanları</h4>
+                      <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                        <table className="w-full text-xs">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="px-3.5 py-2.5 text-left font-semibold text-gray-700 border-b border-gray-200">Ay</th>
+                              <th className="px-3.5 py-2.5 text-right font-semibold text-gray-700 border-b border-gray-200">SGK Tavanı (₺)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-100">
+                            {Object.entries(sistemAyarlari.emeклiBordroParametreleri.sgkTavanlari).map(([ay, tutar], index) => (
+                              <tr key={ay} className={index % 2 === 0 ? 'bg-gray-50/50' : 'bg-white'}>
+                                <td className="px-3.5 py-2 font-medium text-gray-800 capitalize">
+                                  {ay === 'ocak' ? 'Ocak' :
+                                   ay === 'subat' ? 'Şubat' :
+                                   ay === 'mart' ? 'Mart' :
+                                   ay === 'nisan' ? 'Nisan' :
+                                   ay === 'mayis' ? 'Mayıs' :
+                                   ay === 'haziran' ? 'Haziran' :
+                                   ay === 'temmuz' ? 'Temmuz' :
+                                   ay === 'agustos' ? 'Ağustos' :
+                                   ay === 'eylul' ? 'Eylül' :
+                                   ay === 'ekim' ? 'Ekim' :
+                                   ay === 'kasim' ? 'Kasım' :
+                                   ay === 'aralik' ? 'Aralık' : ay}
+                                </td>
+                                <td className="px-3.5 py-2 font-bold text-gray-900 text-right">
+                                  {tutar.toLocaleString('tr-TR')} ₺
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Gelir Vergisi Dilimleri */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">2026 Gelir Vergisi Dilimleri</h4>
+                      <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                        <table className="w-full text-xs">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="px-3.5 py-2.5 text-left font-semibold text-gray-700 border-b border-gray-200">Dilim</th>
+                              <th className="px-3.5 py-2.5 text-right font-semibold text-gray-700 border-b border-gray-200">Matrah (₺)</th>
+                              <th className="px-3.5 py-2.5 text-right font-semibold text-gray-700 border-b border-gray-200">Vergi Oranı</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-100">
+                            {sistemAyarlari.emeклiBordroParametreleri.gelirVergisiDilimleri.map((dilim, index) => (
+                              <tr key={index} className={index % 2 === 0 ? 'bg-gray-50/50' : 'bg-white'}>
+                                <td className="px-3.5 py-2 font-medium text-gray-800">
+                                  {index + 1}. Dilim
+                                </td>
+                                <td className="px-3.5 py-2 font-bold text-gray-900 text-right">
+                                  {index === 0 ? '0' : sistemAyarlari.emeклiBordroParametreleri.gelirVergisiDilimleri[index - 1].matrah.toLocaleString('tr-TR')} - {dilim.matrah.toLocaleString('tr-TR')} ₺
+                                </td>
+                                <td className="px-3.5 py-2 font-bold text-blue-700 text-right">
+                                  %{(dilim.oran * 100).toFixed(0)}
+                                </td>
+                              </tr>
+                            ))}
+                            <tr>
+                              <td className="px-3.5 py-2 font-medium text-gray-800">
+                                {sistemAyarlari.emeклiBordroParametreleri.gelirVergisiDilimleri.length + 1}. Dilim
+                              </td>
+                              <td className="px-3.5 py-2 font-bold text-gray-900 text-right">
+                                {sistemAyarlari.emeклiBordroParametreleri.gelirVergisiDilimleri[sistemAyarlari.emeклiBordroParametreleri.gelirVergisiDilimleri.length - 1].matrah.toLocaleString('tr-TR')} ₺ ve üzeri
+                              </td>
+                              <td className="px-3.5 py-2 font-bold text-blue-700 text-right">
+                                %{(sistemAyarlari.emeклiBordroParametreleri.gelirVergisiDilimleri[sistemAyarlari.emeклiBordroParametreleri.gelirVergisiDilimleri.length - 1].oran * 100).toFixed(0)}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
