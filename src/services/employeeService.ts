@@ -169,11 +169,63 @@ export const employeeService = {
       };
     });
 
+    // 1. Mevcut personelleri çek ve TC No / İsim eşleşmesi ile mükerrer kayıtları engelle
+    let existingMap: any[] = [];
+    try {
+      const { data: dbExisting } = await supabase
+        .from('employees')
+        .select('id, name, tc_no, email, company_id');
+      if (dbExisting) existingMap = dbExisting;
+    } catch (e) {
+      console.warn('Mevcut personel listesi çekilemedi:', e);
+    }
+
+    const toInsert: any[] = [];
+    let updatedCount = 0;
+
+    for (const emp of cleaned) {
+      // Önce TC No ile eşleşme ara (eğer TC varsa)
+      let match = emp.tc_no && String(emp.tc_no).trim() !== ''
+        ? existingMap.find(ex => ex.company_id === emp.company_id && ex.tc_no && String(ex.tc_no).trim() === String(emp.tc_no).trim())
+        : null;
+
+      // TC yoksa veya eşleşmediyse isim ile şirket içi eşleşme ara
+      if (!match && emp.name) {
+        match = existingMap.find(ex => 
+          ex.company_id === emp.company_id && 
+          String(ex.name).trim().toLowerCase() === String(emp.name).trim().toLowerCase()
+        );
+      }
+
+      if (match) {
+        // Mükerrer personel bulundu! İkinci satır eklemek yerine mevcut kartı güncelle
+        try {
+          const { error: upErr } = await supabase
+            .from('employees')
+            .update({
+              department: emp.department || undefined,
+              position: emp.position || undefined,
+              phone: emp.phone || undefined,
+              address: emp.address || undefined,
+              sicil_no: emp.sicil_no || undefined,
+              join_date: emp.join_date || undefined,
+              status: emp.status || 'active',
+            })
+            .eq('id', match.id);
+          if (!upErr) updatedCount++;
+        } catch (upCatch) {
+          console.warn('Mevcut personel güncelleme uyarısı:', upCatch);
+        }
+      } else {
+        toInsert.push(emp);
+      }
+    }
+
     let totalInserted = 0;
     const CHUNK_SIZE = 50;
 
-    for (let i = 0; i < cleaned.length; i += CHUNK_SIZE) {
-      const chunk = cleaned.slice(i, i + CHUNK_SIZE);
+    for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
+      const chunk = toInsert.slice(i, i + CHUNK_SIZE);
       const { data, error } = await supabase
         .from('employees')
         .insert(chunk)
@@ -200,7 +252,7 @@ export const employeeService = {
       }
     }
 
-    return { count: totalInserted };
+    return { count: totalInserted + updatedCount };
   },
 
   async update(id: string, updates: EmployeeUpdate): Promise<Employee> {
@@ -275,14 +327,6 @@ export const employeeService = {
     if (demoService.isDemoActive()) {
       demoService.deleteEmployee(id);
       return;
-    }
-    try {
-      const { userManagementService } = await import('./userManagementService');
-      await userManagementService.deleteUserAndEmployee({
-        employeeId: id,
-      });
-    } catch (edgeDelErr) {
-      console.warn('Edge function kullanıcı ve personel silme uyarısı:', edgeDelErr);
     }
     const { error } = await supabase
       .from('employees')
