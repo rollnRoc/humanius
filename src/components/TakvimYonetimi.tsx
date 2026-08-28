@@ -138,7 +138,7 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
   // Bu ayın kutlamaları (Doğum günleri ve Yıldönümleri)
   const currentMonthNum = String(currentDate.getMonth() + 1).padStart(2, '0');
   const monthPrefix = `${currentDate.getFullYear()}-${currentMonthNum}`;
-  const buAyinKutlamalari = etkinlikler
+  const buAyinKutlamalari = filteredEvents
     .filter((e) => (e.tur === 'dogum_gunu' || e.tur === 'yildonumu') && e.tarih.startsWith(monthPrefix))
     .sort((a, b) => a.tarih.localeCompare(b.tarih));
 
