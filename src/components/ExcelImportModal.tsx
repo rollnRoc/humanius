@@ -154,6 +154,41 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     reader.readAsBinaryString(file);
   };
 
+  // Tarih ve Sayısal Alan Temizleyici
+  const parseExcelDate = (val: any): string => {
+    if (!val) return new Date().toISOString().split('T')[0];
+    if (val instanceof Date) {
+      return !isNaN(val.getTime()) ? val.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    }
+    if (typeof val === 'number') {
+      const utcDays = Math.floor(val - 25569);
+      const utcValue = utcDays * 86400;
+      const dateInfo = new Date(utcValue * 1000);
+      if (!isNaN(dateInfo.getTime())) return dateInfo.toISOString().split('T')[0];
+    }
+    const s = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const dotParts = s.split('.');
+    if (dotParts.length === 3) {
+      const y = dotParts[2].length === 2 ? `20${dotParts[2]}` : dotParts[2];
+      return `${y}-${dotParts[1].padStart(2, '0')}-${dotParts[0].padStart(2, '0')}`;
+    }
+    const slashParts = s.split('/');
+    if (slashParts.length === 3) {
+      const y = slashParts[2].length === 2 ? `20${slashParts[2]}` : slashParts[2];
+      return `${y}-${slashParts[1].padStart(2, '0')}-${slashParts[0].padStart(2, '0')}`;
+    }
+    const dashParts = s.split('-');
+    if (dashParts.length === 3) {
+      if (dashParts[0].length <= 2) {
+        const y = dashParts[2].length === 2 ? `20${dashParts[2]}` : dashParts[2];
+        return `${y}-${dashParts[1].padStart(2, '0')}-${dashParts[0].padStart(2, '0')}`;
+      }
+      return s;
+    }
+    return new Date().toISOString().split('T')[0];
+  };
+
   // 3. Eşleşmiş Verileri Formatlama & Temizleme
   const parsedEmployees = React.useMemo(() => {
     if (rawRows.length === 0 || rawHeaders.length === 0) return [];
@@ -167,19 +202,23 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           let val = row[colIdx];
 
           // Tarih Formatlama (YYYY-MM-DD)
-          if (targetKey === 'join_date' && val) {
-            if (val instanceof Date) {
-              val = val.toISOString().split('T')[0];
-            } else {
-              const strVal = String(val).trim();
-              if (strVal.includes('.')) {
-                const parts = strVal.split('.');
-                if (parts.length === 3) val = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-              } else if (strVal.includes('/')) {
-                const parts = strVal.split('/');
-                if (parts.length === 3) val = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-              }
-            }
+          if (targetKey === 'join_date') {
+            val = parseExcelDate(val);
+          }
+
+          // TC Kimlik No Temizleme (Excel float / boşluk önleme)
+          if (targetKey === 'tc_no' && val) {
+            val = String(val).replace(/\.0$/, '').replace(/\D/g, '').slice(0, 11);
+          }
+
+          // Telefon Temizleme
+          if (targetKey === 'phone' && val) {
+            val = String(val).replace(/\.0$/, '').trim();
+          }
+
+          // Sicil No Temizleme
+          if (targetKey === 'sicil_no' && val) {
+            val = String(val).replace(/\.0$/, '').trim();
           }
 
           // Seviye Temizleme (Junior, Mid, Senior, Lead, Manager)

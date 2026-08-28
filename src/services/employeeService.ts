@@ -159,7 +159,7 @@ export const employeeService = {
     }
 
     const cleaned = employees.map(emp => {
-      const { contact_email, personal_email, joinDate, employeeType, role, ...rawPayload } = emp as any;
+      const { contact_email, personal_email, joinDate, employeeType, role, id, ...rawPayload } = emp as any;
       return {
         ...rawPayload,
         level: sanitizeLevel(rawPayload.level),
@@ -169,13 +169,38 @@ export const employeeService = {
       };
     });
 
-    const { data, error } = await supabase
-      .from('employees')
-      .insert(cleaned)
-      .select('id, name, email');
+    let totalInserted = 0;
+    const CHUNK_SIZE = 50;
 
-    if (error) throw error;
-    return { count: data?.length || cleaned.length };
+    for (let i = 0; i < cleaned.length; i += CHUNK_SIZE) {
+      const chunk = cleaned.slice(i, i + CHUNK_SIZE);
+      const { data, error } = await supabase
+        .from('employees')
+        .insert(chunk)
+        .select('id, name, email');
+
+      if (error) {
+        console.warn(`Toplu ekleme ${i} aralığı hatası, satır satır ekleniyor:`, error.message);
+        for (const singleEmp of chunk) {
+          try {
+            const { data: sData, error: sErr } = await supabase
+              .from('employees')
+              .insert(singleEmp)
+              .select('id, name, email')
+              .single();
+            if (!sErr && sData) {
+              totalInserted++;
+            }
+          } catch (singleErr) {
+            console.warn('Tekil personel ekleme uyarısı:', singleErr);
+          }
+        }
+      } else {
+        totalInserted += (data?.length || chunk.length);
+      }
+    }
+
+    return { count: totalInserted };
   },
 
   async update(id: string, updates: EmployeeUpdate): Promise<Employee> {
