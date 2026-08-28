@@ -63,12 +63,12 @@ const ALLOWED_VIEWS: Record<AppRole, View[]> = {
   ],
   // PERSONEL: Sadece tamamen kendisine ait kişisel bilgiler & kendi talepleri
   employee: [
-    'arama', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'performans',
+    'arama', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam',
     'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
     'sifre-degistir',
   ],
   user: [
-    'arama', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'performans',
+    'arama', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam',
     'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
     'sifre-degistir',
   ],

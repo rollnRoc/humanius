@@ -83,7 +83,9 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
     ) || employees[0];
   }, [employees, profile]);
 
-  const [aktifSekme, setAktifSekme] = useState<'katalog' | 'durumlar' | 'sertifikalar' | 'oneriler'>('katalog');
+  const [aktifSekme, setAktifSekme] = useState<'katalog' | 'durumlar' | 'sertifikalar' | 'oneriler'>(() => {
+    return isManagement ? 'katalog' : 'sertifikalar';
+  });
   const [aramaMetni, setAramaMetni] = useState('');
   const [secilenKategori, setSecilenKategori] = useState('all');
   
@@ -641,25 +643,33 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
       </div>
 
       {/* Sekmeler */}
-      <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
-        {(isManagement
-          ? (['katalog', 'durumlar', 'sertifikalar', 'oneriler'] as const)
-          : (['katalog', 'sertifikalar', 'oneriler'] as const)
-        ).map((sekme) => (
+      {isManagement ? (
+        <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
+          {(['katalog', 'durumlar', 'sertifikalar', 'oneriler'] as const).map((sekme) => (
+            <button
+              key={sekme}
+              onClick={() => setAktifSekme(sekme)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                aktifSekme === sekme ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {sekme === 'katalog' ? 'Eğitim Kataloğu' :
+               sekme === 'durumlar' ? 'Personel Durumları' :
+               sekme === 'sertifikalar' ? 'Sertifikalar / Tamamlananlar' :
+               '🤖 Role Özel Eğitim Önerileri'}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
           <button
-            key={sekme}
-            onClick={() => setAktifSekme(sekme)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              aktifSekme === sekme ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+            onClick={() => setAktifSekme('sertifikalar')}
+            className="px-4 py-2.5 text-sm font-semibold border-b-2 border-blue-600 text-blue-600 whitespace-nowrap"
           >
-            {sekme === 'katalog' ? 'Eğitim Kataloğu' :
-             sekme === 'durumlar' ? 'Personel Durumları' :
-             sekme === 'sertifikalar' ? (isManagement ? 'Sertifikalar / Tamamlananlar' : 'Eğitimlerim & Sertifikalarım') :
-             '🤖 Role Özel Eğitim Önerileri'}
+            🎓 Bana Atanan Eğitimler & Sertifikalarım
           </button>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* 1. EĞİTİM KATALOĞU */}
       {aktifSekme === 'katalog' && (
@@ -844,8 +854,8 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
         </div>
       )}
 
-      {/* 4. ROLE ÖZEL EĞİTİM ÖNERİLERİ */}
-      {aktifSekme === 'oneriler' && (
+      {/* 4. ROLE ÖZEL EĞİTİM ÖNERİLERİ (Sadece Yönetici & İK) */}
+      {isManagement && aktifSekme === 'oneriler' && (
         <div className="space-y-6">
           {/* Bildirim Mesajı */}
           {assignedMessage && (
