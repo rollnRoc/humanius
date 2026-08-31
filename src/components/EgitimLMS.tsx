@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { BookOpen, Award, CheckCircle, Users, Plus, Search, ChevronRight, X, Trash2, Sparkles, UserCheck, Check, ArrowRight } from 'lucide-react';
+import { BookOpen, Award, CheckCircle, Users, Plus, Search, ChevronRight, X, Trash2, Edit2, Sparkles, UserCheck, Check, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import type { Employee } from '../types';
 
@@ -108,6 +108,29 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [editingEgitim, setEditingEgitim] = useState<Egitim | null>(null);
+  const [editEgitimForm, setEditEgitimForm] = useState({
+    baslik: '',
+    kategori: '',
+    tur: 'video' as Egitim['tur'],
+    seviye: 'baslangic' as Egitim['seviye'],
+    egitmen: '',
+    zorunlu: false,
+    aciklama: ''
+  });
+
+  const [editingSertifika, setEditingSertifika] = useState<SertifikaKaydi | null>(null);
+  const [editSertifikaForm, setEditSertifikaForm] = useState({
+    egitimId: '',
+    employeeId: '',
+    durum: 'tamamlandi' as 'tamamlandi' | 'devam_ediyor',
+    tamamlanmaTarihi: '',
+    hedefTarih: '',
+    gecerlilikSuresi: '',
+    puan: 85,
+    puanEkle: false
+  });
+
   const goruntulenenSertifikalar = useMemo(() => {
     if (isManagement) return sertifikalar;
     if (!currentEmployee) return [];
@@ -117,6 +140,17 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
         sc.employeeName?.toLowerCase() === currentEmployee.name?.toLowerCase()
     );
   }, [sertifikalar, isManagement, currentEmployee]);
+
+  const goruntulenenEgitimler = useMemo(() => {
+    if (isManagement) return egitimler;
+    if (!currentEmployee) return [];
+    const assignedEgitimIds = new Set(
+      sertifikalar
+        .filter((s) => s.employeeId === currentEmployee.id || s.employeeName?.toLowerCase() === currentEmployee.name?.toLowerCase())
+        .map((s) => s.egitimId)
+    );
+    return egitimler.filter((eg) => eg.zorunlu || assignedEgitimIds.has(eg.id));
+  }, [egitimler, sertifikalar, isManagement, currentEmployee]);
 
   // Form states (Süre kaldırıldı)
   const [newEgitimForm, setNewEgitimForm] = useState({
@@ -150,6 +184,129 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
   const saveSertifikalar = (updated: SertifikaKaydi[]) => {
     setSertifikalar(updated);
     localStorage.setItem(`humanius_sertifikalar_${companyId}`, JSON.stringify(updated));
+  };
+
+  // Open Edit Egitim Modal
+  const openEditEgitim = (eg: Egitim) => {
+    setEditingEgitim(eg);
+    setEditEgitimForm({
+      baslik: eg.baslik,
+      kategori: eg.kategori,
+      tur: eg.tur,
+      seviye: eg.seviye,
+      egitmen: eg.egitmen,
+      zorunlu: eg.zorunlu,
+      aciklama: eg.aciklama
+    });
+  };
+
+  // Save Edited Egitim
+  const handleSaveEditedEgitim = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEgitim || !editEgitimForm.baslik.trim()) return;
+
+    const updatedEgitimler = egitimler.map((eg) => {
+      if (eg.id === editingEgitim.id) {
+        return {
+          ...eg,
+          baslik: editEgitimForm.baslik.trim(),
+          kategori: editEgitimForm.kategori.trim() || 'Genel',
+          tur: editEgitimForm.tur,
+          seviye: editEgitimForm.seviye,
+          egitmen: editEgitimForm.egitmen.trim() || 'Şirket İçi',
+          zorunlu: editEgitimForm.zorunlu,
+          aciklama: editEgitimForm.aciklama.trim()
+        };
+      }
+      return eg;
+    });
+
+    const updatedSertifikalar = sertifikalar.map((s) => {
+      if (s.egitimId === editingEgitim.id) {
+        return { ...s, egitimAdi: editEgitimForm.baslik.trim() };
+      }
+      return s;
+    });
+
+    saveEgitimler(updatedEgitimler);
+    saveSertifikalar(updatedSertifikalar);
+    setEditingEgitim(null);
+  };
+
+  // Open Edit Sertifika / Atama Modal
+  const openEditSertifika = (sc: SertifikaKaydi) => {
+    setEditingSertifika(sc);
+    setEditSertifikaForm({
+      egitimId: sc.egitimId,
+      employeeId: sc.employeeId,
+      durum: sc.durum || 'tamamlandi',
+      tamamlanmaTarihi: sc.tamamlanmaTarihi || new Date().toISOString().split('T')[0],
+      hedefTarih: sc.hedefTarih || '',
+      gecerlilikSuresi: sc.gecerlilikSuresi ? String(sc.gecerlilikSuresi) : '',
+      puan: sc.puan != null ? sc.puan : 85,
+      puanEkle: sc.puan != null
+    });
+  };
+
+  // Save Edited Sertifika
+  const handleSaveEditedSertifika = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSertifika) return;
+
+    const isTamamlandi = editSertifikaForm.durum === 'tamamlandi';
+    const updatedSertifikalar = sertifikalar.map((s) => {
+      if (s.id === editingSertifika.id) {
+        return {
+          ...s,
+          durum: editSertifikaForm.durum,
+          tamamlanmaTarihi: isTamamlandi ? editSertifikaForm.tamamlanmaTarihi : '',
+          hedefTarih: !isTamamlandi ? editSertifikaForm.hedefTarih : undefined,
+          gecerlilikSuresi: editSertifikaForm.gecerlilikSuresi ? Number(editSertifikaForm.gecerlilikSuresi) : null,
+          puan: (isTamamlandi && editSertifikaForm.puanEkle) ? Number(editSertifikaForm.puan) : null
+        };
+      }
+      return s;
+    });
+
+    saveSertifikalar(updatedSertifikalar);
+
+    const completedCount = updatedSertifikalar.filter(s => s.egitimId === editingSertifika.egitimId && (s.durum === 'tamamlandi' || !s.durum)).length;
+    const updatedEgitimler = egitimler.map((eg) => {
+      if (eg.id === editingSertifika.egitimId) {
+        return { ...eg, tamamlayanSayisi: completedCount };
+      }
+      return eg;
+    });
+    saveEgitimler(updatedEgitimler);
+
+    setEditingSertifika(null);
+  };
+
+  // Quick complete for employee
+  const handleQuickComplete = (sc: SertifikaKaydi) => {
+    const today = new Date().toISOString().split('T')[0];
+    const updatedSertifikalar = sertifikalar.map((s) => {
+      if (s.id === sc.id) {
+        return {
+          ...s,
+          durum: 'tamamlandi' as const,
+          tamamlanmaTarihi: today
+        };
+      }
+      return s;
+    });
+
+    saveSertifikalar(updatedSertifikalar);
+
+    const completedCount = updatedSertifikalar.filter(s => s.egitimId === sc.egitimId && (s.durum === 'tamamlandi' || !s.durum)).length;
+    const updatedEgitimler = egitimler.map((eg) => {
+      if (eg.id === sc.egitimId) {
+        return { ...eg, tamamlayanSayisi: completedCount };
+      }
+      return eg;
+    });
+    saveEgitimler(updatedEgitimler);
+    alert(`Tebrikler! "${sc.egitimAdi}" eğitimi başarıyla tamamlandı olarak kaydedildi.`);
   };
 
   // Add course handler
@@ -568,19 +725,19 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
   };
 
   const kategoriler = useMemo(() => {
-    const cats = Array.from(new Set(egitimler.map((e) => e.kategori))).filter(
+    const cats = Array.from(new Set(goruntulenenEgitimler.map((e) => e.kategori))).filter(
       (c) => c && c.trim().toLowerCase() !== 'bilgi'
     );
     return ['all', ...cats];
-  }, [egitimler]);
+  }, [goruntulenenEgitimler]);
 
   const filtreliEgitimler = useMemo(() => {
-    return egitimler.filter((eg) => {
+    return goruntulenenEgitimler.filter((eg) => {
       const aramaEslestir = !aramaMetni || eg.baslik.toLowerCase().includes(aramaMetni.toLowerCase()) || eg.kategori.toLowerCase().includes(aramaMetni.toLowerCase());
       const kategoriEslestir = secilenKategori === 'all' || eg.kategori === secilenKategori;
       return aramaEslestir && kategoriEslestir;
     });
-  }, [egitimler, aramaMetni, secilenKategori]);
+  }, [goruntulenenEgitimler, aramaMetni, secilenKategori]);
 
   const toplamTamamlama = sertifikalar.length;
 
@@ -590,13 +747,17 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-800">Eğitim ve Gelişim (LMS)</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Online eğitimler, sertifika yönetimi ve rol bazlı çalışan gelişim önerileri</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {isManagement
+              ? 'Online eğitimler, şirket içi atamalar, sertifika yönetimi ve rol bazlı gelişim önerileri'
+              : 'Size atanan online eğitimler, tamamlama durumları ve başarı sertifikalarınız'}
+          </p>
         </div>
         {isManagement && (
           <div className="flex gap-2">
             <button
               onClick={() => setShowNewEgitim(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               Yeni Eğitim Ekle
@@ -613,8 +774,8 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
               <BookOpen className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 font-medium">Toplam Eğitim</p>
-              <p className="text-xl font-bold text-gray-800">{egitimler.length}</p>
+              <p className="text-xs text-gray-500 font-medium">{isManagement ? 'Toplam Eğitim' : 'Erişilebilir Eğitimler'}</p>
+              <p className="text-xl font-bold text-gray-800">{goruntulenenEgitimler.length}</p>
             </div>
           </div>
         </div>
@@ -624,8 +785,10 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 font-medium">Toplam Tamamlama</p>
-              <p className="text-xl font-bold text-gray-800">{toplamTamamlama}</p>
+              <p className="text-xs text-gray-500 font-medium">{isManagement ? 'Toplam Tamamlama' : 'Tamamlananlarım'}</p>
+              <p className="text-xl font-bold text-gray-800">
+                {isManagement ? toplamTamamlama : goruntulenenSertifikalar.filter(s => s.durum === 'tamamlandi' || !s.durum).length}
+              </p>
             </div>
           </div>
         </div>
@@ -635,7 +798,7 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
               <Award className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 font-medium">{isManagement ? 'Sertifikalar' : 'Sertifikalarım'}</p>
+              <p className="text-xs text-gray-500 font-medium">{isManagement ? 'Sertifikalar / Atamalar' : 'Sertifikalarım'}</p>
               <p className="text-xl font-bold text-gray-800">{goruntulenenSertifikalar.length}</p>
             </div>
           </div>
@@ -649,13 +812,13 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
             <button
               key={sekme}
               onClick={() => setAktifSekme(sekme)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
                 aktifSekme === sekme ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
               {sekme === 'katalog' ? 'Eğitim Kataloğu' :
                sekme === 'durumlar' ? 'Personel Durumları' :
-               sekme === 'sertifikalar' ? 'Sertifikalar / Tamamlananlar' :
+               sekme === 'sertifikalar' ? 'Sertifikalar / Atamalar' :
                '🤖 Role Özel Eğitim Önerileri'}
             </button>
           ))}
@@ -664,9 +827,19 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
         <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
           <button
             onClick={() => setAktifSekme('sertifikalar')}
-            className="px-4 py-2.5 text-sm font-semibold border-b-2 border-blue-600 text-blue-600 whitespace-nowrap"
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+              aktifSekme === 'sertifikalar' ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
           >
             🎓 Bana Atanan Eğitimler & Sertifikalarım
+          </button>
+          <button
+            onClick={() => setAktifSekme('katalog')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+              aktifSekme === 'katalog' ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            📚 Şirket Eğitim Kataloğu
           </button>
         </div>
       )}
@@ -690,7 +863,7 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
                 <button
                   key={k}
                   onClick={() => setSecilenKategori(k)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
                     secilenKategori === k ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -712,13 +885,22 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
                 return (
                   <div key={eg.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-blue-300 transition-colors relative group shadow-xs">
                     {isManagement && (
-                      <button
-                        onClick={() => deleteEgitim(eg.id)}
-                        className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Eğitimi Sil"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="absolute top-4 right-4 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => openEditEgitim(eg)}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                          title="Eğitimi Düzenle"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteEgitim(eg.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          title="Eğitimi Sil"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     )}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
@@ -793,7 +975,7 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
             <div className="flex justify-end">
               <button
                 onClick={() => setShowNewSertifika(true)}
-                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-green-700 transition-colors shadow-sm"
+                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-green-700 transition-colors shadow-sm cursor-pointer"
               >
                 <Award className="w-4 h-4" />
                 Sertifika / Eğitim Ataması Kaydet
@@ -804,49 +986,92 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
           {goruntulenenSertifikalar.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-500">
               <Award className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-              <p className="font-semibold">Sertifika veya Tamamlanan Eğitim Kaydı Bulunmuyor</p>
+              <p className="font-semibold">
+                {isManagement
+                  ? 'Sertifika veya Tamamlanan Eğitim Kaydı Bulunmuyor'
+                  : 'Henüz adınıza atanmış bir eğitim veya sertifika bulunmuyor.'}
+              </p>
+              {isManagement && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Sağ üstteki "Sertifika / Eğitim Ataması Kaydet" butonu ile personellere eğitim atayabilirsiniz.
+                </p>
+              )}
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {goruntulenenSertifikalar.map((sc) => (
-                <div key={sc.id} className="bg-white rounded-2xl border border-gray-200 p-4 shadow-xs hover:border-green-300 transition-colors relative group">
-                  {isManagement && (
+                <div key={sc.id} className="bg-white rounded-2xl border border-gray-200 p-4 shadow-xs hover:border-green-300 transition-colors relative group flex flex-col justify-between">
+                  <div>
+                    {isManagement && (
+                      <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => openEditSertifika(sc)}
+                          className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                          title="Atamayı / Sertifikayı Düzenle"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deleteSertifika(sc.id)}
+                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          title="Kaydı Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600 shrink-0">
+                        <Award className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1 pr-12">
+                        <h4 className="font-bold text-gray-800 text-sm truncate">{sc.egitimAdi}</h4>
+                        <p className="text-xs text-gray-500">{sc.employeeName}</p>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-400 space-y-1.5 pt-2 border-t border-gray-100">
+                      <div className="flex justify-between">
+                        <span>Durum:</span>
+                        <span className={`font-semibold ${sc.durum === 'devam_ediyor' ? 'text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full' : 'text-green-600 bg-green-50 px-2 py-0.5 rounded-full'}`}>
+                          {sc.durum === 'devam_ediyor' ? '⏳ Devam Ediyor' : '✓ Tamamlandı'}
+                        </span>
+                      </div>
+                      {sc.durum === 'devam_ediyor' && sc.hedefTarih && (
+                        <div className="flex justify-between">
+                          <span>Hedef Bitiş:</span>
+                          <span className="font-medium text-amber-700">{sc.hedefTarih}</span>
+                        </div>
+                      )}
+                      {sc.tamamlanmaTarihi && (
+                        <div className="flex justify-between">
+                          <span>Tamamlanma Tarihi:</span>
+                          <span className="font-medium text-gray-700">{sc.tamamlanmaTarihi}</span>
+                        </div>
+                      )}
+                      {sc.puan && (
+                        <div className="flex justify-between">
+                          <span>Başarı Puanı:</span>
+                          <span className="font-bold text-blue-600">{sc.puan} / 100</span>
+                        </div>
+                      )}
+                      {sc.gecerlilikSuresi && (
+                        <div className="flex justify-between">
+                          <span>Geçerlilik:</span>
+                          <span className="font-medium text-gray-600">{sc.gecerlilikSuresi} Ay</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quick Action for Employee on ongoing training */}
+                  {!isManagement && sc.durum === 'devam_ediyor' && (
                     <button
-                      onClick={() => deleteSertifika(sc.id)}
-                      className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleQuickComplete(sc)}
+                      className="mt-3 w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-1.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 border border-emerald-200 transition-colors shadow-xs cursor-pointer"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <CheckCircle className="w-3.5 h-3.5" /> Eğitimi Tamamladım Olarak İşaretle
                     </button>
                   )}
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600 shrink-0">
-                      <Award className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-bold text-gray-800 text-sm truncate">{sc.egitimAdi}</h4>
-                      <p className="text-xs text-gray-500">{sc.employeeName}</p>
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-400 space-y-1 pt-2 border-t border-gray-100">
-                    <div className="flex justify-between">
-                      <span>Durum:</span>
-                      <span className={`font-semibold ${sc.durum === 'devam_ediyor' ? 'text-amber-600' : 'text-green-600'}`}>
-                        {sc.durum === 'devam_ediyor' ? ' Devam Ediyor' : '✓ Tamamlandı'}
-                      </span>
-                    </div>
-                    {sc.tamamlanmaTarihi && (
-                      <div className="flex justify-between">
-                        <span>Tarih:</span>
-                        <span className="font-medium text-gray-700">{sc.tamamlanmaTarihi}</span>
-                      </div>
-                    )}
-                    {sc.puan && (
-                      <div className="flex justify-between">
-                        <span>Başarı Puanı:</span>
-                        <span className="font-bold text-blue-600">{sc.puan} / 100</span>
-                      </div>
-                    )}
-                  </div>
                 </div>
               ))}
             </div>
@@ -1174,6 +1399,224 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
                   className="flex-1 py-2 rounded-xl bg-green-600 text-white text-xs font-semibold hover:bg-green-700"
                 >
                   Kaydet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EĞİTİM DÜZENLE MODAL */}
+      {editingEgitim && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                  <Edit2 className="w-4 h-4" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-800">Eğitimi Düzenle</h3>
+              </div>
+              <button onClick={() => setEditingEgitim(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEditedEgitim} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitim Başlığı</label>
+                <input
+                  type="text"
+                  required
+                  value={editEgitimForm.baslik}
+                  onChange={(e) => setEditEgitimForm({ ...editEgitimForm, baslik: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Kategori</label>
+                  <input
+                    type="text"
+                    value={editEgitimForm.kategori}
+                    onChange={(e) => setEditEgitimForm({ ...editEgitimForm, kategori: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitim Türü</label>
+                  <select
+                    value={editEgitimForm.tur}
+                    onChange={(e) => setEditEgitimForm({ ...editEgitimForm, tur: e.target.value as any })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="video">Video</option>
+                    <option value="sunum">Sunum</option>
+                    <option value="canli">Canlı</option>
+                    <option value="sinav">Sınav</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Seviye</label>
+                <select
+                  value={editEgitimForm.seviye}
+                  onChange={(e) => setEditEgitimForm({ ...editEgitimForm, seviye: e.target.value as any })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="baslangic">Başlangıç</option>
+                  <option value="orta">Orta</option>
+                  <option value="ileri">İleri</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitmen / Kurum</label>
+                <input
+                  type="text"
+                  required
+                  value={editEgitimForm.egitmen}
+                  onChange={(e) => setEditEgitimForm({ ...editEgitimForm, egitmen: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Açıklama</label>
+                <textarea
+                  rows={2}
+                  value={editEgitimForm.aciklama}
+                  onChange={(e) => setEditEgitimForm({ ...editEgitimForm, aciklama: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="edit_zorunlu"
+                  checked={editEgitimForm.zorunlu}
+                  onChange={(e) => setEditEgitimForm({ ...editEgitimForm, zorunlu: e.target.checked })}
+                  className="rounded text-blue-600"
+                />
+                <label htmlFor="edit_zorunlu" className="text-xs font-medium text-gray-700">Tüm personel için zorunlu eğitim</label>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingEgitim(null)}
+                  className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 cursor-pointer"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 cursor-pointer"
+                >
+                  Değişiklikleri Kaydet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SERTİFİKA / ATAMA DÜZENLE MODAL */}
+      {editingSertifika && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600">
+                  <Edit2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">Eğitim Atamasını Düzenle</h3>
+                  <p className="text-xs text-gray-500">{editingSertifika.employeeName} • {editingSertifika.egitimAdi}</p>
+                </div>
+              </div>
+              <button onClick={() => setEditingSertifika(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEditedSertifika} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Eğitim Durumu</label>
+                <select
+                  value={editSertifikaForm.durum}
+                  onChange={(e) => setEditSertifikaForm({ ...editSertifikaForm, durum: e.target.value as any })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="devam_ediyor">⏳ Devam Ediyor (Atandı / Henüz Tamamlanmadı)</option>
+                  <option value="tamamlandi">✓ Tamamlandı (Sertifika Verildi)</option>
+                </select>
+              </div>
+
+              {editSertifikaForm.durum === 'devam_ediyor' ? (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Hedef Tamamlama Tarihi</label>
+                  <input
+                    type="date"
+                    value={editSertifikaForm.hedefTarih}
+                    onChange={(e) => setEditSertifikaForm({ ...editSertifikaForm, hedefTarih: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Tamamlanma Tarihi</label>
+                  <input
+                    type="date"
+                    required
+                    value={editSertifikaForm.tamamlanmaTarihi}
+                    onChange={(e) => setEditSertifikaForm({ ...editSertifikaForm, tamamlanmaTarihi: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Geçerlilik (Ay)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={editSertifikaForm.gecerlilikSuresi}
+                    onChange={(e) => setEditSertifikaForm({ ...editSertifikaForm, gecerlilikSuresi: e.target.value })}
+                    placeholder="Örn: 12"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Başarı Puanı (0-100)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editSertifikaForm.puan}
+                    onChange={(e) => setEditSertifikaForm({ ...editSertifikaForm, puan: Number(e.target.value), puanEkle: true })}
+                    placeholder="Örn: 90"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingSertifika(null)}
+                  className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 cursor-pointer"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-green-600 text-white text-xs font-semibold hover:bg-green-700 cursor-pointer"
+                >
+                  Kaydı Güncelle
                 </button>
               </div>
             </form>
