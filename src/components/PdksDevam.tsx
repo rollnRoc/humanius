@@ -153,6 +153,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
   const [editEmpModal, setEditEmpModal] = useState<any | null>(null);
   const [editGiris, setEditGiris] = useState('');
   const [editCikis, setEditCikis] = useState('');
+  const [editOfficeName, setEditOfficeName] = useState('');
 
   // Company Work Hours Config Modal state
   const [showShiftConfig, setShowShiftConfig] = useState(false);
@@ -723,14 +724,28 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
   // TEAM MONITORING (MANAGER VIEW) DATA
   const mockPdksData = React.useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
+    const defaultOfficeName = officeLocations.find(l => l.is_default)?.name || officeLocations[0]?.name || 'Merkez Ofis';
     
     return employees.map(emp => {
+      const extractOfficeName = (notes?: string | null) => {
+        if (!notes) return defaultOfficeName;
+        const match = notes.match(/(?:Doğrulandı|Eşleşti|Girişi|sonlandırıldı \()(?::\s*|\s*)([^,\)\.\n]+)/i);
+        if (match && match[1]) {
+          return match[1].trim();
+        }
+        if (notes.includes('Tarayıcı GPS') || notes.includes('GPS')) {
+          return defaultOfficeName;
+        }
+        return notes;
+      };
+
       // 1. Try to find a real record in allShiftRecords for today
       const realRecord = allShiftRecords.find(r => r.employee_id === emp.id && r.tarih === todayStr);
       
       if (realRecord) {
         const checkIn = realRecord.giris_saati;
         const checkOut = realRecord.cikis_saati;
+        const officeName = checkIn ? extractOfficeName(realRecord.notlar) : '-';
         
         let status = 'Zamanında';
         if (!checkOut && checkIn) {
@@ -766,6 +781,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           cikis: checkOut || '-',
           durum: status,
           mesai,
+          officeName,
         };
       }
 
@@ -779,6 +795,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           cikis: parsed.cikis,
           durum: parsed.durum,
           mesai: parsed.mesai,
+          officeName: parsed.officeName || (parsed.giris !== '-' ? defaultOfficeName : '-'),
         };
       }
       
@@ -798,6 +815,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           cikis: '-',
           durum: 'İzinli',
           mesai: 0,
+          officeName: '-',
         };
       }
       
@@ -808,9 +826,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         cikis: '-',
         durum: 'Giriş Yapılmadı',
         mesai: 0,
+        officeName: '-',
       };
     });
-  }, [employees, allShiftRecords, izinTalepleri]);
+  }, [employees, allShiftRecords, izinTalepleri, officeLocations]);
 
   const filteredData = mockPdksData.filter(d =>
     !searchTerm || d.employee.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -1231,7 +1250,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   <th className="px-6 py-4">Departman</th>
                   <th className="px-6 py-4 text-center">Giriş Saati</th>
                   <th className="px-6 py-4 text-center">Çıkış Saati</th>
-                  <th className="px-6 py-4 text-center">Çalışma Süresi</th>
+                  <th className="px-6 py-4 text-center">Mesai Yapılan Ofis</th>
                   {isManagement && <th className="px-6 py-4 text-center">Fazla Mesai</th>}
                   <th className="px-6 py-4 text-center">Durum</th>
                   {isManagement && <th className="px-6 py-4 text-right">İşlemler</th>}
@@ -1244,7 +1263,16 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                     <td className="px-6 py-4 text-gray-600">{d.employee.department || 'Genel'}</td>
                     <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">{d.giris}</td>
                     <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">{d.cikis}</td>
-                    <td className="px-6 py-4 text-center text-gray-600 font-medium">{d.mesai} Saat</td>
+                    <td className="px-6 py-4 text-center">
+                      {d.giris !== '-' && d.officeName && d.officeName !== '-' ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs">
+                          <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                          <span>{d.officeName}</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400 font-medium">-</span>
+                      )}
+                    </td>
                     {isManagement && (
                       <td className="px-6 py-4 text-center">
                         {(() => {
@@ -1304,6 +1332,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                             setEditEmpModal(d);
                             setEditGiris(d.giris === '-' ? shiftConfig.giris : d.giris);
                             setEditCikis(d.cikis === '-' ? shiftConfig.cikis : d.cikis);
+                            setEditOfficeName(d.officeName !== '-' ? d.officeName : (officeLocations.find(l => l.is_default)?.name || officeLocations[0]?.name || 'Merkez Ofis'));
                           }}
                           className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
                         >
@@ -1338,24 +1367,42 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
               {editEmpModal.employee.name} ({editEmpModal.employee.department || 'Genel'})
             </p>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Giriş Saati</label>
-                <input
-                  type="time"
-                  value={editGiris}
-                  onChange={(e) => setEditGiris(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Çalışılan Ofis / Şube</label>
+                <select
+                  value={editOfficeName}
+                  onChange={(e) => setEditOfficeName(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  {officeLocations.map((l) => (
+                    <option key={l.id} value={l.name}>🏢 {l.name}</option>
+                  ))}
+                  {officeLocations.length === 0 && (
+                    <option value="Merkez Ofis">🏢 Merkez Ofis</option>
+                  )}
+                </select>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Çıkış Saati</label>
-                <input
-                  type="time"
-                  value={editCikis}
-                  onChange={(e) => setEditCikis(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Giriş Saati</label>
+                  <input
+                    type="time"
+                    value={editGiris}
+                    onChange={(e) => setEditGiris(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Çıkış Saati</label>
+                  <input
+                    type="time"
+                    value={editCikis}
+                    onChange={(e) => setEditCikis(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
             </div>
 
@@ -1387,7 +1434,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                     giris: editGiris,
                     cikis: editCikis,
                     durum: newDurum,
-                    mesai: diffHours > 0 ? diffHours : 0
+                    mesai: diffHours > 0 ? diffHours : 0,
+                    officeName: editOfficeName || 'Merkez Ofis',
                   };
 
                   localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
@@ -1400,8 +1448,9 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                       tarih: new Date().toISOString().split('T')[0],
                       giris_saati: editGiris + ':00',
                       cikis_saati: editCikis + ':00',
-                      vardiya_tipi: 'sabah',
-                      durum: newDurum === 'Zamanında' ? 'normal' : 'gec'
+                      vardiya_tipi: 'tam-gun',
+                      durum: newDurum === 'Zamanında' ? 'zamaninda' : 'gec-kaldi',
+                      notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
                     }).catch(console.error);
                   }
 
