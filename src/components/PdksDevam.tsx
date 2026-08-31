@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaInsert } from '../services/pdksService';
 import { companyService } from '../services/companyService';
+import { notificationService } from '../services/notificationService';
 import {
   Clock, LogIn, LogOut, Search, Filter, MapPin, Fingerprint,
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
   Sliders, Navigation, CheckCircle, RefreshCw, Trash2,
-  Building2, Plus, Edit2, Check, X
+  Building2, Plus, Edit2, Check, X, Bell, BellRing
 } from 'lucide-react';
 import type { Employee, CompanyOfficeLocation } from '../types';
 
@@ -339,6 +340,51 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     }
     return () => clearInterval(intervalId);
   }, [isShiftActive, shiftStartTime, shiftConfig?.cikis, activeShiftRecordId]);
+
+  // Periodic Shift & Tolerance Push Notification Monitor
+  useEffect(() => {
+    const checkShiftNotifications = () => {
+      if (!notificationService.isSupported() || notificationService.getPermission() !== 'granted') {
+        return;
+      }
+
+      const now = new Date();
+      const currentMin = now.getHours() * 60 + now.getMinutes();
+
+      // 1. Shift Start & Late Tolerance Alerts (If user has not started shift yet)
+      if (!isShiftActive && shiftConfig?.giris) {
+        const [sGh, sGm] = shiftConfig.giris.split(':').map(Number);
+        if (!isNaN(sGh) && !isNaN(sGm)) {
+          const shiftStartMin = sGh * 60 + sGm;
+          const toleranceMin = Number(shiftConfig.tolerans || 15);
+
+          // A) Exact shift start time reached (e.g. 08:30 - 08:44)
+          if (currentMin >= shiftStartMin && currentMin < shiftStartMin + toleranceMin) {
+            notificationService.sendShiftStartReminder(shiftConfig.giris);
+          }
+          // B) Tolerance window passed (e.g. 08:45+)
+          else if (currentMin >= shiftStartMin + toleranceMin && currentMin < shiftStartMin + 240) {
+            notificationService.sendShiftLateToleranceAlert(toleranceMin, shiftConfig.giris);
+          }
+        }
+      }
+
+      // 2. Shift End Reminder (If user is currently working)
+      if (isShiftActive && shiftConfig?.cikis) {
+        const [cH, cM] = shiftConfig.cikis.split(':').map(Number);
+        if (!isNaN(cH) && !isNaN(cM)) {
+          const shiftEndMin = cH * 60 + cM;
+          if (currentMin >= shiftEndMin && currentMin < shiftEndMin + 60) {
+            notificationService.sendShiftEndReminder(shiftConfig.cikis);
+          }
+        }
+      }
+    };
+
+    checkShiftNotifications();
+    const intervalId = setInterval(checkShiftNotifications, 30000); // Check every 30 seconds
+    return () => clearInterval(intervalId);
+  }, [isShiftActive, shiftConfig?.giris, shiftConfig?.cikis, shiftConfig?.tolerans]);
 
   // Request browser location once
   const requestLocation = () => {
@@ -845,36 +891,62 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           </p>
         </div>
 
-        {isManagement && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={handleClearAllPdks}
-              className="flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors shadow-xs"
-              title="Tüm PDKS Devam ve Mesai Kayıtlarını Temizle / Sıfırla"
-            >
-              <Trash2 className="w-3.5 h-3.5 text-red-600" />
-              Verileri Temizle
-            </button>
-            <div className="flex bg-gray-100 p-1 rounded-xl">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={async () => {
+              const res = await notificationService.sendTestNotification();
+              if (!res) {
+                const perm = await notificationService.requestPermission();
+                if (perm === 'granted') {
+                  await notificationService.sendTestNotification();
+                  alert('Bildirim izni verildi ve test bildirimi cihazınıza gönderildi!');
+                } else {
+                  alert('Bildirim izni verilmediği için test bildirimi gönderilemedi. Lütfen tarayıcı ayarlarınızdan bildirimlere izin veriniz.');
+                }
+              } else {
+                alert('Test bildirimi başarıyla gönderildi!');
+              }
+            }}
+            className="flex items-center gap-1.5 border border-indigo-200 bg-indigo-50 text-indigo-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors shadow-xs cursor-pointer"
+            title="Telefonunuzda veya tarayıcınızda bildirim test edin"
+          >
+            <Bell className="w-3.5 h-3.5 text-indigo-600" />
+            Bildirim Testi
+          </button>
+
+          {isManagement && (
+            <>
               <button
-                onClick={() => setActiveTab('personal')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'personal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-                }`}
+                onClick={handleClearAllPdks}
+                className="flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors shadow-xs"
+                title="Tüm PDKS Devam ve Mesai Kayıtlarını Temizle / Sıfırla"
               >
-                Kişisel Mesai Paneli
+                <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                Verileri Temizle
               </button>
-              <button
-                onClick={() => setActiveTab('team')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'team' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                Tüm Çalışanların Durumu
-              </button>
-            </div>
-          </div>
-        )}
+
+              <div className="flex bg-gray-100 p-1 rounded-xl">
+                <button
+                  onClick={() => setActiveTab('personal')}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    activeTab === 'personal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  Kişisel Mesai Paneli
+                </button>
+                <button
+                  onClick={() => setActiveTab('team')}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    activeTab === 'team' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  Tüm Çalışanların Durumu
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {activeTab === 'personal' ? (

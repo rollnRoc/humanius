@@ -35,6 +35,8 @@ import IzinliKisiler from './components/IzinliKisiler';
 import PdksDevam from './components/PdksDevam';
 import IsAkisi from './components/IsAkisi';
 import DemoBanner from './components/DemoBanner';
+import { NotificationPermissionBanner } from './components/NotificationPermissionBanner';
+import { notificationService } from './services/notificationService';
 import ExcelImportModal from './components/ExcelImportModal';
 import { userService } from './services/userService';
 import * as XLSX from 'xlsx';
@@ -1765,6 +1767,7 @@ const AppInner: React.FC = () => {
     <ContextualHelp />
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       <DemoBanner />
+      <NotificationPermissionBanner />
       <div className="flex flex-1 overflow-hidden">
             {!isEmployeeOnly && (
         <div className={`md:block ${mobileMenuOpen ? 'block fixed inset-0 z-50' : 'hidden md:relative z-40'}`}>
