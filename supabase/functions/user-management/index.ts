@@ -247,6 +247,70 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ email: generated, found: false });
     }
 
+    if (operation === 'admin_direct_reset_password') {
+      const email = toAsciiEmail(payload.email || '');
+      const newPassword = String(payload.newPassword || payload.password || '987654').trim();
+      const userIdInput = payload.userId || payload.user_id;
+      if (!email && !userIdInput) {
+        return jsonResponse({ error: 'email veya userId gereklidir' }, 400);
+      }
+
+      // 1. Check profile table first
+      let targetId = userIdInput;
+      let targetEmail = email;
+      let fullName = payload.fullName || '';
+
+      if (!targetId && email) {
+        const { data: prof } = await adminClient
+          .from('profiles')
+          .select('id, email, full_name')
+          .or(`email.eq.${email},email.ilike.${email}`)
+          .maybeSingle();
+        if (prof) {
+          targetId = prof.id;
+          targetEmail = toAsciiEmail(prof.email || email);
+          fullName = prof.full_name || fullName;
+        }
+      }
+
+      // 2. If targetId exists, update auth user by id
+      let updated = false;
+      if (targetId) {
+        const { data: uData, error: uErr } = await adminClient.auth.admin.updateUserById(targetId, {
+          password: newPassword,
+          email: targetEmail || undefined,
+          user_metadata: { must_change_password: false }
+        });
+        if (!uErr) {
+          updated = true;
+        }
+      }
+
+      // 3. If not updated, try createManagedUser
+      if (!updated && targetEmail) {
+        const user = await createManagedUser(targetEmail, newPassword, fullName || 'Kullanıcı', false);
+        if (user && user.id) {
+          targetId = user.id;
+          updated = true;
+        }
+      }
+
+      if (!updated) {
+        return jsonResponse({ error: `Kullanıcı şifresi güncellenemedi: ${email || targetId}` }, 400);
+      }
+
+      if (targetId) {
+        await adminClient.from('profiles').update({ must_change_password: false } as any).eq('id', targetId);
+      }
+
+      return jsonResponse({
+        success: true,
+        message: `Şifre başarıyla sıfırlandı: ${targetEmail || email}`,
+        userId: targetId,
+        newPassword
+      });
+    }
+
     if (operation === 'list_company_locations') {
       const companyId = payload.companyId || payload.company_id;
       let query = adminClient.from('company_locations').select('*').order('created_at', { ascending: true });

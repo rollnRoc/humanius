@@ -1184,17 +1184,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   </div>
                 )}
               </div>
-
-              {isManagement && (
-                <div className="border-t border-indigo-800/80 pt-3 mt-1 text-center space-y-2">
-                  <button
-                    onClick={setOfficeToCurrentLocation}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md transform active:scale-95 cursor-pointer"
-                  >
-                    <Sliders className="w-3.5 h-3.5" /> Seçili Ofisi Mevcut Konumuma Eşitle
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
