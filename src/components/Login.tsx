@@ -53,17 +53,50 @@ export default function Login() {
     setPassword('');
   };
 
-  async function handleLogin(e: React.FormEvent, targetEmail?: string) {
+  async function handleLogin(e: React.FormEvent, targetInput?: string) {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const loginEmail = (targetEmail || email).trim().toLowerCase();
+    const rawInput = (targetInput || email).trim();
+    if (!rawInput) {
+      setError('Lütfen e-posta veya ad soyadınızı girin.');
+      setLoading(false);
+      return;
+    }
+
+    let loginEmail = rawInput.toLowerCase();
+
+    // If identifier doesn't contain @, resolve to actual profile email
+    if (!rawInput.includes('@')) {
+      try {
+        const { data: resData } = await supabase.functions.invoke('user-management', {
+          body: { operation: 'resolve_identifier', identifier: rawInput }
+        });
+        if (resData && resData.email) {
+          loginEmail = resData.email;
+        } else {
+          const asciiName = rawInput.toLowerCase()
+            .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
+            .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+            .replace(/\s+/g, '.');
+          loginEmail = `${asciiName}@humanius.net`;
+        }
+      } catch (resErr) {
+        console.warn("Identifier resolution error:", resErr);
+        const asciiName = rawInput.toLowerCase()
+          .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
+          .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+          .replace(/\s+/g, '.');
+        loginEmail = `${asciiName}@humanius.net`;
+      }
+    }
+
     try {
       const { error: signInError } = await signIn(loginEmail, password);
       if (signInError) {
         setError(
           signInError.message.includes('Invalid login credentials')
-            ? 'E-posta veya parola hatalı.'
+            ? 'Giriş bilgileri veya parola hatalı.'
             : signInError.message
         );
         return;
@@ -368,17 +401,16 @@ export default function Login() {
 
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">E-posta</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">E-posta veya Ad Soyad</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
-                      type="email"
+                      type="text"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all text-sm"
-                      placeholder="adsoyad@humanius.net"
+                      placeholder="adsoyad@humanius.net veya Ad Soyad"
                       required
-                      autoComplete="email"
                       autoFocus={!rememberedAccount}
                     />
                   </div>

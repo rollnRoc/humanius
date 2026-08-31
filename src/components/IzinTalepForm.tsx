@@ -558,12 +558,21 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
                                 <span className="text-sm font-medium text-yellow-800">Destekleyici Belge Yükle</span>
                               </div>
 
-                              <input
-                                type="file"
-                                onChange={handleBelgeYukle}
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-yellow-100 file:text-yellow-800 hover:file:bg-yellow-200"
-                              />
+                              <label className="flex items-center gap-3 cursor-pointer py-1">
+                                <input
+                                  type="file"
+                                  onChange={handleBelgeYukle}
+                                  accept=".pdf,.jpg,.jpeg,.png"
+                                  className="hidden"
+                                />
+                                <span className="bg-yellow-200/70 hover:bg-yellow-200 text-yellow-900 font-semibold px-3.5 py-1.5 rounded-lg text-xs border border-yellow-300 flex items-center gap-1.5 transition-colors shadow-2xs">
+                                  <Upload className="w-3.5 h-3.5 text-yellow-800" />
+                                  Dosya Seç...
+                                </span>
+                                <span className="text-xs text-gray-500 truncate max-w-[220px]">
+                                  {belgeDosyasi ? belgeDosyasi.name : 'Dosya seçilmedi.'}
+                                </span>
+                              </label>
 
                               {belgeYuklendi && (
                                 <div className="flex items-center gap-2 mt-2 text-green-600">

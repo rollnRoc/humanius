@@ -204,6 +204,49 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    if (operation === 'resolve_identifier') {
+      const identifier = String(payload.identifier || '').trim();
+      if (!identifier) {
+        return jsonResponse({ error: 'Kullanıcı adı veya e-posta gereklidir' }, 400);
+      }
+
+      if (identifier.includes('@')) {
+        return jsonResponse({ email: toAsciiEmail(identifier), found: true });
+      }
+
+      // Search in profiles table for full_name match
+      const { data: profiles, error: pError } = await adminClient
+        .from('profiles')
+        .select('id, email, full_name');
+
+      if (!pError && profiles && profiles.length > 0) {
+        const normalizedQuery = toAsciiEmail(identifier).replace(/\s+/g, ' ');
+        
+        // Exact match on normalized full_name or email prefix
+        const matchedProfile = profiles.find((p) => {
+          const normName = toAsciiEmail(p.full_name || '').replace(/\s+/g, ' ');
+          const normEmail = toAsciiEmail(p.email || '');
+          const prefixEmail = normEmail.split('@')[0];
+          return normName === normalizedQuery || prefixEmail === normalizedQuery || normEmail.startsWith(normalizedQuery + '@');
+        }) || profiles.find((p) => {
+          const normName = toAsciiEmail(p.full_name || '').replace(/\s+/g, ' ');
+          return normName.includes(normalizedQuery) || normalizedQuery.includes(normName);
+        });
+
+        if (matchedProfile && matchedProfile.email) {
+          return jsonResponse({
+            email: matchedProfile.email,
+            full_name: matchedProfile.full_name,
+            found: true,
+          });
+        }
+      }
+
+      // Fallback: name.surname@humanius.net format
+      const generated = `${toAsciiEmail(identifier).replace(/\s+/g, '.')}@humanius.net`;
+      return jsonResponse({ email: generated, found: false });
+    }
+
     if (operation === 'list_company_locations') {
       const companyId = payload.companyId || payload.company_id;
       let query = adminClient.from('company_locations').select('*').order('created_at', { ascending: true });
