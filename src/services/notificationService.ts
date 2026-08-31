@@ -60,6 +60,28 @@ class NotificationService {
     }
   }
 
+  public playNotificationSound() {
+    try {
+      if (typeof window === 'undefined') return;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    } catch (e) {
+      // Audio context might be restricted
+    }
+  }
+
   public async sendNotification(payload: NotificationPayload): Promise<boolean> {
     if (!this.isSupported()) {
       return false;
@@ -80,6 +102,8 @@ class NotificationService {
       requireInteraction = true,
     } = payload;
 
+    this.playNotificationSound();
+
     try {
       if (!this.swRegistration && 'serviceWorker' in navigator) {
         this.swRegistration = await navigator.serviceWorker.ready;
@@ -92,7 +116,7 @@ class NotificationService {
           badge,
           tag,
           requireInteraction,
-          vibrate: [100, 50, 100, 100, 200],
+          vibrate: [150, 50, 150, 100, 250],
           data: { url },
         } as any);
         return true;
@@ -113,7 +137,13 @@ class NotificationService {
       }
     } catch (error) {
       console.error('Error sending notification:', error);
-      return false;
+      try {
+        const fallbackNotif = new Notification(title, { body, icon });
+        fallbackNotif.onclick = () => { window.focus(); fallbackNotif.close(); };
+        return true;
+      } catch {
+        return false;
+      }
     }
   }
 
@@ -128,13 +158,13 @@ class NotificationService {
 
   public async sendShiftStartReminder(shiftStartTimeStr: string): Promise<boolean> {
     const today = new Date().toISOString().split('T')[0];
-    const key = `humanius_notif_shift_start_${today}`;
+    const key = `humanius_notif_shift_start_${today}_${shiftStartTimeStr.replace(':', '_')}`;
     if (localStorage.getItem(key)) return false;
 
     const success = await this.sendNotification({
       title: '⏰ Mesai Saati Başladı',
       body: `Standart mesai saatiniz (${shiftStartTimeStr}) başladı. Lütfen PDKS ekranından mesainizi başlatınız.`,
-      tag: `shift-start-${today}`,
+      tag: `shift-start-${today}-${shiftStartTimeStr}`,
       url: '/',
       requireInteraction: true,
     });
@@ -147,13 +177,17 @@ class NotificationService {
 
   public async sendShiftLateToleranceAlert(toleranceMins: number, shiftStartTimeStr: string): Promise<boolean> {
     const today = new Date().toISOString().split('T')[0];
-    const key = `humanius_notif_shift_late_${today}`;
+    const key = `humanius_notif_shift_late_${today}_${shiftStartTimeStr.replace(':', '_')}_${toleranceMins}`;
     if (localStorage.getItem(key)) return false;
 
+    const msgBody = toleranceMins > 0
+      ? `Mesai başlangıcı (${shiftStartTimeStr}) üzerinden ${toleranceMins} dakikalık tolerans süresi doldu! Geç kalma kaydı oluşmaması için lütfen hemen giriş yapınız.`
+      : `Mesai başlangıç saatiniz (${shiftStartTimeStr}) geldi! Henüz giriş yapmadınız, lütfen hemen mesainizi başlatınız.`;
+
     const success = await this.sendNotification({
-      title: '⚠️ Mesai Giriş Uyarısı: Tolerans Süresi Doldu!',
-      body: `Mesai başlangıcı (${shiftStartTimeStr}) üzerinden ${toleranceMins} dakikalık tolerans süresi doldu! Geç kalma kaydı oluşmaması için lütfen hemen giriş yapınız.`,
-      tag: `shift-late-${today}`,
+      title: '⚠️ Mesai Giriş Uyarısı: Henüz Giriş Yapmadınız!',
+      body: msgBody,
+      tag: `shift-late-${today}-${shiftStartTimeStr}`,
       url: '/',
       requireInteraction: true,
     });
@@ -166,13 +200,13 @@ class NotificationService {
 
   public async sendShiftEndReminder(shiftEndTimeStr: string): Promise<boolean> {
     const today = new Date().toISOString().split('T')[0];
-    const key = `humanius_notif_shift_end_${today}`;
+    const key = `humanius_notif_shift_end_${today}_${shiftEndTimeStr.replace(':', '_')}`;
     if (localStorage.getItem(key)) return false;
 
     const success = await this.sendNotification({
       title: '🏁 Mesai Bitiş Saati Geldi',
       body: `Günlük mesai saatiniz (${shiftEndTimeStr}) doldu. Çıkış yapmayı veya fazla mesai durumunuzu kontrol etmeyi unutmayınız.`,
-      tag: `shift-end-${today}`,
+      tag: `shift-end-${today}-${shiftEndTimeStr}`,
       url: '/',
       requireInteraction: true,
     });

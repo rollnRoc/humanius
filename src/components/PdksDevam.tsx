@@ -356,15 +356,22 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         const [sGh, sGm] = shiftConfig.giris.split(':').map(Number);
         if (!isNaN(sGh) && !isNaN(sGm)) {
           const shiftStartMin = sGh * 60 + sGm;
-          const toleranceMin = Number(shiftConfig.tolerans || 15);
+          const toleranceMin = Math.max(0, Number(shiftConfig.tolerans || 0));
 
-          // A) Exact shift start time reached (e.g. 08:30 - 08:44)
-          if (currentMin >= shiftStartMin && currentMin < shiftStartMin + toleranceMin) {
-            notificationService.sendShiftStartReminder(shiftConfig.giris);
-          }
-          // B) Tolerance window passed (e.g. 08:45+)
-          else if (currentMin >= shiftStartMin + toleranceMin && currentMin < shiftStartMin + 240) {
-            notificationService.sendShiftLateToleranceAlert(toleranceMin, shiftConfig.giris);
+          if (toleranceMin > 0) {
+            // A) Exact shift start time reached (e.g. 08:30 - 08:44)
+            if (currentMin >= shiftStartMin && currentMin < shiftStartMin + toleranceMin) {
+              notificationService.sendShiftStartReminder(shiftConfig.giris);
+            }
+            // B) Tolerance window passed (e.g. 08:45+)
+            else if (currentMin >= shiftStartMin + toleranceMin && currentMin < shiftStartMin + 240) {
+              notificationService.sendShiftLateToleranceAlert(toleranceMin, shiftConfig.giris);
+            }
+          } else {
+            // Tolerance is 0: Alert immediately upon shift time
+            if (currentMin >= shiftStartMin && currentMin < shiftStartMin + 240) {
+              notificationService.sendShiftLateToleranceAlert(0, shiftConfig.giris);
+            }
           }
         }
       }
@@ -382,7 +389,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     };
 
     checkShiftNotifications();
-    const intervalId = setInterval(checkShiftNotifications, 30000); // Check every 30 seconds
+    const intervalId = setInterval(checkShiftNotifications, 10000); // Check every 10 seconds
     return () => clearInterval(intervalId);
   }, [isShiftActive, shiftConfig?.giris, shiftConfig?.cikis, shiftConfig?.tolerans]);
 
@@ -891,62 +898,37 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={async () => {
-              const res = await notificationService.sendTestNotification();
-              if (!res) {
-                const perm = await notificationService.requestPermission();
-                if (perm === 'granted') {
-                  await notificationService.sendTestNotification();
-                  alert('Bildirim izni verildi ve test bildirimi cihazınıza gönderildi!');
-                } else {
-                  alert('Bildirim izni verilmediği için test bildirimi gönderilemedi. Lütfen tarayıcı ayarlarınızdan bildirimlere izin veriniz.');
-                }
-              } else {
-                alert('Test bildirimi başarıyla gönderildi!');
-              }
-            }}
-            className="flex items-center gap-1.5 border border-indigo-200 bg-indigo-50 text-indigo-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors shadow-xs cursor-pointer"
-            title="Telefonunuzda veya tarayıcınızda bildirim test edin"
-          >
-            <Bell className="w-3.5 h-3.5 text-indigo-600" />
-            Bildirim Testi
-          </button>
+        {isManagement && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleClearAllPdks}
+              className="flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors shadow-xs"
+              title="Tüm PDKS Devam ve Mesai Kayıtlarını Temizle / Sıfırla"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+              Verileri Temizle
+            </button>
 
-          {isManagement && (
-            <>
+            <div className="flex bg-gray-100 p-1 rounded-xl">
               <button
-                onClick={handleClearAllPdks}
-                className="flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors shadow-xs"
-                title="Tüm PDKS Devam ve Mesai Kayıtlarını Temizle / Sıfırla"
+                onClick={() => setActiveTab('personal')}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'personal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                }`}
               >
-                <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                Verileri Temizle
+                Kişisel Mesai Paneli
               </button>
-
-              <div className="flex bg-gray-100 p-1 rounded-xl">
-                <button
-                  onClick={() => setActiveTab('personal')}
-                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                    activeTab === 'personal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                >
-                  Kişisel Mesai Paneli
-                </button>
-                <button
-                  onClick={() => setActiveTab('team')}
-                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                    activeTab === 'team' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                >
-                  Tüm Çalışanların Durumu
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+              <button
+                onClick={() => setActiveTab('team')}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'team' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                Tüm Çalışanların Durumu
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {activeTab === 'personal' ? (
