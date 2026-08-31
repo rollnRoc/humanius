@@ -46,6 +46,21 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const getSystemRoleBadge = (role?: string) => {
+    switch (role) {
+      case 'superadmin':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">👑 Süper Yönetici</span>;
+      case 'admin':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">🛡️ Şirket Yöneticisi</span>;
+      case 'hr':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">👥 İK Uzmanı</span>;
+      case 'manager':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">👔 Birim Amiri</span>;
+      default:
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200">👤 Personel</span>;
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const badges = {
       active: 'bg-green-50 border-green-200 text-green-700',
@@ -86,6 +101,7 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.company')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.department')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.position')}</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sistem Rolü</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çalışan Tipi</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.status')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.mobile')}</th>
@@ -164,8 +180,11 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{employee.company}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">{employee.department}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">{employee.position}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{employee.department || '-'}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{employee.position || '-'}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">
+                  {getSystemRoleBadge(employee.role)}
+                </td>
                 <td className="px-4 py-3 text-sm text-gray-600">
                   {employee.employeeType === 'emekli' || (employee as any).employee_type === 'emekli' ? (
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">

@@ -5,9 +5,10 @@ import { companyService } from '../services/companyService';
 import {
   Clock, LogIn, LogOut, Search, Filter, MapPin, Fingerprint,
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
-  Sliders, Navigation, CheckCircle, RefreshCw, Trash2
+  Sliders, Navigation, CheckCircle, RefreshCw, Trash2,
+  Building2, Plus, Edit2, Check, X
 } from 'lucide-react';
-import type { Employee } from '../types';
+import type { Employee, CompanyOfficeLocation } from '../types';
 
 interface PdksDevamProps {
   employees: Employee[];
@@ -50,7 +51,7 @@ function formatCompanyAddressWithCoords(lat: number, lng: number, addressText: s
   return `[${lat},${lng}] ${addressText || ''}`.trim();
 }
 
-function checkIsShiftExpired(shiftStartIso: string | null, cikisTimeStr: string = '18:00'): boolean {
+function checkIsShiftExpired(shiftStartIso: string | null, cikisTimeStr: string = '18:00', isOvertimeAuthorized: boolean = false): boolean {
   if (!shiftStartIso) return true;
   const startMs = new Date(shiftStartIso).getTime();
   if (isNaN(startMs)) return true;
@@ -63,12 +64,14 @@ function checkIsShiftExpired(shiftStartIso: string | null, cikisTimeStr: string 
   const nowYMD = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
   if (nowYMD > startYMD) return true;
 
-  // 2. Parse cikisTimeStr (e.g. "18:00")
+  // 2. If overtime is authorized by manager, don't auto-expire at shift end time
+  if (isOvertimeAuthorized) return false;
+
+  // 3. Parse cikisTimeStr (e.g. "18:00")
   const [cH, cM] = cikisTimeStr.split(':').map(Number);
   if (!isNaN(cH) && !isNaN(cM)) {
     const exitDate = new Date(startDate);
     exitDate.setHours(cH, cM, 0, 0);
-    // If exit time is on or before shift start time (e.g. night shift 22:00 -> 06:00)
     if (exitDate.getTime() <= startDate.getTime()) {
       exitDate.setDate(exitDate.getDate() + 1);
     }
@@ -77,7 +80,7 @@ function checkIsShiftExpired(shiftStartIso: string | null, cikisTimeStr: string 
     }
   }
 
-  // 3. Fallback: If duration exceeds 12 hours
+  // 4. Fallback: If duration exceeds 12 hours
   const elapsedSecs = (now.getTime() - startMs) / 1000;
   if (elapsedSecs >= 12 * 3600) return true;
 
@@ -127,10 +130,24 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
   // Default Company Coordinates (e.g. Kızılay, Ankara, Turkey)
   const [companyCoords, setCompanyCoords] = useState({ lat: 39.92077, lng: 32.85411 });
   const [geofenceRadius, setGeofenceRadius] = useState(200); // 200 meters geofence
-  const [distanceToCompany, setDistanceToCompany] = useState<number | null>(null);
   const [locationStatus, setLocationStatus] = useState<'pending' | 'success' | 'denied' | 'error'>('pending');
   const [locationErrorMsg, setLocationErrorMsg] = useState('');
   const [allShiftRecords, setAllShiftRecords] = useState<any[]>([]);
+
+  // Multi-office locations state
+  const [officeLocations, setOfficeLocations] = useState<CompanyOfficeLocation[]>([]);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>('');
+  const [showLocationModal, setShowLocationModal] = useState<boolean>(false);
+  const [editingLocation, setEditingLocation] = useState<CompanyOfficeLocation | null>(null);
+  
+  // Location Modal Form state
+  const [locName, setLocName] = useState('');
+  const [locLat, setLocLat] = useState<string>('');
+  const [locLng, setLocLng] = useState<string>('');
+  const [locRadius, setLocRadius] = useState<number>(200);
+  const [locAddress, setLocAddress] = useState('');
+  const [locIsDefault, setLocIsDefault] = useState(false);
+  const [isSavingLoc, setIsSavingLoc] = useState(false);
   
   // Edit Employee PDKS Modal states
   const [editEmpModal, setEditEmpModal] = useState<any | null>(null);
@@ -202,6 +219,27 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       }
     };
   }, [profile?.company_id, shiftConfig?.cikis]);
+
+  // Load office locations for the company
+  const loadOfficeLocations = React.useCallback(async () => {
+    try {
+      const locs = await companyService.getOfficeLocations(profile?.company_id || undefined);
+      setOfficeLocations(locs);
+      if (locs && locs.length > 0) {
+        setSelectedOfficeId((prev) => {
+          if (prev && locs.some((l) => l.id === prev)) return prev;
+          const def = locs.find((l) => l.is_default) || locs[0];
+          return def.id;
+        });
+      }
+    } catch (e) {
+      console.error("Error loading office locations:", e);
+    }
+  }, [profile?.company_id]);
+
+  useEffect(() => {
+    loadOfficeLocations();
+  }, [loadOfficeLocations]);
 
   // Load shift history from database when currentEmployee is found
   useEffect(() => {
@@ -354,23 +392,128 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     }
   }
 
-  // Compute distance whenever user coords or company coords change
-  useEffect(() => {
-    if (userCoords) {
-      const dist = getDistance(userCoords.lat, userCoords.lng, companyCoords.lat, companyCoords.lng);
-      setDistanceToCompany(Math.round(dist));
-    } else {
-      setDistanceToCompany(null);
+  // Active selected office
+  const activeOffice = React.useMemo<CompanyOfficeLocation>(() => {
+    if (officeLocations.length > 0) {
+      const found = officeLocations.find((l) => l.id === selectedOfficeId);
+      if (found) return found;
+      return officeLocations[0];
     }
-  }, [userCoords, companyCoords]);
+    return {
+      id: 'default',
+      company_id: profile?.company_id || '',
+      name: companyDetails?.name ? `${companyDetails.name} Ana Ofisi` : 'Şirket Merkez Ofisi',
+      lat: companyCoords.lat,
+      lng: companyCoords.lng,
+      radius_meters: geofenceRadius,
+      address: companyDetails?.address || '',
+      is_default: true,
+    };
+  }, [officeLocations, selectedOfficeId, companyDetails, companyCoords, geofenceRadius, profile?.company_id]);
 
+  // Distance to selected active office
+  const distanceToSelectedOffice = React.useMemo(() => {
+    if (!userCoords || !activeOffice) return null;
+    return Math.round(getDistance(userCoords.lat, userCoords.lng, activeOffice.lat, activeOffice.lng));
+  }, [userCoords, activeOffice]);
 
+  // Geofence check against selected office
+  const isWithinGeofence = React.useMemo(() => {
+    if (distanceToSelectedOffice === null || !activeOffice) return false;
+    return distanceToSelectedOffice <= (activeOffice.radius_meters || geofenceRadius);
+  }, [distanceToSelectedOffice, activeOffice, geofenceRadius]);
+
+  // Office Location Management Handlers
+  const handleOpenNewOffice = () => {
+    setEditingLocation(null);
+    setLocName('');
+    setLocLat(userCoords ? userCoords.lat.toFixed(5) : '');
+    setLocLng(userCoords ? userCoords.lng.toFixed(5) : '');
+    setLocRadius(200);
+    setLocAddress('');
+    setLocIsDefault(officeLocations.length === 0);
+    setShowLocationModal(true);
+  };
+
+  const handleOpenEditOffice = (loc: CompanyOfficeLocation) => {
+    setEditingLocation(loc);
+    setLocName(loc.name);
+    setLocLat(String(loc.lat));
+    setLocLng(String(loc.lng));
+    setLocRadius(loc.radius_meters || 200);
+    setLocAddress(loc.address || '');
+    setLocIsDefault(Boolean(loc.is_default));
+    setShowLocationModal(true);
+  };
+
+  const handleUseCurrentCoordsForForm = () => {
+    if (userCoords) {
+      setLocLat(userCoords.lat.toFixed(5));
+      setLocLng(userCoords.lng.toFixed(5));
+    } else {
+      requestLocation();
+      alert('Konum alınıyor, lütfen birkaç saniye sonra tekrar deneyin.');
+    }
+  };
+
+  const handleSaveOffice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!locName.trim()) {
+      alert('Lütfen ofis/şube adını girin (Örn: Düzce Ofisi, Bolu Şubesi, İstanbul Genel Merkez).');
+      return;
+    }
+    const latNum = parseFloat(String(locLat));
+    const lngNum = parseFloat(String(locLng));
+    if (isNaN(latNum) || isNaN(lngNum)) {
+      alert('Lütfen geçerli enlem ve boylam koordinatları girin veya "Mevcut Konumumu Al" butonunu kullanın.');
+      return;
+    }
+
+    try {
+      setIsSavingLoc(true);
+      const targetCompanyId = profile?.company_id || 'demo-company-id-9999';
+      const saved = await companyService.saveOfficeLocation({
+        id: editingLocation?.id,
+        company_id: targetCompanyId,
+        name: locName.trim(),
+        lat: latNum,
+        lng: lngNum,
+        radius_meters: Number(locRadius) || 200,
+        address: locAddress.trim(),
+        is_default: locIsDefault,
+      });
+      await loadOfficeLocations();
+      if (saved?.id) {
+        setSelectedOfficeId(saved.id);
+      }
+      setShowLocationModal(false);
+      setEditingLocation(null);
+      alert(`"${locName}" konumu başarıyla kaydedildi!`);
+    } catch (err: any) {
+      console.error(err);
+      alert('Ofis kaydedilirken hata oluştu: ' + (err?.message || err));
+    } finally {
+      setIsSavingLoc(false);
+    }
+  };
+
+  const handleDeleteOffice = async (locId: string, name: string) => {
+    if (!window.confirm(`"${name}" konumunu silmek istediğinize emin misiniz?`)) return;
+    try {
+      await companyService.deleteOfficeLocation(locId, profile?.company_id || undefined);
+      await loadOfficeLocations();
+      alert(`"${name}" konumu silindi.`);
+    } catch (err: any) {
+      console.error(err);
+      alert('Silme sırasında hata oluştu: ' + (err?.message || err));
+    }
+  };
 
   // Start Shift Handler
   const handleStartShift = async () => {
-    // 1. Double check position
-    if (distanceToCompany === null || distanceToCompany > geofenceRadius) {
-      alert("Hata: Şirket konumunun dışındasınız. Mesai sadece şirket sınırları içerisindeyken başlatılabilir!");
+    // 1. Double check position against selected active office
+    if (distanceToSelectedOffice === null || distanceToSelectedOffice > (activeOffice?.radius_meters || geofenceRadius)) {
+      alert(`Hata: Seçili ofis (${activeOffice?.name || 'Şirket'}) konumunun dışındasınız. Mesai sadece bulunduğunuz ofis sınırları içerisindeyken başlatılabilir!`);
       return;
     }
 
@@ -391,6 +534,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       const targetMin = 9 * 60; // 09:00 AM
       const isLate = currentMin > targetMin + 15; // 15 mins grace period
       const statusValue = isLate ? 'gec-kaldi' : 'zamaninda';
+      const officeName = activeOffice?.name || 'Ofis';
 
       // Sync with Supabase if profile is available
       if (profile?.company_id) {
@@ -402,7 +546,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           giris_saati: timeStr,
           cikis_saati: null,
           durum: statusValue,
-          notlar: 'Tarayıcı GPS Konum Eşleşti'
+          notlar: `Tarayıcı GPS Doğrulandı: ${officeName}`
         };
         
         try {
@@ -437,6 +581,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       const now = new Date();
       const endIso = now.toISOString();
       const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
+      const officeName = activeOffice?.name || 'Ofis';
       
       // 1. Update Database if activeShiftRecordId is valid
       if (activeShiftRecordId) {
@@ -444,8 +589,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           await pdksService.updateVardiya(activeShiftRecordId, {
             cikis_saati: timeStr,
             notlar: wasAutoEnded 
-              ? 'Konumdan uzaklaşıldığı için sistem tarafından otomatik sonlandırıldı'
-              : 'GPS Çıkış Eşleşti'
+              ? `Konumdan uzaklaşıldığı için sistem tarafından otomatik sonlandırıldı (${officeName})`
+              : `GPS Çıkış Eşleşti: ${officeName}`
           });
         } catch (dbError) {
           console.error("Database check-out update failed:", dbError);
@@ -524,7 +669,24 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     // Update local state immediately (works for demo mode & production)
     setCompanyCoords({ lat, lng });
 
-    // Update database if profile and company details exist
+    // Update active office or default office in DB
+    const targetCompanyId = profile?.company_id || 'demo-company-id-9999';
+    try {
+      await companyService.saveOfficeLocation({
+        id: activeOffice?.id !== 'default' ? activeOffice?.id : undefined,
+        company_id: targetCompanyId,
+        name: activeOffice?.name || 'Merkez Ofis',
+        lat,
+        lng,
+        radius_meters: activeOffice?.radius_meters || 200,
+        address: activeOffice?.address || '',
+        is_default: true,
+      });
+      await loadOfficeLocations();
+    } catch (err) {
+      console.warn("Error updating office location:", err);
+    }
+
     if (profile?.company_id && companyDetails) {
       const parsed = parseCompanyCoords(companyDetails.address);
       const newAddress = formatCompanyAddressWithCoords(lat, lng, parsed.cleanAddress);
@@ -536,7 +698,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       }
     }
 
-    alert(`Şirket lokasyonu tarayıcı konumunuza (${lat.toFixed(5)}, ${lng.toFixed(5)}) eşitlendi! Artık giriş ve çıkış doğrulamaları bu konuma göre yapılacaktır.`);
+    alert(`Seçili ofis lokasyonu (${activeOffice?.name || 'Şirket'}) tarayıcı konumunuza (${lat.toFixed(5)}, ${lng.toFixed(5)}) eşitlendi!`);
   };
 
   const handleClearAllPdks = async () => {
@@ -654,8 +816,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     !searchTerm || d.employee.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const isWithinGeofence = distanceToCompany !== null && distanceToCompany <= geofenceRadius;
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -731,27 +891,64 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   )}
                 </div>
 
+                {/* Office Location Selector */}
+                <div className="w-full max-w-sm bg-indigo-50/60 border border-indigo-100 rounded-2xl p-4 text-left space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                      <Building2 className="w-4 h-4 text-indigo-600" />
+                      Bulunduğunuz Ofis / Şube:
+                    </label>
+                    {isManagement && (
+                      <button
+                        onClick={handleOpenNewOffice}
+                        className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-indigo-200 shadow-xs"
+                      >
+                        <Plus className="w-3 h-3" /> Yeni Ofis Ekle
+                      </button>
+                    )}
+                  </div>
+                  <select
+                    value={selectedOfficeId}
+                    onChange={(e) => setSelectedOfficeId(e.target.value)}
+                    className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none shadow-xs"
+                  >
+                    {officeLocations.map((loc) => {
+                      const dist = userCoords ? Math.round(getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng)) : null;
+                      const distStr = dist !== null ? (dist < 1000 ? `${dist}m` : `${(dist / 1000).toFixed(1)}km`) : '';
+                      const inRange = dist !== null && dist <= loc.radius_meters;
+                      return (
+                        <option key={loc.id} value={loc.id}>
+                          🏢 {loc.name} {distStr ? `(${distStr} • ${inRange ? '✅ Ofis İçi' : '❌ Alan Dışı'})` : ''}
+                        </option>
+                      );
+                    })}
+                    {officeLocations.length === 0 && (
+                      <option value="default">🏢 {companyDetails?.name || 'Şirket'} Ana Ofisi</option>
+                    )}
+                  </select>
+                </div>
+
                 {/* Status Indicator */}
-                <div className={`p-4 rounded-xl border w-full max-w-sm transition-all flex items-center gap-3 ${
+                <div className={`p-4 rounded-2xl border w-full max-w-sm transition-all flex items-center gap-3 ${
                   isWithinGeofence
                     ? 'bg-green-50 border-green-200 text-green-800'
-                    : 'bg-red-50 border-red-200 text-red-800'
+                    : 'bg-amber-50 border-amber-200 text-amber-900'
                 }`}>
                   {isWithinGeofence ? (
                     <CheckCircle2 className="w-6 h-6 text-green-600 shrink-0" />
                   ) : (
-                    <ShieldAlert className="w-6 h-6 text-red-600 shrink-0" />
+                    <ShieldAlert className="w-6 h-6 text-amber-600 shrink-0" />
                   )}
                   <div className="text-left">
                     <p className="text-xs font-bold uppercase tracking-wide">
-                      {isWithinGeofence ? "ŞİRKET LOKASYONUNDASINIZ (ÇİFT DOĞRULAMA AKTİF)" : "ŞİRKET DIŞINDASINIZ"}
+                      {isWithinGeofence ? `${activeOffice.name.toUpperCase()} LOKASYONUNDASINIZ` : "OFİS ALANI DIŞINDASINIZ"}
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">
+                    <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
                       {isWithinGeofence 
-                        ? `GPS + Şirket IP Ağ Doğrulaması Başarılı (Uzaklık: ${distanceToCompany}m • Spoof Koruması Aktif)`
-                        : distanceToCompany !== null 
-                          ? `Mesai başlatılamaz. Şirkete olan uzaklığınız ${distanceToCompany} metre (Limit: ${geofenceRadius}m).`
-                          : "Konum doğrulanıyor, lütfen bekleyin..."
+                        ? `GPS Doğrulaması Başarılı • ${activeOffice.name} (Uzaklık: ${distanceToSelectedOffice}m • Sınır: ${activeOffice.radius_meters}m)`
+                        : distanceToSelectedOffice !== null 
+                          ? `"${activeOffice.name}" konumuna uzaklığınız ${distanceToSelectedOffice >= 1000 ? `${(distanceToSelectedOffice / 1000).toFixed(1)} km` : `${distanceToSelectedOffice} metre`} (İzin verilen sınır: ${activeOffice.radius_meters}m). Farklı bir ofisteyseniz lütfen yukarıdan ofisinizi seçiniz.`
+                          : "Konum doğrulanıyor, lütfen tarayıcınızdan konum izni veriniz..."
                       }
                     </p>
                   </div>
@@ -762,7 +959,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   {isShiftActive ? (
                     <button
                       onClick={() => handleEndShift(false)}
-                      className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-red-100 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5"
+                      className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-red-100 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 cursor-pointer"
                     >
                       <Square className="w-5 h-5 fill-white" />
                       Mesaiyi Bitir (Çıkış)
@@ -773,8 +970,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                       disabled={!isWithinGeofence}
                       className={`w-full font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all transform ${
                         isWithinGeofence
-                          ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-100 hover:-translate-y-0.5'
-                          : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                          ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-100 hover:-translate-y-0.5 cursor-pointer'
+                          : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-80'
                       }`}
                     >
                       <Play className="w-5 h-5 fill-current" />
@@ -864,7 +1061,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   </div>
                   <div className="flex items-center justify-between text-xs pt-1">
                     <span className="text-gray-500 font-medium">
-                      Mesafe: <strong className="text-indigo-600 font-bold">{distanceToCompany !== null ? `${distanceToCompany} metre` : 'Hesaplanıyor...'}</strong>
+                      Seçili Ofise Mesafe: <strong className="text-indigo-600 font-bold">{distanceToSelectedOffice !== null ? (distanceToSelectedOffice < 1000 ? `${distanceToSelectedOffice} metre` : `${(distanceToSelectedOffice / 1000).toFixed(1)} km`) : 'Hesaplanıyor...'}</strong>
                     </span>
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${userCoords.lat},${userCoords.lng}`}
@@ -872,7 +1069,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                       rel="noopener noreferrer"
                       className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 hover:underline"
                     >
-                      <MapPin className="w-3.5 h-3.5" /> Google Maps'te Aç
+                      <MapPin className="w-3.5 h-3.5" /> Haritada Aç
                     </a>
                   </div>
                 </div>
@@ -884,38 +1081,98 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
               )}
             </div>
 
-            {/* Şirket Ofis Konumu Settings Panel */}
-            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-2xl p-5 text-white space-y-4 shadow-md">
-              <div className="flex items-center gap-2 border-b border-indigo-700 pb-3">
-                <MapPin className="w-5 h-5 text-indigo-400" />
-                <h3 className="font-bold text-sm">Şirket Ofis Konumu</h3>
+            {/* Şirket Ofis & Şube Konumları Panel */}
+            <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 rounded-2xl p-5 text-white space-y-4 shadow-md">
+              <div className="flex items-center justify-between border-b border-indigo-800/80 pb-3">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-indigo-400" />
+                  <h3 className="font-bold text-sm">Şirket Ofis & Şubeleri</h3>
+                </div>
+                {isManagement && (
+                  <button
+                    onClick={handleOpenNewOffice}
+                    className="text-[11px] bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm transition-all"
+                  >
+                    <Plus className="w-3 h-3" /> Ofis Ekle
+                  </button>
+                )}
               </div>
               
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between border-b border-indigo-800 pb-1.5">
-                  <span className="text-indigo-200">Enlem (Lat):</span>
-                  <span className="font-semibold font-mono">{companyCoords.lat.toFixed(5)}</span>
-                </div>
-                <div className="flex justify-between border-b border-indigo-800 pb-1.5">
-                  <span className="text-indigo-200">Boylam (Lng):</span>
-                  <span className="font-semibold font-mono">{companyCoords.lng.toFixed(5)}</span>
-                </div>
-                <div className="flex justify-between pb-1">
-                  <span className="text-indigo-200">Güvenlik Sınırı:</span>
-                  <span className="font-semibold">{geofenceRadius} metre</span>
-                </div>
+              {/* Registered Offices List */}
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {officeLocations.map((loc) => {
+                  const dist = userCoords ? Math.round(getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng)) : null;
+                  const isSelected = loc.id === selectedOfficeId;
+                  const inRange = dist !== null && dist <= loc.radius_meters;
+
+                  return (
+                    <div
+                      key={loc.id}
+                      onClick={() => setSelectedOfficeId(loc.id)}
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        isSelected 
+                          ? 'bg-indigo-800/60 border-indigo-400 shadow-sm' 
+                          : 'bg-white/5 border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm">🏢</span>
+                          <span className="font-bold text-xs text-white">{loc.name}</span>
+                          {loc.is_default && (
+                            <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded font-semibold border border-amber-400/30">
+                              Merkez
+                            </span>
+                          )}
+                        </div>
+                        {isManagement && (
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => handleOpenEditOffice(loc)}
+                              className="p-1 text-indigo-300 hover:text-white hover:bg-indigo-700/50 rounded"
+                              title="Düzenle"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteOffice(loc.id, loc.name)}
+                              className="p-1 text-red-400 hover:text-red-200 hover:bg-red-900/40 rounded"
+                              title="Sil"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-indigo-200 mt-1.5">
+                        <span className="font-mono text-[10px] text-gray-300">
+                          {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)} ({loc.radius_meters}m)
+                        </span>
+                        <span className={`font-semibold text-[10px] px-1.5 py-0.5 rounded ${
+                          inRange ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                        }`}>
+                          {dist !== null ? (dist < 1000 ? `${dist}m` : `${(dist / 1000).toFixed(1)}km`) : '-'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {officeLocations.length === 0 && (
+                  <div className="p-3 bg-white/5 rounded-xl text-center text-xs text-indigo-200">
+                    Henüz kayıtlı şube bulunmuyor. Merkez ofis varsayılan olarak kullanılmaktadır.
+                  </div>
+                )}
               </div>
 
               {isManagement && (
-                <div className="border-t border-indigo-800 pt-3 mt-1 text-center space-y-2.5">
-                  <p className="text-[10px] text-indigo-200 text-left leading-normal">
-                    Şirket yöneticisi ve İK olarak, ofisin merkez noktasını mevcut GPS konumunuza eşitleyerek güncelleyebilirsiniz.
-                  </p>
+                <div className="border-t border-indigo-800/80 pt-3 mt-1 text-center space-y-2">
                   <button
                     onClick={setOfficeToCurrentLocation}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md transform active:scale-95"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md transform active:scale-95 cursor-pointer"
                   >
-                    <Sliders className="w-3.5 h-3.5" /> Ofis Konumunu Mevcut Konumuma Eşitle
+                    <Sliders className="w-3.5 h-3.5" /> Seçili Ofisi Mevcut Konumuma Eşitle
                   </button>
                 </div>
               )}
@@ -1236,6 +1493,153 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                 Değişiklikleri Kaydet
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Office Location Modal */}
+      {showLocationModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-lg font-bold text-gray-800">
+                  {editingLocation ? 'Ofis / Şube Konumunu Düzenle' : 'Yeni Ofis / Şube Konumu Ekle'}
+                </h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowLocationModal(false);
+                  setEditingLocation(null);
+                }} 
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveOffice} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Ofis / Şube Adı <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Örn: Düzce Ofisi, Bolu Şubesi, İstanbul Genel Merkez"
+                  value={locName}
+                  onChange={(e) => setLocName(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-gray-700">
+                    GPS Koordinatları <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentCoordsForForm}
+                    className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200 cursor-pointer"
+                  >
+                    <Compass className="w-3.5 h-3.5" /> Mevcut GPS Konumumu Al
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-semibold block mb-0.5">Enlem (Latitude)</span>
+                    <input
+                      type="number"
+                      step="any"
+                      required
+                      placeholder="Örn: 40.8438"
+                      value={locLat}
+                      onChange={(e) => setLocLat(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-semibold block mb-0.5">Boylam (Longitude)</span>
+                    <input
+                      type="number"
+                      step="any"
+                      required
+                      placeholder="Örn: 31.1565"
+                      value={locLng}
+                      onChange={(e) => setLocLng(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Güvenlik Çemberi / Tolerans (Metre)
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="5000"
+                    value={locRadius}
+                    onChange={(e) => setLocRadius(Number(e.target.value))}
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
+                  />
+                  <span className="text-[10px] text-gray-400 mt-0.5 block">Önerilen: 200 - 300m</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Varsayılan Merkez
+                  </label>
+                  <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={locIsDefault}
+                      onChange={(e) => setLocIsDefault(e.target.checked)}
+                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                    />
+                    <span className="text-xs text-gray-700 font-medium">Varsayılan Ana Ofis</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Adres / Şehir / Not (Opsiyonel)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Örn: Düzce Merkez, Bolu Sanayi Bölgesi"
+                  value={locAddress}
+                  onChange={(e) => setLocAddress(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLocationModal(false);
+                    setEditingLocation(null);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingLoc}
+                  className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingLoc ? 'Kaydediliyor...' : editingLocation ? 'Güncellemeleri Kaydet' : 'Ofisi Kaydet'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

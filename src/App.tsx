@@ -36,6 +36,7 @@ import PdksDevam from './components/PdksDevam';
 import IsAkisi from './components/IsAkisi';
 import DemoBanner from './components/DemoBanner';
 import ExcelImportModal from './components/ExcelImportModal';
+import { userService } from './services/userService';
 import * as XLSX from 'xlsx';
 
 import { Suspense } from 'react';
@@ -287,9 +288,9 @@ const AppInner: React.FC = () => {
         } catch {}
       }
 
-      let profDataRes: any = { data: [] };
+      let allUsers: any[] = [];
       try {
-        profDataRes = await supabase.from('profiles').select('id, email, role');
+        allUsers = await userService.getAll();
       } catch {}
 
       const [empData, empStats] = await Promise.all([
@@ -298,15 +299,24 @@ const AppInner: React.FC = () => {
       ]);
 
       const profileRoleMap = new Map<string, string>();
-      ((profDataRes as any)?.data ?? []).forEach((p: any) => {
+      (allUsers ?? []).forEach((p: any) => {
         if (p?.id) profileRoleMap.set(p.id, p.role);
         if (p?.email) profileRoleMap.set(p.email.toLowerCase().trim(), p.role);
+        if (p?.full_name) {
+          const normName = String(p.full_name).trim().toLocaleLowerCase('tr-TR');
+          profileRoleMap.set(normName, p.role);
+          const cleanName = normName.replace(/[\s-]/g, '');
+          profileRoleMap.set(cleanName, p.role);
+        }
       });
 
       // Map DB rows → frontend Employee shape
       const mapped: Employee[] = (empData ?? []).map((e: any) => {
         const empEmail = (e.email ?? '').toLowerCase().trim();
+        const empName = String(e.name ?? '').trim().toLocaleLowerCase('tr-TR');
+        const cleanEmpName = empName.replace(/[\s-]/g, '');
         const resolvedCompName = companyMap.get(e.company_id) || (profile?.company_id === e.company_id ? (profile as any)?.company_name : null) || 'Şirket';
+        const resolvedRole = profileRoleMap.get(e.id) ?? profileRoleMap.get(empEmail) ?? profileRoleMap.get(empName) ?? profileRoleMap.get(cleanEmpName) ?? e.role ?? 'employee';
         return {
           id: e.id,
           company_id: e.company_id,
@@ -322,7 +332,7 @@ const AppInner: React.FC = () => {
           phone: e.phone ?? '',
           email: e.email ?? '',
           contact_email: (e as any).contact_email ?? (e as any).personal_email ?? '',
-          role: profileRoleMap.get(e.id) ?? profileRoleMap.get(empEmail) ?? e.role ?? 'employee',
+          role: resolvedRole,
           joinDate: e.join_date,
           join_date: e.join_date,
           birthDate: e.birth_date,

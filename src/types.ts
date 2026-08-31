@@ -82,3 +82,16 @@ export interface Stats {
   onLeave: number;
   inactive: number;
 }
+
+export interface CompanyOfficeLocation {
+  id: string;
+  company_id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radius_meters: number;
+  address?: string;
+  is_default?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}

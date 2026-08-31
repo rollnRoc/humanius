@@ -204,6 +204,53 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    if (operation === 'list_company_locations') {
+      const companyId = payload.companyId || payload.company_id;
+      let query = adminClient.from('company_locations').select('*').order('created_at', { ascending: true });
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
+      const { data, error } = await query;
+      if (error) {
+        return jsonResponse({ locations: [], error: error.message }, 200);
+      }
+      return jsonResponse({ locations: data || [] });
+    }
+
+    if (operation === 'save_company_location') {
+      const { id, company_id, name, lat, lng, radius_meters, address, is_default } = payload;
+      if (!company_id || !name || lat == null || lng == null) {
+        return jsonResponse({ error: 'company_id, name, lat ve lng alanları zorunludur' }, 400);
+      }
+      const locationData: Record<string, unknown> = {
+        company_id,
+        name: String(name).trim(),
+        lat: Number(lat),
+        lng: Number(lng),
+        radius_meters: Number(radius_meters || 200),
+        address: String(address || '').trim(),
+        is_default: Boolean(is_default),
+        updated_at: new Date().toISOString(),
+      };
+      if (id) {
+        const { data, error } = await adminClient.from('company_locations').update(locationData).eq('id', id).select().single();
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ success: true, location: data });
+      } else {
+        const { data, error } = await adminClient.from('company_locations').insert(locationData).select().single();
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ success: true, location: data });
+      }
+    }
+
+    if (operation === 'delete_company_location') {
+      const { id } = payload;
+      if (!id) return jsonResponse({ error: 'id zorunludur' }, 400);
+      const { error } = await adminClient.from('company_locations').delete().eq('id', id);
+      if (error) return jsonResponse({ error: error.message }, 400);
+      return jsonResponse({ success: true });
+    }
+
     if (operation === 'check_email_availability') {
       const email = String(payload.email || '').trim().toLowerCase();
       const excludeId = String(payload.excludeId || '').trim();
@@ -601,13 +648,31 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ message: 'Personel bilgileri ve rolü başarıyla güncellendi.' });
     }
 
-    if (operation === 'ensure_zimmet_kategori_text' || operation === 'ensure_birth_date_column') {
+    if (operation === 'ensure_zimmet_kategori_text' || operation === 'ensure_birth_date_column' || operation === 'ensure_company_locations_table') {
       const dbUrl = Deno.env.get('SUPABASE_DB_URL') || Deno.env.get('DATABASE_URL');
       if (dbUrl) {
         const { Client } = await import("https://deno.land/x/postgres@v0.17.0/mod.ts");
         const client = new Client(dbUrl);
         await client.connect();
         await client.queryArray(`ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS birth_date text;`);
+        await client.queryArray(`
+          CREATE TABLE IF NOT EXISTS public.company_locations (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            lat DOUBLE PRECISION NOT NULL,
+            lng DOUBLE PRECISION NOT NULL,
+            radius_meters INTEGER NOT NULL DEFAULT 200,
+            address TEXT DEFAULT '',
+            is_default BOOLEAN DEFAULT false,
+            created_at TIMESTAMPTZ DEFAULT now(),
+            updated_at TIMESTAMPTZ DEFAULT now()
+          );
+          GRANT ALL ON TABLE public.company_locations TO anon, authenticated, service_role;
+          ALTER TABLE public.company_locations ENABLE ROW LEVEL SECURITY;
+          DROP POLICY IF EXISTS "Public full access to company_locations" ON public.company_locations;
+          CREATE POLICY "Public full access to company_locations" ON public.company_locations FOR ALL TO public USING (true) WITH CHECK (true);
+        `);
         await client.queryArray(`
           DO $$
           BEGIN
@@ -621,7 +686,7 @@ Deno.serve(async (req: Request) => {
           END $$;
         `);
         await client.end();
-        return jsonResponse({ success: true, message: 'zimmetler kategori converted to text and birth_date ensured.' });
+        return jsonResponse({ success: true, message: 'company_locations table ensured successfully.' });
       }
       return jsonResponse({ error: 'DB URL not found' }, 500);
     }
