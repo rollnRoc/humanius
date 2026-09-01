@@ -766,11 +766,15 @@ export const demoService = {
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const key = localStorage.key(i);
         if (key && (
-          key.startsWith('humanius_') || 
-          key.startsWith('ozluk_') || 
-          key.startsWith('pdks_') || 
-          key.startsWith('logoSrc') || 
-          key.startsWith('logoConfig')
+          key.startsWith('humanius_demo_') || 
+          key.startsWith('humanius_demo') ||
+          key === 'humanius_demo_mode' ||
+          key.startsWith('humanius_signed_docs_demo') ||
+          key.startsWith('humanius_kvkk_controls_demo') ||
+          key.startsWith('humanius_egitimler_demo') ||
+          key.startsWith('humanius_sertifikalar_demo') ||
+          key.startsWith('humanius_workflow_tasks_demo') ||
+          key.startsWith('humanius_izin_turleri_demo')
         )) {
           localStorage.removeItem(key);
         }

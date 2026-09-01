@@ -358,6 +358,73 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ success: true });
     }
 
+    if (operation === 'list_company_leave_types') {
+      const companyId = payload.companyId || payload.company_id;
+      if (!companyId || companyId === 'default' || companyId === 'demo-company-id-9999') {
+        return jsonResponse({ leave_types: [] });
+      }
+      try {
+        const { data, error } = await adminClient
+          .from('company_leave_types')
+          .select('leave_types')
+          .eq('company_id', companyId)
+          .maybeSingle();
+
+        if (error) {
+          return jsonResponse({ leave_types: [], error: error.message }, 200);
+        }
+        return jsonResponse({ leave_types: data?.leave_types || [] });
+      } catch (err: any) {
+        return jsonResponse({ leave_types: [], error: err?.message }, 200);
+      }
+    }
+
+    if (operation === 'save_company_leave_types') {
+      const companyId = payload.companyId || payload.company_id;
+      const leaveTypes = payload.leave_types || payload.leaveTypes || [];
+      if (!companyId || companyId === 'default' || companyId === 'demo-company-id-9999') {
+        return jsonResponse({ error: 'Geçerli bir company_id zorunludur' }, 400);
+      }
+
+      try {
+        const { data: existing } = await adminClient
+          .from('company_leave_types')
+          .select('id')
+          .eq('company_id', companyId)
+          .maybeSingle();
+
+        if (existing) {
+          const { data, error } = await adminClient
+            .from('company_leave_types')
+            .update({
+              leave_types: leaveTypes,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('company_id', companyId)
+            .select()
+            .single();
+
+          if (error) return jsonResponse({ error: error.message }, 400);
+          return jsonResponse({ success: true, record: data });
+        } else {
+          const { data, error } = await adminClient
+            .from('company_leave_types')
+            .insert({
+              company_id: companyId,
+              leave_types: leaveTypes,
+              updated_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+          if (error) return jsonResponse({ error: error.message }, 400);
+          return jsonResponse({ success: true, record: data });
+        }
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message }, 500);
+      }
+    }
+
     if (operation === 'check_email_availability') {
       const email = String(payload.email || '').trim().toLowerCase();
       const excludeId = String(payload.excludeId || '').trim();
@@ -755,7 +822,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ message: 'Personel bilgileri ve rolü başarıyla güncellendi.' });
     }
 
-    if (operation === 'ensure_zimmet_kategori_text' || operation === 'ensure_birth_date_column' || operation === 'ensure_company_locations_table') {
+    if (operation === 'ensure_zimmet_kategori_text' || operation === 'ensure_birth_date_column' || operation === 'ensure_company_locations_table' || operation === 'ensure_company_leave_types_table') {
       const dbUrl = Deno.env.get('SUPABASE_DB_URL') || Deno.env.get('DATABASE_URL');
       if (dbUrl) {
         const { Client } = await import("https://deno.land/x/postgres@v0.17.0/mod.ts");
@@ -781,6 +848,20 @@ Deno.serve(async (req: Request) => {
           CREATE POLICY "Public full access to company_locations" ON public.company_locations FOR ALL TO public USING (true) WITH CHECK (true);
         `);
         await client.queryArray(`
+          CREATE TABLE IF NOT EXISTS public.company_leave_types (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+            leave_types JSONB NOT NULL DEFAULT '[]'::jsonb,
+            created_at TIMESTAMPTZ DEFAULT now(),
+            updated_at TIMESTAMPTZ DEFAULT now(),
+            CONSTRAINT uq_company_leave_types UNIQUE(company_id)
+          );
+          GRANT ALL ON TABLE public.company_leave_types TO anon, authenticated, service_role;
+          ALTER TABLE public.company_leave_types ENABLE ROW LEVEL SECURITY;
+          DROP POLICY IF EXISTS "Public full access to company_leave_types" ON public.company_leave_types;
+          CREATE POLICY "Public full access to company_leave_types" ON public.company_leave_types FOR ALL TO public USING (true) WITH CHECK (true);
+        `);
+        await client.queryArray(`
           DO $$
           BEGIN
             IF EXISTS (
@@ -793,7 +874,7 @@ Deno.serve(async (req: Request) => {
           END $$;
         `);
         await client.end();
-        return jsonResponse({ success: true, message: 'company_locations table ensured successfully.' });
+        return jsonResponse({ success: true, message: 'company_locations and company_leave_types tables ensured successfully.' });
       }
       return jsonResponse({ error: 'DB URL not found' }, 500);
     }

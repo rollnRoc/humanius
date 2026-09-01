@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, CheckCircle, Info, RotateCcw } from 'lucide-react';
+import { leaveTypeService } from '../services/leaveTypeService';
 
 export interface IzinTuruKural {
   id: string;
@@ -176,11 +177,9 @@ interface IzinTanimlariProps {
 }
 
 const IzinTanimlari: React.FC<IzinTanimlariProps> = ({ companyId = 'default' }) => {
-  const storageKey = `humanius_izin_turleri_${companyId || 'default'}`;
-
   const [izinTurleri, setIzinTurleri] = useState<IzinTuruKural[]>(() => {
     try {
-      const saved = localStorage.getItem(storageKey);
+      const saved = localStorage.getItem(`humanius_izin_turleri_${companyId || 'default'}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -202,31 +201,22 @@ const IzinTanimlari: React.FC<IzinTanimlariProps> = ({ companyId = 'default' }) 
   const [silOnay, setSilOnay] = useState<string | null>(null);
   const [kaydedildi, setKaydedildi] = useState(false);
 
-  // Sync state if companyId changes
+  // Sync state if companyId changes and fetch from DB
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`humanius_izin_turleri_${companyId || 'default'}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setIzinTurleri(parsed);
-          return;
-        }
+    let isMounted = true;
+    leaveTypeService.getLeaveTypes(companyId).then((types) => {
+      if (isMounted && types && types.length > 0) {
+        setIzinTurleri(types);
       }
-    } catch (e) {}
-    setIzinTurleri(VARSAYILAN_IZIN_TURLERI);
+    });
+    return () => { isMounted = false; };
   }, [companyId]);
 
   const seciliTur = izinTurleri.find((t) => t.id === secili);
 
   function saveAndPersist(updated: IzinTuruKural[]) {
     setIzinTurleri(updated);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('humanius_izin_turleri_updated', { detail: { companyId } }));
-    } catch (e) {
-      console.error('Failed to save leave types to localStorage:', e);
-    }
+    leaveTypeService.saveLeaveTypes(companyId || 'default', updated);
   }
 
   function yeniFormuAc() {
