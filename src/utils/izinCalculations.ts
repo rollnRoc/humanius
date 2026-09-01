@@ -22,7 +22,47 @@ export const izinDurumLabels: Record<string, string> = {
   iptal: 'İptal',
 };
 
-// ─── Max süreler (iş kanunu) ─────────────────────────────────────────────────
+export interface DynamicIzinTuru {
+  id: string;
+  ad: string;
+  kod: string;
+  renk?: string;
+  ucretli?: boolean;
+  maksBekleme?: number;
+  kademe?: { yilAlt: number; yilUst: number | null; gunHak: number }[];
+  aciklama?: string;
+}
+
+export function getCompanyIzinTurleri(companyId?: string): DynamicIzinTuru[] {
+  try {
+    const saved = localStorage.getItem(`humanius_izin_turleri_${companyId || 'default'}`);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return [
+    { id: 'yillik', ad: 'Yıllık İzin', kod: 'YI', ucretli: true },
+    { id: 'mazeret', ad: 'Mazeret İzni', kod: 'MZ', ucretli: true },
+    { id: 'hastalik', ad: 'Hastalık İzni', kod: 'HA', ucretli: true },
+    { id: 'dogum', ad: 'Doğum İzni (Analık İzni)', kod: 'DO', ucretli: false },
+    { id: 'babalik', ad: 'Babalık İzni', kod: 'BA', ucretli: true },
+    { id: 'evlilik', ad: 'Evlilik İzni', kod: 'EV', ucretli: true },
+    { id: 'olum', ad: 'Ölüm İzni', kod: 'OL', ucretli: true },
+    { id: 'ucretsiz', ad: 'Ücretsiz İzin', kod: 'UC', ucretli: false },
+  ];
+}
+
+export function getCompanyIzinTuruLabels(companyId?: string): Record<string, string> {
+  const turler = getCompanyIzinTurleri(companyId);
+  const labels: Record<string, string> = { ...izinTuruLabels };
+  turler.forEach((t) => {
+    labels[t.id] = t.ad;
+  });
+  return labels;
+}
+
+// ─── Max süreler (iş kanunu & şirket tanımlı) ────────────────────────────────
 
 type MaxIzinInfo = {
   max: number;
@@ -31,8 +71,8 @@ type MaxIzinInfo = {
   aciklama: string;
 };
 
-export function getMaxIzinSureleri(tur: IzinTuru): MaxIzinInfo {
-  const sureleri: Record<IzinTuru, MaxIzinInfo> = {
+export function getMaxIzinSureleri(tur: string, companyId?: string): MaxIzinInfo {
+  const sureleri: Record<string, MaxIzinInfo> = {
     yillik: {
       max: 30,
       label: 'Yıllık hak kadar',
@@ -88,22 +128,47 @@ export function getMaxIzinSureleri(tur: IzinTuru): MaxIzinInfo {
       aciklama: 'Ücretsiz izin süreleri şirket politikası ve onaya bağlıdır.',
     },
   };
-  return sureleri[tur];
+
+  if (sureleri[tur]) {
+    return sureleri[tur];
+  }
+
+  // Custom company leave type
+  const customTurler = getCompanyIzinTurleri(companyId);
+  const found = customTurler.find((c) => c.id === tur || c.kod?.toLowerCase() === tur?.toLowerCase());
+  if (found) {
+    const gun = found.kademe?.[0]?.gunHak || found.maksBekleme || 30;
+    return {
+      max: gun || 30,
+      label: `${gun} gün`,
+      maxGun: gun || 30,
+      aciklama: found.aciklama || `${found.ad} şirket tanımlı izin kurallarına tabidir.`,
+    };
+  }
+
+  return {
+    max: 30,
+    label: 'Şirket kuralına göre',
+    maxGun: 30,
+    aciklama: 'Şirket izin politikasına göre değerlendirilir.',
+  };
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 export function validateIzinTuru(
-  tur: IzinTuru,
+  tur: string,
   gunSayisi: number,
-  employee?: Employee | null
+  employee?: Employee | null,
+  companyId?: string
 ): { valid: boolean; isValid: boolean; message?: string } {
-  const maxInfo = getMaxIzinSureleri(tur);
+  const maxInfo = getMaxIzinSureleri(tur, companyId);
   if (maxInfo && gunSayisi > maxInfo.max) {
+    const labels = getCompanyIzinTuruLabels(companyId);
     return {
       valid: false,
       isValid: false,
-      message: `${izinTuruLabels[tur]} için maksimum ${maxInfo.label} izin kullanılabilir.`,
+      message: `${labels[tur] || tur} için maksimum ${maxInfo.label} izin kullanılabilir.`,
     };
   }
   return { valid: true, isValid: true };

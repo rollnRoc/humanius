@@ -1708,7 +1708,7 @@ const AppInner: React.FC = () => {
         )}
 
         {/* İzin Türleri Tanımları */}
-        {currentView === 'izin-tanimlari' && <IzinTanimlari />}
+        {currentView === 'izin-tanimlari' && <IzinTanimlari companyId={profile?.company_id} />}
 
         {/* Organizasyon Şeması */}
         {currentView === 'org-sema' && <OrganizasyonSemasi employees={employees} companyName={selectedCompany !== 'all' ? selectedCompany : (typeof companies[0] === 'string' ? companies[0] : (companies[0] as any)?.name || 'Humanius Şirket Grubu')} />}

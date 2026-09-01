@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Save, X, CheckCircle, Info } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Save, X, CheckCircle, Info, RotateCcw } from 'lucide-react';
 
-interface IzinTuruKural {
+export interface IzinTuruKural {
   id: string;
   ad: string;
   kod: string;
@@ -18,7 +18,7 @@ interface IzinTuruKural {
   aciklama: string;
 }
 
-const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
+export const VARSAYILAN_IZIN_TURLERI: IzinTuruKural[] = [
   {
     id: 'yillik',
     ad: 'Yıllık İzin',
@@ -171,8 +171,26 @@ interface FormState {
   aciklama: string;
 }
 
-const IzinTanimlari: React.FC = () => {
-  const [izinTurleri, setIzinTurleri] = useState<IzinTuruKural[]>(VARSAYILAN_IZIN_TURLERI);
+interface IzinTanimlariProps {
+  companyId?: string;
+}
+
+const IzinTanimlari: React.FC<IzinTanimlariProps> = ({ companyId = 'default' }) => {
+  const storageKey = `humanius_izin_turleri_${companyId || 'default'}`;
+
+  const [izinTurleri, setIzinTurleri] = useState<IzinTuruKural[]>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Error reading saved leave types:', e);
+    }
+    return VARSAYILAN_IZIN_TURLERI;
+  });
+
   const [secili, setSecili] = useState<string | null>(null);
   const [duzenleme, setDuzenleme] = useState(false);
   const [yeniEkleme, setYeniEkleme] = useState(false);
@@ -184,7 +202,32 @@ const IzinTanimlari: React.FC = () => {
   const [silOnay, setSilOnay] = useState<string | null>(null);
   const [kaydedildi, setKaydedildi] = useState(false);
 
+  // Sync state if companyId changes
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`humanius_izin_turleri_${companyId || 'default'}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setIzinTurleri(parsed);
+          return;
+        }
+      }
+    } catch (e) {}
+    setIzinTurleri(VARSAYILAN_IZIN_TURLERI);
+  }, [companyId]);
+
   const seciliTur = izinTurleri.find((t) => t.id === secili);
+
+  function saveAndPersist(updated: IzinTuruKural[]) {
+    setIzinTurleri(updated);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('humanius_izin_turleri_updated', { detail: { companyId } }));
+    } catch (e) {
+      console.error('Failed to save leave types to localStorage:', e);
+    }
+  }
 
   function yeniFormuAc() {
     setSecili(null);
@@ -218,8 +261,12 @@ const IzinTanimlari: React.FC = () => {
   }
 
   function kaydet() {
+    const customId = yeniEkleme
+      ? (form.kod.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'izin-' + Date.now())
+      : secili!;
+
     const guncellenmis: IzinTuruKural = {
-      id: yeniEkleme ? form.kod.toLowerCase().replace(/\s/g, '-') : secili!,
+      id: customId,
       ad: form.ad,
       kod: form.kod.toUpperCase(),
       renk: form.renk,
@@ -241,22 +288,37 @@ const IzinTanimlari: React.FC = () => {
       aciklama: form.aciklama,
     };
 
+    let updatedList: IzinTuruKural[];
     if (yeniEkleme) {
-      setIzinTurleri((prev) => [...prev, guncellenmis]);
+      updatedList = [...izinTurleri, guncellenmis];
       setSecili(guncellenmis.id);
     } else {
-      setIzinTurleri((prev) => prev.map((t) => (t.id === secili ? guncellenmis : t)));
+      updatedList = izinTurleri.map((t) => (t.id === secili ? guncellenmis : t));
     }
+
+    saveAndPersist(updatedList);
     setDuzenleme(false);
     setYeniEkleme(false);
     setKaydedildi(true);
-    setTimeout(() => setKaydedildi(false), 2000);
+    setTimeout(() => setKaydedildi(false), 2500);
   }
 
   function sil(id: string) {
-    setIzinTurleri((prev) => prev.filter((t) => t.id !== id));
+    const updatedList = izinTurleri.filter((t) => t.id !== id);
+    saveAndPersist(updatedList);
     setSecili(null);
     setSilOnay(null);
+  }
+
+  function varsayilanlaraSifirla() {
+    if (window.confirm('Tüm izin türlerini yasal varsayılan ayarlara sıfırlamak istediğinize emin misiniz?')) {
+      saveAndPersist(VARSAYILAN_IZIN_TURLERI);
+      setSecili(null);
+      setDuzenleme(false);
+      setYeniEkleme(false);
+      setKaydedildi(true);
+      setTimeout(() => setKaydedildi(false), 2000);
+    }
   }
 
   return (
@@ -266,16 +328,26 @@ const IzinTanimlari: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-gray-800">İzin Türleri & Hakediş Kuralları</h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            İzin türlerini, hak günlerini ve devir kurallarını yapılandırın
+            Şirketinize özel izin türlerini, hak günlerini ve devir kurallarını yapılandırın
           </p>
         </div>
-        <button
-          onClick={yeniFormuAc}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Yeni İzin Türü Ekle
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={varsayilanlaraSifirla}
+            className="flex items-center gap-1.5 border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer"
+            title="Yasal varsayılan izin türlerine dön"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Varsayılanlara Sıfırla
+          </button>
+          <button
+            onClick={yeniFormuAc}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-sm cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Yeni İzin Türü Ekle
+          </button>
+        </div>
       </div>
 
       {/* Başarı bildirimi */}
@@ -338,10 +410,17 @@ const IzinTanimlari: React.FC = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => { formDoldur(seciliTur); setDuzenleme(true); setYeniEkleme(false); }}
-                    className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-1.5 rounded-xl text-xs hover:bg-gray-50"
+                    className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-1.5 rounded-xl text-xs hover:bg-gray-50 cursor-pointer"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     Düzenle
+                  </button>
+                  <button
+                    onClick={() => setSilOnay(seciliTur.id)}
+                    className="flex items-center gap-1.5 border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Sil
                   </button>
                 </div>
               </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, FileText, AlertCircle, MapPin, Upload, CheckCircle } from 'lucide-react';
 import { Employee } from '../types';
 import { IzinTalebi, IzinHakki, IzinTuru } from '../types/izin';
-import { calculateWorkingDays, izinTuruLabels, getMaxIzinSureleri, validateIzinTuru } from '../utils/izinCalculations';
+import { calculateWorkingDays, izinTuruLabels, getCompanyIzinTuruLabels, getMaxIzinSureleri, validateIzinTuru } from '../utils/izinCalculations';
 import { useScrollLock } from '../hooks/useScrollLock';
 
 interface IzinTalepFormProps {
@@ -388,7 +388,7 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
                 className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 required
               >
-                {Object.entries(izinTuruLabels).map(([key, label]) => (
+                {Object.entries(getCompanyIzinTuruLabels(employees[0]?.company_id)).map(([key, label]) => (
                   <option key={key} value={key}>{label}</option>
                 ))}
               </select>
