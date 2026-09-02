@@ -56,24 +56,59 @@ function formatCompanyAddressWithCoords(lat: number, lng: number, addressText: s
   return `[${lat},${lng}] ${addressText || ''}`.trim();
 }
 
-function checkIsShiftExpired(shiftStartIso: string | null): boolean {
-  if (!shiftStartIso) return true;
+function checkIsShiftExpired(
+  shiftStartIso: string | null,
+  cikisTimeStr: string = '18:00',
+  isOvertimeAuthorized: boolean = false,
+  gracePeriodMinutes: number = 30
+): { isExpired: boolean; autoCloseTime: string } {
+  if (!shiftStartIso) return { isExpired: true, autoCloseTime: cikisTimeStr };
   const startMs = new Date(shiftStartIso).getTime();
-  if (isNaN(startMs)) return true;
+  if (isNaN(startMs)) return { isExpired: true, autoCloseTime: cikisTimeStr };
   
   const now = new Date();
   const startDate = new Date(shiftStartIso);
   
-  // 1. If start date is a previous calendar day (e.g. yesterday or earlier)
+  // 1. If start date is a previous calendar day (e.g. yesterday or earlier) -> Expired
   const startYMD = startDate.getFullYear() * 10000 + (startDate.getMonth() + 1) * 100 + startDate.getDate();
   const nowYMD = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
-  if (nowYMD > startYMD) return true;
+  if (nowYMD > startYMD) {
+    return { isExpired: true, autoCloseTime: cikisTimeStr };
+  }
 
-  // 2. Failsafe: Only auto-expire if duration exceeds 18 hours (e.g. forgotten overnight shifts)
+  // 2. If overtime is authorized by manager, don't auto-expire at shift end + grace
+  if (isOvertimeAuthorized) {
+    const elapsedSecs = (now.getTime() - startMs) / 1000;
+    return { isExpired: elapsedSecs >= 18 * 3600, autoCloseTime: cikisTimeStr };
+  }
+
+  // 3. Grace Window Calculation: e.g. 18:00 + 30 mins = 18:30
+  const [cH, cM] = cikisTimeStr.split(':').map(Number);
+  if (!isNaN(cH) && !isNaN(cM)) {
+    const shiftEnd = new Date(startDate);
+    shiftEnd.setHours(cH, cM, 0, 0);
+    // Handle overnight shifts if end time is before start time
+    if (shiftEnd.getTime() <= startDate.getTime()) {
+      shiftEnd.setDate(shiftEnd.getDate() + 1);
+    }
+    
+    // Deadline: Shift End + 30 Minutes Grace Window
+    const graceDeadline = new Date(shiftEnd.getTime() + gracePeriodMinutes * 60 * 1000);
+    
+    if (now.getTime() >= graceDeadline.getTime()) {
+      // 30 minutes grace passed without overtime authorization:
+      // Auto-expire and register exit time as the scheduled shift end time (e.g. 18:00)
+      return { isExpired: true, autoCloseTime: cikisTimeStr };
+    }
+  }
+
+  // 4. Failsafe: Only auto-expire if duration exceeds 18 hours (e.g. forgotten overnight shifts)
   const elapsedSecs = (now.getTime() - startMs) / 1000;
-  if (elapsedSecs >= 18 * 3600) return true;
+  if (elapsedSecs >= 18 * 3600) {
+    return { isExpired: true, autoCloseTime: cikisTimeStr };
+  }
 
-  return false;
+  return { isExpired: false, autoCloseTime: cikisTimeStr };
 }
 
 const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) => {
@@ -202,12 +237,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     const savedActiveId = localStorage.getItem('pdks_active_shift_id');
     const savedStart = localStorage.getItem('pdks_active_shift_start');
     const targetCikisTime = activeUserShift.end_time || '18:00';
+    const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
     
     if (savedActiveId && savedStart) {
-      if (checkIsShiftExpired(savedStart)) {
+      const { isExpired, autoCloseTime } = checkIsShiftExpired(savedStart, targetCikisTime, isOvertimeAuthorized, 30);
+      if (isExpired) {
         pdksService.updateVardiya(savedActiveId, {
-          cikis_saati: targetCikisTime,
-          notlar: `Mesai çıkış saatinde (${targetCikisTime}) sistem tarafından otomatik tamamlandı`
+          cikis_saati: autoCloseTime,
+          notlar: `Vardiya çıkış saati +30 dk tolerans aşıldığı için mesai bitiş saati (${autoCloseTime}) olarak sistem tarafından otomatik tamamlandı`
         }).catch(err => console.warn("Auto-close expired shift DB warning:", err));
 
         localStorage.removeItem('pdks_active_shift_id');
@@ -222,7 +259,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         startWatchingLocation();
       }
     } else if (savedStart && !savedActiveId) {
-      if (checkIsShiftExpired(savedStart)) {
+      const { isExpired } = checkIsShiftExpired(savedStart, targetCikisTime, isOvertimeAuthorized, 30);
+      if (isExpired) {
         localStorage.removeItem('pdks_active_shift_start');
         setIsShiftActive(false);
         setShiftStartTime(null);
@@ -340,11 +378,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         const diffMs = now.getTime() - startMs;
         const totalSecs = Math.floor(diffMs / 1000);
 
-        if (checkIsShiftExpired(shiftStartTime)) {
+        const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
+        const { isExpired, autoCloseTime } = checkIsShiftExpired(shiftStartTime, targetCikisTime, isOvertimeAuthorized, 30);
+
+        if (isExpired) {
           if (activeShiftRecordId) {
             pdksService.updateVardiya(activeShiftRecordId, {
-              cikis_saati: targetCikisTime,
-              notlar: `Mesai günü tamamlandığı için sistem tarafından otomatik sonlandırıldı`
+              cikis_saati: autoCloseTime,
+              notlar: `Vardiya çıkış saati +30 dk tolerans aşıldığı için mesai bitiş saati (${autoCloseTime}) olarak sistem tarafından otomatik tamamlandı`
             }).catch(err => console.warn("Auto-end shift error:", err));
           }
           localStorage.removeItem('pdks_active_shift_id');
@@ -366,7 +407,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       setTimerText('00:00:00');
     }
     return () => clearInterval(intervalId);
-  }, [isShiftActive, shiftStartTime, activeUserShift?.end_time, activeShiftRecordId]);
+  }, [isShiftActive, shiftStartTime, activeUserShift?.end_time, activeShiftRecordId, currentEmployee?.id, overtimeAuthMap]);
 
   // Periodic Shift & Tolerance Push Notification Monitor
   useEffect(() => {
