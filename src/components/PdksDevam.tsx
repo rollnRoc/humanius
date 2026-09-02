@@ -56,7 +56,7 @@ function formatCompanyAddressWithCoords(lat: number, lng: number, addressText: s
   return `[${lat},${lng}] ${addressText || ''}`.trim();
 }
 
-function checkIsShiftExpired(shiftStartIso: string | null, cikisTimeStr: string = '18:00', isOvertimeAuthorized: boolean = false): boolean {
+function checkIsShiftExpired(shiftStartIso: string | null): boolean {
   if (!shiftStartIso) return true;
   const startMs = new Date(shiftStartIso).getTime();
   if (isNaN(startMs)) return true;
@@ -69,25 +69,9 @@ function checkIsShiftExpired(shiftStartIso: string | null, cikisTimeStr: string 
   const nowYMD = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
   if (nowYMD > startYMD) return true;
 
-  // 2. If overtime is authorized by manager, don't auto-expire at shift end time
-  if (isOvertimeAuthorized) return false;
-
-  // 3. Parse cikisTimeStr (e.g. "18:00")
-  const [cH, cM] = cikisTimeStr.split(':').map(Number);
-  if (!isNaN(cH) && !isNaN(cM)) {
-    const exitDate = new Date(startDate);
-    exitDate.setHours(cH, cM, 0, 0);
-    if (exitDate.getTime() <= startDate.getTime()) {
-      exitDate.setDate(exitDate.getDate() + 1);
-    }
-    if (now.getTime() >= exitDate.getTime()) {
-      return true;
-    }
-  }
-
-  // 4. Fallback: If duration exceeds 12 hours
+  // 2. Failsafe: Only auto-expire if duration exceeds 18 hours (e.g. forgotten overnight shifts)
   const elapsedSecs = (now.getTime() - startMs) / 1000;
-  if (elapsedSecs >= 12 * 3600) return true;
+  if (elapsedSecs >= 18 * 3600) return true;
 
   return false;
 }
@@ -220,7 +204,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     const targetCikisTime = activeUserShift.end_time || '18:00';
     
     if (savedActiveId && savedStart) {
-      if (checkIsShiftExpired(savedStart, targetCikisTime)) {
+      if (checkIsShiftExpired(savedStart)) {
         pdksService.updateVardiya(savedActiveId, {
           cikis_saati: targetCikisTime,
           notlar: `Mesai çıkış saatinde (${targetCikisTime}) sistem tarafından otomatik tamamlandı`
@@ -238,7 +222,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         startWatchingLocation();
       }
     } else if (savedStart && !savedActiveId) {
-      if (checkIsShiftExpired(savedStart, targetCikisTime)) {
+      if (checkIsShiftExpired(savedStart)) {
         localStorage.removeItem('pdks_active_shift_start');
         setIsShiftActive(false);
         setShiftStartTime(null);
@@ -356,12 +340,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         const diffMs = now.getTime() - startMs;
         const totalSecs = Math.floor(diffMs / 1000);
 
-        const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
-        if (checkIsShiftExpired(shiftStartTime, targetCikisTime, isOvertimeAuthorized)) {
+        if (checkIsShiftExpired(shiftStartTime)) {
           if (activeShiftRecordId) {
             pdksService.updateVardiya(activeShiftRecordId, {
               cikis_saati: targetCikisTime,
-              notlar: `Mesai çıkış saatinde (${targetCikisTime}) sistem tarafından otomatik tamamlandı`
+              notlar: `Mesai günü tamamlandığı için sistem tarafından otomatik sonlandırıldı`
             }).catch(err => console.warn("Auto-end shift error:", err));
           }
           localStorage.removeItem('pdks_active_shift_id');
@@ -914,12 +897,12 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       }
       
       // 2. Try to find if they are on approved leave today
-      const today = new Date();
+      const todayStr = new Date().toISOString().split('T')[0];
       const isOnLeave = (izinTalepleri || []).some(t => {
         if (t.employeeId !== emp.id || t.durum !== 'onaylandi') return false;
-        const start = new Date(t.baslangicTarihi);
-        const end = new Date(t.bitisTarihi);
-        return today >= start && today <= end;
+        const startStr = t.baslangicTarihi ? t.baslangicTarihi.split('T')[0] : '';
+        const endStr = t.bitisTarihi ? t.bitisTarihi.split('T')[0] : '';
+        return Boolean(startStr && endStr && todayStr >= startStr && todayStr <= endStr);
       });
       
       if (isOnLeave) {

@@ -38,28 +38,28 @@ const ALLOWED_VIEWS: Record<AppRole, View[]> = {
     'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
-    'sifre-degistir', 'tazminat-hesaplama',
+    'sifre-degistir', 'tazminat-hesaplama', 'form-builder',
   ],
   admin: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
     'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
-    'sifre-degistir', 'tazminat-hesaplama',
+    'sifre-degistir', 'tazminat-hesaplama', 'form-builder',
   ],
   hr: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
     'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
-    'sifre-degistir', 'tazminat-hesaplama',
+    'sifre-degistir', 'tazminat-hesaplama', 'form-builder',
   ],
   manager: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
     'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
-    'sifre-degistir', 'tazminat-hesaplama',
+    'sifre-degistir', 'tazminat-hesaplama', 'form-builder',
   ],
   // PERSONEL: Sadece tamamen kendisine ait kişisel bilgiler & kendi talepleri
   employee: [
