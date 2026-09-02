@@ -263,7 +263,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [profile?.company_id, shiftConfig?.cikis]);
+  }, [profile?.company_id, activeUserShift?.end_time]);
 
   // Load office locations for the company
   const loadOfficeLocations = React.useCallback(async () => {
@@ -347,7 +347,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
   useEffect(() => {
     let intervalId: any;
     if (isShiftActive && shiftStartTime) {
-      const targetCikisTime = shiftConfig?.cikis || '18:00';
+      const targetCikisTime = activeUserShift?.end_time || '18:00';
       const startMs = new Date(shiftStartTime).getTime();
       
       intervalId = setInterval(() => {
@@ -1628,13 +1628,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   // Calculate new status
                   const [gH, gM] = editGiris.split(':').map(Number);
                   const [cH, cM] = editCikis.split(':').map(Number);
-                  const [sGh, sGm] = shiftConfig.giris.split(':').map(Number);
+                  const empShift = editEmpModal.shift || activeUserShift;
+                  const [sGh, sGm] = (empShift.start_time || '08:30').split(':').map(Number);
                   
                   const actualMin = gH * 60 + gM;
                   const shiftMin = sGh * 60 + sGm;
                   const lateDiff = actualMin - shiftMin;
+                  const tolerance = empShift.tolerance_minutes ?? 15;
                   
-                  const newDurum = lateDiff > shiftConfig.tolerans ? 'Geç Kaldı' : 'Zamanında';
+                  const newDurum = lateDiff > tolerance ? 'Geç Kaldı' : 'Zamanında';
                   const diffHours = parseFloat((((cH * 60 + cM) - actualMin) / 60).toFixed(1));
 
                   const overrideObj = {
