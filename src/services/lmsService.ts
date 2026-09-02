@@ -80,9 +80,11 @@ class LMSService {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_egitimler_${effectiveCompanyId}`;
 
-    // Update local storage immediately
+    // 1. Immediately update localStorage
     try {
-      const local = await this.getCourses(companyId);
+      let local: Egitim[] = [];
+      const saved = localStorage.getItem(storageKey);
+      if (saved) local = JSON.parse(saved);
       const existsIndex = local.findIndex((c) => c.id === course.id);
       let updated: Egitim[];
       if (existsIndex >= 0) {
@@ -92,14 +94,15 @@ class LMSService {
         updated = [course, ...local];
       }
       localStorage.setItem(storageKey, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('humanius_courses_updated', { detail: { companyId: effectiveCompanyId } }));
     } catch {}
 
     if (!companyId || companyId === 'default' || companyId.includes('demo')) {
+      window.dispatchEvent(new CustomEvent('humanius_courses_updated', { detail: { companyId: effectiveCompanyId } }));
       return true;
     }
 
-    // Persist to Supabase
+    // 2. Persist to Supabase and wait for completion
+    let success = false;
     try {
       const { error } = await supabase.from('company_courses').upsert({
         id: course.id,
@@ -113,22 +116,27 @@ class LMSService {
         zorunlu: Boolean(course.zorunlu),
         updated_at: new Date().toISOString(),
       });
-      if (!error) return true;
+      if (!error) success = true;
     } catch {}
 
-    try {
-      const { data: res } = await supabase.functions.invoke('user-management', {
-        body: {
-          operation: 'save_company_course',
-          companyId,
-          ...course,
-        },
-      });
-      return !!res?.success;
-    } catch (e) {
-      console.error('LMS course save error:', e);
-      return false;
+    if (!success) {
+      try {
+        const { data: res } = await supabase.functions.invoke('user-management', {
+          body: {
+            operation: 'save_company_course',
+            companyId,
+            ...course,
+          },
+        });
+        success = !!res?.success;
+      } catch (e) {
+        console.error('LMS course save error:', e);
+      }
     }
+
+    // 3. Dispatch update event after DB write
+    window.dispatchEvent(new CustomEvent('humanius_courses_updated', { detail: { companyId: effectiveCompanyId } }));
+    return success;
   }
 
   /**
@@ -139,30 +147,37 @@ class LMSService {
     const storageKey = `humanius_egitimler_${effectiveCompanyId}`;
 
     try {
-      const local = await this.getCourses(companyId);
+      let local: Egitim[] = [];
+      const saved = localStorage.getItem(storageKey);
+      if (saved) local = JSON.parse(saved);
       const updated = local.filter((c) => c.id !== courseId);
       localStorage.setItem(storageKey, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('humanius_courses_updated', { detail: { companyId: effectiveCompanyId } }));
     } catch {}
 
     if (!companyId || companyId === 'default' || companyId.includes('demo')) {
+      window.dispatchEvent(new CustomEvent('humanius_courses_updated', { detail: { companyId: effectiveCompanyId } }));
       return true;
     }
 
+    let success = false;
     try {
-      await supabase.from('company_courses').delete().eq('id', courseId);
-      return true;
-    } catch {
+      const { error } = await supabase.from('company_courses').delete().eq('id', courseId);
+      if (!error) success = true;
+    } catch {}
+
+    if (!success) {
       try {
         const { data: res } = await supabase.functions.invoke('user-management', {
           body: { operation: 'delete_company_course', id: courseId },
         });
-        return !!res?.success;
+        success = !!res?.success;
       } catch (e) {
         console.error('LMS delete course error:', e);
-        return false;
       }
     }
+
+    window.dispatchEvent(new CustomEvent('humanius_courses_updated', { detail: { companyId: effectiveCompanyId } }));
+    return success;
   }
 
   /**
@@ -252,8 +267,11 @@ class LMSService {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_sertifikalar_${effectiveCompanyId}`;
 
+    // 1. Immediately update localStorage
     try {
-      const local = await this.getAssignments(companyId);
+      let local: SertifikaKaydi[] = [];
+      const saved = localStorage.getItem(storageKey);
+      if (saved) local = JSON.parse(saved);
       const existsIndex = local.findIndex((s) => s.id === item.id);
       let updated: SertifikaKaydi[];
       if (existsIndex >= 0) {
@@ -263,13 +281,15 @@ class LMSService {
         updated = [item, ...local];
       }
       localStorage.setItem(storageKey, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('humanius_assignments_updated', { detail: { companyId: effectiveCompanyId } }));
     } catch {}
 
     if (!companyId || companyId === 'default' || companyId.includes('demo')) {
+      window.dispatchEvent(new CustomEvent('humanius_assignments_updated', { detail: { companyId: effectiveCompanyId } }));
       return true;
     }
 
+    // 2. Persist to Supabase and wait for completion
+    let success = false;
     try {
       const { error } = await supabase.from('company_course_assignments').upsert({
         id: item.id,
@@ -285,29 +305,34 @@ class LMSService {
         gecerlilik_suresi: item.gecerlilikSuresi || null,
         updated_at: new Date().toISOString(),
       });
-      if (!error) return true;
+      if (!error) success = true;
     } catch {}
 
-    try {
-      const { data: res } = await supabase.functions.invoke('user-management', {
-        body: {
-          operation: 'save_company_course_assignment',
-          companyId,
-          ...item,
-          employee_id: item.employeeId,
-          employee_name: item.employeeName,
-          egitim_id: item.egitimId,
-          egitim_adi: item.egitimAdi,
-          tamamlanma_tarihi: item.tamamlanmaTarihi,
-          hedef_tarih: item.hedefTarih,
-          gecerlilik_suresi: item.gecerlilikSuresi,
-        },
-      });
-      return !!res?.success;
-    } catch (e) {
-      console.error('LMS save assignment error:', e);
-      return false;
+    if (!success) {
+      try {
+        const { data: res } = await supabase.functions.invoke('user-management', {
+          body: {
+            operation: 'save_company_course_assignment',
+            companyId,
+            ...item,
+            employee_id: item.employeeId,
+            employee_name: item.employeeName,
+            egitim_id: item.egitimId,
+            egitim_adi: item.egitimAdi,
+            tamamlanma_tarihi: item.tamamlanmaTarihi,
+            hedef_tarih: item.hedefTarih,
+            gecerlilik_suresi: item.gecerlilikSuresi,
+          },
+        });
+        success = !!res?.success;
+      } catch (e) {
+        console.error('LMS save assignment error:', e);
+      }
     }
+
+    // 3. Dispatch update event after DB write
+    window.dispatchEvent(new CustomEvent('humanius_assignments_updated', { detail: { companyId: effectiveCompanyId } }));
+    return success;
   }
 
   /**
@@ -317,17 +342,22 @@ class LMSService {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_sertifikalar_${effectiveCompanyId}`;
 
+    // 1. Immediately update localStorage
     try {
-      const local = await this.getAssignments(companyId);
+      let local: SertifikaKaydi[] = [];
+      const saved = localStorage.getItem(storageKey);
+      if (saved) local = JSON.parse(saved);
       const updated = [...items, ...local.filter((l) => !items.some((i) => i.id === l.id))];
       localStorage.setItem(storageKey, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('humanius_assignments_updated', { detail: { companyId: effectiveCompanyId } }));
     } catch {}
 
     if (!companyId || companyId === 'default' || companyId.includes('demo')) {
+      window.dispatchEvent(new CustomEvent('humanius_assignments_updated', { detail: { companyId: effectiveCompanyId } }));
       return true;
     }
 
+    // 2. Persist to Supabase and wait for completion
+    let success = false;
     try {
       const rows = items.map((item) => ({
         id: item.id,
@@ -344,22 +374,27 @@ class LMSService {
         updated_at: new Date().toISOString(),
       }));
       const { error } = await supabase.from('company_course_assignments').upsert(rows);
-      if (!error) return true;
+      if (!error) success = true;
     } catch {}
 
-    try {
-      const { data: res } = await supabase.functions.invoke('user-management', {
-        body: {
-          operation: 'bulk_save_company_course_assignments',
-          companyId,
-          assignments: items,
-        },
-      });
-      return !!res?.success;
-    } catch (e) {
-      console.error('LMS bulk save error:', e);
-      return false;
+    if (!success) {
+      try {
+        const { data: res } = await supabase.functions.invoke('user-management', {
+          body: {
+            operation: 'bulk_save_company_course_assignments',
+            companyId,
+            assignments: items,
+          },
+        });
+        success = !!res?.success;
+      } catch (e) {
+        console.error('LMS bulk save error:', e);
+      }
     }
+
+    // 3. Dispatch update event after DB write
+    window.dispatchEvent(new CustomEvent('humanius_assignments_updated', { detail: { companyId: effectiveCompanyId } }));
+    return success;
   }
 
   /**
@@ -370,30 +405,37 @@ class LMSService {
     const storageKey = `humanius_sertifikalar_${effectiveCompanyId}`;
 
     try {
-      const local = await this.getAssignments(companyId);
+      let local: SertifikaKaydi[] = [];
+      const saved = localStorage.getItem(storageKey);
+      if (saved) local = JSON.parse(saved);
       const updated = local.filter((s) => s.id !== id);
       localStorage.setItem(storageKey, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('humanius_assignments_updated', { detail: { companyId: effectiveCompanyId } }));
     } catch {}
 
     if (!companyId || companyId === 'default' || companyId.includes('demo')) {
+      window.dispatchEvent(new CustomEvent('humanius_assignments_updated', { detail: { companyId: effectiveCompanyId } }));
       return true;
     }
 
+    let success = false;
     try {
-      await supabase.from('company_course_assignments').delete().eq('id', id);
-      return true;
-    } catch {
+      const { error } = await supabase.from('company_course_assignments').delete().eq('id', id);
+      if (!error) success = true;
+    } catch {}
+
+    if (!success) {
       try {
         const { data: res } = await supabase.functions.invoke('user-management', {
           body: { operation: 'delete_company_course_assignment', id },
         });
-        return !!res?.success;
+        success = !!res?.success;
       } catch (e) {
         console.error('LMS delete assignment error:', e);
-        return false;
       }
     }
+
+    window.dispatchEvent(new CustomEvent('humanius_assignments_updated', { detail: { companyId: effectiveCompanyId } }));
+    return success;
   }
 }
 

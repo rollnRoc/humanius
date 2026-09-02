@@ -413,26 +413,30 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
   // Personel eğitim durumları özeti
   const personelDurumlari: PersonelEgitimDurumu[] = useMemo(() => {
     return employees.map((emp) => {
-      const empSertifikalar = sertifikalar.filter((s) => s.employeeId === emp.id);
+      const empSertifikalar = sertifikalar.filter(
+        (s) => s.employeeId === emp.id || s.employeeName?.toLowerCase() === emp.name?.toLowerCase()
+      );
       const tamamlanan = empSertifikalar.filter((s) => s.durum === 'tamamlandi' || !s.durum).length;
+      const toplam = empSertifikalar.length;
       
-      const zorunluEgitimler = egitimler.filter((e) => e.zorunlu);
+      const empEgitimIds = new Set(empSertifikalar.map((s) => s.egitimId));
+      const zorunluEgitimler = egitimler.filter((e) => e.zorunlu && empEgitimIds.has(e.id));
       const zorunluTamamlanan = zorunluEgitimler.filter((e) =>
         empSertifikalar.some((s) => s.egitimId === e.id && (s.durum === 'tamamlandi' || !s.durum))
       ).length;
 
-      const sonSertifika = empSertifikalar.sort((a, b) => b.tamamlanmaTarihi.localeCompare(a.tamamlanmaTarihi))[0];
+      const sonSertifika = [...empSertifikalar].sort((a, b) => (b.tamamlanmaTarihi || '').localeCompare(a.tamamlanmaTarihi || ''))[0];
 
       return {
         employeeId: emp.id,
         employeeName: emp.name,
-        department: emp.department,
+        department: emp.department || 'Genel',
         tamamlanan,
-        toplam: egitimler.length,
+        toplam,
         zorunluTamamlanan,
         zorunluToplam: zorunluEgitimler.length,
-        sertifikaAdedi: empSertifikalar.length,
-        sonAktivite: sonSertifika ? sonSertifika.tamamlanmaTarihi : 'Henüz Yok',
+        sertifikaAdedi: tamamlanan,
+        sonAktivite: sonSertifika?.tamamlanmaTarihi || 'Henüz Yok',
       };
     });
   }, [employees, egitimler, sertifikalar]);
@@ -665,7 +669,7 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
   }, [seciliEmp]);
 
   // Önerilen Eğitimi Personele Atama İşlemi
-  const handleAssignRecommendation = (oneri: EgitimOnerisi) => {
+  const handleAssignRecommendation = async (oneri: EgitimOnerisi) => {
     if (!seciliEmp) return;
 
     // 1. Eğitimi katalogda yoksa kataloğa da ekleyelim
@@ -683,7 +687,8 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
         tamamlayanSayisi: 0,
         toplam: employees.length
       };
-      saveEgitimler([...egitimler, targetEgitim]);
+      setEgitimler((prev) => [targetEgitim, ...prev]);
+      await lmsService.saveCourse(companyId, targetEgitim);
     }
 
     // 2. Personel için atama sertifika kaydı oluşturalım
@@ -694,7 +699,7 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
     }
 
     const newCert: SertifikaKaydi = {
-      id: `sc-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: `sc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       egitimId: targetEgitim.id,
       egitimAdi: targetEgitim.baslik,
       employeeId: seciliEmp.id,
@@ -706,7 +711,8 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
       puan: null
     };
 
-    saveSertifikalar([...sertifikalar, newCert]);
+    setSertifikalar((prev) => [newCert, ...prev]);
+    await lmsService.saveAssignment(companyId, newCert);
     setAssignedMessage(`"${oneri.baslik}" eğitimi ${seciliEmp.name} personeline başarıyla atandı!`);
     setTimeout(() => setAssignedMessage(null), 4000);
   };
@@ -761,8 +767,10 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
               <BookOpen className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 font-medium">{isManagement ? 'Toplam Eğitim' : 'Erişilebilir Eğitimler'}</p>
-              <p className="text-xl font-bold text-gray-800">{goruntulenenEgitimler.length}</p>
+              <p className="text-xs text-gray-500 font-medium">{isManagement ? 'Toplam Tanımlı Eğitim' : 'Atanan Toplam Eğitim'}</p>
+              <p className="text-xl font-bold text-gray-800">
+                {isManagement ? egitimler.length : goruntulenenSertifikalar.length}
+              </p>
             </div>
           </div>
         </div>
@@ -772,9 +780,11 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 font-medium">{isManagement ? 'Toplam Tamamlama' : 'Tamamlananlarım'}</p>
+              <p className="text-xs text-gray-500 font-medium">{isManagement ? 'Toplam Tamamlanan' : 'Tamamlanan Eğitimlerim'}</p>
               <p className="text-xl font-bold text-gray-800">
-                {isManagement ? toplamTamamlama : goruntulenenSertifikalar.filter(s => s.durum === 'tamamlandi' || !s.durum).length}
+                {isManagement
+                  ? sertifikalar.filter((s) => s.durum === 'tamamlandi' || !s.durum).length
+                  : goruntulenenSertifikalar.filter((s) => s.durum === 'tamamlandi' || !s.durum).length}
               </p>
             </div>
           </div>
@@ -785,8 +795,12 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
               <Award className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 font-medium">{isManagement ? 'Sertifikalar / Atamalar' : 'Sertifikalarım'}</p>
-              <p className="text-xl font-bold text-gray-800">{goruntulenenSertifikalar.length}</p>
+              <p className="text-xs text-gray-500 font-medium">{isManagement ? 'Kayıtlı Atamalar' : 'Devam Eden Eğitimlerim'}</p>
+              <p className="text-xl font-bold text-gray-800">
+                {isManagement
+                  ? sertifikalar.length
+                  : goruntulenenSertifikalar.filter((s) => s.durum === 'devam_ediyor').length}
+              </p>
             </div>
           </div>
         </div>
@@ -812,22 +826,10 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
         </div>
       ) : (
         <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
-          <button
-            onClick={() => setAktifSekme('sertifikalar')}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
-              aktifSekme === 'sertifikalar' ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            🎓 Bana Atanan Eğitimler & Sertifikalarım
-          </button>
-          <button
-            onClick={() => setAktifSekme('katalog')}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
-              aktifSekme === 'katalog' ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            📚 Şirket Eğitim Kataloğu
-          </button>
+          <div className="px-4 py-2.5 text-sm font-bold border-b-2 border-blue-600 text-blue-600 flex items-center gap-2">
+            <Award className="w-4 h-4" />
+            Bana Atanan Eğitimler & Sertifikalarım ({goruntulenenSertifikalar.length})
+          </div>
         </div>
       )}
 
