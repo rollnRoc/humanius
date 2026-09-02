@@ -425,6 +425,211 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    if (operation === 'list_company_courses') {
+      const companyId = payload.companyId || payload.company_id;
+      if (!companyId || companyId === 'default' || companyId === 'demo-company-id-9999') {
+        return jsonResponse({ courses: [] });
+      }
+      try {
+        const { data, error } = await adminClient
+          .from('company_courses')
+          .select('*')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          return jsonResponse({ courses: [], error: error.message }, 200);
+        }
+        return jsonResponse({ courses: data || [] });
+      } catch (err: any) {
+        return jsonResponse({ courses: [], error: err?.message }, 200);
+      }
+    }
+
+    if (operation === 'save_company_course') {
+      const companyId = payload.companyId || payload.company_id;
+      const { id, baslik, kategori, tur, seviye, egitmen, aciklama, zorunlu } = payload;
+      if (!companyId || !baslik) {
+        return jsonResponse({ error: 'company_id ve baslik alanları zorunludur' }, 400);
+      }
+      const courseId = id || ('egitim-' + Date.now());
+      const courseData = {
+        id: courseId,
+        company_id: companyId,
+        baslik: String(baslik).trim(),
+        kategori: String(kategori || 'Genel').trim(),
+        tur: tur || 'video',
+        seviye: seviye || 'baslangic',
+        egitmen: String(egitmen || '').trim(),
+        aciklama: String(aciklama || '').trim(),
+        zorunlu: Boolean(zorunlu),
+        updated_at: new Date().toISOString(),
+      };
+
+      try {
+        const { data: existing } = await adminClient
+          .from('company_courses')
+          .select('id')
+          .eq('id', courseId)
+          .maybeSingle();
+
+        if (existing) {
+          const { data, error } = await adminClient
+            .from('company_courses')
+            .update(courseData)
+            .eq('id', courseId)
+            .select()
+            .single();
+
+          if (error) return jsonResponse({ error: error.message }, 400);
+          return jsonResponse({ success: true, course: data });
+        } else {
+          const { data, error } = await adminClient
+            .from('company_courses')
+            .insert({ ...courseData, created_at: new Date().toISOString() })
+            .select()
+            .single();
+
+          if (error) return jsonResponse({ error: error.message }, 400);
+          return jsonResponse({ success: true, course: data });
+        }
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message }, 500);
+      }
+    }
+
+    if (operation === 'delete_company_course') {
+      const { id } = payload;
+      if (!id) return jsonResponse({ error: 'id zorunludur' }, 400);
+      const { error } = await adminClient.from('company_courses').delete().eq('id', id);
+      if (error) return jsonResponse({ error: error.message }, 400);
+      return jsonResponse({ success: true });
+    }
+
+    if (operation === 'list_company_course_assignments') {
+      const companyId = payload.companyId || payload.company_id;
+      const employeeId = payload.employeeId || payload.employee_id;
+      if (!companyId || companyId === 'default' || companyId === 'demo-company-id-9999') {
+        return jsonResponse({ assignments: [] });
+      }
+      try {
+        let query = adminClient
+          .from('company_course_assignments')
+          .select('*')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: false });
+
+        if (employeeId) {
+          query = query.eq('employee_id', employeeId);
+        }
+
+        const { data, error } = await query;
+        if (error) {
+          return jsonResponse({ assignments: [], error: error.message }, 200);
+        }
+        return jsonResponse({ assignments: data || [] });
+      } catch (err: any) {
+        return jsonResponse({ assignments: [], error: err?.message }, 200);
+      }
+    }
+
+    if (operation === 'save_company_course_assignment') {
+      const companyId = payload.companyId || payload.company_id;
+      const { id, employee_id, employee_name, egitim_id, egitim_adi, durum, tamamlanma_tarihi, hedef_tarih, puan, gecerlilik_suresi } = payload;
+      if (!companyId || !employee_id || !egitim_id) {
+        return jsonResponse({ error: 'company_id, employee_id ve egitim_id zorunludur' }, 400);
+      }
+      const assignId = id || ('sertifika-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4));
+      const assignData = {
+        id: assignId,
+        company_id: companyId,
+        employee_id: String(employee_id),
+        employee_name: String(employee_name || ''),
+        egitim_id: String(egitim_id),
+        egitim_adi: String(egitim_adi || ''),
+        durum: durum || 'devam_ediyor',
+        tamamlanma_tarihi: tamamlanma_tarihi || null,
+        hedef_tarih: hedef_tarih || null,
+        puan: puan != null ? Number(puan) : null,
+        gecerlilik_suresi: gecerlilik_suresi ? String(gecerlilik_suresi) : null,
+        updated_at: new Date().toISOString(),
+      };
+
+      try {
+        const { data: existing } = await adminClient
+          .from('company_course_assignments')
+          .select('id')
+          .eq('id', assignId)
+          .maybeSingle();
+
+        if (existing) {
+          const { data, error } = await adminClient
+            .from('company_course_assignments')
+            .update(assignData)
+            .eq('id', assignId)
+            .select()
+            .single();
+
+          if (error) return jsonResponse({ error: error.message }, 400);
+          return jsonResponse({ success: true, assignment: data });
+        } else {
+          const { data, error } = await adminClient
+            .from('company_course_assignments')
+            .insert({ ...assignData, created_at: new Date().toISOString() })
+            .select()
+            .single();
+
+          if (error) return jsonResponse({ error: error.message }, 400);
+          return jsonResponse({ success: true, assignment: data });
+        }
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message }, 500);
+      }
+    }
+
+    if (operation === 'bulk_save_company_course_assignments') {
+      const companyId = payload.companyId || payload.company_id;
+      const assignments = payload.assignments || [];
+      if (!companyId || !Array.isArray(assignments) || assignments.length === 0) {
+        return jsonResponse({ error: 'company_id ve assignments listesi zorunludur' }, 400);
+      }
+      try {
+        const rowsToInsert = assignments.map((a: any) => ({
+          id: a.id || ('sertifika-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5)),
+          company_id: companyId,
+          employee_id: String(a.employeeId || a.employee_id),
+          employee_name: String(a.employeeName || a.employee_name || ''),
+          egitim_id: String(a.egitimId || a.egitim_id),
+          egitim_adi: String(a.egitimAdi || a.egitim_adi || ''),
+          durum: a.durum || 'devam_ediyor',
+          tamamlanma_tarihi: a.tamamlanmaTarihi || a.tamamlanma_tarihi || null,
+          hedef_tarih: a.hedefTarih || a.hedef_tarih || null,
+          puan: a.puan != null ? Number(a.puan) : null,
+          gecerlilik_suresi: a.gecerlilikSuresi ? String(a.gecerlilikSuresi) : null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }));
+
+        const { data, error } = await adminClient
+          .from('company_course_assignments')
+          .insert(rowsToInsert)
+          .select();
+
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ success: true, insertedCount: data?.length || rowsToInsert.length });
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message }, 500);
+      }
+    }
+
+    if (operation === 'delete_company_course_assignment') {
+      const { id } = payload;
+      if (!id) return jsonResponse({ error: 'id zorunludur' }, 400);
+      const { error } = await adminClient.from('company_course_assignments').delete().eq('id', id);
+      if (error) return jsonResponse({ error: error.message }, 400);
+      return jsonResponse({ success: true });
+    }
+
     if (operation === 'check_email_availability') {
       const email = String(payload.email || '').trim().toLowerCase();
       const excludeId = String(payload.excludeId || '').trim();
@@ -861,6 +1066,44 @@ Deno.serve(async (req: Request) => {
           DROP POLICY IF EXISTS "Public full access to company_leave_types" ON public.company_leave_types;
           CREATE POLICY "Public full access to company_leave_types" ON public.company_leave_types FOR ALL TO public USING (true) WITH CHECK (true);
           ALTER TABLE public.izin_talepleri DROP CONSTRAINT IF EXISTS izin_talepleri_izin_turu_check;
+
+          CREATE TABLE IF NOT EXISTS public.company_courses (
+            id TEXT PRIMARY KEY,
+            company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+            baslik TEXT NOT NULL,
+            kategori TEXT DEFAULT '',
+            tur TEXT NOT NULL DEFAULT 'video',
+            seviye TEXT NOT NULL DEFAULT 'baslangic',
+            egitmen TEXT NOT NULL,
+            aciklama TEXT DEFAULT '',
+            zorunlu BOOLEAN DEFAULT false,
+            created_at TIMESTAMPTZ DEFAULT now(),
+            updated_at TIMESTAMPTZ DEFAULT now()
+          );
+          GRANT ALL ON TABLE public.company_courses TO anon, authenticated, service_role;
+          ALTER TABLE public.company_courses ENABLE ROW LEVEL SECURITY;
+          DROP POLICY IF EXISTS "Public full access to company_courses" ON public.company_courses;
+          CREATE POLICY "Public full access to company_courses" ON public.company_courses FOR ALL TO public USING (true) WITH CHECK (true);
+
+          CREATE TABLE IF NOT EXISTS public.company_course_assignments (
+            id TEXT PRIMARY KEY,
+            company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+            employee_id TEXT NOT NULL,
+            employee_name TEXT NOT NULL,
+            egitim_id TEXT NOT NULL,
+            egitim_adi TEXT NOT NULL,
+            durum TEXT NOT NULL DEFAULT 'devam_ediyor',
+            tamamlanma_tarihi TEXT,
+            hedef_tarih TEXT,
+            puan NUMERIC,
+            gecerlilik_suresi TEXT,
+            created_at TIMESTAMPTZ DEFAULT now(),
+            updated_at TIMESTAMPTZ DEFAULT now()
+          );
+          GRANT ALL ON TABLE public.company_course_assignments TO anon, authenticated, service_role;
+          ALTER TABLE public.company_course_assignments ENABLE ROW LEVEL SECURITY;
+          DROP POLICY IF EXISTS "Public full access to company_course_assignments" ON public.company_course_assignments;
+          CREATE POLICY "Public full access to company_course_assignments" ON public.company_course_assignments FOR ALL TO public USING (true) WITH CHECK (true);
         `);
         await client.queryArray(`
           DO $$
@@ -875,7 +1118,7 @@ Deno.serve(async (req: Request) => {
           END $$;
         `);
         await client.end();
-        return jsonResponse({ success: true, message: 'company_locations and company_leave_types tables ensured successfully.' });
+        return jsonResponse({ success: true, message: 'company tables ensured successfully.' });
       }
       return jsonResponse({ error: 'DB URL not found' }, 500);
     }

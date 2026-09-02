@@ -1678,7 +1678,7 @@ const AppInner: React.FC = () => {
         {currentView === 'performans' && <PerformansYonetimi employees={employees} userRole={effectiveAppRole} />}
 
         {/* Eğitim LMS */}
-        {currentView === 'egitim' && <EgitimLMS employees={employees} companyId={profile?.company_id} />}
+        {currentView === 'egitim' && <EgitimLMS employees={employees} companyId={profile?.company_id || user?.user_metadata?.company_id || employees[0]?.company_id} />}
 
         {/* Analitik Dashboard */}
         {currentView === 'analitik' && (

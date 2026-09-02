@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BookOpen, Award, CheckCircle, Users, Plus, Search, ChevronRight, X, Trash2, Edit2, Sparkles, UserCheck, Check, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import type { Employee } from '../types';
+import { lmsService } from '../services/lmsService';
 
-interface Egitim {
+export interface Egitim {
   id: string;
   baslik: string;
   kategori: string;
@@ -13,19 +14,19 @@ interface Egitim {
   tur: 'video' | 'sunum' | 'canli' | 'sinav';
   zorunlu: boolean;
   tamamlayanSayisi: number;
-  toplam: number;
+  toplam?: number;
 }
 
-interface SertifikaKaydi {
+export interface SertifikaKaydi {
   id: string;
   egitimId: string;
   egitimAdi: string;
   employeeId: string;
   employeeName: string;
   durum?: 'tamamlandi' | 'devam_ediyor';
-  tamamlanmaTarihi: string;
+  tamamlanmaTarihi?: string;
   hedefTarih?: string;
-  gecerlilikSuresi: number | null; // ay
+  gecerlilikSuresi?: number | null; // ay
   puan?: number | null;
 }
 
@@ -73,7 +74,6 @@ interface EgitimLMSProps {
 
 export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLMSProps) {
   const { profile, appRole } = useAuth();
-  const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
 
   const currentEmployee = useMemo(() => {
     return employees.find(
@@ -82,6 +82,13 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
         emp.name?.toLowerCase() === profile?.full_name?.toLowerCase()
     ) || employees[0];
   }, [employees, profile]);
+
+  const isManagement = useMemo(() => {
+    if (['superadmin', 'admin', 'hr', 'manager'].includes(appRole)) return true;
+    if (profile?.role && ['superadmin', 'admin', 'hr', 'manager'].includes(profile.role)) return true;
+    if (currentEmployee?.position && /müdür|yönetici|amir|lider|lead|head|director|supervisor|koordinatör/i.test(currentEmployee.position)) return true;
+    return false;
+  }, [appRole, profile, currentEmployee]);
 
   const [aktifSekme, setAktifSekme] = useState<'katalog' | 'durumlar' | 'sertifikalar' | 'oneriler'>(() => {
     return isManagement ? 'katalog' : 'sertifikalar';
@@ -97,7 +104,7 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
   const [showNewEgitim, setShowNewEgitim] = useState(false);
   const [showNewSertifika, setShowNewSertifika] = useState(false);
 
-  // States loaded dynamically from localStorage scoped to companyId
+  // States loaded dynamically from lmsService and cached
   const [egitimler, setEgitimler] = useState<Egitim[]>(() => {
     const saved = localStorage.getItem(`humanius_egitimler_${companyId}`);
     return saved ? JSON.parse(saved) : [];
@@ -107,6 +114,44 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
     const saved = localStorage.getItem(`humanius_sertifikalar_${companyId}`);
     return saved ? JSON.parse(saved) : [];
   });
+
+  // Fetch egitimler from database
+  useEffect(() => {
+    let isMounted = true;
+    lmsService.getCourses(companyId).then((data) => {
+      if (isMounted) setEgitimler(data);
+    });
+
+    const handleCoursesUpdated = () => {
+      lmsService.getCourses(companyId).then((data) => {
+        if (isMounted) setEgitimler(data);
+      });
+    };
+    window.addEventListener('humanius_courses_updated', handleCoursesUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('humanius_courses_updated', handleCoursesUpdated);
+    };
+  }, [companyId]);
+
+  // Fetch sertifikalar from database
+  useEffect(() => {
+    let isMounted = true;
+    lmsService.getAssignments(companyId).then((data) => {
+      if (isMounted) setSertifikalar(data);
+    });
+
+    const handleAssignmentsUpdated = () => {
+      lmsService.getAssignments(companyId).then((data) => {
+        if (isMounted) setSertifikalar(data);
+      });
+    };
+    window.addEventListener('humanius_assignments_updated', handleAssignmentsUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('humanius_assignments_updated', handleAssignmentsUpdated);
+    };
+  }, [companyId]);
 
   const [editingEgitim, setEditingEgitim] = useState<Egitim | null>(null);
   const [editEgitimForm, setEditEgitimForm] = useState({
@@ -176,16 +221,6 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
     puan: 85
   });
 
-  const saveEgitimler = (updated: Egitim[]) => {
-    setEgitimler(updated);
-    localStorage.setItem(`humanius_egitimler_${companyId}`, JSON.stringify(updated));
-  };
-
-  const saveSertifikalar = (updated: SertifikaKaydi[]) => {
-    setSertifikalar(updated);
-    localStorage.setItem(`humanius_sertifikalar_${companyId}`, JSON.stringify(updated));
-  };
-
   // Open Edit Egitim Modal
   const openEditEgitim = (eg: Egitim) => {
     setEditingEgitim(eg);
@@ -201,35 +236,24 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
   };
 
   // Save Edited Egitim
-  const handleSaveEditedEgitim = (e: React.FormEvent) => {
+  const handleSaveEditedEgitim = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingEgitim || !editEgitimForm.baslik.trim()) return;
 
-    const updatedEgitimler = egitimler.map((eg) => {
-      if (eg.id === editingEgitim.id) {
-        return {
-          ...eg,
-          baslik: editEgitimForm.baslik.trim(),
-          kategori: editEgitimForm.kategori.trim() || 'Genel',
-          tur: editEgitimForm.tur,
-          seviye: editEgitimForm.seviye,
-          egitmen: editEgitimForm.egitmen.trim() || 'Şirket İçi',
-          zorunlu: editEgitimForm.zorunlu,
-          aciklama: editEgitimForm.aciklama.trim()
-        };
-      }
-      return eg;
-    });
+    const updatedCourse: Egitim = {
+      ...editingEgitim,
+      baslik: editEgitimForm.baslik.trim(),
+      kategori: editEgitimForm.kategori.trim() || 'Genel',
+      tur: editEgitimForm.tur,
+      seviye: editEgitimForm.seviye,
+      egitmen: editEgitimForm.egitmen.trim() || 'Şirket İçi',
+      zorunlu: editEgitimForm.zorunlu,
+      aciklama: editEgitimForm.aciklama.trim()
+    };
 
-    const updatedSertifikalar = sertifikalar.map((s) => {
-      if (s.egitimId === editingEgitim.id) {
-        return { ...s, egitimAdi: editEgitimForm.baslik.trim() };
-      }
-      return s;
-    });
-
-    saveEgitimler(updatedEgitimler);
-    saveSertifikalar(updatedSertifikalar);
+    const updatedEgitimler = egitimler.map((eg) => eg.id === updatedCourse.id ? updatedCourse : eg);
+    setEgitimler(updatedEgitimler);
+    await lmsService.saveCourse(companyId, updatedCourse);
     setEditingEgitim(null);
   };
 
@@ -249,85 +273,61 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
   };
 
   // Save Edited Sertifika
-  const handleSaveEditedSertifika = (e: React.FormEvent) => {
+  const handleSaveEditedSertifika = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSertifika) return;
 
     const isTamamlandi = editSertifikaForm.durum === 'tamamlandi';
-    const updatedSertifikalar = sertifikalar.map((s) => {
-      if (s.id === editingSertifika.id) {
-        return {
-          ...s,
-          durum: editSertifikaForm.durum,
-          tamamlanmaTarihi: isTamamlandi ? editSertifikaForm.tamamlanmaTarihi : '',
-          hedefTarih: !isTamamlandi ? editSertifikaForm.hedefTarih : undefined,
-          gecerlilikSuresi: editSertifikaForm.gecerlilikSuresi ? Number(editSertifikaForm.gecerlilikSuresi) : null,
-          puan: (isTamamlandi && editSertifikaForm.puanEkle) ? Number(editSertifikaForm.puan) : null
-        };
-      }
-      return s;
-    });
+    const updatedCert: SertifikaKaydi = {
+      ...editingSertifika,
+      durum: editSertifikaForm.durum,
+      tamamlanmaTarihi: isTamamlandi ? editSertifikaForm.tamamlanmaTarihi : '',
+      hedefTarih: !isTamamlandi ? editSertifikaForm.hedefTarih : undefined,
+      gecerlilikSuresi: editSertifikaForm.gecerlilikSuresi ? Number(editSertifikaForm.gecerlilikSuresi) : null,
+      puan: (isTamamlandi && editSertifikaForm.puanEkle) ? Number(editSertifikaForm.puan) : null
+    };
 
-    saveSertifikalar(updatedSertifikalar);
-
-    const completedCount = updatedSertifikalar.filter(s => s.egitimId === editingSertifika.egitimId && (s.durum === 'tamamlandi' || !s.durum)).length;
-    const updatedEgitimler = egitimler.map((eg) => {
-      if (eg.id === editingSertifika.egitimId) {
-        return { ...eg, tamamlayanSayisi: completedCount };
-      }
-      return eg;
-    });
-    saveEgitimler(updatedEgitimler);
-
+    const updatedSertifikalar = sertifikalar.map((s) => s.id === updatedCert.id ? updatedCert : s);
+    setSertifikalar(updatedSertifikalar);
+    await lmsService.saveAssignment(companyId, updatedCert);
     setEditingSertifika(null);
   };
 
   // Quick complete for employee
-  const handleQuickComplete = (sc: SertifikaKaydi) => {
+  const handleQuickComplete = async (sc: SertifikaKaydi) => {
     const today = new Date().toISOString().split('T')[0];
-    const updatedSertifikalar = sertifikalar.map((s) => {
-      if (s.id === sc.id) {
-        return {
-          ...s,
-          durum: 'tamamlandi' as const,
-          tamamlanmaTarihi: today
-        };
-      }
-      return s;
-    });
+    const updatedCert: SertifikaKaydi = {
+      ...sc,
+      durum: 'tamamlandi' as const,
+      tamamlanmaTarihi: today
+    };
 
-    saveSertifikalar(updatedSertifikalar);
-
-    const completedCount = updatedSertifikalar.filter(s => s.egitimId === sc.egitimId && (s.durum === 'tamamlandi' || !s.durum)).length;
-    const updatedEgitimler = egitimler.map((eg) => {
-      if (eg.id === sc.egitimId) {
-        return { ...eg, tamamlayanSayisi: completedCount };
-      }
-      return eg;
-    });
-    saveEgitimler(updatedEgitimler);
+    const updatedSertifikalar = sertifikalar.map((s) => s.id === sc.id ? updatedCert : s);
+    setSertifikalar(updatedSertifikalar);
+    await lmsService.saveAssignment(companyId, updatedCert);
     alert(`Tebrikler! "${sc.egitimAdi}" eğitimi başarıyla tamamlandı olarak kaydedildi.`);
   };
 
   // Add course handler
-  const handleAddEgitim = (e: React.FormEvent) => {
+  const handleAddEgitim = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEgitimForm.baslik.trim()) return;
 
     const newCourse: Egitim = {
       id: `eg-${Date.now()}`,
-      baslik: newEgitimForm.baslik,
-      kategori: newEgitimForm.kategori || 'Genel',
+      baslik: newEgitimForm.baslik.trim(),
+      kategori: newEgitimForm.kategori.trim() || 'Genel',
       seviye: newEgitimForm.seviye,
-      aciklama: newEgitimForm.aciklama,
-      egitmen: newEgitimForm.egitmen || 'Şirket İçi',
+      aciklama: newEgitimForm.aciklama.trim(),
+      egitmen: newEgitimForm.egitmen.trim() || 'Şirket İçi',
       tur: newEgitimForm.tur,
       zorunlu: newEgitimForm.zorunlu,
       tamamlayanSayisi: 0,
       toplam: employees.length
     };
 
-    saveEgitimler([...egitimler, newCourse]);
+    setEgitimler([newCourse, ...egitimler]);
+    await lmsService.saveCourse(companyId, newCourse);
     setShowNewEgitim(false);
     setNewEgitimForm({
       baslik: '',
@@ -341,7 +341,7 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
   };
 
   // Add certificate completion / assignment handler
-  const handleAddSertifika = (e: React.FormEvent) => {
+  const handleAddSertifika = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSertifikaForm.egitimId) return;
 
@@ -377,20 +377,8 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
       puan: (isTamamlandi && newSertifikaForm.puanEkle) ? Number(newSertifikaForm.puan) : null
     }));
 
-    saveSertifikalar([...sertifikalar, ...newCerts]);
-
-    if (isTamamlandi) {
-      const updatedEgitimler = egitimler.map((eg) => {
-        if (eg.id === newSertifikaForm.egitimId) {
-          return {
-            ...eg,
-            tamamlayanSayisi: eg.tamamlayanSayisi + newCerts.length
-          };
-        }
-        return eg;
-      });
-      saveEgitimler(updatedEgitimler);
-    }
+    setSertifikalar([...sertifikalar, ...newCerts]);
+    await lmsService.bulkSaveAssignments(companyId, newCerts);
 
     setShowNewSertifika(false);
     setNewSertifikaForm({
@@ -408,18 +396,17 @@ export default function EgitimLMS({ employees, companyId = 'default' }: EgitimLM
     alert(`İşlem Başarılı: Eğitim ${targetEmps.length} personele başarıyla ${isTamamlandi ? 'kaydedildi' : 'atandı'}.`);
   };
 
-  const deleteEgitim = (id: string) => {
+  const deleteEgitim = async (id: string) => {
     if (window.confirm('Bu eğitimi silmek istediğinize emin misiniz?')) {
-      const updatedCourses = egitimler.filter((e) => e.id !== id);
-      const updatedCerts = sertifikalar.filter((c) => c.egitimId !== id);
-      saveEgitimler(updatedCourses);
-      saveSertifikalar(updatedCerts);
+      setEgitimler(egitimler.filter((e) => e.id !== id));
+      await lmsService.deleteCourse(companyId, id);
     }
   };
 
-  const deleteSertifika = (id: string) => {
+  const deleteSertifika = async (id: string) => {
     if (window.confirm('Bu sertifika kaydını silmek istediğinize emin misiniz?')) {
-      saveSertifikalar(sertifikalar.filter((c) => c.id !== id));
+      setSertifikalar(sertifikalar.filter((c) => c.id !== id));
+      await lmsService.deleteAssignment(companyId, id);
     }
   };
 
