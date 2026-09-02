@@ -251,9 +251,25 @@ const IzinTanimlari: React.FC<IzinTanimlariProps> = ({ companyId = 'default' }) 
   }
 
   function kaydet() {
-    const customId = yeniEkleme
-      ? (form.kod.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'izin-' + Date.now())
-      : secili!;
+    const turkishToAscii = (text: string) => {
+      return text
+        .replace(/ğ/g, 'g').replace(/Ğ/g, 'g')
+        .replace(/ü/g, 'u').replace(/Ü/g, 'u')
+        .replace(/ş/g, 's').replace(/Ş/g, 's')
+        .replace(/ı/g, 'i').replace(/İ/g, 'i')
+        .replace(/ö/g, 'o').replace(/Ö/g, 'o')
+        .replace(/ç/g, 'c').replace(/Ç/g, 'c');
+    };
+
+    let generatedSlug = turkishToAscii((form.kod || form.ad).toLowerCase())
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    if (!generatedSlug || generatedSlug.length < 2) {
+      generatedSlug = 'izin-' + Date.now();
+    }
+
+    const customId = yeniEkleme ? generatedSlug : secili!;
 
     const guncellenmis: IzinTuruKural = {
       id: customId,

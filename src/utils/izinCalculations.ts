@@ -34,13 +34,44 @@ export interface DynamicIzinTuru {
 }
 
 export function getCompanyIzinTurleri(companyId?: string): DynamicIzinTuru[] {
+  const allFound: DynamicIzinTuru[] = [];
   try {
-    const saved = localStorage.getItem(`humanius_izin_turleri_${companyId || 'default'}`);
-    if (saved) {
-      const parsed = JSON.parse(saved);
+    if (companyId && companyId !== 'default') {
+      const saved = localStorage.getItem(`humanius_izin_turleri_${companyId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    }
+    const savedDef = localStorage.getItem('humanius_izin_turleri_default');
+    if (savedDef) {
+      const parsed = JSON.parse(savedDef);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
+    if (typeof localStorage !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('humanius_izin_turleri_')) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            try {
+              const list = JSON.parse(raw);
+              if (Array.isArray(list)) {
+                list.forEach((item: DynamicIzinTuru) => {
+                  if (item && item.id && !allFound.some((x) => x.id === item.id)) {
+                    allFound.push(item);
+                  }
+                });
+              }
+            } catch {}
+          }
+        }
+      }
+    }
   } catch (e) {}
+
+  if (allFound.length > 0) return allFound;
+
   return [
     { id: 'yillik', ad: 'Yıllık İzin', kod: 'YI', ucretli: true },
     { id: 'mazeret', ad: 'Mazeret İzni', kod: 'MZ', ucretli: true },
@@ -64,13 +95,29 @@ export function getCompanyIzinTuruLabels(companyId?: string): Record<string, str
 
 /**
  * Format any leave type slug or code into a beautiful, professional Turkish title
- * e.g., 'ucretsiz' -> 'Ücretsiz İzin', '-r' -> 'Raporlu İzin', 'yillik' -> 'Yıllık İzin'
+ * e.g., 'ucretsiz' -> 'Ücretsiz İzin', 'ornek-izin' -> 'Örnek İzin'
  */
 export function formatIzinTuru(tur: string | undefined | null, companyId?: string): string {
   if (!tur) return 'İzin';
   const clean = String(tur).trim();
   const lower = clean.toLowerCase();
 
+  // 1. FIRST check dynamic company leave types (Custom company leave types take top priority!)
+  try {
+    const companyTurler = getCompanyIzinTurleri(companyId);
+    const found = companyTurler.find(
+      (t) =>
+        t.id === clean ||
+        t.id.toLowerCase() === lower ||
+        (t.kod && t.kod.toLowerCase() === lower) ||
+        (t.ad && t.ad.toLowerCase() === lower)
+    );
+    if (found && found.ad) {
+      return found.ad;
+    }
+  } catch {}
+
+  // 2. Check canonical standard map
   const canonicalMap: Record<string, string> = {
     yillik: 'Yıllık İzin',
     yıllık: 'Yıllık İzin',
@@ -102,26 +149,10 @@ export function formatIzinTuru(tur: string | undefined | null, companyId?: strin
     rapor: 'Raporlu İzin',
     raporlu: 'Raporlu İzin',
     'raporlu izin': 'Raporlu İzin',
-    '-r': 'Raporlu İzin',
-    'r': 'Raporlu İzin',
   };
 
   if (canonicalMap[lower]) {
     return canonicalMap[lower];
-  }
-
-  try {
-    const companyTurler = getCompanyIzinTurleri(companyId);
-    const found = companyTurler.find(
-      (t) => t.id === clean || (t.kod && t.kod.toLowerCase() === lower) || (t.ad && t.ad.toLowerCase() === lower)
-    );
-    if (found && found.ad) {
-      return found.ad;
-    }
-  } catch {}
-
-  if (lower === '-r' || lower.startsWith('-r')) {
-    return 'Raporlu İzin';
   }
 
   let formatted = clean;
@@ -130,7 +161,7 @@ export function formatIzinTuru(tur: string | undefined | null, companyId?: strin
   }
 
   const titleCased = formatted
-    .split(' ')
+    .split(/[\s_-]+/)
     .filter(Boolean)
     .map((word) => {
       const first = word.charAt(0).toLocaleUpperCase('tr-TR');
