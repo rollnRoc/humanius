@@ -1,6 +1,8 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { pdksService } from '../services/pdksService';
+import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR } from '../services/shiftService';
+import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
 import { Loader2 } from 'lucide-react';
 
 import {
@@ -24,6 +26,8 @@ import {
   UserX,
   Wifi,
   X,
+  Sliders,
+  Users
 } from 'lucide-react';
 import type { Employee } from '../types';
 import type { IzinTalebi } from '../types/izin';
@@ -269,6 +273,8 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
   const [duzeltmeGirisSaati, setDuzeltmeGirisSaati] = useState('');
   const [duzeltmeSaati, setDuzeltmeSaati] = useState('');
   const [vardiyaModal, setVardiyaModal] = useState(false);
+  const [companyShifts, setCompanyShifts] = useState<CompanyShift[]>(VARSAYILAN_VARDIYALAR);
+  const [companyShiftAssignments, setCompanyShiftAssignments] = useState<Record<string, string>>({});
   const [vardiyalar, setVardiyalar] = useState<VardiyaTanimi[]>(DEMO_VARDIYALAR);
   const [yeniVardiya, setYeniVardiya] = useState<Partial<VardiyaTanimi>>({
     toleransDk: 15,
@@ -277,6 +283,27 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
     esnek: false,
   });
   const [allKayitlar, setAllKayitlar] = useState<PDKSKaydi[]>([]);
+
+  const loadCompanyShifts = useCallback(async () => {
+    try {
+      const targetCompanyId = profile?.company_id || undefined;
+      const [shifts, assignments] = await Promise.all([
+        shiftService.getShifts(targetCompanyId),
+        shiftService.getAssignments(targetCompanyId),
+      ]);
+      setCompanyShifts(shifts);
+      setCompanyShiftAssignments(assignments);
+    } catch (e) {
+      console.warn('Error loading shifts in PDKSYonetimi:', e);
+    }
+  }, [profile?.company_id]);
+
+  useEffect(() => {
+    loadCompanyShifts();
+    const handleUpdate = () => loadCompanyShifts();
+    window.addEventListener('humanius_shifts_updated', handleUpdate);
+    return () => window.removeEventListener('humanius_shifts_updated', handleUpdate);
+  }, [loadCompanyShifts]);
 
   const loadData = async () => {
     if (!employees.length || !user) return;
@@ -845,58 +872,57 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
 
       {aktifSekme === 'vardiya' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-500">Vardiya tanimlari ve kurallar</p>
+          <div className="flex justify-between items-center flex-wrap gap-3">
+            <div>
+              <h4 className="text-base font-bold text-gray-900">Vardiya Tanımları ve Personel Atamaları</h4>
+              <p className="text-xs text-gray-500">Şirketinizde aktif olan {companyShifts.length} adet vardiya listelenmektedir.</p>
+            </div>
             <button
               onClick={() => setVardiyaModal(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700"
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all"
             >
-              <Plus className="w-3 h-3" /> Yeni Vardiya
+              <Sliders className="w-3.5 h-3.5" /> Vardiyaları & Atamaları Yönet
             </button>
           </div>
 
-          <div className="grid gap-4">
-            {vardiyalar.map((v) => {
-              const [gh, gm] = v.giris.split(':').map(Number);
-              const [ch, cm] = v.cikis.split(':').map(Number);
-              let planli = ch * 60 + cm - (gh * 60 + gm);
-              if (planli < 0) planli += 24 * 60;
-              const netSaat = (planli - v.molaDk) / 60;
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {companyShifts.map((v) => {
+              const assignedCount = Object.values(companyShiftAssignments).filter((sid) => sid === v.id).length;
               return (
-                <div key={v.id} className="bg-white rounded-2xl border border-gray-200 p-5">
+                <div
+                  key={v.id}
+                  className="bg-white rounded-2xl border p-5 shadow-xs"
+                  style={{ borderLeftWidth: '6px', borderLeftColor: v.color || '#3b82f6' }}
+                >
                   <div className="flex items-start justify-between flex-wrap gap-3">
                     <div>
-                      <p className="font-semibold text-gray-800">{v.ad}</p>
-                      <p className="text-xs text-gray-500">{v.departman}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-gray-900">{v.name}</p>
+                        {v.is_default && (
+                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                            ✓ Varsayılan
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xl font-black font-mono text-gray-800 mt-1">
+                        {v.start_time} - {v.end_time}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-5 text-sm">
-                      <div className="text-center">
-                        <p className="text-[10px] text-gray-400">Giris</p>
-                        <p className="font-bold text-green-600">{v.giris}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[10px] text-gray-400">Cikis</p>
-                        <p className="font-bold text-red-500">{v.cikis}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[10px] text-gray-400">Net Sure</p>
-                        <p className="font-bold text-gray-700">{netSaat.toFixed(1)}s</p>
-                      </div>
+                    <div className="text-right">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg">
+                        <Users className="w-3 h-3" />
+                        {assignedCount > 0 ? `${assignedCount} Personel` : (v.is_default ? 'Genel Şirket' : '0 Personel')}
+                      </span>
                     </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                    <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+                  <div className="mt-4 grid grid-cols-2 gap-3 pt-3 border-t border-gray-100 text-center">
+                    <div className="bg-gray-50 rounded-xl p-2">
                       <p className="text-[10px] text-gray-400">Tolerans</p>
-                      <p className="text-sm font-semibold text-gray-700">{v.toleransDk} dk</p>
+                      <p className="text-xs font-bold text-gray-700">{v.tolerance_minutes} dk</p>
                     </div>
-                    <div className="bg-orange-50 rounded-xl p-2.5 text-center">
+                    <div className="bg-gray-50 rounded-xl p-2">
                       <p className="text-[10px] text-gray-400">Mola</p>
-                      <p className="text-sm font-semibold text-orange-700">{v.molaDk} dk</p>
-                    </div>
-                    <div className="bg-purple-50 rounded-xl p-2.5 text-center">
-                      <p className="text-[10px] text-gray-400">Haftalik Limit</p>
-                      <p className="text-sm font-semibold text-purple-700">{v.haftaOtLimit} saat</p>
+                      <p className="text-xs font-bold text-gray-700">{v.break_minutes} dk</p>
                     </div>
                   </div>
                 </div>
@@ -1026,87 +1052,16 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
         </div>
       )}
 
-      {vardiyaModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-800">Yeni Vardiya</h3>
-              <button onClick={() => setVardiyaModal(false)}>
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                placeholder="Vardiya Adi"
-                value={yeniVardiya.ad ?? ''}
-                onChange={(e) => setYeniVardiya((p) => ({ ...p, ad: e.target.value }))}
-                className="col-span-2 border border-gray-200 rounded-xl px-3 py-2 text-sm"
-              />
-              <input
-                type="time"
-                value={yeniVardiya.giris ?? ''}
-                onChange={(e) => setYeniVardiya((p) => ({ ...p, giris: e.target.value }))}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm"
-              />
-              <input
-                type="time"
-                value={yeniVardiya.cikis ?? ''}
-                onChange={(e) => setYeniVardiya((p) => ({ ...p, cikis: e.target.value }))}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm"
-              />
-              <input
-                type="number"
-                placeholder="Tolerans dk"
-                value={yeniVardiya.toleransDk ?? 15}
-                onChange={(e) => setYeniVardiya((p) => ({ ...p, toleransDk: parseInt(e.target.value || '0', 10) }))}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm"
-              />
-              <input
-                type="number"
-                placeholder="Mola dk"
-                value={yeniVardiya.molaDk ?? 60}
-                onChange={(e) => setYeniVardiya((p) => ({ ...p, molaDk: parseInt(e.target.value || '0', 10) }))}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm"
-              />
-              <input
-                placeholder="Departman"
-                value={yeniVardiya.departman ?? ''}
-                onChange={(e) => setYeniVardiya((p) => ({ ...p, departman: e.target.value }))}
-                className="col-span-2 border border-gray-200 rounded-xl px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setVardiyaModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600">
-                Iptal
-              </button>
-              <button
-                onClick={() => {
-                  if (!yeniVardiya.ad || !yeniVardiya.giris || !yeniVardiya.cikis) return;
-                  setVardiyalar((prev) => [
-                    ...prev,
-                    {
-                      id: `v${Date.now()}`,
-                      ad: yeniVardiya.ad,
-                      giris: yeniVardiya.giris,
-                      cikis: yeniVardiya.cikis,
-                      departman: yeniVardiya.departman || 'Tum Departmanlar',
-                      toleransDk: yeniVardiya.toleransDk ?? 15,
-                      molaDk: yeniVardiya.molaDk ?? 60,
-                      haftaOtLimit: yeniVardiya.haftaOtLimit ?? 45,
-                      esnek: yeniVardiya.esnek ?? false,
-                    },
-                  ]);
-                  setYeniVardiya({ toleransDk: 15, molaDk: 60, haftaOtLimit: 45, esnek: false });
-                  setVardiyaModal(false);
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-1.5"
-              >
-                <Save className="w-4 h-4" /> Kaydet
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Multi-Shift & Employee Assignment Management Modal */}
+      <VardiyaYonetimiModal
+        isOpen={vardiyaModal}
+        onClose={() => {
+          setVardiyaModal(false);
+          loadCompanyShifts();
+        }}
+        employees={employees}
+        companyId={profile?.company_id || undefined}
+      />
     </div>
   );
 };

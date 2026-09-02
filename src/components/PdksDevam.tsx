@@ -3,11 +3,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaInsert } from '../services/pdksService';
 import { companyService } from '../services/companyService';
 import { notificationService } from '../services/notificationService';
+import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR } from '../services/shiftService';
+import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
 import {
   Clock, LogIn, LogOut, Search, Filter, MapPin, Fingerprint,
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
   Sliders, Navigation, CheckCircle, RefreshCw, Trash2,
-  Building2, Plus, Edit2, Check, X, Bell, BellRing
+  Building2, Plus, Edit2, Check, X, Bell, BellRing, Users
 } from 'lucide-react';
 import type { Employee, CompanyOfficeLocation } from '../types';
 
@@ -156,12 +158,51 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
   const [editCikis, setEditCikis] = useState('');
   const [editOfficeName, setEditOfficeName] = useState('');
 
-  // Company Work Hours Config Modal state
-  const [showShiftConfig, setShowShiftConfig] = useState(false);
-  const [shiftConfig, setShiftConfig] = useState(() => {
-    const saved = localStorage.getItem('humanius_company_shift_config');
-    return saved ? JSON.parse(saved) : { giris: '08:30', cikis: '18:00', tolerans: 15, mola: 60 };
-  });
+  // Company Work Hours & Multi-Shift States
+  const [showVardiyaModal, setShowVardiyaModal] = useState(false);
+  const [allCompanyShifts, setAllCompanyShifts] = useState<CompanyShift[]>(VARSAYILAN_VARDIYALAR);
+  const [allShiftAssignments, setAllShiftAssignments] = useState<Record<string, string>>({});
+  const [activeUserShift, setActiveUserShift] = useState<CompanyShift>(VARSAYILAN_VARDIYALAR[0]);
+
+  // Load shifts and assignments from database & sync active shift
+  useEffect(() => {
+    let isMounted = true;
+    const targetCompanyId = profile?.company_id || undefined;
+    const empId = currentEmployee?.id;
+
+    const refreshShifts = async () => {
+      try {
+        const [fetchedShifts, fetchedAssignments] = await Promise.all([
+          shiftService.getShifts(targetCompanyId),
+          shiftService.getAssignments(targetCompanyId),
+        ]);
+        if (!isMounted) return;
+        setAllCompanyShifts(fetchedShifts);
+        setAllShiftAssignments(fetchedAssignments);
+
+        const defaultShift = fetchedShifts.find((s) => s.is_default) || fetchedShifts[0] || VARSAYILAN_VARDIYALAR[0];
+        if (empId && fetchedAssignments[empId]) {
+          const found = fetchedShifts.find((s) => s.id === fetchedAssignments[empId]);
+          setActiveUserShift(found || defaultShift);
+        } else {
+          setActiveUserShift(defaultShift);
+        }
+      } catch (err) {
+        console.warn('Error loading shifts:', err);
+      }
+    };
+
+    refreshShifts();
+
+    const handleShiftsUpdated = () => {
+      refreshShifts();
+    };
+    window.addEventListener('humanius_shifts_updated', handleShiftsUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('humanius_shifts_updated', handleShiftsUpdated);
+    };
+  }, [profile?.company_id, currentEmployee?.id]);
   
   // Geolocation watch ID ref
   const watchIdRef = useRef<number | null>(null);
@@ -173,7 +214,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     // Read local storage for active session
     const savedActiveId = localStorage.getItem('pdks_active_shift_id');
     const savedStart = localStorage.getItem('pdks_active_shift_start');
-    const targetCikisTime = shiftConfig?.cikis || '18:00';
+    const targetCikisTime = activeUserShift.end_time || '18:00';
     
     if (savedActiveId && savedStart) {
       if (checkIsShiftExpired(savedStart, targetCikisTime)) {
@@ -339,7 +380,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       setTimerText('00:00:00');
     }
     return () => clearInterval(intervalId);
-  }, [isShiftActive, shiftStartTime, shiftConfig?.cikis, activeShiftRecordId]);
+  }, [isShiftActive, shiftStartTime, activeUserShift?.end_time, activeShiftRecordId]);
 
   // Periodic Shift & Tolerance Push Notification Monitor
   useEffect(() => {
@@ -350,39 +391,41 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
 
       const now = new Date();
       const currentMin = now.getHours() * 60 + now.getMinutes();
+      const shiftStartStr = activeUserShift?.start_time || '08:30';
+      const shiftEndStr = activeUserShift?.end_time || '18:00';
+      const toleranceMin = Math.max(0, Number(activeUserShift?.tolerance_minutes || 0));
 
       // 1. Shift Start & Late Tolerance Alerts (If user has not started shift yet)
-      if (!isShiftActive && shiftConfig?.giris) {
-        const [sGh, sGm] = shiftConfig.giris.split(':').map(Number);
+      if (!isShiftActive && shiftStartStr) {
+        const [sGh, sGm] = shiftStartStr.split(':').map(Number);
         if (!isNaN(sGh) && !isNaN(sGm)) {
           const shiftStartMin = sGh * 60 + sGm;
-          const toleranceMin = Math.max(0, Number(shiftConfig.tolerans || 0));
 
           if (toleranceMin > 0) {
-            // A) Exact shift start time reached (e.g. 08:30 - 08:44)
+            // A) Exact shift start time reached
             if (currentMin >= shiftStartMin && currentMin < shiftStartMin + toleranceMin) {
-              notificationService.sendShiftStartReminder(shiftConfig.giris);
+              notificationService.sendShiftStartReminder(shiftStartStr);
             }
-            // B) Tolerance window passed (e.g. 08:45+)
+            // B) Tolerance window passed
             else if (currentMin >= shiftStartMin + toleranceMin && currentMin < shiftStartMin + 240) {
-              notificationService.sendShiftLateToleranceAlert(toleranceMin, shiftConfig.giris);
+              notificationService.sendShiftLateToleranceAlert(toleranceMin, shiftStartStr);
             }
           } else {
             // Tolerance is 0: Alert immediately upon shift time
             if (currentMin >= shiftStartMin && currentMin < shiftStartMin + 240) {
-              notificationService.sendShiftLateToleranceAlert(0, shiftConfig.giris);
+              notificationService.sendShiftLateToleranceAlert(0, shiftStartStr);
             }
           }
         }
       }
 
       // 2. Shift End Reminder (If user is currently working)
-      if (isShiftActive && shiftConfig?.cikis) {
-        const [cH, cM] = shiftConfig.cikis.split(':').map(Number);
+      if (isShiftActive && shiftEndStr) {
+        const [cH, cM] = shiftEndStr.split(':').map(Number);
         if (!isNaN(cH) && !isNaN(cM)) {
           const shiftEndMin = cH * 60 + cM;
           if (currentMin >= shiftEndMin && currentMin < shiftEndMin + 60) {
-            notificationService.sendShiftEndReminder(shiftConfig.cikis);
+            notificationService.sendShiftEndReminder(shiftEndStr);
           }
         }
       }
@@ -391,7 +434,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     checkShiftNotifications();
     const intervalId = setInterval(checkShiftNotifications, 10000); // Check every 10 seconds
     return () => clearInterval(intervalId);
-  }, [isShiftActive, shiftConfig?.giris, shiftConfig?.cikis, shiftConfig?.tolerans]);
+  }, [isShiftActive, activeUserShift?.start_time, activeUserShift?.end_time, activeUserShift?.tolerance_minutes]);
 
   // Request browser location once
   const requestLocation = () => {
@@ -792,6 +835,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         return notes;
       };
 
+      // Resolve employee assigned shift
+      const assignedShiftId = allShiftAssignments[emp.id];
+      const defaultShift = allCompanyShifts.find((s) => s.is_default) || allCompanyShifts[0] || VARSAYILAN_VARDIYALAR[0];
+      const empShift = allCompanyShifts.find((s) => s.id === assignedShiftId) || defaultShift;
+
       // 1. Try to find a real record in allShiftRecords for today
       const realRecord = allShiftRecords.find(r => r.employee_id === emp.id && r.tarih === todayStr);
       
@@ -805,7 +853,9 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           status = 'Mesai Devam Ediyor';
         } else if (checkIn && checkOut) {
           const [hours, minutes] = checkIn.split(':').map(Number);
-          if (hours > 9 || (hours === 9 && minutes > 15)) {
+          const [sH, sM] = empShift.start_time.split(':').map(Number);
+          const shiftStartTotal = sH * 60 + sM + empShift.tolerance_minutes;
+          if (hours * 60 + minutes > shiftStartTotal) {
             status = 'Geç Kaldı';
           } else {
             status = 'Zamanında';
@@ -835,6 +885,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           durum: status,
           mesai,
           officeName,
+          shift: empShift,
         };
       }
 
@@ -849,6 +900,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           durum: parsed.durum,
           mesai: parsed.mesai,
           officeName: parsed.officeName || (parsed.giris !== '-' ? defaultOfficeName : '-'),
+          shift: empShift,
         };
       }
       
@@ -869,6 +921,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           durum: 'İzinli',
           mesai: 0,
           officeName: '-',
+          shift: empShift,
         };
       }
       
@@ -880,9 +933,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         durum: 'Giriş Yapılmadı',
         mesai: 0,
         officeName: '-',
+        shift: empShift,
       };
     });
-  }, [employees, allShiftRecords, izinTalepleri, officeLocations]);
+  }, [employees, allShiftRecords, izinTalepleri, officeLocations, allCompanyShifts, allShiftAssignments]);
 
   const filteredData = mockPdksData.filter(d =>
     !searchTerm || d.employee.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -962,6 +1016,25 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                       Başlangıç Saati: {new Date(shiftStartTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   )}
+                </div>
+
+                {/* Personalized Active Shift Card */}
+                <div className="w-full max-w-sm bg-gradient-to-r from-indigo-50/90 to-blue-50/90 border border-indigo-200/80 rounded-2xl p-4 text-left shadow-xs flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs"
+                      style={{ backgroundColor: activeUserShift.color || '#3b82f6' }}
+                    />
+                    <div>
+                      <p className="text-[11px] font-semibold text-indigo-900/80">Atanmış Vardiyanız</p>
+                      <p className="text-xs font-extrabold text-indigo-950 mt-0.5">
+                        {activeUserShift.name} ({activeUserShift.start_time} - {activeUserShift.end_time})
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-indigo-700 bg-white/80 px-2.5 py-1 rounded-lg border border-indigo-100 font-medium">
+                    Tolerans: <strong>{activeUserShift.tolerance_minutes} dk</strong>
+                  </div>
                 </div>
 
                 {/* Office Location Selector */}
@@ -1245,25 +1318,34 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         /* Team Monitoring Tab (Only visible to Management) */
         <div className="space-y-4">
           {/* Company Shift Config Banner */}
-          <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shrink-0">
+          <div className="bg-gradient-to-r from-indigo-50/90 to-blue-50/90 border border-indigo-200 rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4 shadow-xs">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-xs shrink-0">
                 ⏰
               </div>
               <div>
-                <h4 className="text-sm font-bold text-indigo-950">Şirket Mesai & Çalışma Saatleri</h4>
-                <p className="text-xs text-indigo-700 mt-0.5">
-                  Standart Vardiya: <strong className="text-indigo-900 font-mono">{shiftConfig.giris} - {shiftConfig.cikis}</strong> • Tolerans: <strong>{shiftConfig.tolerans} dk</strong> • Mola: <strong>{shiftConfig.mola} dk</strong>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-indigo-950">Vardiya & Çalışma Saatleri</h4>
+                  <span className="bg-indigo-100 text-indigo-800 text-[11px] font-extrabold px-2 py-0.5 rounded-md">
+                    {allCompanyShifts.length} Tanımlı Vardiya
+                  </span>
+                </div>
+                <p className="text-xs text-indigo-700 mt-1 flex items-center gap-2 flex-wrap">
+                  <span>Varsayılan: <strong>{activeUserShift.name} ({activeUserShift.start_time} - {activeUserShift.end_time})</strong></span>
+                  <span>•</span>
+                  <span>Mola: <strong>{activeUserShift.break_minutes} dk</strong></span>
+                  <span>•</span>
+                  <span>Tolerans: <strong>{activeUserShift.tolerance_minutes} dk</strong></span>
                 </p>
               </div>
             </div>
             {isManagement && (
               <button
-                onClick={() => setShowShiftConfig(true)}
-                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all"
+                onClick={() => setShowVardiyaModal(true)}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all"
               >
-                <Sliders className="w-3.5 h-3.5" />
-                ⚙️ Mesai Saatlerini Yönet
+                <Sliders className="w-4 h-4" />
+                Vardiyalar & Personel Atamaları
               </button>
             )}
           </div>
@@ -1291,6 +1373,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                 <tr>
                   <th className="px-6 py-4">Personel</th>
                   <th className="px-6 py-4">Departman</th>
+                  <th className="px-6 py-4 text-center">Atanmış Vardiya</th>
                   <th className="px-6 py-4 text-center">Giriş Saati</th>
                   <th className="px-6 py-4 text-center">Çıkış Saati</th>
                   <th className="px-6 py-4 text-center">Mesai Yapılan Ofis</th>
@@ -1304,6 +1387,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium text-gray-900">{d.employee.name}</td>
                     <td className="px-6 py-4 text-gray-600">{d.employee.department || 'Genel'}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-2xs"
+                        style={{
+                          backgroundColor: (d.shift?.color || '#3b82f6') + '15',
+                          color: d.shift?.color || '#3b82f6',
+                          borderColor: (d.shift?.color || '#3b82f6') + '40',
+                        }}
+                      >
+                        <Clock className="w-3 h-3" />
+                        <span>{d.shift?.name} ({d.shift?.start_time}-{d.shift?.end_time})</span>
+                      </span>
+                    </td>
                     <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">{d.giris}</td>
                     <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">{d.cikis}</td>
                     <td className="px-6 py-4 text-center">
@@ -1321,7 +1417,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                         {(() => {
                           const now = new Date();
                           const currentHM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-                          const isShiftActiveTime = currentHM < (shiftConfig.cikis || '18:00');
+                          const isShiftActiveTime = currentHM < (d.shift?.end_time || '18:00');
                           const empId = d.employee.id;
                           const isGranted = Boolean(overtimeAuthMap[empId]);
 
@@ -1373,8 +1469,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                         <button
                           onClick={() => {
                             setEditEmpModal(d);
-                            setEditGiris(d.giris === '-' ? shiftConfig.giris : d.giris);
-                            setEditCikis(d.cikis === '-' ? shiftConfig.cikis : d.cikis);
+                            setEditGiris(d.giris === '-' ? (d.shift?.start_time || '08:30') : d.giris);
+                            setEditCikis(d.cikis === '-' ? (d.shift?.end_time || '18:00') : d.cikis);
                             setEditOfficeName(d.officeName !== '-' ? d.officeName : (officeLocations.find(l => l.is_default)?.name || officeLocations[0]?.name || 'Merkez Ofis'));
                           }}
                           className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
@@ -1508,86 +1604,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         </div>
       )}
 
-      {/* Edit Company Shift Configuration Modal */}
-      {showShiftConfig && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-gray-800">Şirket Mesai Saatlerini Yönet</h3>
-              <button onClick={() => setShowShiftConfig(false)} className="text-gray-400 hover:text-gray-600">
-                ✕
-              </button>
-            </div>
-            <p className="text-xs text-gray-500">
-              Şirketinizin varsayılan çalışma saatlerini, geç kalma toleransını ve yemek molasını tanımlayın.
-            </p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Standard Giriş Saati</label>
-                <input
-                  type="time"
-                  value={shiftConfig.giris}
-                  onChange={(e) => setShiftConfig({ ...shiftConfig, giris: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Standard Çıkış Saati</label>
-                <input
-                  type="time"
-                  value={shiftConfig.cikis}
-                  onChange={(e) => setShiftConfig({ ...shiftConfig, cikis: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Geç Kalma Toleransı (Dk)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={shiftConfig.tolerans}
-                  onChange={(e) => setShiftConfig({ ...shiftConfig, tolerans: Number(e.target.value) })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Yemek / Mola Süresi (Dk)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={shiftConfig.mola}
-                  onChange={(e) => setShiftConfig({ ...shiftConfig, mola: Number(e.target.value) })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowShiftConfig(false)}
-                className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
-              >
-                İptal
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  localStorage.setItem('humanius_company_shift_config', JSON.stringify(shiftConfig));
-                  setShowShiftConfig(false);
-                }}
-                className="flex-1 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 shadow-sm"
-              >
-                Değişiklikleri Kaydet
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Multi-Shift & Employee Assignment Management Modal */}
+      <VardiyaYonetimiModal
+        isOpen={showVardiyaModal}
+        onClose={() => setShowVardiyaModal(false)}
+        employees={employees}
+        companyId={profile?.company_id || undefined}
+      />
 
       {/* Add / Edit Office Location Modal */}
       {showLocationModal && (

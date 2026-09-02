@@ -630,6 +630,184 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ success: true });
     }
 
+    if (operation === 'list_company_shifts') {
+      const companyId = payload.companyId || payload.company_id;
+      if (!companyId || companyId === 'default' || companyId === 'demo-company-id-9999') {
+        return jsonResponse({ shifts: [] });
+      }
+      try {
+        const { data, error } = await adminClient
+          .from('company_shifts')
+          .select('*')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: true });
+
+        if (error) {
+          return jsonResponse({ shifts: [], error: error.message }, 200);
+        }
+        return jsonResponse({ shifts: data || [] });
+      } catch (err: any) {
+        return jsonResponse({ shifts: [], error: err?.message }, 200);
+      }
+    }
+
+    if (operation === 'save_company_shift') {
+      const companyId = payload.companyId || payload.company_id;
+      const { id, name, start_time, end_time, break_minutes, tolerance_minutes, color, is_default } = payload;
+      if (!companyId || !name || !start_time || !end_time) {
+        return jsonResponse({ error: 'company_id, name, start_time ve end_time alanları zorunludur' }, 400);
+      }
+      const shiftId = id || ('shift-' + Date.now());
+      const shiftData = {
+        id: shiftId,
+        company_id: companyId,
+        name: String(name).trim(),
+        start_time: String(start_time).trim(),
+        end_time: String(end_time).trim(),
+        break_minutes: Number(break_minutes != null ? break_minutes : 60),
+        tolerance_minutes: Number(tolerance_minutes != null ? tolerance_minutes : 15),
+        color: String(color || '#3b82f6'),
+        is_default: Boolean(is_default),
+        updated_at: new Date().toISOString(),
+      };
+
+      try {
+        if (shiftData.is_default) {
+          await adminClient
+            .from('company_shifts')
+            .update({ is_default: false })
+            .eq('company_id', companyId);
+        }
+
+        const { data: existing } = await adminClient
+          .from('company_shifts')
+          .select('id')
+          .eq('id', shiftId)
+          .maybeSingle();
+
+        if (existing) {
+          const { data, error } = await adminClient
+            .from('company_shifts')
+            .update(shiftData)
+            .eq('id', shiftId)
+            .select()
+            .single();
+
+          if (error) return jsonResponse({ error: error.message }, 400);
+          return jsonResponse({ success: true, shift: data });
+        } else {
+          const { data, error } = await adminClient
+            .from('company_shifts')
+            .insert({ ...shiftData, created_at: new Date().toISOString() })
+            .select()
+            .single();
+
+          if (error) return jsonResponse({ error: error.message }, 400);
+          return jsonResponse({ success: true, shift: data });
+        }
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message }, 500);
+      }
+    }
+
+    if (operation === 'delete_company_shift') {
+      const { id } = payload;
+      if (!id) return jsonResponse({ error: 'id zorunludur' }, 400);
+      const { error } = await adminClient.from('company_shifts').delete().eq('id', id);
+      if (error) return jsonResponse({ error: error.message }, 400);
+      return jsonResponse({ success: true });
+    }
+
+    if (operation === 'list_company_shift_assignments') {
+      const companyId = payload.companyId || payload.company_id;
+      if (!companyId || companyId === 'default' || companyId === 'demo-company-id-9999') {
+        return jsonResponse({ assignments: [] });
+      }
+      try {
+        const { data, error } = await adminClient
+          .from('company_shift_assignments')
+          .select('*')
+          .eq('company_id', companyId);
+
+        if (error) {
+          return jsonResponse({ assignments: [], error: error.message }, 200);
+        }
+        return jsonResponse({ assignments: data || [] });
+      } catch (err: any) {
+        return jsonResponse({ assignments: [], error: err?.message }, 200);
+      }
+    }
+
+    if (operation === 'save_company_shift_assignment') {
+      const companyId = payload.companyId || payload.company_id;
+      const { employee_id, shift_id } = payload;
+      if (!companyId || !employee_id || !shift_id) {
+        return jsonResponse({ error: 'company_id, employee_id ve shift_id zorunludur' }, 400);
+      }
+
+      const assignId = 'sa-' + companyId.substring(0, 4) + '-' + employee_id;
+      const assignData = {
+        id: assignId,
+        company_id: companyId,
+        employee_id: String(employee_id),
+        shift_id: String(shift_id),
+        updated_at: new Date().toISOString(),
+      };
+
+      try {
+        const { data, error } = await adminClient
+          .from('company_shift_assignments')
+          .upsert(assignData)
+          .select()
+          .single();
+
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ success: true, assignment: data });
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message }, 500);
+      }
+    }
+
+    if (operation === 'bulk_save_company_shift_assignments') {
+      const companyId = payload.companyId || payload.company_id;
+      const { employee_ids, shift_id } = payload;
+      if (!companyId || !Array.isArray(employee_ids) || !shift_id) {
+        return jsonResponse({ error: 'company_id, employee_ids ve shift_id zorunludur' }, 400);
+      }
+      try {
+        const rows = employee_ids.map((empId: string) => ({
+          id: 'sa-' + companyId.substring(0, 4) + '-' + empId,
+          company_id: companyId,
+          employee_id: String(empId),
+          shift_id: String(shift_id),
+          updated_at: new Date().toISOString(),
+        }));
+
+        const { data, error } = await adminClient
+          .from('company_shift_assignments')
+          .upsert(rows)
+          .select();
+
+        if (error) return jsonResponse({ error: error.message }, 400);
+        return jsonResponse({ success: true, count: data?.length || rows.length });
+      } catch (err: any) {
+        return jsonResponse({ error: err?.message }, 500);
+      }
+    }
+
+    if (operation === 'delete_company_shift_assignment') {
+      const companyId = payload.companyId || payload.company_id;
+      const { employee_id } = payload;
+      if (!companyId || !employee_id) return jsonResponse({ error: 'company_id ve employee_id zorunludur' }, 400);
+      const { error } = await adminClient
+        .from('company_shift_assignments')
+        .delete()
+        .eq('company_id', companyId)
+        .eq('employee_id', employee_id);
+      if (error) return jsonResponse({ error: error.message }, 400);
+      return jsonResponse({ success: true });
+    }
+
     if (operation === 'check_email_availability') {
       const email = String(payload.email || '').trim().toLowerCase();
       const excludeId = String(payload.excludeId || '').trim();
@@ -1104,6 +1282,38 @@ Deno.serve(async (req: Request) => {
           ALTER TABLE public.company_course_assignments ENABLE ROW LEVEL SECURITY;
           DROP POLICY IF EXISTS "Public full access to company_course_assignments" ON public.company_course_assignments;
           CREATE POLICY "Public full access to company_course_assignments" ON public.company_course_assignments FOR ALL TO public USING (true) WITH CHECK (true);
+
+          CREATE TABLE IF NOT EXISTS public.company_shifts (
+            id TEXT PRIMARY KEY,
+            company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            break_minutes INTEGER DEFAULT 60,
+            tolerance_minutes INTEGER DEFAULT 15,
+            color TEXT DEFAULT '#3b82f6',
+            is_default BOOLEAN DEFAULT false,
+            created_at TIMESTAMPTZ DEFAULT now(),
+            updated_at TIMESTAMPTZ DEFAULT now()
+          );
+          GRANT ALL ON TABLE public.company_shifts TO anon, authenticated, service_role;
+          ALTER TABLE public.company_shifts ENABLE ROW LEVEL SECURITY;
+          DROP POLICY IF EXISTS "Public full access to company_shifts" ON public.company_shifts;
+          CREATE POLICY "Public full access to company_shifts" ON public.company_shifts FOR ALL TO public USING (true) WITH CHECK (true);
+
+          CREATE TABLE IF NOT EXISTS public.company_shift_assignments (
+            id TEXT PRIMARY KEY,
+            company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+            employee_id TEXT NOT NULL,
+            shift_id TEXT NOT NULL REFERENCES public.company_shifts(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ DEFAULT now(),
+            updated_at TIMESTAMPTZ DEFAULT now(),
+            CONSTRAINT uq_company_shift_emp UNIQUE(company_id, employee_id)
+          );
+          GRANT ALL ON TABLE public.company_shift_assignments TO anon, authenticated, service_role;
+          ALTER TABLE public.company_shift_assignments ENABLE ROW LEVEL SECURITY;
+          DROP POLICY IF EXISTS "Public full access to company_shift_assignments" ON public.company_shift_assignments;
+          CREATE POLICY "Public full access to company_shift_assignments" ON public.company_shift_assignments FOR ALL TO public USING (true) WITH CHECK (true);
         `);
         await client.queryArray(`
           DO $$
