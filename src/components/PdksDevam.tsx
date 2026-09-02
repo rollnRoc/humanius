@@ -1288,51 +1288,49 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
               )}
             </div>
 
-            {/* Şirket Ofis & Şube Konumları Panel */}
-            <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 rounded-2xl p-5 text-white space-y-4 shadow-md">
-              <div className="flex items-center justify-between border-b border-indigo-800/80 pb-3">
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-indigo-400" />
-                  <h3 className="font-bold text-sm">Şirket Ofis & Şubeleri</h3>
-                </div>
-                {isManagement && (
+            {/* Şirket Ofis & Şube Konumları Panel (Sadece Yöneticilere / Yetkililere Gösterilir) */}
+            {isManagement && (
+              <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 rounded-2xl p-5 text-white space-y-4 shadow-md">
+                <div className="flex items-center justify-between border-b border-indigo-800/80 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-indigo-400" />
+                    <h3 className="font-bold text-sm">Şirket Ofis & Şubeleri</h3>
+                  </div>
                   <button
                     onClick={handleOpenNewOffice}
                     className="text-[11px] bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm transition-all"
                   >
                     <Plus className="w-3 h-3" /> Ofis Ekle
                   </button>
-                )}
-              </div>
-              
-              {/* Registered Offices List */}
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {officeLocations.map((loc) => {
-                  const dist = userCoords ? Math.round(getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng)) : null;
-                  const isSelected = loc.id === selectedOfficeId;
-                  const inRange = dist !== null && dist <= loc.radius_meters;
+                </div>
+                
+                {/* Registered Offices List */}
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {officeLocations.map((loc) => {
+                    const dist = userCoords ? Math.round(getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng)) : null;
+                    const isSelected = loc.id === selectedOfficeId;
+                    const inRange = dist !== null && dist <= loc.radius_meters;
 
-                  return (
-                    <div
-                      key={loc.id}
-                      onClick={() => setSelectedOfficeId(loc.id)}
-                      className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
-                        isSelected 
-                          ? 'bg-indigo-800/60 border-indigo-400 shadow-sm' 
-                          : 'bg-white/5 border-white/10 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm">🏢</span>
-                          <span className="font-bold text-xs text-white">{loc.name}</span>
-                          {loc.is_default && (
-                            <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded font-semibold border border-amber-400/30">
-                              Merkez
-                            </span>
-                          )}
-                        </div>
-                        {isManagement && (
+                    return (
+                      <div
+                        key={loc.id}
+                        onClick={() => setSelectedOfficeId(loc.id)}
+                        className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                          isSelected 
+                            ? 'bg-indigo-800/60 border-indigo-400 shadow-sm' 
+                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm">🏢</span>
+                            <span className="font-bold text-xs text-white">{loc.name}</span>
+                            {loc.is_default && (
+                              <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded font-semibold border border-amber-400/30">
+                                Merkez
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => handleOpenEditOffice(loc)}
@@ -1349,30 +1347,30 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
-                        )}
-                      </div>
+                        </div>
 
-                      <div className="flex items-center justify-between text-[11px] text-indigo-200 mt-1.5">
-                        <span className="font-mono text-[10px] text-gray-300">
-                          {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)} ({loc.radius_meters}m)
-                        </span>
-                        <span className={`font-semibold text-[10px] px-1.5 py-0.5 rounded ${
-                          inRange ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
-                        }`}>
-                          {dist !== null ? (dist < 1000 ? `${dist}m` : `${(dist / 1000).toFixed(1)}km`) : '-'}
-                        </span>
+                        <div className="flex items-center justify-between text-[11px] text-indigo-200 mt-1.5">
+                          <span className="font-mono text-[10px] text-gray-300">
+                            {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)} ({loc.radius_meters}m)
+                          </span>
+                          <span className={`font-semibold text-[10px] px-1.5 py-0.5 rounded ${
+                            inRange ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                          }`}>
+                            {dist !== null ? (dist < 1000 ? `${dist}m` : `${(dist / 1000).toFixed(1)}km`) : '-'}
+                          </span>
+                        </div>
                       </div>
+                    );
+                  })}
+
+                  {officeLocations.length === 0 && (
+                    <div className="p-3 bg-white/5 rounded-xl text-center text-xs text-indigo-200">
+                      Henüz kayıtlı şube bulunmuyor. Merkez ofis varsayılan olarak kullanılmaktadır.
                     </div>
-                  );
-                })}
-
-                {officeLocations.length === 0 && (
-                  <div className="p-3 bg-white/5 rounded-xl text-center text-xs text-indigo-200">
-                    Henüz kayıtlı şube bulunmuyor. Merkez ofis varsayılan olarak kullanılmaktadır.
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       ) : (
