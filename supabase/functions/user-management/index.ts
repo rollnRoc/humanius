@@ -645,6 +645,20 @@ Deno.serve(async (req: Request) => {
         if (error) {
           return jsonResponse({ shifts: [], error: error.message }, 200);
         }
+
+        if (!data || data.length === 0) {
+          const defaultRows = [
+            { id: 'vardiya-standart-1', company_id: companyId, name: '1. Vardiya (Gündüz / Standart)', start_time: '08:30', end_time: '18:00', break_minutes: 60, tolerance_minutes: 15, color: '#3b82f6', is_default: true },
+            { id: 'vardiya-sabah-2', company_id: companyId, name: 'Sabah Vardiyası (Erken)', start_time: '08:00', end_time: '16:00', break_minutes: 30, tolerance_minutes: 10, color: '#10b981', is_default: false },
+            { id: 'vardiya-aksam-3', company_id: companyId, name: '2. Vardiya (Akşam)', start_time: '16:00', end_time: '00:00', break_minutes: 30, tolerance_minutes: 10, color: '#f59e0b', is_default: false },
+            { id: 'vardiya-gece-4', company_id: companyId, name: '3. Vardiya (Gece)', start_time: '00:00', end_time: '08:00', break_minutes: 30, tolerance_minutes: 10, color: '#8b5cf6', is_default: false }
+          ];
+          try {
+            await adminClient.from('company_shifts').upsert(defaultRows);
+            return jsonResponse({ shifts: defaultRows });
+          } catch {}
+        }
+
         return jsonResponse({ shifts: data || [] });
       } catch (err: any) {
         return jsonResponse({ shifts: [], error: err?.message }, 200);
@@ -757,7 +771,7 @@ Deno.serve(async (req: Request) => {
       try {
         const { data, error } = await adminClient
           .from('company_shift_assignments')
-          .upsert(assignData)
+          .upsert(assignData, { onConflict: 'company_id,employee_id' })
           .select()
           .single();
 
@@ -785,7 +799,7 @@ Deno.serve(async (req: Request) => {
 
         const { data, error } = await adminClient
           .from('company_shift_assignments')
-          .upsert(rows)
+          .upsert(rows, { onConflict: 'company_id,employee_id' })
           .select();
 
         if (error) return jsonResponse({ error: error.message }, 400);
@@ -1305,11 +1319,12 @@ Deno.serve(async (req: Request) => {
             id TEXT PRIMARY KEY,
             company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
             employee_id TEXT NOT NULL,
-            shift_id TEXT NOT NULL REFERENCES public.company_shifts(id) ON DELETE CASCADE,
+            shift_id TEXT NOT NULL,
             created_at TIMESTAMPTZ DEFAULT now(),
             updated_at TIMESTAMPTZ DEFAULT now(),
             CONSTRAINT uq_company_shift_emp UNIQUE(company_id, employee_id)
           );
+          ALTER TABLE public.company_shift_assignments DROP CONSTRAINT IF EXISTS company_shift_assignments_shift_id_fkey;
           GRANT ALL ON TABLE public.company_shift_assignments TO anon, authenticated, service_role;
           ALTER TABLE public.company_shift_assignments ENABLE ROW LEVEL SECURITY;
           DROP POLICY IF EXISTS "Public full access to company_shift_assignments" ON public.company_shift_assignments;

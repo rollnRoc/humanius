@@ -159,6 +159,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
   const [editGiris, setEditGiris] = useState('');
   const [editCikis, setEditCikis] = useState('');
   const [editOfficeName, setEditOfficeName] = useState('');
+  const [adminOverrides, setAdminOverrides] = useState<Record<string, any>>({});
 
   // Company Work Hours & Multi-Shift States
   const [showVardiyaModal, setShowVardiyaModal] = useState(false);
@@ -842,6 +843,27 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       const defaultShift = allCompanyShifts.find((s) => s.is_default) || allCompanyShifts[0] || VARSAYILAN_VARDIYALAR[0];
       const empShift = allCompanyShifts.find((s) => s.id === assignedShiftId) || defaultShift;
 
+      // 0. Check admin override first (in memory or localStorage)
+      const memOverride = adminOverrides[emp.id];
+      const savedOverride = memOverride || (() => {
+        try {
+          const s = localStorage.getItem(`humanius_pdks_override_${emp.id}`);
+          return s ? JSON.parse(s) : null;
+        } catch { return null; }
+      })();
+
+      if (savedOverride) {
+        return {
+          employee: emp,
+          giris: savedOverride.giris || '-',
+          cikis: savedOverride.cikis || '-',
+          durum: savedOverride.durum || 'Zamanında',
+          mesai: savedOverride.mesai || 0,
+          officeName: savedOverride.officeName || (savedOverride.giris !== '-' ? defaultOfficeName : '-'),
+          shift: empShift,
+        };
+      }
+
       // 1. Try to find a real record in allShiftRecords for today
       const realRecord = allShiftRecords.find(r => r.employee_id === emp.id && r.tarih === todayStr);
       
@@ -890,21 +912,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
           shift: empShift,
         };
       }
-
-      // Check if there is an explicit admin override in localStorage for this employee today
-      const savedOverride = localStorage.getItem(`humanius_pdks_override_${emp.id}`);
-      if (savedOverride) {
-        const parsed = JSON.parse(savedOverride);
-        return {
-          employee: emp,
-          giris: parsed.giris,
-          cikis: parsed.cikis,
-          durum: parsed.durum,
-          mesai: parsed.mesai,
-          officeName: parsed.officeName || (parsed.giris !== '-' ? defaultOfficeName : '-'),
-          shift: empShift,
-        };
-      }
       
       // 2. Try to find if they are on approved leave today
       const today = new Date();
@@ -938,7 +945,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         shift: empShift,
       };
     });
-  }, [employees, allShiftRecords, izinTalepleri, officeLocations, allCompanyShifts, allShiftAssignments]);
+  }, [employees, allShiftRecords, izinTalepleri, officeLocations, allCompanyShifts, allShiftAssignments, adminOverrides]);
 
   const filteredData = mockPdksData.filter(d =>
     !searchTerm || d.employee.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -1639,6 +1646,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   const newDurum = lateDiff > tolerance ? 'Geç Kaldı' : 'Zamanında';
                   const diffHours = parseFloat((((cH * 60 + cM) - actualMin) / 60).toFixed(1));
 
+                  const todayStr = new Date().toISOString().split('T')[0];
                   const overrideObj = {
                     giris: editGiris,
                     cikis: editCikis,
@@ -1648,13 +1656,27 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                   };
 
                   localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
-                  
+                  setAdminOverrides((prev) => ({ ...prev, [editEmpModal.employee.id]: overrideObj }));
+
+                  const newRecord = {
+                    id: `v-edit-${Date.now()}`,
+                    company_id: profile?.company_id,
+                    employee_id: editEmpModal.employee.id,
+                    tarih: todayStr,
+                    giris_saati: editGiris + ':00',
+                    cikis_saati: editCikis + ':00',
+                    vardiya_tipi: 'tam-gun',
+                    durum: newDurum === 'Zamanında' ? 'zamaninda' : 'gec-kaldi',
+                    notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
+                  };
+                  setAllShiftRecords((prev) => [newRecord, ...prev.filter(r => !(r.employee_id === editEmpModal.employee.id && r.tarih === todayStr))]);
+
                   // Also record shift to pdksService if possible
                   if (profile?.company_id && editEmpModal.employee.id) {
                     pdksService.createVardiya({
                       company_id: profile.company_id,
                       employee_id: editEmpModal.employee.id,
-                      tarih: new Date().toISOString().split('T')[0],
+                      tarih: todayStr,
                       giris_saati: editGiris + ':00',
                       cikis_saati: editCikis + ':00',
                       vardiya_tipi: 'tam-gun',
@@ -1677,7 +1699,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       {/* Multi-Shift & Employee Assignment Management Modal */}
       <VardiyaYonetimiModal
         isOpen={showVardiyaModal}
-        onClose={() => setShowVardiyaModal(false)}
+        onClose={async () => {
+          setShowVardiyaModal(false);
+          const [fetchedShifts, fetchedAssignments] = await Promise.all([
+            shiftService.getShifts(profile?.company_id || undefined),
+            shiftService.getAssignments(profile?.company_id || undefined),
+          ]);
+          setAllCompanyShifts(fetchedShifts);
+          setAllShiftAssignments(fetchedAssignments);
+        }}
         employees={employees}
         companyId={profile?.company_id || undefined}
       />
