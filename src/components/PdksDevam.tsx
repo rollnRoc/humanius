@@ -938,7 +938,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
       }
       
       // 2. Try to find if they are on approved leave today
-      const todayStr = new Date().toISOString().split('T')[0];
       const isOnLeave = (izinTalepleri || []).some(t => {
         if (t.employeeId !== emp.id || t.durum !== 'onaylandi') return false;
         const startStr = t.baslangicTarihi ? t.baslangicTarihi.split('T')[0] : '';
