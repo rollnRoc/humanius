@@ -44,6 +44,7 @@ import * as XLSX from 'xlsx';
 import { Suspense } from 'react';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { IzinWorkflowListesi } from './components/IzinWorkflow';
+import { formatIzinTuru } from './utils/izinCalculations';
 import AIBrowserPage from './browser/AIBrowserPage';
 import GuideContextMenu from './components/GuideContextMenu';
 
@@ -1613,7 +1614,7 @@ const AppInner: React.FC = () => {
                   <div className="space-y-2">
                     {currentEmployeeIzinTalepleri.map((talep) => (
                       <div key={talep.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
-                        <p className="text-sm font-medium text-gray-800">{talep.izinTuru} • {talep.gunSayisi} gün</p>
+                        <p className="text-sm font-semibold text-gray-800">{formatIzinTuru(talep.izinTuru)} • {talep.gunSayisi} gün</p>
                         <p className="text-xs text-gray-500">{talep.baslangicTarihi} - {talep.bitisTarihi} • {talep.durum}</p>
                       </div>
                     ))}

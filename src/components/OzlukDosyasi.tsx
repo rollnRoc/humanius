@@ -18,6 +18,7 @@ import BordroList from './BordroList';
 import { bordroService } from '../services/bordroService';
 import { QRCodeSVG } from 'qrcode.react';
 import bcrypt from 'bcryptjs';
+import { formatIzinTuru } from '../utils/izinCalculations';
 
 // Belge kategorileri
 const BELGE_KATEGORILER = [
@@ -46,14 +47,7 @@ const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: 
 ];
 
 // İzin türü etiketi
-const izinTuruLabel = (tur: string) => {
-  const map: Record<string, string> = {
-    yillik: 'Yıllık İzin', mazeret: 'Mazeret', hastalik: 'Hastalık',
-    dogum: 'Doğum', babalik: 'Babalık', evlilik: 'Evlilik', olum: 'Ölüm',
-    ucretsiz: 'Ücretsiz',
-  };
-  return map[tur] ?? tur;
-};
+const izinTuruLabel = (tur: string) => formatIzinTuru(tur);
 
 const durumLabel = (d: string) => {
   const map: Record<string, { text: string; cls: string }> = {

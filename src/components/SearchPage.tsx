@@ -10,6 +10,7 @@ import type { IzinTalebi } from '../types/izin';
 import type { BordroItem } from '../types/bordro';
 import { useAuth } from '../contexts/AuthContext';
 import { canAccessView } from '../auth/roles';
+import { formatIzinTuru } from '../utils/izinCalculations';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -228,7 +229,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
     // ── İzin talepleri ────────────────────────────────────────────────────────
     izinTalepleri.forEach(talep => {
       const empName    = safe(talep.employeeName) || 'Personel';
-      const izinTuruLbl = IZIN_TURU[talep.izinTuru] || talep.izinTuru;
+      const izinTuruLbl = formatIzinTuru(talep.izinTuru);
       const durumLbl   = DURUM[talep.durum] || talep.durum;
       const allFields  = [
         { label: 'Çalışan',   value: empName },

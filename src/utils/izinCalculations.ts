@@ -62,7 +62,89 @@ export function getCompanyIzinTuruLabels(companyId?: string): Record<string, str
   return labels;
 }
 
-// ─── Max süreler (iş kanunu & şirket tanımlı) ────────────────────────────────
+/**
+ * Format any leave type slug or code into a beautiful, professional Turkish title
+ * e.g., 'ucretsiz' -> 'Ücretsiz İzin', '-r' -> 'Raporlu İzin', 'yillik' -> 'Yıllık İzin'
+ */
+export function formatIzinTuru(tur: string | undefined | null, companyId?: string): string {
+  if (!tur) return 'İzin';
+  const clean = String(tur).trim();
+  const lower = clean.toLowerCase();
+
+  const canonicalMap: Record<string, string> = {
+    yillik: 'Yıllık İzin',
+    yıllık: 'Yıllık İzin',
+    'yillik izin': 'Yıllık İzin',
+    'yıllık izin': 'Yıllık İzin',
+    ucretsiz: 'Ücretsiz İzin',
+    ücretsiz: 'Ücretsiz İzin',
+    'ucretsiz izin': 'Ücretsiz İzin',
+    'ücretsiz izin': 'Ücretsiz İzin',
+    mazeret: 'Mazeret İzni',
+    'mazeret izni': 'Mazeret İzni',
+    hastalik: 'Hastalık İzni',
+    hastalık: 'Hastalık İzni',
+    'hastalik izni': 'Hastalık İzni',
+    'hastalık izni': 'Hastalık İzni',
+    dogum: 'Doğum İzni',
+    doğum: 'Doğum İzni',
+    'dogum izni': 'Doğum İzni',
+    babalik: 'Babalık İzni',
+    babalık: 'Babalık İzni',
+    evlilik: 'Evlilik İzni',
+    'evlilik izni': 'Evlilik İzni',
+    olum: 'Ölüm İzni',
+    ölüm: 'Ölüm İzni',
+    askerlik: 'Askerlik İzni',
+    'askerlik izni': 'Askerlik İzni',
+    yol: 'Yol İzni',
+    'yol izni': 'Yol İzni',
+    rapor: 'Raporlu İzin',
+    raporlu: 'Raporlu İzin',
+    'raporlu izin': 'Raporlu İzin',
+    '-r': 'Raporlu İzin',
+    'r': 'Raporlu İzin',
+  };
+
+  if (canonicalMap[lower]) {
+    return canonicalMap[lower];
+  }
+
+  try {
+    const companyTurler = getCompanyIzinTurleri(companyId);
+    const found = companyTurler.find(
+      (t) => t.id === clean || (t.kod && t.kod.toLowerCase() === lower) || (t.ad && t.ad.toLowerCase() === lower)
+    );
+    if (found && found.ad) {
+      return found.ad;
+    }
+  } catch {}
+
+  if (lower === '-r' || lower.startsWith('-r')) {
+    return 'Raporlu İzin';
+  }
+
+  let formatted = clean;
+  if (/(\s+)?(izni|izin|İzni|İzin)$/i.test(formatted)) {
+    formatted = formatted.replace(/(\s+)?(izni|izin|İzni|İzin)$/i, '');
+  }
+
+  const titleCased = formatted
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => {
+      const first = word.charAt(0).toLocaleUpperCase('tr-TR');
+      const rest = word.slice(1).toLocaleLowerCase('tr-TR');
+      return first + rest;
+    })
+    .join(' ');
+
+  if (!titleCased) return 'İzin';
+  if (titleCased.toLowerCase().endsWith('izin') || titleCased.toLowerCase().endsWith('izni')) {
+    return titleCased;
+  }
+  return `${titleCased} İzni`;
+}
 
 type MaxIzinInfo = {
   max: number;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle, Clock, XCircle, User, UserCheck, Briefcase, CreditCard, ChevronRight, Edit2, Trash2 } from 'lucide-react';
 import type { IzinTalebi } from '../types/izin';
+import { formatIzinTuru } from '../utils/izinCalculations';
 
 interface IzinWorkflowProps {
   talep: IzinTalebi;
@@ -115,7 +116,7 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({ talep, onOnay, onRed, onEdi
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 mt-1">
             <span className="font-bold text-slate-800">{talep.employeeName}</span>
             <span>•</span>
-            <span className="capitalize font-medium text-slate-600">{talep.izinTuru} İzni</span>
+            <span className="font-semibold text-slate-700">{formatIzinTuru(talep.izinTuru)}</span>
             <span>•</span>
             <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
               {talep.gunSayisi} Gün
@@ -338,7 +339,7 @@ export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({ talepl
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 font-medium mt-0.5">
-                    {talep.izinTuru} İzni • <b>{talep.gunSayisi} gün</b> • 📅 {formatDateRange(talep.baslangicTarihi, talep.bitisTarihi)}
+                    <span className="font-semibold text-slate-700">{formatIzinTuru(talep.izinTuru)}</span> • <b>{talep.gunSayisi} gün</b> • 📅 {formatDateRange(talep.baslangicTarihi, talep.bitisTarihi)}
                   </p>
                 </div>
 

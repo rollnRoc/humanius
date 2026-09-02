@@ -3,6 +3,7 @@ import { Users, Calendar, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown,
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
 import { useAuth } from '../contexts/AuthContext';
+import { formatIzinTuru } from '../utils/izinCalculations';
 
 interface IzinOzetKartlariProps {
   employees: Employee[];
@@ -287,7 +288,7 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
               <p className="text-[11px] uppercase tracking-wide text-gray-400">Sıradaki İzin</p>
               {siradakiIzin ? (
                 <p className="mt-1 text-sm text-gray-700">
-                  {IZIN_TURU_LABEL[siradakiIzin.izinTuru] ?? siradakiIzin.izinTuru} · {siradakiIzin.baslangicTarihi} - {siradakiIzin.bitisTarihi}
+                  {formatIzinTuru(siradakiIzin.izinTuru)} · {siradakiIzin.baslangicTarihi} - {siradakiIzin.bitisTarihi}
                 </p>
               ) : (
                 <p className="mt-1 text-sm text-gray-400">Planlı izin görünmüyor.</p>
@@ -413,7 +414,7 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
                                   ? <Clock className="w-3 h-3 text-amber-600" />
                                   : <XCircle className="w-3 h-3 text-red-500" />}
                               </span>
-                              <span className="font-medium text-gray-700 shrink-0">{IZIN_TURU_LABEL[t.izinTuru] ?? t.izinTuru}</span>
+                              <span className="font-semibold text-gray-800 shrink-0">{formatIzinTuru(t.izinTuru)}</span>
                               <span className="text-gray-400 text-xs shrink-0">{t.baslangicTarihi} – {t.bitisTarihi}</span>
                               <span className="ml-auto text-gray-700 font-semibold text-xs shrink-0">{t.gunSayisi} gün</span>
                               

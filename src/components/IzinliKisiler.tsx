@@ -3,6 +3,7 @@ import { Calendar as CalendarIcon, Filter, Search, Trash2, XCircle } from 'lucid
 import type { IzinTalebi } from '../types/izin';
 import type { Employee, Department } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { formatIzinTuru } from '../utils/izinCalculations';
 
 interface IzinliKisilerProps {
   izinTalepleri: IzinTalebi[];
@@ -140,7 +141,7 @@ const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees,
                   <td className="px-6 py-4 text-gray-600">{leave.employee?.department}</td>
                   <td className="px-6 py-4">
                     <span className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                      {leave.izinTuru}
+                      {formatIzinTuru(leave.izinTuru)}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-gray-600">{new Date(leave.baslangicTarihi).toLocaleDateString('tr-TR')}</td>
