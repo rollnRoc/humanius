@@ -5,11 +5,13 @@ import { companyService } from '../services/companyService';
 import { notificationService } from '../services/notificationService';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR } from '../services/shiftService';
 import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
+import { printPdksDevamRaporuPdf, exportPdksToCsv, PdksReportRecord } from '../utils/pdksReportPdf';
 import {
   Clock, LogIn, LogOut, Search, Filter, MapPin, Fingerprint,
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
   Sliders, Navigation, CheckCircle, RefreshCw, Trash2,
-  Building2, Plus, Edit2, Check, X, Bell, BellRing, Users
+  Building2, Plus, Edit2, Check, X, Bell, BellRing, Users,
+  Printer, FileText, Download
 } from 'lucide-react';
 import type { Employee, CompanyOfficeLocation } from '../types';
 
@@ -942,6 +944,49 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     !searchTerm || d.employee.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handlePrintPdf = () => {
+    const records: PdksReportRecord[] = filteredData.map((d) => ({
+      employeeName: d.employee.name,
+      tcNo: d.employee.tcNo,
+      department: d.employee.department || 'Genel',
+      position: d.employee.position || '-',
+      shiftName: d.shift?.name || 'Standart Vardiya',
+      shiftHours: d.shift ? `${d.shift.start_time} - ${d.shift.end_time}` : '08:30 - 18:00',
+      checkIn: d.giris,
+      checkOut: d.cikis,
+      officeName: d.officeName || 'Merkez Ofis',
+      durum: d.durum,
+      mesaiSaat: d.mesai || 0,
+    }));
+
+    const companyName = companyDetails?.name || profile?.company_name || 'Humanius HRMS';
+    printPdksDevamRaporuPdf({
+      companyName,
+      reportTitle: 'GÜNLÜK PERSONEL PDKS DEVAM VE VARDİYA ÇİZELGESİ',
+      dateStr: new Date().toLocaleDateString('tr-TR'),
+      records,
+    });
+  };
+
+  const handleExportCsv = () => {
+    const records: PdksReportRecord[] = filteredData.map((d) => ({
+      employeeName: d.employee.name,
+      tcNo: d.employee.tcNo,
+      department: d.employee.department || 'Genel',
+      position: d.employee.position || '-',
+      shiftName: d.shift?.name || 'Standart Vardiya',
+      shiftHours: d.shift ? `${d.shift.start_time} - ${d.shift.end_time}` : '08:30 - 18:00',
+      checkIn: d.giris,
+      checkOut: d.cikis,
+      officeName: d.officeName || 'Merkez Ofis',
+      durum: d.durum,
+      mesaiSaat: d.mesai || 0,
+    }));
+
+    const companyName = companyDetails?.name || profile?.company_name || 'Humanius';
+    exportPdksToCsv(companyName, new Date().toLocaleDateString('tr-TR'), records);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -955,12 +1000,21 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
         {isManagement && (
           <div className="flex items-center gap-2 flex-wrap">
             <button
+              onClick={handlePrintPdf}
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs"
+              title="Tüm Personellerin Günlük PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
+            >
+              <Printer className="w-3.5 h-3.5 text-blue-400" />
+              PDKS Raporu Al (PDF)
+            </button>
+
+            <button
               onClick={handleClearAllPdks}
-              className="flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors shadow-xs"
+              className="flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors shadow-xs"
               title="Tüm PDKS Devam ve Mesai Kayıtlarını Temizle / Sıfırla"
             >
               <Trash2 className="w-3.5 h-3.5 text-red-600" />
-              Verileri Temizle
+              Temizle
             </button>
 
             <div className="flex bg-gray-100 p-1 rounded-xl">
@@ -1350,8 +1404,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
             )}
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-            <div className="flex-1 relative">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between flex-wrap gap-3">
+            <div className="flex-1 min-w-[240px] relative">
               <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -1361,10 +1415,24 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none text-sm"
               />
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 text-sm">
-              <Filter className="w-4 h-4" />
-              Filtrele
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handlePrintPdf}
+                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all"
+                title="Tüm Personellerin Günlük PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
+              >
+                <Printer className="w-3.5 h-3.5 text-blue-400" />
+                PDKS Çıktısı Al (PDF)
+              </button>
+              <button
+                onClick={handleExportCsv}
+                className="flex items-center gap-1.5 border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs"
+                title="PDKS Çizelgesini Excel / CSV Olarak İndir"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-600" />
+                Excel / CSV
+              </button>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">

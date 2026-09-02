@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { pdksService } from '../services/pdksService';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR } from '../services/shiftService';
 import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
+import { printPdksDevamRaporuPdf, exportPdksToCsv, PdksReportRecord } from '../utils/pdksReportPdf';
 import { Loader2 } from 'lucide-react';
 
 import {
@@ -27,7 +28,9 @@ import {
   Wifi,
   X,
   Sliders,
-  Users
+  Users,
+  Printer,
+  FileText
 } from 'lucide-react';
 import type { Employee } from '../types';
 import type { IzinTalebi } from '../types/izin';
@@ -440,6 +443,81 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
     return hasApprovedLeave(k.employeeId, k.tarih) ? 'izinli' : 'devamsiz';
   }
 
+  const handlePrintPdksRaporu = () => {
+    const records: PdksReportRecord[] = gunlukKayitlar.map((k) => {
+      const emp = employees.find((e) => e.id === k.employeeId);
+      const assignedShiftId = companyShiftAssignments[k.employeeId];
+      const shift = companyShifts.find((s) => s.id === assignedShiftId) || (companyShifts.find((s) => s.is_default) || companyShifts[0]);
+      const durumEff = effectiveDurum(k);
+
+      let durumStr = 'Zamanında';
+      if (durumEff === 'gec') durumStr = 'Geç Kaldı';
+      else if (durumEff === 'devamsiz') durumStr = 'Devamsız';
+      else if (durumEff === 'izinli') durumStr = 'İzinli';
+      else if (durumEff === 'erken-cikis') durumStr = 'Erken Çıkış';
+      else if (!k.cikisZamani && k.girisZamani) durumStr = 'Mesai Devam Ediyor';
+      else if (!k.girisZamani) durumStr = 'Giriş Yapılmadı';
+
+      return {
+        employeeName: k.employeeName,
+        tcNo: emp?.tcNo,
+        department: k.department || emp?.department || 'Genel',
+        position: emp?.position || '-',
+        shiftName: shift?.name || 'Standart Vardiya',
+        shiftHours: shift ? `${shift.start_time} - ${shift.end_time}` : '08:30 - 18:00',
+        checkIn: k.girisZamani || '-',
+        checkOut: k.cikisZamani || '-',
+        officeName: 'Merkez Ofis',
+        durum: durumStr,
+        mesaiSaat: k.netCalismaDk ? parseFloat((k.netCalismaDk / 60).toFixed(1)) : 0,
+        gecikmeDk: k.gecikmeDk,
+      };
+    });
+
+    const companyName = profile?.company_name || 'Humanius HRMS';
+    printPdksDevamRaporuPdf({
+      companyName,
+      reportTitle: `${secilenTarih} TARİHLİ PERSONEL PDKS VE VARDİYA DEVAM ÇİZELGESİ`,
+      dateStr: new Date(secilenTarih).toLocaleDateString('tr-TR'),
+      records,
+    });
+  };
+
+  const handleExportPdksCsv = () => {
+    const records: PdksReportRecord[] = gunlukKayitlar.map((k) => {
+      const emp = employees.find((e) => e.id === k.employeeId);
+      const assignedShiftId = companyShiftAssignments[k.employeeId];
+      const shift = companyShifts.find((s) => s.id === assignedShiftId) || (companyShifts.find((s) => s.is_default) || companyShifts[0]);
+      const durumEff = effectiveDurum(k);
+
+      let durumStr = 'Zamanında';
+      if (durumEff === 'gec') durumStr = 'Geç Kaldı';
+      else if (durumEff === 'devamsiz') durumStr = 'Devamsız';
+      else if (durumEff === 'izinli') durumStr = 'İzinli';
+      else if (durumEff === 'erken-cikis') durumStr = 'Erken Çıkış';
+      else if (!k.cikisZamani && k.girisZamani) durumStr = 'Mesai Devam Ediyor';
+      else if (!k.girisZamani) durumStr = 'Giriş Yapılmadı';
+
+      return {
+        employeeName: k.employeeName,
+        tcNo: emp?.tcNo,
+        department: k.department || emp?.department || 'Genel',
+        position: emp?.position || '-',
+        shiftName: shift?.name || 'Standart Vardiya',
+        shiftHours: shift ? `${shift.start_time} - ${shift.end_time}` : '08:30 - 18:00',
+        checkIn: k.girisZamani || '-',
+        checkOut: k.cikisZamani || '-',
+        officeName: 'Merkez Ofis',
+        durum: durumStr,
+        mesaiSaat: k.netCalismaDk ? parseFloat((k.netCalismaDk / 60).toFixed(1)) : 0,
+        gecikmeDk: k.gecikmeDk,
+      };
+    });
+
+    const companyName = profile?.company_name || 'Humanius';
+    exportPdksToCsv(companyName, secilenTarih, records);
+  };
+
   async function fazlaMesaiOnayla(employeeId: string, durum: OnayDurum) {
     if (!user) return;
     try {
@@ -572,15 +650,27 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
             </button>
           )}
           <button
+            onClick={handlePrintPdksRaporu}
+            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all"
+            title="Seçili Tarihteki Tüm Personellerin PDKS Çizelgesini PDF Olarak Çıktı Al"
+          >
+            <Printer className="w-4 h-4 text-blue-400" />
+            PDKS Raporu Al (PDF)
+          </button>
+          <button
+            onClick={handleExportPdksCsv}
+            className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all"
+            title="PDKS Çizelgesini Excel / CSV Olarak İndir"
+          >
+            <Download className="w-4 h-4 text-emerald-600" />
+            Excel İndir
+          </button>
+          <button
             onClick={() => setCheckInModal(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 shadow-xs"
           >
             <Plus className="w-4 h-4" />
-            Giris/Cikis
-          </button>
-          <button className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm hover:bg-gray-50">
-            <Download className="w-4 h-4" />
-            Disa Aktar
+            Giriş/Çıkış Ekle
           </button>
         </div>
       </div>
@@ -626,27 +716,48 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
 
       {aktifSekme === 'devam' && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-gray-400" />
-              <input
-                type="date"
-                value={secilenTarih}
-                onChange={(e) => setSecilenTarih(e.target.value)}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          <div className="p-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <input
+                  type="date"
+                  value={secilenTarih}
+                  onChange={(e) => setSecilenTarih(e.target.value)}
+                  className="text-xs font-semibold border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <select
+                value={secilenDepartman}
+                onChange={(e) => setSecilenDepartman(e.target.value)}
+                className="text-xs font-semibold border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {departmanlar.map((d) => (
+                  <option key={d} value={d}>
+                    {d === 'all' ? 'Tüm Departmanlar' : d}
+                  </option>
+                ))}
+              </select>
             </div>
-            <select
-              value={secilenDepartman}
-              onChange={(e) => setSecilenDepartman(e.target.value)}
-              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {departmanlar.map((d) => (
-                <option key={d} value={d}>
-                  {d === 'all' ? 'Tum Departmanlar' : d}
-                </option>
-              ))}
-            </select>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePrintPdksRaporu}
+                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs transition-all"
+                title="PDKS Çizelgesini Yazdır / PDF İndir"
+              >
+                <Printer className="w-3.5 h-3.5 text-blue-400" />
+                PDKS Çizelgesi (PDF)
+              </button>
+              <button
+                onClick={handleExportPdksCsv}
+                className="flex items-center gap-1.5 border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs transition-all"
+                title="Excel Olarak İndir"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-600" />
+                Excel
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
