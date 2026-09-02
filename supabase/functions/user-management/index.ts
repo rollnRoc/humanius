@@ -860,6 +860,7 @@ Deno.serve(async (req: Request) => {
           ALTER TABLE public.company_leave_types ENABLE ROW LEVEL SECURITY;
           DROP POLICY IF EXISTS "Public full access to company_leave_types" ON public.company_leave_types;
           CREATE POLICY "Public full access to company_leave_types" ON public.company_leave_types FOR ALL TO public USING (true) WITH CHECK (true);
+          ALTER TABLE public.izin_talepleri DROP CONSTRAINT IF EXISTS izin_talepleri_izin_turu_check;
         `);
         await client.queryArray(`
           DO $$
