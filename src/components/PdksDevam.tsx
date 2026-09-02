@@ -18,6 +18,7 @@ import type { Employee, CompanyOfficeLocation } from '../types';
 interface PdksDevamProps {
   employees: Employee[];
   izinTalepleri?: any[];
+  departments?: any[];
 }
 
 // Haversine formula to compute distance between two coordinates in meters
@@ -111,12 +112,20 @@ function checkIsShiftExpired(
   return { isExpired: false, autoCloseTime: cikisTimeStr };
 }
 
-const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) => {
+const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [], departments = [] }) => {
   const { profile, appRole } = useAuth();
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
 
   const [activeTab, setActiveTab] = useState<'personal' | 'team'>(isManagement ? 'team' : 'personal');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+
+  const deptList = React.useMemo(() => {
+    if (departments && departments.length > 0) {
+      return departments.map((d: any) => (typeof d === 'string' ? d : d.name)).filter(Boolean);
+    }
+    return Array.from(new Set(employees.map((e) => e.department).filter(Boolean))) as string[];
+  }, [departments, employees]);
 
   const currentEmployee = isManagement
     ? (employees.find((emp) => emp.email?.toLowerCase() === profile?.email?.toLowerCase()) || 
@@ -970,9 +979,17 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
     });
   }, [employees, allShiftRecords, izinTalepleri, officeLocations, allCompanyShifts, allShiftAssignments, adminOverrides]);
 
-  const filteredData = mockPdksData.filter(d =>
-    !searchTerm || d.employee.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredData = mockPdksData.filter((d) => {
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      !term ||
+      d.employee.name.toLowerCase().includes(term) ||
+      (d.employee.tcNo && d.employee.tcNo.includes(term)) ||
+      (d.employee.position && d.employee.position.toLowerCase().includes(term)) ||
+      (d.employee.department && d.employee.department.toLowerCase().includes(term));
+    const matchesDept = selectedDepartment === 'all' || d.employee.department === selectedDepartment;
+    return matchesSearch && matchesDept;
+  });
 
   const handlePrintPdf = () => {
     const records: PdksReportRecord[] = filteredData.map((d) => ({
@@ -1432,35 +1449,68 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [] }) 
             )}
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between flex-wrap gap-3">
-            <div className="flex-1 min-w-[240px] relative">
-              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Personel ara..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none text-sm"
-              />
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex-1 min-w-[240px] relative">
+                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Personel ara (Ad, Soyad, TC, Departman, Pozisyon)..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={handlePrintPdf}
+                  className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                  title="Tüm Personellerin Günlük PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
+                >
+                  <Printer className="w-3.5 h-3.5 text-blue-400" />
+                  PDKS Çıktısı Al (PDF)
+                </button>
+                <button
+                  onClick={handleExportCsv}
+                  className="flex items-center gap-1.5 border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  title="PDKS Çizelgesini Excel / CSV Olarak İndir"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-600" />
+                  Excel / CSV
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={handlePrintPdf}
-                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all"
-                title="Tüm Personellerin Günlük PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
-              >
-                <Printer className="w-3.5 h-3.5 text-blue-400" />
-                PDKS Çıktısı Al (PDF)
-              </button>
-              <button
-                onClick={handleExportCsv}
-                className="flex items-center gap-1.5 border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs"
-                title="PDKS Çizelgesini Excel / CSV Olarak İndir"
-              >
-                <Download className="w-3.5 h-3.5 text-emerald-600" />
-                Excel / CSV
-              </button>
-            </div>
+
+            {/* Departman / Birim Filtre Butonları */}
+            {deptList.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-2.5 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDepartment('all')}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                    selectedDepartment === 'all'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                  }`}
+                >
+                  Tümü
+                </button>
+                {deptList.map((dept) => (
+                  <button
+                    key={dept}
+                    type="button"
+                    onClick={() => setSelectedDepartment(dept)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                      selectedDepartment === dept
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    {dept}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
