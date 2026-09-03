@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Users, AlertTriangle, DollarSign, Activity,
-  Download, Brain, Target, Zap, Star, BookOpen, MessageSquare,
+  Download, Brain, Target, Zap, BookOpen, MessageSquare,
   ShieldAlert, ArrowRight, Award, RefreshCw, CheckCircle, XCircle,
   BarChart2, Layers, Globe
 } from 'lucide-react';
@@ -155,30 +155,7 @@ function buildMaliyetData(employees: Employee[], bordrolar: BordroItem[], secili
   ];
 }
 
-function buildHRHealthScore(employees: Employee[], izinTalepleri: IzinTalebi[], turnoverData: { oran: number }[], seciliSirket: string) {
-  const companyEmployees = employees.filter(e => seciliSirket === 'Tümü' || e.company === seciliSirket);
-  const devamsizlikOrani = izinTalepleri.filter((t) => t.durum === 'onaylandi').length / Math.max(1, companyEmployees.length);
-  const devamsizlikPuan = Math.max(0, 100 - devamsizlikOrani * 10);
-  const ortTurnover = turnoverData.reduce((s, d) => s + d.oran, 0) / (turnoverData.length || 1);
-  const turnoverPuan = Math.max(0, 100 - ortTurnover * 8);
-  
-  const seed = (seciliSirket || 'Tümü').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const perfPuan = 70 + (seed % 15);
-  const memnuniyetPuan = 65 + ((seed * 3) % 20);
-  const egitimPuan = 60 + ((seed * 7) % 25);
-  
-  const puan = Math.round((devamsizlikPuan + turnoverPuan + perfPuan + memnuniyetPuan + egitimPuan) / 5);
-  return {
-    puan,
-    boyutlar: [
-      { ad: 'Devamsizlik', puan: Math.min(100, Math.round(devamsizlikPuan)) },
-      { ad: 'Turnover', puan: Math.min(100, Math.round(turnoverPuan)) },
-      { ad: 'Performans', puan: perfPuan },
-      { ad: 'Memnuniyet', puan: memnuniyetPuan },
-      { ad: 'Egitim', puan: egitimPuan },
-    ],
-  };
-}
+
 
 const EGITIM_ONERILERI = [
   { kategori: 'Sunum & Iletisim', kurs: 'Etkili Sunum Teknikleri', sure: '4 saat', seviye: 'Temel', ikon: 'mic' },
@@ -342,7 +319,6 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
   const izinTuruData = useMemo(() => buildIzinTuruData(izinTalepleri), [izinTalepleri]);
   const turnoverDeptData = useMemo(() => buildTurnoverDeptData(employees, turnoverEvents, seciliSirket, seciliYil), [employees, turnoverEvents, seciliSirket, seciliYil]);
   const maliyetData = useMemo(() => buildMaliyetData(employees, bordrolar, seciliSirket), [employees, bordrolar, seciliSirket]);
-  const healthScore = useMemo(() => buildHRHealthScore(employees, izinTalepleri, turnoverData, seciliSirket), [employees, izinTalepleri, turnoverData, seciliSirket]);
 
   const radarChartData = useMemo(() => {
     const seed = (seciliSirket || 'Tümü').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -490,38 +466,13 @@ const AnalitiKDashboard: React.FC<Props> = ({ employees, izinTalepleri, izinHakl
 
       {aktifSekme === 'genel' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-5 text-white flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-2">
-                <Star className="w-5 h-5 text-indigo-200" />
-                <p className="text-sm font-semibold text-indigo-100">IK Saglik Skoru</p>
-              </div>
-              <div className="text-center my-2">
-                <p className={`text-6xl font-black ${healthScore.puan >= 70 ? 'text-green-300' : healthScore.puan >= 50 ? 'text-yellow-300' : 'text-red-300'}`}>{healthScore.puan}</p>
-                <p className="text-indigo-200 text-xs mt-1">/ 100</p>
-              </div>
-              <div className="space-y-1">
-                {healthScore.boyutlar.map((b) => (
-                  <div key={b.ad} className="flex items-center justify-between text-xs">
-                    <span className="text-indigo-200">{b.ad}</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-20 h-1.5 bg-indigo-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-200 rounded-full" style={{ width: `${b.puan}%` }} />
-                      </div>
-                      <span className="text-indigo-100 w-7 text-right">{b.puan}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-3">
-              <KPIKart label="Toplam Personel" deger={String(toplamPersonel)} alt={`${aktifPersonel} aktif`} trend="up" renk="bg-blue-100" icon={<Users className="w-5 h-5 text-blue-600" />} />
-              <KPIKart label="Ort. Turnover" deger={`%${ortalamaTurnover}`} alt="aylik ortalama" trend={ortalamaTurnover > 5 ? 'down' : 'up'} renk="bg-orange-100" icon={<Activity className="w-5 h-5 text-orange-600" />} />
-              <KPIKart label="Toplam Maliyet" deger={(toplamMaliyet / 1000).toFixed(0) + 'K TL'} alt="brut + tum yukler" trend="neutral" renk="bg-purple-100" icon={<DollarSign className="w-5 h-5 text-purple-600" />} />
-              <KPIKart label="Devamsizlik Mlt." deger={devamsizlikMaliyeti.toLocaleString('tr-TR') + ' TL'} alt="secili donem" trend="down" renk="bg-red-100" icon={<TrendingDown className="w-5 h-5 text-red-600" />} />
-              <KPIKart label="Ucus Riski" deger={String(yuksekRiskSayisi)} alt="yuksek riskli calisan" trend={yuksekRiskSayisi > 2 ? 'down' : 'neutral'} renk="bg-pink-100" icon={<ShieldAlert className="w-5 h-5 text-pink-600" />} />
-              <KPIKart label="Bekleyen Izin" deger={String(bekleyenIzin)} alt={`${toplamIzinGun} gun onaylı`} trend="neutral" renk="bg-yellow-100" icon={<AlertTriangle className="w-5 h-5 text-yellow-600" />} />
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <KPIKart label="Toplam Personel" deger={String(toplamPersonel)} alt={`${aktifPersonel} aktif`} trend="up" renk="bg-blue-100" icon={<Users className="w-5 h-5 text-blue-600" />} />
+            <KPIKart label="Ort. Turnover" deger={`%${ortalamaTurnover}`} alt="aylik ortalama" trend={ortalamaTurnover > 5 ? 'down' : 'up'} renk="bg-orange-100" icon={<Activity className="w-5 h-5 text-orange-600" />} />
+            <KPIKart label="Toplam Maliyet" deger={(toplamMaliyet / 1000).toFixed(0) + 'K TL'} alt="brut + tum yukler" trend="neutral" renk="bg-purple-100" icon={<DollarSign className="w-5 h-5 text-purple-600" />} />
+            <KPIKart label="Devamsizlik Mlt." deger={devamsizlikMaliyeti.toLocaleString('tr-TR') + ' TL'} alt="secili donem" trend="down" renk="bg-red-100" icon={<TrendingDown className="w-5 h-5 text-red-600" />} />
+            <KPIKart label="Ucus Riski" deger={String(yuksekRiskSayisi)} alt="yuksek riskli calisan" trend={yuksekRiskSayisi > 2 ? 'down' : 'neutral'} renk="bg-pink-100" icon={<ShieldAlert className="w-5 h-5 text-pink-600" />} />
+            <KPIKart label="Bekleyen Izin" deger={String(bekleyenIzin)} alt={`${toplamIzinGun} gun onaylı`} trend="neutral" renk="bg-yellow-100" icon={<AlertTriangle className="w-5 h-5 text-yellow-600" />} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
