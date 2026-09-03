@@ -627,6 +627,9 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                           badgeStyle = 'bg-orange-100 text-orange-800 hover:bg-orange-200';
                         } else if (g.kod === 'D') {
                           badgeStyle = 'bg-red-100 text-red-800 hover:bg-red-200';
+                        } else if (g.kod === '-') {
+                          badgeStyle = 'bg-transparent text-gray-300 hover:bg-gray-100 font-normal';
+                          displayVal = '-';
                         }
 
                         if (g.isPazar) cellBg = 'bg-red-50/20';

@@ -84,6 +84,10 @@ export const printPuantajCetveliPdf = (params: {
           } else if (g.kod === 'D') {
             badgeBg = '#fee2e2';
             badgeColor = '#b91c1c';
+          } else if (g.kod === '-') {
+            badgeBg = '#ffffff';
+            badgeColor = '#cbd5e1';
+            text = '-';
           }
 
           return `<td style="padding: 2px 1px; text-align: center; font-size: 8px; font-weight: bold; border: 1px solid #e2e8f0; background: ${badgeBg}; color: ${badgeColor};" title="${g.tarih} - ${g.kodAciklama}">${text}</td>`;
