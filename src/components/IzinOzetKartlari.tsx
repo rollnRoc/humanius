@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Calendar, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, PlusCircle, Edit2, Trash2 } from 'lucide-react';
+import { Users, Calendar, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, PlusCircle, Edit2, Trash2, ArrowUpDown } from 'lucide-react';
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,11 +27,9 @@ const IZIN_TURU_LABEL: Record<string, string> = {
   ucretsiz: 'Ücretsiz',
 };
 
-const UCRETLI_IZIN_TURLERI = new Set([
-  'yillik',
-]);
+const UCRETLI_IZIN_TURLERI = new Set(['yillik', 'mazeret', 'hastalik', 'dogum', 'babalik', 'evlilik', 'olum']);
 
-const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
+export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
   employees,
   izinTalepleri,
   izinHaklari,
@@ -40,14 +38,14 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
   onEditIzin,
   onDeleteIzin,
 }) => {
-  const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
-  const { profile } = useAuth();
-  const userRole = profile?.role || 'employee';
-  const isAuthorized = !['employee', 'user'].includes(userRole);
+  const { isSuperAdmin, isAdmin, isHR } = useAuth();
+  const isAuthorized = isSuperAdmin || isAdmin || isHR;
 
+  const [expandedEmp, setExpandedEmp] = useState<string | null>(null);
   const [editingHakEmpId, setEditingHakEmpId] = useState<string | null>(null);
   const [inputToplamHak, setInputToplamHak] = useState<number>(14);
   const [inputMazeretHak, setInputMazeretHak] = useState<number>(5);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const yil = new Date().getFullYear();
   const bugun = new Date().toISOString().split('T')[0];
@@ -165,8 +163,11 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
         kalanYillik,
         pct,
         bugunIzinde,
-        siradakiIzin,
       };
+    })
+    .sort((a, b) => {
+      const cmp = (a.emp.name || '').localeCompare(b.emp.name || '', 'tr');
+      return sortOrder === 'asc' ? cmp : -cmp;
     });
 
   const toggle = (id: string) => setExpandedEmp((prev) => (prev === id ? null : id));
@@ -305,15 +306,26 @@ const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
             <Calendar className="w-4 h-4 text-gray-500" />
             <h3 className="text-sm font-semibold text-gray-800">Personel İzin Durumu — {yil}</h3>
           </div>
-          {isAuthorized && onOpenHakedisModal && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => onOpenHakedisModal()}
-              className="flex items-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs"
+              type="button"
+              onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+              className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+              title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
             >
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-              <span>+ İzin Hak Edişi Tanımla</span>
+              <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
+              <span>{sortOrder === 'asc' ? 'A → Z Sırala' : 'Z → A Sırala'}</span>
             </button>
-          )}
+            {isAuthorized && onOpenHakedisModal && (
+              <button
+                onClick={() => onOpenHakedisModal()}
+                className="flex items-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                <span>+ İzin Hak Edişi Tanımla</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="divide-y divide-gray-100">

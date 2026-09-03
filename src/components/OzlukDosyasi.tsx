@@ -687,10 +687,10 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   const effectiveCompanyId = profile?.company_id ?? DEMO_COMPANY_ID;
   const storageEnabled = import.meta.env.VITE_SUPABASE_STORAGE_ENABLED !== 'false';
 
-  // ~irkete göre filtrele
-  const companyEmployees = employees.filter(
-    (e) => !profile?.company_id || e.company_id === profile.company_id
-  );
+  // Şirkete göre filtrele ve alfabetik sırala
+  const companyEmployees = employees
+    .filter((e) => !profile?.company_id || e.company_id === profile.company_id)
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
 
   const [activeTab, setActiveTab] = useState<TabId>('genel');
 

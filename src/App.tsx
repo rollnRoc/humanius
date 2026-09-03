@@ -145,6 +145,7 @@ const AppInner: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedCompany, setSelectedCompany] = useState('all');
+  const [employeeSortOrder, setEmployeeSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const isPopStateRef = useRef(false);
 
@@ -391,6 +392,7 @@ const AppInner: React.FC = () => {
         filteredMapped = mapped.filter((e) => e.department === managerDepartment || e.id === currentUserEmpId || e.email === profile?.email);
       }
 
+      filteredMapped.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
       setEmployees(filteredMapped);
       setStats(empStats ?? { active: 0, onLeave: 0, inactive: 0 });
 
@@ -677,6 +679,9 @@ const AppInner: React.FC = () => {
     })();
 
     return matchSearch && matchDept && matchCompany;
+  }).sort((a, b) => {
+    const cmp = (a.name || '').localeCompare(b.name || '', 'tr');
+    return employeeSortOrder === 'asc' ? cmp : -cmp;
   });
 
   const dynamicStats: Stats = {
@@ -1482,6 +1487,8 @@ const AppInner: React.FC = () => {
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
               totalResultCount={filteredEmployees.length}
+              sortOrder={employeeSortOrder}
+              onToggleSort={() => setEmployeeSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
             />
             <StatsCards stats={dynamicStats} />
             <EmployeeTable
@@ -1489,6 +1496,8 @@ const AppInner: React.FC = () => {
               onEmployeeClick={handleEmployeeClick}
               onDeleteEmployee={handleDeleteEmployee}
               onEmployeeActionSelect={handleEmployeeActionSelect}
+              sortOrder={employeeSortOrder}
+              onToggleSort={() => setEmployeeSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
             />
 
           </>

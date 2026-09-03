@@ -11,7 +11,7 @@ import {
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
   Sliders, Navigation, CheckCircle, RefreshCw, Trash2,
   Building2, Plus, Edit2, Check, X, Bell, BellRing, Users,
-  Printer, FileText, Download, CalendarCheck
+  Printer, FileText, Download, CalendarCheck, ArrowUpDown
 } from 'lucide-react';
 import type { Employee, CompanyOfficeLocation } from '../types';
 
@@ -125,6 +125,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const [activeTab, setActiveTab] = useState<'personal' | 'team'>(isManagement ? 'team' : 'personal');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const deptList = React.useMemo(() => {
     if (departments && departments.length > 0) {
@@ -987,17 +988,22 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     });
   }, [employees, allShiftRecords, izinTalepleri, officeLocations, allCompanyShifts, allShiftAssignments, adminOverrides]);
 
-  const filteredData = mockPdksData.filter((d) => {
-    const term = searchTerm.trim().toLowerCase();
-    const matchesSearch =
-      !term ||
-      d.employee.name.toLowerCase().includes(term) ||
-      (d.employee.tcNo && d.employee.tcNo.includes(term)) ||
-      (d.employee.position && d.employee.position.toLowerCase().includes(term)) ||
-      (d.employee.department && d.employee.department.toLowerCase().includes(term));
-    const matchesDept = selectedDepartment === 'all' || d.employee.department === selectedDepartment;
-    return matchesSearch && matchesDept;
-  });
+  const filteredData = mockPdksData
+    .filter((d) => {
+      const term = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        !term ||
+        d.employee.name.toLowerCase().includes(term) ||
+        (d.employee.tcNo && d.employee.tcNo.includes(term)) ||
+        (d.employee.position && d.employee.position.toLowerCase().includes(term)) ||
+        (d.employee.department && d.employee.department.toLowerCase().includes(term));
+      const matchesDept = selectedDepartment === 'all' || d.employee.department === selectedDepartment;
+      return matchesSearch && matchesDept;
+    })
+    .sort((a, b) => {
+      const cmp = (a.employee.name || '').localeCompare(b.employee.name || '', 'tr');
+      return sortOrder === 'asc' ? cmp : -cmp;
+    });
 
   const handlePrintPdf = () => {
     const records: PdksReportRecord[] = filteredData.map((d) => ({
@@ -1515,6 +1521,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 />
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
+                  <span>{sortOrder === 'asc' ? 'A → Z Sırala' : 'Z → A Sırala'}</span>
+                </button>
                 {onNavigateToPuantaj && (
                   <button
                     onClick={onNavigateToPuantaj}
@@ -1580,7 +1595,21 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-4">Personel</th>
+                  <th
+                    onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                    title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Personel</span>
+                      <span className="text-blue-600 font-bold text-xs">
+                        {sortOrder === 'asc' ? '▲' : '▼'}
+                      </span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </div>
+                  </th>
                   <th className="px-6 py-4">Departman</th>
                   <th className="px-6 py-4 text-center">Atanmış Vardiya</th>
                   <th className="px-6 py-4 text-center">Giriş Saati</th>

@@ -9,31 +9,46 @@ interface EmployeeTableProps {
   onEmployeeClick: (employee: Employee) => void;
   onDeleteEmployee: (id: string) => void;
   onEmployeeActionSelect?: (employee: Employee, action: 'gorev' | 'bordro' | 'izin') => void;
+  sortOrder?: 'asc' | 'desc';
+  onToggleSort?: () => void;
 }
 
 const EmployeeTable: React.FC<EmployeeTableProps> = ({
   employees,
   onEmployeeClick,
   onDeleteEmployee,
-  onEmployeeActionSelect
+  onEmployeeActionSelect,
+  sortOrder,
+  onToggleSort
 }) => {
   const { t } = useLanguage();
   const { appRole } = useAuth();
+  const [internalSortOrder, setInternalSortOrder] = useState<'asc' | 'desc'>('asc');
+  const currentSortOrder = sortOrder || internalSortOrder;
+  const toggleSort = onToggleSort || (() => setInternalSortOrder(prev => prev === 'asc' ? 'desc' : 'asc'));
+
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
 
+  const sortedEmployees = React.useMemo(() => {
+    return [...employees].sort((a, b) => {
+      const cmp = (a.name || '').localeCompare(b.name || '', 'tr');
+      return currentSortOrder === 'asc' ? cmp : -cmp;
+    });
+  }, [employees, currentSortOrder]);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [employees]);
+  }, [sortedEmployees]);
 
-  const totalPages = Math.ceil(employees.length / pageSize) || 1;
+  const totalPages = Math.ceil(sortedEmployees.length / pageSize) || 1;
   const paginatedEmployees = React.useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return employees.slice(start, start + pageSize);
-  }, [employees, currentPage, pageSize]);
+    return sortedEmployees.slice(start, start + pageSize);
+  }, [sortedEmployees, currentPage, pageSize]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -97,7 +112,21 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.name')}</th>
+              <th
+                onClick={toggleSort}
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={currentSortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>{t('table.name')}</span>
+                  <span className="text-blue-600 font-bold text-xs">
+                    {currentSortOrder === 'asc' ? '▲' : '▼'}
+                  </span>
+                  <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                    {currentSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                  </span>
+                </div>
+              </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.company')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.department')}</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.position')}</th>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, FileDown, Search, X, UploadCloud } from 'lucide-react';
+import { Plus, FileDown, Search, X, UploadCloud, ArrowUpDown } from 'lucide-react';
 import { Company, Department } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,6 +17,8 @@ interface ToolbarProps {
   searchTerm?: string;
   onSearchChange?: (term: string) => void;
   totalResultCount?: number;
+  sortOrder?: 'asc' | 'desc';
+  onToggleSort?: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -31,7 +33,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
   departments,
   searchTerm = '',
   onSearchChange,
-  totalResultCount
+  totalResultCount,
+  sortOrder = 'asc',
+  onToggleSort
 }) => {
   const { t } = useLanguage();
   const { appRole } = useAuth();
@@ -91,6 +95,18 @@ const Toolbar: React.FC<ToolbarProps> = ({
             </div>
           )}
           
+          {onToggleSort && (
+            <button
+              type="button"
+              onClick={onToggleSort}
+              className="flex items-center gap-1.5 bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3.5 py-2.5 rounded-xl font-bold transition-all shadow-xs text-sm cursor-pointer"
+              title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz sıralamak için tıklayın: A → Z)'}
+            >
+              <ArrowUpDown className="w-4 h-4 text-blue-600" />
+              <span>{sortOrder === 'asc' ? 'A → Z Sırala' : 'Z → A Sırala'}</span>
+            </button>
+          )}
+
           <button
             onClick={onNewEmployee}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm text-sm cursor-pointer"

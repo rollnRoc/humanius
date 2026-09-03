@@ -20,7 +20,8 @@ import {
   CalendarCheck,
   Briefcase,
   AlertCircle,
-  User
+  User,
+  ArrowUpDown
 } from 'lucide-react';
 import { Employee } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -74,6 +75,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [selectedDayFilter, setSelectedDayFilter] = useState<number | 'all'>('all');
   const [selectedDailyEmployeeId, setSelectedDailyEmployeeId] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Veri Durumları
   const [vardiyaKayitlari, setVardiyaKayitlari] = useState<VardiyaKaydi[]>([]);
@@ -173,23 +175,27 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     });
   }, [employees, selectedYear, selectedMonthIndex, companyShifts, shiftAssignments, vardiyaKayitlari, izinTalepleri, adminOverrides]);
 
-  // Filtrelenmiş Puantaj
   const filteredPuantaj = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return allCalculatedPuantaj.filter((p) => {
-      const emp = p.employee;
-      const matchesSearch =
-        !term ||
-        emp.name.toLowerCase().includes(term) ||
-        (emp.tcNo && emp.tcNo.includes(term)) ||
-        (emp.department && emp.department.toLowerCase().includes(term)) ||
-        (emp.position && emp.position.toLowerCase().includes(term));
+    return allCalculatedPuantaj
+      .filter((p) => {
+        const emp = p.employee;
+        const matchesSearch =
+          !term ||
+          emp.name.toLowerCase().includes(term) ||
+          (emp.tcNo && emp.tcNo.includes(term)) ||
+          (emp.department && emp.department.toLowerCase().includes(term)) ||
+          (emp.position && emp.position.toLowerCase().includes(term));
 
-      const matchesDept = selectedDepartment === 'all' || emp.department === selectedDepartment;
+        const matchesDept = selectedDepartment === 'all' || emp.department === selectedDepartment;
 
-      return matchesSearch && matchesDept;
-    });
-  }, [allCalculatedPuantaj, searchTerm, selectedDepartment]);
+        return matchesSearch && matchesDept;
+      })
+      .sort((a, b) => {
+        const cmp = (a.employee.name || '').localeCompare(b.employee.name || '', 'tr');
+        return sortOrder === 'asc' ? cmp : -cmp;
+      });
+  }, [allCalculatedPuantaj, searchTerm, selectedDepartment, sortOrder]);
 
   // İstatistik Kartları (KPIs)
   const totalStats = useMemo(() => {
@@ -530,6 +536,17 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
             />
           </div>
 
+          {/* Alfabetik Sıralama Butonu */}
+          <button
+            type="button"
+            onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+            className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
+            title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+          >
+            <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
+            <span>{sortOrder === 'asc' ? 'A → Z Sırala' : 'Z → A Sırala'}</span>
+          </button>
+
           {/* Sekme Değiştirici: Matris Çizelge vs Günlük Detay */}
           <div className="flex items-center bg-gray-100 p-1 rounded-xl">
             <button
@@ -632,8 +649,20 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
             <table className="w-full text-xs text-left border-collapse">
               <thead className="bg-gray-100 text-gray-700 sticky top-0 z-20 border-b border-gray-300">
                 <tr>
-                  <th className="px-3 py-3 font-bold border-r border-gray-300 bg-gray-100 sticky left-0 z-30 min-w-[200px]">
-                    Personel Bilgisi
+                  <th
+                    onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    className="px-3 py-3 font-bold border-r border-gray-300 bg-gray-100 sticky left-0 z-30 min-w-[200px] cursor-pointer hover:bg-gray-200 transition-colors select-none"
+                    title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Personel Bilgisi</span>
+                      <span className="text-blue-600 font-bold text-xs">
+                        {sortOrder === 'asc' ? '▲' : '▼'}
+                      </span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </div>
                   </th>
 
                   {/* Gün Başlıkları (1 - 30/31) */}

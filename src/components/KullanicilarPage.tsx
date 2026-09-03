@@ -18,6 +18,7 @@ import {
   RefreshCw,
   KeyRound,
   PenTool,
+  ArrowUpDown,
 } from 'lucide-react';
 import { userService, type UserProfile } from '../services/userService';
 import { userManagementService } from '../services/userManagementService';
@@ -598,6 +599,7 @@ const KullanicilarPage: React.FC = () => {
   const [loading, setLoading]           = useState(true);
   const [searchTerm, setSearchTerm]     = useState('');
   const [roleFilter, setRoleFilter]     = useState('all');
+  const [sortOrder, setSortOrder]       = useState<'asc' | 'desc'>('asc');
   const [modalMode, setModalMode]       = useState<'create' | 'edit' | null>(null);
   const [editTarget, setEditTarget]     = useState<UserProfile | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
@@ -701,14 +703,19 @@ const KullanicilarPage: React.FC = () => {
 
   const companyNameMap = Object.fromEntries(companies.map((c) => [c.id, c.name]));
 
-  const filtered = companyUsers.filter((u) => {
-    const matchSearch =
-      !searchTerm ||
-      u.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchRole = roleFilter === 'all' || u.role === roleFilter;
-    return matchSearch && matchRole;
-  });
+  const filtered = companyUsers
+    .filter((u) => {
+      const matchSearch =
+        !searchTerm ||
+        u.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchRole = roleFilter === 'all' || u.role === roleFilter;
+      return matchSearch && matchRole;
+    })
+    .sort((a, b) => {
+      const cmp = (a.full_name || '').localeCompare(b.full_name || '', 'tr');
+      return sortOrder === 'asc' ? cmp : -cmp;
+    });
 
   return (
     <div className="space-y-6">
@@ -805,6 +812,16 @@ const KullanicilarPage: React.FC = () => {
               <option key={r.value} value={r.value}>{r.label}</option>
             ))}
           </select>
+
+          <button
+            type="button"
+            onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+            className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-xs cursor-pointer shrink-0"
+            title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+          >
+            <ArrowUpDown size={15} className="text-blue-600" />
+            <span>{sortOrder === 'asc' ? 'A → Z Sırala' : 'Z → A Sırala'}</span>
+          </button>
         </div>
       </div>
 
@@ -824,8 +841,20 @@ const KullanicilarPage: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Kullanıcı
+                  <th
+                    onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    className="text-left px-5 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                    title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Kullanıcı</span>
+                      <span className="text-blue-600 font-bold text-xs">
+                        {sortOrder === 'asc' ? '▲' : '▼'}
+                      </span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </div>
                   </th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Rol

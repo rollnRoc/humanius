@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, Pencil, Trash2, Send, Upload, FileText, ChevronDown } from 'lucide-react';
+import { Eye, Pencil, Trash2, Send, Upload, FileText, ChevronDown, ArrowUpDown } from 'lucide-react';
 import { BordroItem } from '../types/bordro';
 
 interface BordroListProps {
@@ -25,12 +25,19 @@ const BordroList: React.FC<BordroListProps> = ({
 }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('all');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const periods = ['all', ...Array.from(new Set(bordrolar.map((b) => b.period))).sort().reverse()];
 
-  const filtered = selectedPeriod === 'all'
+  const filtered = (selectedPeriod === 'all'
     ? bordrolar
-    : bordrolar.filter((b) => b.period === selectedPeriod);
+    : bordrolar.filter((b) => b.period === selectedPeriod)
+  ).slice().sort((a, b) => {
+    const nameA = (a as any).employeeName ?? (a as any).employees?.name ?? (employees?.find((e: any) => e.id === a.employee_id)?.name) ?? '';
+    const nameB = (b as any).employeeName ?? (b as any).employees?.name ?? (employees?.find((e: any) => e.id === b.employee_id)?.name) ?? '';
+    const cmp = nameA.localeCompare(nameB, 'tr');
+    return sortOrder === 'asc' ? cmp : -cmp;
+  });
 
   const fmt = (v: number) =>
     v?.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0,00';
@@ -60,6 +67,17 @@ const BordroList: React.FC<BordroListProps> = ({
               </option>
             ))}
           </select>
+
+          {/* Alfabetik Sıralama Butonu */}
+          <button
+            type="button"
+            onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+            className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+            title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+          >
+            <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
+            <span>{sortOrder === 'asc' ? 'A → Z Sırala' : 'Z → A Sırala'}</span>
+          </button>
 
           {/* CSV import */}
           {!isEmployeeView && (
@@ -91,7 +109,21 @@ const BordroList: React.FC<BordroListProps> = ({
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <th className="px-4 py-3 text-left">Personel</th>
+                <th
+                  onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  className="px-4 py-3 text-left cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                  title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Personel</span>
+                    <span className="text-blue-600 font-bold text-xs">
+                      {sortOrder === 'asc' ? '▲' : '▼'}
+                    </span>
+                    <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                      {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                    </span>
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-left">Dönem</th>
                 <th className="px-4 py-3 text-right">Brüt Ücret</th>
                 <th className="px-4 py-3 text-right">Net Ücret</th>
