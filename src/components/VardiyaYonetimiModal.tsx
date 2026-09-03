@@ -135,8 +135,15 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
     }
     if (!window.confirm(`"${name}" vardiyasını silmek istediğinize emin misiniz?`)) return;
 
-    await shiftService.deleteShift(companyId, shiftId);
-    await loadData();
+    try {
+      setShifts((prev) => prev.filter((s) => s.id !== shiftId));
+      await shiftService.deleteShift(companyId, shiftId);
+      await loadData();
+    } catch (err) {
+      console.error('Silme hatası:', err);
+      alert('Vardiya silinirken bir sorun oluştu.');
+      await loadData();
+    }
   };
 
   const handleSingleAssign = async (employeeId: string, shiftId: string) => {
@@ -429,9 +436,13 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeleteShift(shift.id, shift.name)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Sil"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteShift(shift.id, shift.name);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Bu Vardiyayı Sil"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

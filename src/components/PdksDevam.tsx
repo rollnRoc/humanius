@@ -668,10 +668,12 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
       const dateStr = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
       
-      // Calculate delay based on target start 09:00
+      // Calculate delay based on selected shift's start time and tolerance
       const currentMin = now.getHours() * 60 + now.getMinutes();
-      const targetMin = 9 * 60; // 09:00 AM
-      const isLate = currentMin > targetMin + 15; // 15 mins grace period
+      const [sH, sM] = (activeUserShift?.start_time || '08:30').split(':').map(Number);
+      const shiftTargetMin = (!isNaN(sH) && !isNaN(sM)) ? (sH * 60 + sM) : (9 * 60);
+      const shiftTolerance = activeUserShift?.tolerance_minutes ?? 15;
+      const isLate = currentMin > shiftTargetMin + shiftTolerance;
       const statusValue = isLate ? 'gec-kaldi' : 'zamaninda';
       const officeName = activeOffice?.name || 'Ofis';
 
@@ -685,7 +687,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           giris_saati: timeStr,
           cikis_saati: null,
           durum: statusValue,
-          notlar: `Tarayıcı GPS Doğrulandı: ${officeName}`
+          notlar: `Tarayıcı GPS Doğrulandı: ${officeName} • Vardiya: ${activeUserShift?.name || 'Vardiya'} (${activeUserShift?.start_time || '08:30'}-${activeUserShift?.end_time || '18:00'})`
         };
         
         try {
@@ -1125,23 +1127,68 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   )}
                 </div>
 
-                {/* Personalized Active Shift Card */}
-                <div className="w-full max-w-sm bg-gradient-to-r from-indigo-50/90 to-blue-50/90 border border-indigo-200/80 rounded-2xl p-4 text-left shadow-xs flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs"
-                      style={{ backgroundColor: activeUserShift.color || '#3b82f6' }}
-                    />
-                    <div>
-                      <p className="text-[11px] font-semibold text-indigo-900/80">Atanmış Vardiyanız</p>
-                      <p className="text-xs font-extrabold text-indigo-950 mt-0.5">
-                        {activeUserShift.name} ({activeUserShift.start_time} - {activeUserShift.end_time})
-                      </p>
+                {/* Personalized Active Shift Card & Selector */}
+                <div className="w-full max-w-sm bg-gradient-to-r from-indigo-50/90 to-blue-50/90 border border-indigo-200/80 rounded-2xl p-4 text-left shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-indigo-600" />
+                      <label className="text-xs font-bold text-indigo-950">
+                        {isShiftActive ? 'Aktif Vardiyanız' : 'Çalışacağınız Vardiya:'}
+                      </label>
                     </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/90 text-indigo-700 border border-indigo-100 shadow-2xs">
+                      {isShiftActive ? '🔴 Mesai Sürüyor' : 'Vardiya Seçin'}
+                    </span>
                   </div>
-                  <div className="text-[11px] text-indigo-700 bg-white/80 px-2.5 py-1 rounded-lg border border-indigo-100 font-medium">
-                    Tolerans: <strong>{activeUserShift.tolerance_minutes} dk</strong>
-                  </div>
+
+                  {!isShiftActive ? (
+                    <div className="space-y-2">
+                      <select
+                        value={activeUserShift?.id || ''}
+                        onChange={(e) => {
+                          const selected = allCompanyShifts.find((s) => s.id === e.target.value);
+                          if (selected) {
+                            setActiveUserShift(selected);
+                            if (currentEmployee?.id) {
+                              shiftService.assignShift(profile?.company_id || 'default', currentEmployee.id, selected.id);
+                            }
+                          }
+                        }}
+                        className="w-full bg-white border border-indigo-200 hover:border-indigo-400 focus:border-indigo-600 rounded-xl px-3 py-2.5 text-xs font-bold text-gray-800 outline-none transition-all shadow-xs cursor-pointer"
+                      >
+                        {allCompanyShifts.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} ({s.start_time} - {s.end_time}) • Mola: {s.break_minutes}dk
+                          </option>
+                        ))}
+                      </select>
+                      <div className="flex items-center justify-between text-[11px] text-indigo-900/80 px-1 font-medium">
+                        <span>Mola: <strong>{activeUserShift.break_minutes} dk</strong></span>
+                        <span>•</span>
+                        <span>Tolerans: <strong>{activeUserShift.tolerance_minutes} dk</strong></span>
+                        <span>•</span>
+                        <span className="font-mono font-bold text-indigo-700">{activeUserShift.start_time} - {activeUserShift.end_time}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between bg-white/80 p-2.5 rounded-xl border border-indigo-100">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="w-3 h-3 rounded-full shrink-0"
+                          style={{ backgroundColor: activeUserShift.color || '#3b82f6' }}
+                        />
+                        <div>
+                          <p className="text-xs font-bold text-indigo-950">{activeUserShift.name}</p>
+                          <p className="text-[11px] font-mono text-indigo-700 font-medium">
+                            {activeUserShift.start_time} - {activeUserShift.end_time}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-indigo-800 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                        {activeUserShift.break_minutes} dk mola
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Office Location Selector */}

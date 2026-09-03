@@ -69,46 +69,43 @@ class ShiftService {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_shifts_${effectiveCompanyId}`;
 
-    let localData: CompanyShift[] = [];
+    let localData: CompanyShift[] | null = null;
     try {
       const saved = localStorage.getItem(storageKey);
-      if (saved) {
+      if (saved !== null) {
         localData = JSON.parse(saved);
       }
     } catch {}
 
-    if (!companyId || companyId === 'default' || companyId.includes('demo')) {
-      return localData.length > 0 ? localData : VARSAYILAN_VARDIYALAR;
+    // Eğer localStorage'da kayıt varsa (silinmiş/düzenlenmiş olsa bile) onu kullan
+    if (localData !== null && Array.isArray(localData) && localData.length > 0) {
+      return localData;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('company_shifts')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: true });
-
-      if (!error && data && Array.isArray(data) && data.length > 0) {
-        const formatted: CompanyShift[] = data.map((d: any) => ({
-          id: d.id,
-          name: d.name,
-          start_time: d.start_time,
-          end_time: d.end_time,
-          break_minutes: Number(d.break_minutes || 60),
-          tolerance_minutes: Number(d.tolerance_minutes || 15),
-          color: d.color || '#3b82f6',
-          is_default: Boolean(d.is_default),
-        }));
-        localStorage.setItem(storageKey, JSON.stringify(formatted));
-        return formatted;
-      }
-    } catch {
+    // Default key'i de kontrol et
+    if (effectiveCompanyId !== 'default') {
       try {
-        const { data: res } = await supabase.functions.invoke('user-management', {
-          body: { operation: 'list_company_shifts', companyId },
-        });
-        if (res?.shifts && Array.isArray(res.shifts) && res.shifts.length > 0) {
-          const formatted: CompanyShift[] = res.shifts.map((d: any) => ({
+        const defSaved = localStorage.getItem('humanius_shifts_default');
+        if (defSaved !== null) {
+          const defData = JSON.parse(defSaved);
+          if (Array.isArray(defData) && defData.length > 0) {
+            localStorage.setItem(storageKey, JSON.stringify(defData));
+            return defData;
+          }
+        }
+      } catch {}
+    }
+
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        const { data, error } = await supabase
+          .from('company_shifts')
+          .select('*')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: true });
+
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const formatted: CompanyShift[] = data.map((d: any) => ({
             id: d.id,
             name: d.name,
             start_time: d.start_time,
@@ -122,11 +119,14 @@ class ShiftService {
           return formatted;
         }
       } catch (e) {
-        console.warn('Shift fetch error:', e);
+        console.warn('Supabase shift fetch warning:', e);
       }
     }
 
-    if (localData.length > 0) return localData;
+    // İlk kez açılıyorsa varsayılanları kaydet ve dön
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(VARSAYILAN_VARDIYALAR));
+    } catch {}
     return VARSAYILAN_VARDIYALAR;
   }
 
@@ -140,7 +140,13 @@ class ShiftService {
     try {
       let list: CompanyShift[] = [];
       const saved = localStorage.getItem(storageKey);
-      if (saved) list = JSON.parse(saved);
+      if (saved) {
+        try { list = JSON.parse(saved); } catch {}
+      }
+      if (!list || list.length === 0) {
+        list = [...VARSAYILAN_VARDIYALAR];
+      }
+
       const idx = list.findIndex((s) => s.id === shift.id);
       let updated: CompanyShift[];
       if (idx >= 0) {
@@ -153,6 +159,7 @@ class ShiftService {
         updated = updated.map((s) => ({ ...s, is_default: s.id === shift.id }));
       }
       localStorage.setItem(storageKey, JSON.stringify(updated));
+      localStorage.setItem('humanius_shifts_default', JSON.stringify(updated));
     } catch {}
 
     if (!companyId || companyId === 'default' || companyId.includes('demo')) {
@@ -183,21 +190,6 @@ class ShiftService {
       if (!error) success = true;
     } catch {}
 
-    if (!success) {
-      try {
-        const { data: res } = await supabase.functions.invoke('user-management', {
-          body: {
-            operation: 'save_company_shift',
-            companyId,
-            ...shift,
-          },
-        });
-        success = !!res?.success;
-      } catch (e) {
-        console.error('Save shift error:', e);
-      }
-    }
-
     window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
     return success;
   }
@@ -212,35 +204,32 @@ class ShiftService {
     try {
       let list: CompanyShift[] = [];
       const saved = localStorage.getItem(storageKey);
-      if (saved) list = JSON.parse(saved);
-      const updated = list.filter((s) => s.id !== shiftId);
-      localStorage.setItem(storageKey, JSON.stringify(updated));
-    } catch {}
+      if (saved) {
+        try { list = JSON.parse(saved); } catch {}
+      }
+      if (!list || list.length === 0) {
+        list = [...VARSAYILAN_VARDIYALAR];
+      }
 
-    if (!companyId || companyId === 'default' || companyId.includes('demo')) {
-      window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
-      return true;
+      const updated = list.filter((s) => s.id !== shiftId);
+      if (updated.length > 0 && !updated.some((s) => s.is_default)) {
+        updated[0].is_default = true;
+      }
+
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+      localStorage.setItem('humanius_shifts_default', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Delete shift error:', e);
     }
 
-    let success = false;
-    try {
-      const { error } = await supabase.from('company_shifts').delete().eq('id', shiftId);
-      if (!error) success = true;
-    } catch {}
-
-    if (!success) {
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
       try {
-        const { data: res } = await supabase.functions.invoke('user-management', {
-          body: { operation: 'delete_company_shift', id: shiftId },
-        });
-        success = !!res?.success;
-      } catch (e) {
-        console.error('Delete shift error:', e);
-      }
+        await supabase.from('company_shifts').delete().eq('id', shiftId);
+      } catch {}
     }
 
     window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
-    return success;
+    return true;
   }
 
   /**
