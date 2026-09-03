@@ -31,7 +31,13 @@ import {
   PuantajKodu,
   GunlukPuantajDetay
 } from '../utils/puantajHesaplama';
-import { printPuantajCetveliPdf, exportPuantajCsv } from '../utils/puantajPdf';
+import {
+  printPuantajCetveliPdf,
+  exportPuantajCsv,
+  printGunlukDetayliRaporPdf,
+  exportGunlukDetayliCsv,
+  GunlukDetayliRaporItem,
+} from '../utils/puantajPdf';
 
 interface PuantajCetveliProps {
   employees: Employee[];
@@ -298,6 +304,58 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     );
   };
 
+  // Günlük Detaylı Döküm Öğeleri ve Çıktı Fonksiyonları
+  const dailyFilteredItems: GunlukDetayliRaporItem[] = useMemo(() => {
+    return filteredPuantaj.flatMap((p) =>
+      p.gunler
+        .filter((g) => selectedDayFilter === 'all' || g.gunNo === selectedDayFilter)
+        .map((g) => ({
+          employeeName: p.employee.name,
+          tcNo: p.employee.tcNo,
+          department: p.employee.department || 'Genel',
+          tarih: g.tarih,
+          gunAdi: g.gunAdi,
+          shiftHours: `${p.shift.start_time} - ${p.shift.end_time}`,
+          girisSaati: g.girisSaati,
+          cikisSaati: g.cikisSaati,
+          molaDk: g.molaDk,
+          netSureSaat: g.netSureSaat,
+          fazlaMesaiSaat: g.fazlaMesaiSaat,
+          gecikmeDk: g.gecikmeDk,
+          kod: g.kod,
+          kodAciklama: g.kodAciklama,
+        }))
+    );
+  }, [filteredPuantaj, selectedDayFilter]);
+
+  const handlePrintDailyPdf = () => {
+    const periodStr =
+      selectedDayFilter === 'all'
+        ? `${AY_ADLARI[selectedMonthIndex]} ${selectedYear}`
+        : `${selectedDayFilter} ${AY_ADLARI[selectedMonthIndex]} ${selectedYear}`;
+
+    printGunlukDetayliRaporPdf({
+      companyName: profile?.company_name || 'Humanius HRMS',
+      periodStr,
+      departmentFilter: selectedDepartment === 'all' ? 'Tüm Departmanlar' : selectedDepartment,
+      items: dailyFilteredItems,
+      preparedBy: profile?.full_name || 'İnsan Kaynakları & PDKS Sorumlusu',
+    });
+  };
+
+  const handleExportDailyCsv = () => {
+    const periodStr =
+      selectedDayFilter === 'all'
+        ? `${AY_ADLARI[selectedMonthIndex]}_${selectedYear}`
+        : `${selectedDayFilter}_${AY_ADLARI[selectedMonthIndex]}_${selectedYear}`;
+
+    exportGunlukDetayliCsv(
+      profile?.company_name || 'Humanius',
+      periodStr,
+      dailyFilteredItems
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* ÜST BAŞLIK & DÖNEM SEÇİCİ */}
@@ -530,9 +588,6 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   <th className="px-3 py-3 font-bold border-r border-gray-300 bg-gray-100 sticky left-0 z-30 min-w-[200px]">
                     Personel Bilgisi
                   </th>
-                  <th className="px-2 py-3 font-bold border-r border-gray-200 text-center min-w-[70px]">
-                    Vardiya
-                  </th>
 
                   {/* Gün Başlıkları (1 - 30/31) */}
                   {filteredPuantaj[0]?.gunler.map((g) => {
@@ -595,13 +650,6 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                           <span>•</span>
                           <span>{emp.position || '-'}</span>
                         </div>
-                      </td>
-
-                      {/* Vardiya Bilgisi */}
-                      <td className="px-1.5 py-2 text-center border-r border-gray-200 text-[10px] text-gray-600">
-                        <span className="bg-gray-100 px-1.5 py-0.5 rounded font-mono">
-                          {p.shift.start_time}-{p.shift.end_time}
-                        </span>
                       </td>
 
                       {/* Günlük Hücreler */}
@@ -707,8 +755,26 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                 ))}
               </select>
             </div>
-            <div className="text-xs text-gray-500">
-              Gösterilen kayıt: <strong>{filteredPuantaj.length} Personel</strong>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-500 mr-1">
+                Kayıt: <strong>{dailyFilteredItems.length} Hareket</strong>
+              </span>
+              <button
+                onClick={handlePrintDailyPdf}
+                className="flex items-center gap-1.5 bg-slate-900 hover:bg-black text-white px-3 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                title="Seçili Günlük Hareketleri PDF Olarak Yazdır"
+              >
+                <Printer className="w-3.5 h-3.5 text-blue-400" />
+                <span>Günlük Rapor (PDF)</span>
+              </button>
+              <button
+                onClick={handleExportDailyCsv}
+                className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                title="Seçili Günlük Hareketleri Excel/CSV İndir"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Günlük Excel / CSV</span>
+              </button>
             </div>
           </div>
 
