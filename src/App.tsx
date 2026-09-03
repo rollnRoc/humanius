@@ -63,6 +63,7 @@ const IzinCakismaKontrol = lazyWithRetry(() => import('./components/IzinCakismaK
 const DinamikFormBuilder = lazyWithRetry(() => import('./components/DinamikFormBuilder'));
 const KullanımKilavuzu = lazyWithRetry(() => import('./components/KullanımKilavuzu'));
 const TazminatHesaplama = lazyWithRetry(() => import('./components/TazminatHesaplama'));
+const PuantajCetveli = lazyWithRetry(() => import('./components/PuantajCetveli'));
 import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
 import { employeeService } from './services/employeeService';
 import { userManagementService } from './services/userManagementService';
@@ -1664,7 +1665,22 @@ const AppInner: React.FC = () => {
         )}
 
         {/* İŞ AKIŞI ve Operasyon */}
-        {currentView === 'pdks-devam' && <PdksDevam employees={employees} izinTalepleri={izinTalepleri} departments={departments} />}
+        {currentView === 'pdks-devam' && (
+          <PdksDevam
+            employees={employees}
+            izinTalepleri={izinTalepleri}
+            departments={departments}
+            onNavigateToPuantaj={() => setCurrentView('puantaj')}
+          />
+        )}
+        {currentView === 'puantaj' && (
+          <PuantajCetveli
+            employees={employees}
+            izinTalepleri={izinTalepleri}
+            departments={departments}
+            onNavigateToPdks={() => setCurrentView('pdks-devam')}
+          />
+        )}
         {currentView === 'is-akisi' && <IsAkisi companyId={profile?.company_id} />}
 
         {/* PDKS (Eski) */}

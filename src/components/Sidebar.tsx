@@ -85,6 +85,7 @@ const RAW_NAV_ITEMS = [
   { id: 'is-akisi-menu' as View, label: 'İş Akışı ve PDKS', icon: Clock, children: [
     { id: 'is-akisi' as View, label: 'İş Akışı Panosu' },
     { id: 'pdks-devam' as View, label: 'Devam Kontrolü' },
+    { id: 'puantaj' as View, label: 'Aylık Puantaj Cetveli' },
     { id: 'analitik' as View, label: 'Veri Analitiği' },
   ]},
   { id: 'uyari' as View, label: 'Uyarılar Takvimi', icon: Bell },

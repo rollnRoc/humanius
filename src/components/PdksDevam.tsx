@@ -11,7 +11,7 @@ import {
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
   Sliders, Navigation, CheckCircle, RefreshCw, Trash2,
   Building2, Plus, Edit2, Check, X, Bell, BellRing, Users,
-  Printer, FileText, Download
+  Printer, FileText, Download, CalendarCheck
 } from 'lucide-react';
 import type { Employee, CompanyOfficeLocation } from '../types';
 
@@ -19,6 +19,7 @@ interface PdksDevamProps {
   employees: Employee[];
   izinTalepleri?: any[];
   departments?: any[];
+  onNavigateToPuantaj?: () => void;
 }
 
 // Haversine formula to compute distance between two coordinates in meters
@@ -112,7 +113,12 @@ function checkIsShiftExpired(
   return { isExpired: false, autoCloseTime: cikisTimeStr };
 }
 
-const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [], departments = [] }) => {
+const PdksDevam: React.FC<PdksDevamProps> = ({
+  employees,
+  izinTalepleri = [],
+  departments = [],
+  onNavigateToPuantaj,
+}) => {
   const { profile, appRole } = useAuth();
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
 
@@ -1462,6 +1468,16 @@ const PdksDevam: React.FC<PdksDevamProps> = ({ employees, izinTalepleri = [], de
                 />
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                {onNavigateToPuantaj && (
+                  <button
+                    onClick={onNavigateToPuantaj}
+                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                    title="Aylık Personel Puantaj ve Çalışma Cetveline Git"
+                  >
+                    <CalendarCheck className="w-3.5 h-3.5 text-blue-200" />
+                    Aylık Puantaj Cetveli ➡️
+                  </button>
+                )}
                 <button
                   onClick={handlePrintPdf}
                   className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"

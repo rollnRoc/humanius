@@ -36,7 +36,8 @@ export type View =
   | 'izin-listesi'
   | 'is-akisi-menu'
   | 'sifre-degistir'
-  | 'tazminat-hesaplama';
+  | 'tazminat-hesaplama'
+  | 'puantaj';
 
 // ─── Core Entities ───────────────────────────────────────────────────────────
 
