@@ -19,7 +19,8 @@ import {
   Edit3,
   CalendarCheck,
   Briefcase,
-  AlertCircle
+  AlertCircle,
+  User
 } from 'lucide-react';
 import { Employee } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -72,6 +73,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [selectedDayFilter, setSelectedDayFilter] = useState<number | 'all'>('all');
+  const [selectedDailyEmployeeId, setSelectedDailyEmployeeId] = useState<string>('');
 
   // Veri Durumları
   const [vardiyaKayitlari, setVardiyaKayitlari] = useState<VardiyaKaydi[]>([]);
@@ -304,9 +306,44 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     );
   };
 
+  // Seçili Personel (Günlük Detay Görünümü İçin)
+  const activeDailyEmployeeId = useMemo(() => {
+    if (selectedDailyEmployeeId && (selectedDailyEmployeeId === 'all' || filteredPuantaj.some(p => p.employee.id === selectedDailyEmployeeId))) {
+      return selectedDailyEmployeeId;
+    }
+    return filteredPuantaj[0]?.employee.id || '';
+  }, [filteredPuantaj, selectedDailyEmployeeId]);
+
+  const selectedPuantajRecord = useMemo(() => {
+    return filteredPuantaj.find((p) => p.employee.id === activeDailyEmployeeId) || filteredPuantaj[0];
+  }, [filteredPuantaj, activeDailyEmployeeId]);
+
+  const currentDailyEmpIndex = useMemo(() => {
+    return filteredPuantaj.findIndex((p) => p.employee.id === activeDailyEmployeeId);
+  }, [filteredPuantaj, activeDailyEmployeeId]);
+
+  const handlePrevEmployee = () => {
+    if (currentDailyEmpIndex > 0) {
+      setSelectedDailyEmployeeId(filteredPuantaj[currentDailyEmpIndex - 1].employee.id);
+    }
+  };
+
+  const handleNextEmployee = () => {
+    if (currentDailyEmpIndex < filteredPuantaj.length - 1 && currentDailyEmpIndex !== -1) {
+      setSelectedDailyEmployeeId(filteredPuantaj[currentDailyEmpIndex + 1].employee.id);
+    }
+  };
+
   // Günlük Detaylı Döküm Öğeleri ve Çıktı Fonksiyonları
   const dailyFilteredItems: GunlukDetayliRaporItem[] = useMemo(() => {
-    return filteredPuantaj.flatMap((p) =>
+    const list =
+      activeDailyEmployeeId === 'all'
+        ? filteredPuantaj
+        : selectedPuantajRecord
+        ? [selectedPuantajRecord]
+        : [];
+
+    return list.flatMap((p) =>
       p.gunler
         .filter((g) => selectedDayFilter === 'all' || g.gunNo === selectedDayFilter)
         .map((g) => ({
@@ -326,7 +363,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
           kodAciklama: g.kodAciklama,
         }))
     );
-  }, [filteredPuantaj, selectedDayFilter]);
+  }, [filteredPuantaj, activeDailyEmployeeId, selectedPuantajRecord, selectedDayFilter]);
 
   const handlePrintDailyPdf = () => {
     const periodStr =
@@ -334,10 +371,15 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         ? `${AY_ADLARI[selectedMonthIndex]} ${selectedYear}`
         : `${selectedDayFilter} ${AY_ADLARI[selectedMonthIndex]} ${selectedYear}`;
 
+    const filterTitle =
+      activeDailyEmployeeId === 'all'
+        ? (selectedDepartment === 'all' ? 'Tüm Departmanlar' : selectedDepartment)
+        : `${selectedPuantajRecord?.employee.name} (${selectedPuantajRecord?.employee.department || 'Genel'})`;
+
     printGunlukDetayliRaporPdf({
       companyName: profile?.company_name || 'Humanius HRMS',
       periodStr,
-      departmentFilter: selectedDepartment === 'all' ? 'Tüm Departmanlar' : selectedDepartment,
+      departmentFilter: filterTitle,
       items: dailyFilteredItems,
       preparedBy: profile?.full_name || 'İnsan Kaynakları & PDKS Sorumlusu',
     });
@@ -349,9 +391,14 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         ? `${AY_ADLARI[selectedMonthIndex]}_${selectedYear}`
         : `${selectedDayFilter}_${AY_ADLARI[selectedMonthIndex]}_${selectedYear}`;
 
+    const prefix =
+      activeDailyEmployeeId === 'all'
+        ? 'Toplu_Gunluk'
+        : `${selectedPuantajRecord?.employee.name.replace(/\s+/g, '_') || 'Personel'}_Gunluk`;
+
     exportGunlukDetayliCsv(
       profile?.company_name || 'Humanius',
-      periodStr,
+      `${prefix}_${periodStr}`,
       dailyFilteredItems
     );
   };
@@ -735,122 +782,246 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         </div>
       )}
 
-      {/* GÖRÜNÜM B: GÜNLÜK DETAYLI HAREKET LİSTESİ */}
+      {/* GÖRÜNÜM B: GÜNLÜK DETAYLI HAREKET LİSTESİ (PERSONEL BAZLI) */}
       {activeTab === 'daily' && (
-        <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-bold text-gray-800">Gün Filtresi:</span>
-              <select
-                value={selectedDayFilter}
-                onChange={(e) => setSelectedDayFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold outline-none bg-gray-50"
-              >
-                <option value="all">Tüm Günler (Tüm Ay)</option>
-                {filteredPuantaj[0]?.gunler.map((g) => (
-                  <option key={g.tarih} value={g.gunNo}>
-                    {g.gunNo} {AY_ADLARI[selectedMonthIndex]} ({g.gunAdi})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-500 mr-1">
-                Kayıt: <strong>{dailyFilteredItems.length} Hareket</strong>
-              </span>
-              <button
-                onClick={handlePrintDailyPdf}
-                className="flex items-center gap-1.5 bg-slate-900 hover:bg-black text-white px-3 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                title="Seçili Günlük Hareketleri PDF Olarak Yazdır"
-              >
-                <Printer className="w-3.5 h-3.5 text-blue-400" />
-                <span>Günlük Rapor (PDF)</span>
-              </button>
-              <button
-                onClick={handleExportDailyCsv}
-                className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                title="Seçili Günlük Hareketleri Excel/CSV İndir"
-              >
-                <Download className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Günlük Excel / CSV</span>
-              </button>
+        <div className="space-y-4">
+          {/* PERSONEL VE GÜN SEÇİCİ KART */}
+          <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              {/* Sol: Personel Seçici */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 text-blue-600 font-bold text-xs">
+                  <User className="w-4 h-4" />
+                  <span>Personel:</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handlePrevEmployee}
+                    disabled={currentDailyEmpIndex <= 0}
+                    className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    title="Önceki Personel"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <select
+                    value={activeDailyEmployeeId}
+                    onChange={(e) => setSelectedDailyEmployeeId(e.target.value)}
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold outline-none bg-gray-50 focus:ring-2 focus:ring-blue-100 min-w-[240px]"
+                  >
+                    {filteredPuantaj.map((p) => (
+                      <option key={p.employee.id} value={p.employee.id}>
+                        {p.employee.name} ({p.employee.department || 'Genel'})
+                      </option>
+                    ))}
+                    <option value="all">👥 Tüm Personelleri Göster (Toplu Liste)</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={handleNextEmployee}
+                    disabled={currentDailyEmpIndex >= filteredPuantaj.length - 1 || currentDailyEmpIndex === -1}
+                    className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    title="Sonraki Personel"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Gün Filtresi */}
+                <div className="flex items-center gap-1.5 ml-2 pl-3 border-l border-gray-200">
+                  <Clock className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-xs font-semibold text-gray-600">Filtre:</span>
+                  <select
+                    value={selectedDayFilter}
+                    onChange={(e) => setSelectedDayFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold outline-none bg-gray-50"
+                  >
+                    <option value="all">Tüm Günler (Tüm Ay)</option>
+                    {filteredPuantaj[0]?.gunler.map((g) => (
+                      <option key={g.tarih} value={g.gunNo}>
+                        {g.gunNo} {AY_ADLARI[selectedMonthIndex]} ({g.gunAdi})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Sağ: Çıktı Butonları */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-500 mr-1">
+                  Kayıt: <strong>{dailyFilteredItems.length} Gün</strong>
+                </span>
+                <button
+                  onClick={handlePrintDailyPdf}
+                  className="flex items-center gap-1.5 bg-slate-900 hover:bg-black text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                  title="Seçili Kayıtları PDF Olarak Yazdır"
+                >
+                  <Printer className="w-3.5 h-3.5 text-blue-400" />
+                  <span>{activeDailyEmployeeId === 'all' ? 'Toplu Günlük PDF' : 'Personel Günlük PDF'}</span>
+                </button>
+                <button
+                  onClick={handleExportDailyCsv}
+                  className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                  title="Seçili Kayıtları Excel/CSV İndir"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Excel / CSV</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-gray-50 text-gray-700 uppercase text-[10px] border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3">Personel</th>
-                  <th className="px-4 py-3">Tarih</th>
-                  <th className="px-4 py-3 text-center">Vardiya</th>
-                  <th className="px-4 py-3 text-center">İlk Giriş Saati</th>
-                  <th className="px-4 py-3 text-center">Son Çıkış Saati</th>
-                  <th className="px-4 py-3 text-center">Yasal Mola</th>
-                  <th className="px-4 py-3 text-center">Net Süre</th>
-                  <th className="px-4 py-3 text-center">Fazla Mesai</th>
-                  <th className="px-4 py-3 text-center">Geç Kalma</th>
-                  <th className="px-4 py-3 text-center">Puantaj Durumu</th>
-                  <th className="px-4 py-3 text-center">İşlem</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredPuantaj.flatMap((p) =>
-                  p.gunler
-                    .filter((g) => selectedDayFilter === 'all' || g.gunNo === selectedDayFilter)
-                    .map((g) => {
-                      const emp = p.employee;
-                      return (
-                        <tr key={`${emp.id}_${g.tarih}`} className="hover:bg-gray-50">
+          {/* SEÇİLİ PERSONEL ÖZET BİLGİ KARTI */}
+          {activeDailyEmployeeId !== 'all' && selectedPuantajRecord && (
+            <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white rounded-xl shadow-xs border border-blue-100 p-4">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shadow-sm">
+                    {selectedPuantajRecord.employee.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                      {selectedPuantajRecord.employee.name}
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                        {selectedPuantajRecord.employee.department || 'Genel'}
+                      </span>
+                    </h3>
+                    <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
+                      <span>{selectedPuantajRecord.employee.position || 'Personel'}</span>
+                      {selectedPuantajRecord.employee.tcNo && (
+                        <>
+                          <span>•</span>
+                          <span>TC: {selectedPuantajRecord.employee.tcNo}</span>
+                        </>
+                      )}
+                      <span>•</span>
+                      <span className="font-mono text-gray-600">Vardiya: {selectedPuantajRecord.shift.start_time} - {selectedPuantajRecord.shift.end_time}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <div className="bg-white border border-emerald-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
+                    <div className="text-[10px] text-emerald-600 font-bold uppercase">Fiili Çalışma</div>
+                    <div className="text-sm font-extrabold text-emerald-700">
+                      {selectedPuantajRecord.ozet.fiiliCalismaGun}g <span className="text-xs font-normal">({selectedPuantajRecord.ozet.fiiliCalismaSaat}s)</span>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-amber-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
+                    <div className="text-[10px] text-amber-600 font-bold uppercase">Fazla Mesai</div>
+                    <div className="text-sm font-extrabold text-amber-700">
+                      +{selectedPuantajRecord.ozet.toplamFazlaMesaiSaat}s
+                    </div>
+                  </div>
+                  <div className="bg-white border border-blue-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
+                    <div className="text-[10px] text-blue-600 font-bold uppercase">Bordro Gün (30G)</div>
+                    <div className="text-sm font-extrabold text-blue-700">
+                      {selectedPuantajRecord.ozet.bordroGun} gün
+                    </div>
+                  </div>
+                  <div className="bg-white border border-gray-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
+                    <div className="text-[10px] text-gray-500 font-bold uppercase">İzin / Rapor</div>
+                    <div className="text-sm font-extrabold text-gray-700">
+                      {selectedPuantajRecord.ozet.ucretliIzinGun + selectedPuantajRecord.ozet.raporluGun} gün
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* GÜNLÜK DÖKÜM TABLOSU */}
+          <div className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-gray-50 text-gray-700 uppercase text-[10px] border-b border-gray-200">
+                  <tr>
+                    {activeDailyEmployeeId === 'all' && <th className="px-4 py-3">Personel</th>}
+                    <th className="px-4 py-3">Tarih</th>
+                    <th className="px-4 py-3 text-center">Vardiya</th>
+                    <th className="px-4 py-3 text-center">İlk Giriş Saati</th>
+                    <th className="px-4 py-3 text-center">Son Çıkış Saati</th>
+                    <th className="px-4 py-3 text-center">Yasal Mola</th>
+                    <th className="px-4 py-3 text-center bg-emerald-50 text-emerald-900">Net Fiili Süre</th>
+                    <th className="px-4 py-3 text-center">Fazla Mesai</th>
+                    <th className="px-4 py-3 text-center">Geç Kalma</th>
+                    <th className="px-4 py-3 text-center">Puantaj Durumu</th>
+                    <th className="px-4 py-3 text-center">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {dailyFilteredItems.map((item, idx) => {
+                    const record = filteredPuantaj.find(p => p.employee.name === item.employeeName);
+                    const dayObj = record?.gunler.find(g => g.tarih === item.tarih);
+
+                    let badgeStyle = 'bg-gray-100 text-gray-600';
+                    if (item.kod === 'Ç') badgeStyle = 'bg-emerald-100 text-emerald-800';
+                    else if (item.kod === 'HT') badgeStyle = 'bg-blue-100 text-blue-800';
+                    else if (item.kod === 'AT') badgeStyle = 'bg-slate-100 text-slate-700';
+                    else if (item.kod === 'UBGT') badgeStyle = 'bg-purple-100 text-purple-800';
+                    else if (item.kod === 'Yİ' || item.kod === 'Mİ') badgeStyle = 'bg-teal-100 text-teal-800';
+                    else if (item.kod === 'R') badgeStyle = 'bg-amber-100 text-amber-800';
+                    else if (item.kod === 'Üİ') badgeStyle = 'bg-orange-100 text-orange-800';
+                    else if (item.kod === 'D') badgeStyle = 'bg-red-100 text-red-800';
+                    else if (item.kod === '-') badgeStyle = 'bg-gray-50 text-gray-400 font-normal';
+
+                    return (
+                      <tr key={`${item.employeeName}_${item.tarih}_${idx}`} className="hover:bg-blue-50/30 transition-colors">
+                        {activeDailyEmployeeId === 'all' && (
                           <td className="px-4 py-2.5 font-bold text-gray-900">
-                            {emp.name}
-                            <div className="text-[10px] text-gray-400 font-normal">{emp.department || 'Genel'}</div>
+                            {item.employeeName}
+                            <div className="text-[10px] text-gray-400 font-normal">{item.department}</div>
                           </td>
-                          <td className="px-4 py-2.5 font-mono text-gray-700">
-                            {g.tarih} <span className="text-[10px] text-gray-400">({g.gunAdi})</span>
-                          </td>
-                          <td className="px-4 py-2.5 text-center font-mono text-gray-500">
-                            {p.shift.start_time} - {p.shift.end_time}
-                          </td>
-                          <td className="px-4 py-2.5 text-center font-bold text-blue-700">
-                            {g.girisSaati || '-'}
-                          </td>
-                          <td className="px-4 py-2.5 text-center font-bold text-blue-700">
-                            {g.cikisSaati || '-'}
-                          </td>
-                          <td className="px-4 py-2.5 text-center text-gray-500">
-                            {g.molaDk} dk
-                          </td>
-                          <td className="px-4 py-2.5 text-center font-extrabold text-emerald-700">
-                            {g.netSureSaat > 0 ? `${g.netSureSaat} saat` : '-'}
-                          </td>
-                          <td className="px-4 py-2.5 text-center font-bold text-amber-600">
-                            {g.fazlaMesaiSaat > 0 ? `+${g.fazlaMesaiSaat}s` : '-'}
-                          </td>
-                          <td className="px-4 py-2.5 text-center font-semibold text-rose-600">
-                            {g.gecikmeDk > 0 ? `${g.gecikmeDk} dk` : '-'}
-                          </td>
-                          <td className="px-4 py-2.5 text-center">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gray-100 text-gray-800">
-                              {g.kod} - {g.kodAciklama}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-center">
+                        )}
+                        <td className="px-4 py-2.5 font-mono text-gray-700 font-medium">
+                          {item.tarih} <span className="text-[10px] text-gray-500 font-sans">({item.gunAdi})</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-center font-mono text-gray-500 text-[11px]">
+                          {item.shiftHours}
+                        </td>
+                        <td className="px-4 py-2.5 text-center font-bold text-blue-700">
+                          {item.girisSaati || '-'}
+                        </td>
+                        <td className="px-4 py-2.5 text-center font-bold text-blue-700">
+                          {item.cikisSaati || '-'}
+                        </td>
+                        <td className="px-4 py-2.5 text-center text-gray-500">
+                          {item.molaDk} dk
+                        </td>
+                        <td className="px-4 py-2.5 text-center font-extrabold text-emerald-700 bg-emerald-50/20">
+                          {item.netSureSaat > 0 ? `${item.netSureSaat} saat` : '-'}
+                        </td>
+                        <td className="px-4 py-2.5 text-center font-bold text-amber-600">
+                          {item.fazlaMesaiSaat > 0 ? `+${item.fazlaMesaiSaat}s` : '-'}
+                        </td>
+                        <td className="px-4 py-2.5 text-center font-semibold text-rose-600">
+                          {item.gecikmeDk > 0 ? `${item.gecikmeDk} dk` : '-'}
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${badgeStyle}`}>
+                            {item.kod} - {item.kodAciklama}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          {record && dayObj && (
                             <button
-                              onClick={() => handleOpenEditCell(p, g)}
-                              className="p-1 text-blue-600 hover:bg-blue-50 rounded-md transition-all cursor-pointer"
+                              onClick={() => handleOpenEditCell(record, dayObj)}
+                              className="p-1 text-blue-600 hover:bg-blue-100 rounded-md transition-all cursor-pointer"
                               title="Kaydı Düzenle"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                )}
-              </tbody>
-            </table>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
