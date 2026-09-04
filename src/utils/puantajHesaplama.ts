@@ -2,7 +2,7 @@
 
 import { Employee } from '../types';
 import { VardiyaKaydi } from '../services/pdksService';
-import { CompanyShift } from '../services/shiftService';
+import { CompanyShift, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG } from '../services/shiftService';
 
 export type PuantajKodu = 
   | 'Ç'    // Normal Fiili Çalışma
@@ -23,6 +23,7 @@ export interface GunlukPuantajDetay {
   isWeekend: boolean;      // Cumartesi veya Pazar mı
   isPazar: boolean;
   isCumartesi: boolean;
+  isCumartesiCalisma?: boolean; // Cumartesi 6 günlük çalışma düzeni aktif mi
   isResmiTatil: boolean;
   resmiTatilAdi?: string;
   kod: PuantajKodu;
@@ -146,8 +147,9 @@ export function hesaplaPersonelAylikPuantaj(params: {
   vardiyaKayitlari: VardiyaKaydi[];
   izinTalepleri: any[];
   adminOverrides?: Record<string, any>;
+  saturdayConfig?: SaturdayWorkConfig;
 }): PersonelAylikPuantaj {
-  const { employee, year, monthIndex, shift, vardiyaKayitlari, izinTalepleri, adminOverrides = {} } = params;
+  const { employee, year, monthIndex, shift, vardiyaKayitlari, izinTalepleri, adminOverrides = {}, saturdayConfig } = params;
 
   const monthDays = getAyinGunleri(year, monthIndex);
   const shiftTolerance = shift.tolerance_minutes || 15;
@@ -169,7 +171,21 @@ export function hesaplaPersonelAylikPuantaj(params: {
   const gunler: GunlukPuantajDetay[] = monthDays.map((day) => {
     const { tarih, gunNo, gunAdi, isPazar, isCumartesi } = day;
     const isWeekend = isPazar || isCumartesi;
+    const isCumartesiCalisma = Boolean(isCumartesi && saturdayConfig?.isSaturdayWork);
     const resmiTatilInfo = checkIsResmiTatil(tarih);
+
+    // Vardiya parametreleri (Cumartesi çalışma aktifse Cumartesiye özel saatler kullanılır)
+    let activeStartTime = shift.start_time;
+    let activeEndTime = shift.end_time;
+    let activeMolaDk = shiftMolaDk;
+    let activeTolerance = shiftTolerance;
+
+    if (isCumartesiCalisma && saturdayConfig) {
+      activeStartTime = saturdayConfig.startTime || '08:30';
+      activeEndTime = saturdayConfig.endTime || '13:00';
+      activeMolaDk = Number(saturdayConfig.breakMinutes || 0);
+      activeTolerance = Number(saturdayConfig.toleranceMinutes || 15);
+    }
 
     // 0. Öncelik: Manuel İK Düzeltmesi (Override)
     const overrideKey = `${employee.id}_${tarih}`;
@@ -206,24 +222,26 @@ export function hesaplaPersonelAylikPuantaj(params: {
         if (diffMins < 0) diffMins += 24 * 60; // Gece vardiyası
         brutSureSaat = parseFloat((diffMins / 60).toFixed(1));
 
-        const yasalMola = hesaplaYasalAraDinlenme(brutSureSaat, shiftMolaDk);
+        const yasalMola = hesaplaYasalAraDinlenme(brutSureSaat, activeMolaDk);
         const netMins = Math.max(0, diffMins - yasalMola);
         netSureSaat = parseFloat((netMins / 60).toFixed(1));
 
         // Geç kalma tespiti
-        const [sH, sM] = shift.start_time.split(':').map(Number);
+        const [sH, sM] = activeStartTime.split(':').map(Number);
         if (!isNaN(sH) && !isNaN(sM)) {
-          const shiftStartMin = sH * 60 + sM + shiftTolerance;
+          const shiftStartMin = sH * 60 + sM + activeTolerance;
           const userGirisMin = gH * 60 + gM;
           if (userGirisMin > shiftStartMin) {
             gecikmeDk = userGirisMin - (sH * 60 + sM);
           }
         }
 
-        // Günlük 8 saat / 9 saat üzeri fazla mesai
-        const [eH, eM] = shift.end_time.split(':').map(Number);
-        if (!isNaN(eH) && !isNaN(eM)) {
-          const normalShiftMins = Math.max(0, (eH * 60 + eM) - (sH * 60 + sM) - shiftMolaDk);
+        // Planlanan mesai süresi üzeri fazla mesai
+        const [eH, eM] = activeEndTime.split(':').map(Number);
+        if (!isNaN(eH) && !isNaN(eM) && !isNaN(sH) && !isNaN(sM)) {
+          let normalShiftMins = (eH * 60 + eM) - (sH * 60 + sM) - activeMolaDk;
+          if (normalShiftMins < 0) normalShiftMins += 24 * 60;
+          normalShiftMins = Math.max(0, normalShiftMins);
           if (netMins > normalShiftMins) {
             fazlaMesaiSaat = parseFloat(((netMins - normalShiftMins) / 60).toFixed(1));
           }
@@ -295,16 +313,38 @@ export function hesaplaPersonelAylikPuantaj(params: {
         if (!isFuture) haftaTatiliGun += 1;
       }
     } else if (isCumartesi) {
-      if (girisSaati && cikisSaati && netSureSaat > 0) {
-        kod = 'Ç';
-        kodAciklama = 'Cumartesi Akdi Tatil Çalışması';
-        fiiliCalismaGun += 1;
-        fiiliCalismaSaat += netSureSaat;
-        toplamFazlaMesaiSaat += fazlaMesaiSaat;
+      if (isCumartesiCalisma) {
+        // Cumartesi 6 günlük çalışma düzeninde normal çalışma günüdür
+        if (girisSaati && (cikisSaati || isToday)) {
+          kod = 'Ç';
+          kodAciklama = `Cumartesi Fiili Çalışma (${netSureSaat} saat)`;
+          fiiliCalismaGun += 1;
+          fiiliCalismaSaat += netSureSaat;
+          toplamFazlaMesaiSaat += fazlaMesaiSaat;
+        } else if (isFuture) {
+          kod = '-';
+          kodAciklama = 'Gelecek Gün / Henüz Gerçekleşmedi';
+        } else if (isToday) {
+          kod = '-';
+          kodAciklama = 'Bugün / Henüz Giriş Yapılmadı';
+        } else {
+          kod = 'D';
+          kodAciklama = 'Devamsız / Cumartesi Mesaisine Giriş Yapılmadı';
+          devamsizGun += 1;
+        }
       } else {
-        kod = 'AT';
-        kodAciklama = 'Akdi Tatil (5 Günlük Düzen)';
-        if (!isFuture) akdiTatilGun += 1;
+        // Standart 5 günlük düzen (Cumartesi Akdi Tatil)
+        if (girisSaati && cikisSaati && netSureSaat > 0) {
+          kod = 'Ç';
+          kodAciklama = 'Cumartesi Akdi Tatil Çalışması';
+          fiiliCalismaGun += 1;
+          fiiliCalismaSaat += netSureSaat;
+          toplamFazlaMesaiSaat += (fazlaMesaiSaat || netSureSaat);
+        } else {
+          kod = 'AT';
+          kodAciklama = 'Akdi Tatil (5 Günlük Düzen)';
+          if (!isFuture) akdiTatilGun += 1;
+        }
       }
     } else if (girisSaati && (cikisSaati || isToday)) {
       kod = 'Ç';
@@ -347,6 +387,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
       isWeekend,
       isPazar,
       isCumartesi,
+      isCumartesiCalisma,
       isResmiTatil: resmiTatilInfo.isTatil,
       resmiTatilAdi: resmiTatilInfo.ad,
       kod,
@@ -354,7 +395,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
       girisSaati,
       cikisSaati,
       brutSureSaat,
-      molaDk: shiftMolaDk,
+      molaDk: activeMolaDk,
       netSureSaat,
       fazlaMesaiSaat,
       gecikmeDk,

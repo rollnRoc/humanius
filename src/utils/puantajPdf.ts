@@ -14,6 +14,7 @@ export const printPuantajCetveliPdf = (params: {
   records: PersonelAylikPuantaj[];
   departmentFilter?: string;
   preparedBy?: string;
+  saturdayConfig?: { isSaturdayWork: boolean; startTime?: string; endTime?: string; };
 }) => {
   const {
     companyName = 'Humanius HRMS',
@@ -22,6 +23,7 @@ export const printPuantajCetveliPdf = (params: {
     records = [],
     departmentFilter = 'Tümü',
     preparedBy = 'İnsan Kaynakları & PDKS Birimi',
+    saturdayConfig,
   } = params;
 
   const monthName = AY_ADLARI[monthIndex];
@@ -36,13 +38,14 @@ export const printPuantajCetveliPdf = (params: {
   const dayNumbers = Array.from({ length: daysCount }, (_, i) => i + 1);
 
   // Gün başlıkları HTML
+  const isSatWork = Boolean(saturdayConfig?.isSaturdayWork);
   const dayHeadersHtml = dayNumbers
     .map((d) => {
       const dt = new Date(year, monthIndex, d);
       const isSunday = dt.getDay() === 0;
       const isSaturday = dt.getDay() === 6;
-      const bg = isSunday ? '#fee2e2' : isSaturday ? '#f1f5f9' : '#ffffff';
-      const color = isSunday ? '#b91c1c' : '#334155';
+      const bg = isSunday ? '#fee2e2' : isSaturday ? (isSatWork ? '#fef3c7' : '#f1f5f9') : '#ffffff';
+      const color = isSunday ? '#b91c1c' : isSaturday ? (isSatWork ? '#92400e' : '#334155') : '#334155';
       return `<th style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1; background:${bg}; color:${color}; width: 22px;">${d}</th>`;
     })
     .join('');
@@ -204,7 +207,7 @@ export const printPuantajCetveliPdf = (params: {
         <div>
           <div style="font-size: 13px; font-weight: bold; color: #1e3a8a;">${companyName}</div>
           <h1 class="title">AYLIK PERSONEL PUANTAJ VE ÇALIŞMA CETVELİ</h1>
-          <div class="subtitle">4857 Sayılı İş Kanunu ve İlgili Mevzuat Hükümlerine Uygundur • Birim: <strong>${departmentFilter}</strong></div>
+          <div class="subtitle">4857 Sayılı İş Kanunu ve İlgili Mevzuat Hükümlerine Uygundur • Birim: <strong>${departmentFilter}</strong> • Düzen: <strong>${saturdayConfig?.isSaturdayWork ? `6 Günlük (Cumartesi ${saturdayConfig.startTime || '08:30'} - ${saturdayConfig.endTime || '13:00'})` : '5 Günlük (Cumartesi Tatil)'}</strong></div>
         </div>
         <div style="text-align: right; font-size: 10px;">
           <div>Dönem: <strong style="font-size: 13px; color: #2563eb;">${monthName} ${year}</strong></div>

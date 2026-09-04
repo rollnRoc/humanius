@@ -11,6 +11,22 @@ export interface CompanyShift {
   is_default: boolean;
 }
 
+export interface SaturdayWorkConfig {
+  isSaturdayWork: boolean;
+  startTime: string;        // e.g. "08:30"
+  endTime: string;          // e.g. "13:00" or "18:00"
+  breakMinutes: number;     // e.g. 0 or 30 or 60
+  toleranceMinutes: number; // e.g. 15
+}
+
+export const DEFAULT_SATURDAY_CONFIG: SaturdayWorkConfig = {
+  isSaturdayWork: false,
+  startTime: '08:30',
+  endTime: '13:00',
+  breakMinutes: 0,
+  toleranceMinutes: 15,
+};
+
 export interface ShiftAssignment {
   id: string;
   company_id: string;
@@ -79,8 +95,9 @@ class ShiftService {
           .order('created_at', { ascending: true });
 
         if (!error && data && Array.isArray(data)) {
-          if (data.length > 0) {
-            const formatted: CompanyShift[] = data.map((d: any) => ({
+          const shiftRows = data.filter((d: any) => !d.id.includes('cumartesi'));
+          if (shiftRows.length > 0) {
+            const formatted: CompanyShift[] = shiftRows.map((d: any) => ({
               id: d.id,
               name: d.name,
               start_time: d.start_time,
@@ -453,6 +470,130 @@ class ShiftService {
     }
 
     return defaultShift;
+  }
+
+  /**
+   * Get Saturday work configuration for a company (Database-First)
+   */
+  public async getSaturdayConfig(companyId?: string): Promise<SaturdayWorkConfig> {
+    const effectiveCompanyId = companyId || 'default';
+    const storageKey = `humanius_saturday_work_${effectiveCompanyId}`;
+
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        const { data, error } = await supabase
+          .from('company_shifts')
+          .select('*')
+          .eq('company_id', companyId)
+          .like('id', '%cumartesi%')
+          .maybeSingle();
+
+        if (!error) {
+          if (data) {
+            const config: SaturdayWorkConfig = {
+              isSaturdayWork: true,
+              startTime: data.start_time || '08:30',
+              endTime: data.end_time || '13:00',
+              breakMinutes: Number(data.break_minutes || 0),
+              toleranceMinutes: Number(data.tolerance_minutes || 15),
+            };
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(config));
+              localStorage.setItem('humanius_saturday_work_default', JSON.stringify(config));
+            } catch {}
+            return config;
+          } else {
+            // Explicitly not in DB -> 5-day week
+            const config: SaturdayWorkConfig = { ...DEFAULT_SATURDAY_CONFIG, isSaturdayWork: false };
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(config));
+            } catch {}
+            return config;
+          }
+        }
+      } catch (err) {
+        console.warn('Error fetching saturday config from DB:', err);
+      }
+    }
+
+    try {
+      const cached = localStorage.getItem(storageKey) || localStorage.getItem('humanius_saturday_work_default');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch {}
+
+    return DEFAULT_SATURDAY_CONFIG;
+  }
+
+  /**
+   * Save Saturday work configuration for a company (Database-First)
+   */
+  public async saveSaturdayConfig(companyId: string, config: SaturdayWorkConfig): Promise<boolean> {
+    const effectiveCompanyId = companyId || 'default';
+    const storageKey = `humanius_saturday_work_${effectiveCompanyId}`;
+    let success = false;
+
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      const shiftId = `shift-cumartesi-${companyId}`;
+      try {
+        if (config.isSaturdayWork) {
+          const { error } = await supabase.from('company_shifts').upsert(
+            {
+              id: shiftId,
+              company_id: companyId,
+              name: 'Cumartesi Mesaisi',
+              start_time: config.startTime || '08:30',
+              end_time: config.endTime || '13:00',
+              break_minutes: Number(config.breakMinutes || 0),
+              tolerance_minutes: Number(config.toleranceMinutes || 15),
+              color: '#f59e0b',
+              is_default: false,
+            },
+            { onConflict: 'id' }
+          );
+          if (!error) {
+            success = true;
+          } else {
+            console.error('Error saving saturday config to Supabase:', error);
+          }
+        } else {
+          // Delete saturday shift row
+          const { error } = await supabase
+            .from('company_shifts')
+            .delete()
+            .eq('company_id', companyId)
+            .eq('id', shiftId);
+          if (!error) {
+            success = true;
+          } else {
+            console.error('Error deleting saturday config from Supabase:', error);
+          }
+        }
+      } catch (e) {
+        console.error('Exception saving saturday config:', e);
+      }
+    } else {
+      success = true;
+    }
+
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(config));
+      localStorage.setItem('humanius_saturday_work_default', JSON.stringify(config));
+    } catch {}
+
+    window.dispatchEvent(
+      new CustomEvent('humanius_saturday_updated', {
+        detail: { companyId: effectiveCompanyId, config },
+      })
+    );
+    window.dispatchEvent(
+      new CustomEvent('humanius_shifts_updated', {
+        detail: { companyId: effectiveCompanyId },
+      })
+    );
+
+    return success;
   }
 }
 
