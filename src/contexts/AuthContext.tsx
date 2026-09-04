@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
@@ -126,6 +126,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isDemo, setIsDemo] = useState(false);
 
+  const userRef = useRef<User | null>(null);
+  const profileRef = useRef<Profile | null>(null);
+  const isInitialLoadDoneRef = useRef(false);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
+
   useEffect(() => {
     // 1. Önce Demo Modu Kontrolü
     const isDemoActive = localStorage.getItem('humanius_demo_mode') === 'true';
@@ -137,13 +149,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         demoService.clearDatabase();
         setIsDemo(false);
         setUser(null);
+        userRef.current = null;
         setProfile(null);
+        profileRef.current = null;
         setLoading(false);
+        isInitialLoadDoneRef.current = true;
       } else {
         setIsDemo(true);
         setUser(mockDemoUser);
+        userRef.current = mockDemoUser as any;
         setProfile(mockDemoProfile);
+        profileRef.current = mockDemoProfile;
         setLoading(false);
+        isInitialLoadDoneRef.current = true;
         return;
       }
     }
@@ -156,17 +174,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsDemo(false);
         setSession(session);
         setUser(session.user);
-        fetchProfile(session.user.id);
+        userRef.current = session.user;
+        fetchProfile(session.user.id, true).finally(() => {
+          isInitialLoadDoneRef.current = true;
+        });
       } else if (isDemoActive) {
         setIsDemo(true);
         setUser(mockDemoUser);
+        userRef.current = mockDemoUser as any;
         setProfile(mockDemoProfile);
+        profileRef.current = mockDemoProfile;
         setLoading(false);
+        isInitialLoadDoneRef.current = true;
       } else {
         setSession(null);
         setUser(null);
+        userRef.current = null;
         setProfile(null);
+        profileRef.current = null;
         setLoading(false);
+        isInitialLoadDoneRef.current = true;
       }
     });
 
@@ -176,14 +203,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('humanius_demo_start_time');
         setIsDemo(false);
         setSession(session);
-        setUser(session.user);
-        
-        // Sadece yeni bir kullanıcı girişi varsa yükleme ekranı tetiklenir; şifre ve kullanıcı güncellemelerinde sayfa yenilenmez
-        if (event === 'SIGNED_IN' && !user) {
-          setLoading(true);
+
+        const currentUserId = userRef.current?.id;
+        const isSameUser = currentUserId === session.user.id;
+
+        if (!isSameUser) {
+          setUser(session.user);
+          userRef.current = session.user;
         }
-        fetchProfile(session.user.id);
+
+        // Sekme değiştiğinde (Alt-Tab), pencereye geri dönüldüğünde veya token yenilendiğinde (TOKEN_REFRESHED):
+        // Kullanıcı zaten aktifse ASLA loading ekranına geçme ve arayüzü sıfırlama!
+        if (event === 'TOKEN_REFRESHED' && isSameUser) {
+          return;
+        }
+
+        if (event === 'SIGNED_IN') {
+          if (!isSameUser || !isInitialLoadDoneRef.current) {
+            fetchProfile(session.user.id, true);
+          } else {
+            // Kullanıcı zaten oturumda; profil eksikse arka planda sessizce çek
+            if (!profileRef.current) {
+              fetchProfile(session.user.id, false);
+            }
+          }
+        } else if (event === 'USER_UPDATED') {
+          fetchProfile(session.user.id, false);
+        }
       } else if (localStorage.getItem('humanius_demo_mode') !== 'true') {
+        userRef.current = null;
+        profileRef.current = null;
         setSession(null);
         setUser(null);
         setProfile(null);
@@ -200,7 +249,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [profile, isDemo]);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, showLoading: boolean = false) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -213,7 +265,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data && data.role) {
-        setProfile(data);
+        const prev = profileRef.current;
+        if (
+          !prev ||
+          prev.id !== data.id ||
+          prev.role !== data.role ||
+          prev.company_id !== data.company_id ||
+          prev.full_name !== data.full_name ||
+          prev.email !== data.email ||
+          prev.avatar_url !== data.avatar_url
+        ) {
+          setProfile(data);
+          profileRef.current = data;
+        }
         return;
       }
 
@@ -230,6 +294,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (pByEmail && pByEmail.role) {
           setProfile(pByEmail);
+          profileRef.current = pByEmail;
           return;
         }
       }
@@ -242,6 +307,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const matched = (edgeData?.users || []).find((u: any) => u.id === userId || (userEmail && u.email?.toLowerCase().trim() === userEmail));
         if (matched && matched.role) {
           setProfile(matched);
+          profileRef.current = matched;
           return;
         }
       } catch {}
@@ -274,11 +340,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       setProfile(fallbackProf);
+      profileRef.current = fallbackProf;
     } catch (error) {
       console.warn('Error fetching profile:', error);
-      setProfile(null);
+      if (!profileRef.current) {
+        setProfile(null);
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -369,12 +440,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    try {
+      localStorage.removeItem('humanius_current_view');
+      localStorage.removeItem('humanius_pdks_active_tab');
+      localStorage.removeItem('humanius_demo_mode');
+      localStorage.removeItem('humanius_demo_start_time');
+    } catch {}
     if (isDemo) {
       demoService.clearDatabase();
       setIsDemo(false);
     } else {
       await supabase.auth.signOut();
     }
+    userRef.current = null;
+    profileRef.current = null;
     setUser(null);
     setProfile(null);
     setSession(null);

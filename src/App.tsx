@@ -140,6 +140,12 @@ const AppInner: React.FC = () => {
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [currentView, setCurrentView] = useState<View>(() => {
+    try {
+      const saved = localStorage.getItem('humanius_current_view') as View | null;
+      if (saved) {
+        return saved;
+      }
+    } catch {}
     return isEmployeeOnly ? 'arama' : 'personel';
   });
   const [searchTerm, setSearchTerm] = useState('');
@@ -170,11 +176,16 @@ const AppInner: React.FC = () => {
     } else {
       window.history.pushState({ view: currentView }, '', '');
     }
+    try {
+      if (currentView) {
+        localStorage.setItem('humanius_current_view', currentView);
+      }
+    } catch {}
   }, [currentView]);
 
   // Personel rolündeki kullanıcılar varsayılan olarak personel yönetim tablosuna değil, Ana Sayfa / Portal (arama) ekranına yönlendirilir
   useEffect(() => {
-    if (!authLoading && user && isEmployeeOnly && (currentView === 'personel' || !canAccessView(effectiveAppRole, currentView))) {
+    if (!authLoading && user && ((isEmployeeOnly && currentView === 'personel') || !canAccessView(effectiveAppRole, currentView))) {
       setCurrentView('arama');
     }
   }, [authLoading, user, isEmployeeOnly, effectiveAppRole, currentView]);
@@ -1353,7 +1364,7 @@ const AppInner: React.FC = () => {
   };
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
-  if (authLoading) {
+  if (authLoading && !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
@@ -1361,7 +1372,7 @@ const AppInner: React.FC = () => {
     );
   }
 
-  if (!user) {
+  if (!user && !authLoading) {
     return <Login />;
   }
 

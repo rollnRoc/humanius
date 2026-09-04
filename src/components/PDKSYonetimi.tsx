@@ -267,7 +267,23 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
   const isAdmin = appRole === 'superadmin' || appRole === 'admin' || appRole === 'hr' || appRole === 'manager';
   
   const [loading, setLoading] = useState(true);
-  const [aktifSekme, setAktifSekme] = useState<Sekme>('devam');
+  const [aktifSekme, setAktifSekme] = useState<Sekme>(() => {
+    try {
+      const saved = localStorage.getItem('humanius_pdks_active_tab') as Sekme | null;
+      if (saved && ['devam', 'motor', 'onay', 'vardiya'].includes(saved)) {
+        return saved;
+      }
+    } catch {}
+    return 'devam';
+  });
+
+  useEffect(() => {
+    try {
+      if (aktifSekme) {
+        localStorage.setItem('humanius_pdks_active_tab', aktifSekme);
+      }
+    } catch {}
+  }, [aktifSekme]);
   const [secilenTarih, setSecilenTarih] = useState('2026-05-04');
   const [secilenDepartman, setSecilenDepartman] = useState('all');
   const [checkInModal, setCheckInModal] = useState(false);
