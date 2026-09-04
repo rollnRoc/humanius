@@ -76,8 +76,11 @@ export interface BordroHesapInput {
   temsilEtiket?: number;
   sendikaidat?: number;
   avans?: number;
+  besKesintisi?: number;
+  icraKesintisi?: number;
   digerKesintiler?: number;
   engelliIndirimi?: number;
+  maasTipi?: 'brut' | 'net';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -97,6 +100,9 @@ export interface BordroHesapResult extends BordroHesapInput {
   toplamKesinti: number;
   netMaas: number;
   kumulatifVergiMatrahi: number;
+  toplamIsverenMaliyeti: number;
+  saatlikUcret: number;
+  gunlukUcret: number;
 }
 
 export function calculateBordro(
@@ -125,6 +131,8 @@ export function calculateBordro(
     temsilEtiket = 0,
     sendikaidat = 0,
     avans = 0,
+    besKesintisi = 0,
+    icraKesintisi = 0,
     digerKesintiler = 0,
     engelliIndirimi = 0,
     sgkIsverenIndirimOrani = 5,
@@ -208,9 +216,15 @@ export function calculateBordro(
     damgaVergisi +
     sendikaidat +
     avans +
+    besKesintisi +
+    icraKesintisi +
     digerKesintiler;
 
   const netMaas = toplamKazanc - toplamKesinti;
+
+  // Toplam İşveren Maliyeti: Brüt Kazanç + SGK İşveren + İşsizlik İşveren - 5 Puanlık Hazine İndirimi
+  const toplamIsverenMaliyeti = toplamKazanc + sgkIsverenPayi + issizlikIsverenPayi - sgkIsverenIndirimi;
+  const gunlukUcret = temelKazanc / 30;
 
   return {
     ...input,
@@ -225,9 +239,14 @@ export function calculateBordro(
     sgkIsverenIndirimi,
     asgariUcretGelirVergisiIstisnasi,
     asgariUcretDamgaVergisiIstisnasi,
+    besKesintisi,
+    icraKesintisi,
     toplamKesinti,
     netMaas,
     kumulatifVergiMatrahi,
+    toplamIsverenMaliyeti,
+    saatlikUcret,
+    gunlukUcret,
   };
 }
 
@@ -241,34 +260,113 @@ export function formatCurrency(value: number): string {
   return `${formatNumber(value)} ₺`;
 }
 
+export interface NettenBruteOptions {
+  medeniDurum?: 'bekar' | 'evli';
+  cocukSayisi?: number;
+  engelliIndirimi?: number;
+  isEmekli?: boolean;
+  ayNo?: number;
+  oncekiAylarGVMatrahi?: number;
+  yolParasi?: number;
+  gidaYardimi?: number;
+  cocukYardimi?: number;
+  digerKazanclar?: number;
+  ikramiye?: number;
+  prim?: number;
+  sendikaidat?: number;
+  avans?: number;
+  besKesintisi?: number;
+  icraKesintisi?: number;
+  digerKesintiler?: number;
+}
+
 /**
- * Net ücretten brüt ücreti yaklaşık hesaplar (iteratif yöntem).
+ * Net ücretten brüt ücreti kuruşu kuruşuna tam hesaplar (ikili arama / binary search yöntemi).
+ * Hem eski parametre imzasını hem de detaylı opsiyon nesnesini destekler.
  */
 export function nettenBruteHesapla(
-  netMaas: number,
-  medeniDurum: 'bekar' | 'evli' = 'bekar',
+  netHedef: number,
+  optionsOrMedeniDurum?: 'bekar' | 'evli' | NettenBruteOptions,
   cocukSayisi: number = 0,
   engelliMi: boolean = false,
-  ayNo: number = 1
+  ayNo: number = 1,
+  oncekiAylarGVMatrahi: number = 0,
+  isEmekli: boolean = false
 ): number {
-  // İteratif yaklaşım: brüt tahminden başlayıp net'e ulaşana kadar döngü
-  let brut = netMaas * 1.45; // başlangıç tahmini
-  for (let i = 0; i < 50; i++) {
-    const result = calculateBordro(
-      {
-        employeeId: '',
-        period: '',
-        temelKazanc: brut,
-        medeniDurum,
+  if (!netHedef || netHedef <= 0) return 0;
+
+  const isObj = typeof optionsOrMedeniDurum === 'object' && optionsOrMedeniDurum !== null;
+  const opts: NettenBruteOptions = isObj
+    ? (optionsOrMedeniDurum as NettenBruteOptions)
+    : {
+        medeniDurum: (optionsOrMedeniDurum as 'bekar' | 'evli') || 'bekar',
         cocukSayisi,
         engelliIndirimi: engelliMi ? 2500 : 0,
-      },
-      undefined,
-      ayNo
-    );
-    const fark = netMaas - result.netMaas;
-    if (Math.abs(fark) < 0.01) break;
-    brut += fark;
+        ayNo,
+        oncekiAylarGVMatrahi,
+        isEmekli,
+      };
+
+  const currentAyNo = opts.ayNo || 1;
+  const currentOncekiAylar = opts.oncekiAylarGVMatrahi || 0;
+
+  // İkili arama (Binary search) aralığı
+  let low = 0;
+  let high = Math.max(netHedef * 3.5, SGK_TAVAN * 1.5);
+  let bestBrut = (low + high) / 2;
+
+  for (let i = 0; i < 60; i++) {
+    const candidateInput: BordroHesapInput = {
+      employeeId: '',
+      period: '',
+      temelKazanc: bestBrut,
+      medeniDurum: opts.medeniDurum || 'bekar',
+      cocukSayisi: opts.cocukSayisi || 0,
+      engelliIndirimi: opts.engelliIndirimi || 0,
+      isEmekli: opts.isEmekli || false,
+      yolParasi: opts.yolParasi || 0,
+      gidaYardimi: opts.gidaYardimi || 0,
+      cocukYardimi: opts.cocukYardimi || 0,
+      digerKazanclar: opts.digerKazanclar || 0,
+      ikramiye: opts.ikramiye || 0,
+      prim: opts.prim || 0,
+      sendikaidat: opts.sendikaidat || 0,
+      avans: opts.avans || 0,
+      besKesintisi: opts.besKesintisi || 0,
+      icraKesintisi: opts.icraKesintisi || 0,
+      digerKesintiler: opts.digerKesintiler || 0,
+    };
+
+    const res = calculateBordro(candidateInput, undefined, currentAyNo, currentOncekiAylar);
+    const diff = res.netMaas - netHedef;
+
+    if (Math.abs(diff) < 0.005) {
+      break;
+    }
+
+    if (diff > 0) {
+      high = bestBrut;
+    } else {
+      low = bestBrut;
+    }
+    bestBrut = (low + high) / 2;
   }
-  return Math.max(0, brut);
+
+  return Math.round(bestBrut * 100) / 100;
+}
+
+export function saatlikBrutUcret(temelKazanc: number): number {
+  return temelKazanc > 0 ? Math.round((temelKazanc / 225) * 100) / 100 : 0;
+}
+
+export function gunlukBrutUcret(temelKazanc: number): number {
+  return temelKazanc > 0 ? Math.round((temelKazanc / 30) * 100) / 100 : 0;
+}
+
+export function saatlikNetUcret(netMaas: number): number {
+  return netMaas > 0 ? Math.round((netMaas / 225) * 100) / 100 : 0;
+}
+
+export function gunlukNetUcret(netMaas: number): number {
+  return netMaas > 0 ? Math.round((netMaas / 30) * 100) / 100 : 0;
 }

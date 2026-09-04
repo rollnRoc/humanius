@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, FileText, Trash2, Save, User, Calendar, DollarSign, AlertCircle, ShieldAlert } from 'lucide-react';
+import { X, FileText, Trash2, Save, User, Calendar, DollarSign, AlertCircle, ShieldAlert, ArrowRightLeft, Sparkles, Calculator, Percent, HelpCircle } from 'lucide-react';
 import { BordroItem } from '../types/bordro';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useAuth } from '../contexts/AuthContext';
+import { calculateBordro, nettenBruteHesapla } from '../utils/bordroCalculations';
 
 interface BordroDuzenlemeModalProps {
   bordro: BordroItem;
@@ -36,6 +37,12 @@ export const BordroDuzenlemeModal: React.FC<BordroDuzenlemeModalProps> = ({
 
   // Form State
   const [period, setPeriod] = useState(bordro.period || '');
+  const [maasTipi, setMaasTipi] = useState<'brut' | 'net'>(
+    bordro.maas_tipi || 'brut'
+  );
+  const [netHedefInput, setNetHedefInput] = useState<string | number>(
+    bordro.net_maas ?? (bordro as any).netMaas ?? ''
+  );
   const [temelKazanc, setTemelKazanc] = useState<number>(
     bordro.temel_kazanc ?? (bordro as any).temelKazanc ?? bordro.brut_maas ?? 0
   );
@@ -60,6 +67,12 @@ export const BordroDuzenlemeModal: React.FC<BordroDuzenlemeModalProps> = ({
   const [damgaVergisi, setDamgaVergisi] = useState<number>(
     bordro.damga_vergisi ?? (bordro as any).damgaVergisi ?? 0
   );
+  const [besKesintisi, setBesKesintisi] = useState<number>(
+    bordro.bes_kesintisi ?? (bordro as any).besKesintisi ?? 0
+  );
+  const [icraKesintisi, setIcraKesintisi] = useState<number>(
+    bordro.icra_kesintisi ?? (bordro as any).icraKesintisi ?? 0
+  );
   const [avans, setAvans] = useState<number>(bordro.avans ?? 0);
   const [digerKesintiler, setDigerKesintiler] = useState<number>(
     bordro.diger_kesintiler ?? (bordro as any).digerKesintiler ?? 0
@@ -76,8 +89,74 @@ export const BordroDuzenlemeModal: React.FC<BordroDuzenlemeModalProps> = ({
 
   // Hesaplanan Toplamlar
   const calculatedToplamKazanc = temelKazanc + yolParasi + gidaYardimi + prim + ikramiye + digerKazanclar;
-  const calculatedToplamKesinti = sgkIsciPayi + issizlikSigortasi + gelirVergisi + damgaVergisi + avans + digerKesintiler;
+  const calculatedToplamKesinti = sgkIsciPayi + issizlikSigortasi + gelirVergisi + damgaVergisi + avans + besKesintisi + icraKesintisi + digerKesintiler;
   const calculatedNetMaas = Math.max(0, calculatedToplamKazanc - calculatedToplamKesinti);
+
+  const autoCalculateTaxAndSGK = (customTemel?: number) => {
+    const currentTemel = customTemel !== undefined ? customTemel : temelKazanc;
+    const isEmekli = (bordro as any).isEmekli || (bordro as any).employeeType === 'emekli';
+    const [, month] = period.split('-').map(Number);
+    const ayNo = month || 1;
+    const res = calculateBordro({
+      id: bordro.id,
+      period,
+      employeeId: bordro.employeeId || bordro.employee_id || '',
+      employeeName: resolvedName,
+      temelKazanc: currentTemel,
+      yolParasi,
+      gidaYardimi,
+      prim,
+      ikramiye,
+      digerKazanclar,
+      isEmekli,
+      avans,
+      besKesintisi,
+      icraKesintisi,
+      digerKesintiler,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }, undefined, ayNo, Number(bordro.kumulatif_vergi_matrahi || 0));
+
+    setSgkIsciPayi(res.sgkIsciPayi);
+    setIssizlikSigortasi(res.issizlikSigortasi);
+    setGelirVergisi(res.gelirVergisi);
+    setDamgaVergisi(res.damgaVergisi);
+  };
+
+  const handleBrutInput = (valStr: string) => {
+    setMaasTipi('brut');
+    const val = parseNumber(valStr);
+    setTemelKazanc(val);
+  };
+
+  const handleNetInput = (valStr: string) => {
+    setMaasTipi('net');
+    setNetHedefInput(valStr);
+    const targetNet = parseNumber(valStr);
+    if (targetNet <= 0) {
+      setTemelKazanc(0);
+      return;
+    }
+    const isEmekli = (bordro as any).isEmekli || (bordro as any).employeeType === 'emekli';
+    const [, month] = period.split('-').map(Number);
+    const ayNo = month || 1;
+    const reqGross = nettenBruteHesapla(targetNet, {
+      yolParasi,
+      gidaYardimi,
+      prim,
+      ikramiye,
+      digerKazanclar,
+      avans,
+      besKesintisi,
+      icraKesintisi,
+      digerKesintiler,
+      isEmekli,
+      ayNo,
+      oncekiAylarGVMatrahi: Number(bordro.kumulatif_vergi_matrahi || 0)
+    });
+    setTemelKazanc(reqGross);
+    autoCalculateTaxAndSGK(reqGross);
+  };
 
   const resolvedName = employeeName || bordro.employeeName || (bordro as any).employees?.name || 'Personel';
   const resolvedDept = employeeDepartment || (bordro as any).employees?.department || '';
@@ -103,6 +182,10 @@ export const BordroDuzenlemeModal: React.FC<BordroDuzenlemeModalProps> = ({
         issizlik_sigortasi: issizlikSigortasi,
         gelir_vergisi: gelirVergisi,
         damga_vergisi: damgaVergisi,
+        bes_kesintisi: besKesintisi,
+        icra_kesintisi: icraKesintisi,
+        maas_tipi: maasTipi,
+        hesaplama_yontemi: maasTipi === 'net' ? 'netten_brute' : 'brutten_nete',
         avans,
         diger_kesintiler: digerKesintiler,
         toplam_kesinti: calculatedToplamKesinti,
@@ -207,6 +290,102 @@ export const BordroDuzenlemeModal: React.FC<BordroDuzenlemeModalProps> = ({
                 <option value="taslak">📝 Taslak</option>
                 <option value="reddedildi">❌ Reddedildi</option>
               </select>
+            </div>
+          </div>
+
+          {/* Maaş Belirleme (Brüt & Net Ayrı Ayrı) */}
+          <div className="bg-gradient-to-br from-slate-50 to-blue-50/50 border-2 border-blue-200/80 rounded-2xl p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-bold text-gray-900">Maaş Belirleme (Brüt & Net)</span>
+              </div>
+              <div className="inline-flex bg-white p-1 rounded-xl border border-gray-200 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setMaasTipi('brut')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    maasTipi === 'brut'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Brütten Nete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMaasTipi('net')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                    maasTipi === 'net'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Netten Brüte
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Brüt Girdisi */}
+              <div className={`p-3 rounded-xl border transition-all ${
+                maasTipi === 'brut' ? 'bg-white border-blue-400 ring-2 ring-blue-100' : 'bg-gray-50/80 border-gray-200'
+              }`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-700">Brüt Maaş (₺)</label>
+                  {maasTipi === 'brut' ? (
+                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Girdi</span>
+                  ) : (
+                    <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Hesaplanan</span>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={temelKazanc === 0 ? '' : temelKazanc}
+                  onChange={(e) => handleBrutInput(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Net Girdisi */}
+              <div className={`p-3 rounded-xl border transition-all ${
+                maasTipi === 'net' ? 'bg-white border-emerald-400 ring-2 ring-emerald-100' : 'bg-gray-50/80 border-gray-200'
+              }`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-700">Net Ele Geçen (₺)</label>
+                  {maasTipi === 'net' ? (
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Hedef Net</span>
+                  ) : (
+                    <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Hesaplanan</span>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={netHedefInput}
+                  onChange={(e) => handleNetInput(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-bold text-emerald-700 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[11px] text-gray-500 flex items-center gap-1">
+                <HelpCircle className="w-3 h-3 text-blue-500" />
+                {maasTipi === 'net' ? 'Net tutara göre 2026 Gelir Vergisi & SGK ile brüt bulunur' : 'Brüt tutardan yasal kesintiler hesaplanır'}
+              </span>
+              <button
+                type="button"
+                onClick={() => autoCalculateTaxAndSGK()}
+                className="text-xs font-semibold text-blue-700 hover:text-blue-800 bg-blue-100/70 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
+              >
+                <Calculator className="w-3 h-3" />
+                Mevzuatı Yeniden Hesapla
+              </button>
             </div>
           </div>
 
@@ -335,6 +514,41 @@ export const BordroDuzenlemeModal: React.FC<BordroDuzenlemeModalProps> = ({
                     step="0.01"
                     value={issizlikSigortasi}
                     onChange={(e) => setIssizlikSigortasi(parseNumber(e.target.value))}
+                    className="w-full bg-white border border-red-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-red-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* BES ve İcra Kesintileri */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-medium text-gray-700">BES (%3 OKS) (₺)</label>
+                    <button
+                      type="button"
+                      onClick={() => setBesKesintisi(Math.round(temelKazanc * 0.03 * 100) / 100)}
+                      className="text-[10px] text-indigo-600 hover:underline font-semibold"
+                    >
+                      %3 Al
+                    </button>
+                  </div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={besKesintisi === 0 ? '' : besKesintisi}
+                    onChange={(e) => setBesKesintisi(parseNumber(e.target.value))}
+                    placeholder="0.00"
+                    className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">İcra / Nafaka (₺)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={icraKesintisi === 0 ? '' : icraKesintisi}
+                    onChange={(e) => setIcraKesintisi(parseNumber(e.target.value))}
+                    placeholder="0.00"
                     className="w-full bg-white border border-red-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-red-500 outline-none"
                   />
                 </div>

@@ -68,14 +68,16 @@ export default function BordroMain({
               className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
               <option value="">Personel Seçiniz</option>
-              {employees.map(employee => {
-                const isEmpEmekli = employee.employeeType === 'emekli' || (employee as any).employee_type === 'emekli';
-                return (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} - {employee.department} {isEmpEmekli ? ' (Emekli)' : ''}
-                  </option>
-                );
-              })}
+              {[...employees]
+                .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'))
+                .map(employee => {
+                  const isEmpEmekli = employee.employeeType === 'emekli' || (employee as any).employee_type === 'emekli';
+                  return (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name} - {employee.department} {isEmpEmekli ? ' (Emekli)' : ''}
+                    </option>
+                  );
+                })}
             </select>
           </div>
 

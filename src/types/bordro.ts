@@ -31,6 +31,10 @@ export interface BordroItem {
   issizlik_sigortasi: number;
   sendika_aidat: number;
   avans: number;
+  bes_kesintisi?: number;
+  icra_kesintisi?: number;
+  maas_tipi?: 'brut' | 'net';
+  hesaplama_yontemi?: 'brutten_nete' | 'netten_brute';
   diger_kesintiler: number;
   engelli_indirimi: number;
   kidem_tazminati: number;
