@@ -48,13 +48,19 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
     return Array.from(set);
   }, [employees]);
 
+  const effectiveCompanyId = useMemo(() => {
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) return companyId;
+    const foundEmp = employees.find((e) => e.company_id);
+    return foundEmp?.company_id || companyId || 'default';
+  }, [companyId, employees]);
+
   // Load shifts and assignments on mount or companyId change
   const loadData = async () => {
     setLoading(true);
     try {
       const [fetchedShifts, fetchedAssignments] = await Promise.all([
-        shiftService.getShifts(companyId),
-        shiftService.getAssignments(companyId),
+        shiftService.getShifts(effectiveCompanyId),
+        shiftService.getAssignments(effectiveCompanyId),
       ]);
       setShifts(fetchedShifts);
       setAssignments(fetchedAssignments);
@@ -74,7 +80,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
     if (isOpen) {
       loadData();
     }
-  }, [isOpen, companyId]);
+  }, [isOpen, effectiveCompanyId]);
 
   if (!isOpen) return null;
 
@@ -122,7 +128,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
       is_default: formIsDefault,
     };
 
-    await shiftService.saveShift(companyId, shiftData);
+    await shiftService.saveShift(effectiveCompanyId, shiftData);
     await loadData();
     setShowShiftForm(false);
     setEditingShift(null);
@@ -137,7 +143,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
 
     try {
       setShifts((prev) => prev.filter((s) => s.id !== shiftId));
-      await shiftService.deleteShift(companyId, shiftId);
+      await shiftService.deleteShift(effectiveCompanyId, shiftId);
       await loadData();
     } catch (err) {
       console.error('Silme hatası:', err);
@@ -148,7 +154,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
 
   const handleSingleAssign = async (employeeId: string, shiftId: string) => {
     setAssignments((prev) => ({ ...prev, [employeeId]: shiftId }));
-    await shiftService.assignShift(companyId, employeeId, shiftId);
+    await shiftService.assignShift(effectiveCompanyId, employeeId, shiftId);
   };
 
   const handleDeptAssign = async () => {
@@ -170,7 +176,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
       updated[id] = deptTargetShiftId;
     });
     setAssignments(updated);
-    await shiftService.bulkAssign(companyId, targetEmpIds, deptTargetShiftId);
+    await shiftService.bulkAssign(effectiveCompanyId, targetEmpIds, deptTargetShiftId);
     alert(`Başarılı: "${deptTargetDept}" departmanındaki ${targetEmpIds.length} personelin vardiyası güncellendi.`);
   };
 
@@ -185,7 +191,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
       updated[id] = bulkShiftId;
     });
     setAssignments(updated);
-    await shiftService.bulkAssign(companyId, selectedEmpIds, bulkShiftId);
+    await shiftService.bulkAssign(effectiveCompanyId, selectedEmpIds, bulkShiftId);
     alert(`Başarılı: Seçilen ${selectedEmpIds.length} personelin vardiyası güncellendi.`);
     setSelectedEmpIds([]);
   };

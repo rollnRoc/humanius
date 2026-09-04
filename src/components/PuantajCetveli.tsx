@@ -135,7 +135,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const loadPuantajData = async () => {
     setIsLoading(true);
     try {
-      const targetCompanyId = profile?.company_id || undefined;
+      const targetCompanyId = profile?.company_id || employees[0]?.company_id || undefined;
       const [fetchedVardiyalar, fetchedShifts, fetchedAssignments] = await Promise.all([
         pdksService.getVardiyalar(),
         shiftService.getShifts(targetCompanyId),
@@ -153,7 +153,22 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
   useEffect(() => {
     loadPuantajData();
-  }, [profile?.company_id]);
+
+    const handleUpdate = () => loadPuantajData();
+    window.addEventListener('humanius_shifts_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadPuantajData();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('humanius_shifts_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [profile?.company_id, employees]);
 
   // Puantaj Hesaplamaları
   const allCalculatedPuantaj: PersonelAylikPuantaj[] = useMemo(() => {

@@ -305,7 +305,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
 
   const loadCompanyShifts = useCallback(async () => {
     try {
-      const targetCompanyId = profile?.company_id || undefined;
+      const targetCompanyId = profile?.company_id || employees[0]?.company_id || undefined;
       const [shifts, assignments] = await Promise.all([
         shiftService.getShifts(targetCompanyId),
         shiftService.getAssignments(targetCompanyId),
@@ -315,13 +315,24 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
     } catch (e) {
       console.warn('Error loading shifts in PDKSYonetimi:', e);
     }
-  }, [profile?.company_id]);
+  }, [profile?.company_id, employees]);
 
   useEffect(() => {
     loadCompanyShifts();
     const handleUpdate = () => loadCompanyShifts();
     window.addEventListener('humanius_shifts_updated', handleUpdate);
-    return () => window.removeEventListener('humanius_shifts_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadCompanyShifts();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('humanius_shifts_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [loadCompanyShifts]);
 
   const loadData = async () => {

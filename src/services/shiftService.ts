@@ -78,19 +78,57 @@ class ShiftService {
           .eq('company_id', companyId)
           .order('created_at', { ascending: true });
 
-        if (!error && data && Array.isArray(data) && data.length > 0) {
-          const formatted: CompanyShift[] = data.map((d: any) => ({
-            id: d.id,
-            name: d.name,
-            start_time: d.start_time,
-            end_time: d.end_time,
-            break_minutes: Number(d.break_minutes || 60),
-            tolerance_minutes: Number(d.tolerance_minutes || 15),
-            color: d.color || '#3b82f6',
-            is_default: Boolean(d.is_default),
-          }));
-          localStorage.setItem(storageKey, JSON.stringify(formatted));
-          return formatted;
+        if (!error && data && Array.isArray(data)) {
+          if (data.length > 0) {
+            const formatted: CompanyShift[] = data.map((d: any) => ({
+              id: d.id,
+              name: d.name,
+              start_time: d.start_time,
+              end_time: d.end_time,
+              break_minutes: Number(d.break_minutes || 60),
+              tolerance_minutes: Number(d.tolerance_minutes || 15),
+              color: d.color || '#3b82f6',
+              is_default: Boolean(d.is_default),
+            }));
+
+            // Guarantee at least one default shift if none is set
+            if (!formatted.some((s) => s.is_default)) {
+              formatted[0].is_default = true;
+            }
+
+            localStorage.setItem(storageKey, JSON.stringify(formatted));
+            localStorage.setItem('humanius_shifts_default', JSON.stringify(formatted));
+            return formatted;
+          } else {
+            // Company exists in DB but has 0 shifts saved in company_shifts.
+            // Automatically seed the standard initial shift so every shift has a real DB ID.
+            const initialShift: CompanyShift = {
+              id: `shift-${Date.now()}`,
+              name: '1. Vardiya (Gündüz / Standart)',
+              start_time: '08:30',
+              end_time: '18:00',
+              break_minutes: 60,
+              tolerance_minutes: 15,
+              color: '#3b82f6',
+              is_default: true,
+            };
+            try {
+              await supabase.from('company_shifts').insert({
+                id: initialShift.id,
+                company_id: companyId,
+                name: initialShift.name,
+                start_time: initialShift.start_time,
+                end_time: initialShift.end_time,
+                break_minutes: initialShift.break_minutes,
+                tolerance_minutes: initialShift.tolerance_minutes,
+                color: initialShift.color,
+                is_default: true,
+              });
+            } catch {}
+            localStorage.setItem(storageKey, JSON.stringify([initialShift]));
+            localStorage.setItem('humanius_shifts_default', JSON.stringify([initialShift]));
+            return [initialShift];
+          }
         }
       } catch (e) {
         console.warn('Supabase shift fetch warning:', e);
@@ -102,6 +140,13 @@ class ShiftService {
       const saved = localStorage.getItem(storageKey);
       if (saved !== null) {
         const localData = JSON.parse(saved);
+        if (Array.isArray(localData) && localData.length > 0) {
+          return localData;
+        }
+      }
+      const defSaved = localStorage.getItem('humanius_shifts_default');
+      if (defSaved !== null) {
+        const localData = JSON.parse(defSaved);
         if (Array.isArray(localData) && localData.length > 0) {
           return localData;
         }
@@ -139,7 +184,7 @@ class ShiftService {
           break_minutes: shift.break_minutes,
           tolerance_minutes: shift.tolerance_minutes,
           color: shift.color,
-          is_default: shift.is_default,
+          is_default: Boolean(shift.is_default),
           updated_at: new Date().toISOString(),
         });
         if (!error) success = true;
@@ -147,11 +192,37 @@ class ShiftService {
       } catch (err) {
         console.error('Supabase saveShift exception:', err);
       }
+
+      // Re-fetch from DB to ensure absolute consistency across all caches
+      try {
+        const { data } = await supabase
+          .from('company_shifts')
+          .select('*')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: true });
+
+        if (data && Array.isArray(data) && data.length > 0) {
+          const formatted: CompanyShift[] = data.map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            start_time: d.start_time,
+            end_time: d.end_time,
+            break_minutes: Number(d.break_minutes || 60),
+            tolerance_minutes: Number(d.tolerance_minutes || 15),
+            color: d.color || '#3b82f6',
+            is_default: Boolean(d.is_default),
+          }));
+          localStorage.setItem(storageKey, JSON.stringify(formatted));
+          localStorage.setItem('humanius_shifts_default', JSON.stringify(formatted));
+          window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
+          return success;
+        }
+      } catch {}
     } else {
       success = true;
     }
 
-    // 2. Update local cache
+    // 2. Update local cache fallback
     try {
       let list: CompanyShift[] = [];
       const saved = localStorage.getItem(storageKey);
@@ -190,10 +261,48 @@ class ShiftService {
 
     if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
       try {
+        // Delete from Supabase company_shifts
         const { error } = await supabase.from('company_shifts').delete().eq('id', shiftId);
         if (error) console.error('Supabase deleteShift error:', error);
+
+        // Also clean up any employee assignments targeting this deleted shift
+        await supabase.from('company_shift_assignments').delete().eq('shift_id', shiftId);
       } catch (err) {
         console.error('Supabase deleteShift exception:', err);
+      }
+
+      // Re-fetch remaining shifts from Supabase to guarantee exact parity
+      try {
+        const { data } = await supabase
+          .from('company_shifts')
+          .select('*')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: true });
+
+        if (data && Array.isArray(data)) {
+          const formatted: CompanyShift[] = data.map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            start_time: d.start_time,
+            end_time: d.end_time,
+            break_minutes: Number(d.break_minutes || 60),
+            tolerance_minutes: Number(d.tolerance_minutes || 15),
+            color: d.color || '#3b82f6',
+            is_default: Boolean(d.is_default),
+          }));
+
+          if (formatted.length > 0 && !formatted.some((s) => s.is_default)) {
+            formatted[0].is_default = true;
+            await supabase.from('company_shifts').update({ is_default: true }).eq('id', formatted[0].id);
+          }
+
+          localStorage.setItem(storageKey, JSON.stringify(formatted));
+          localStorage.setItem('humanius_shifts_default', JSON.stringify(formatted));
+          window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
+          return true;
+        }
+      } catch (err) {
+        console.error('Error re-fetching shifts after delete:', err);
       }
     }
 

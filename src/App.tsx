@@ -45,6 +45,8 @@ import { Suspense } from 'react';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { IzinWorkflowListesi } from './components/IzinWorkflow';
 import { formatIzinTuru } from './utils/izinCalculations';
+import { leaveTypeService } from './services/leaveTypeService';
+import { shiftService } from './services/shiftService';
 import AIBrowserPage from './browser/AIBrowserPage';
 import GuideContextMenu from './components/GuideContextMenu';
 
@@ -437,11 +439,19 @@ const AppInner: React.FC = () => {
         }
       } catch {}
 
+      // Preload Company Leave Types & Shifts directly from Supabase (Database-First)
+      const resolvedCompanyId = profile?.company_id || filteredMapped[0]?.company_id;
+      if (resolvedCompanyId && resolvedCompanyId !== 'default' && !resolvedCompanyId.includes('demo')) {
+        leaveTypeService.getLeaveTypes(resolvedCompanyId).catch(console.warn);
+        shiftService.getShifts(resolvedCompanyId).catch(console.warn);
+        shiftService.getAssignments(resolvedCompanyId).catch(console.warn);
+      }
+
       // İzin talepleri
       let mappedTalepler: IzinTalebi[] = [];
-      if (profile?.company_id) {
+      if (resolvedCompanyId) {
         try {
-          const talepData = await izinService.getAllTalepler(profile.company_id);
+          const talepData = await izinService.getAllTalepler(resolvedCompanyId);
           mappedTalepler = (talepData ?? []).map((t: any) => ({
             id: t.id,
             companyId: t.company_id,
@@ -481,10 +491,10 @@ const AppInner: React.FC = () => {
       }
 
       // İzin hakları
-      if (profile?.company_id) {
+      if (resolvedCompanyId) {
         try {
           const yil = new Date().getFullYear();
-          const hakData = await izinService.getAllHaklari(profile.company_id, yil);
+          const hakData = await izinService.getAllHaklari(resolvedCompanyId, yil);
           const mappedHaklar: IzinHakki[] = (hakData ?? []).map((h: any) => ({
             id: h.id,
             companyId: h.company_id,
@@ -1755,7 +1765,7 @@ const AppInner: React.FC = () => {
         )}
 
         {/* İzin Türleri Tanımları */}
-        {currentView === 'izin-tanimlari' && <IzinTanimlari companyId={profile?.company_id} />}
+        {currentView === 'izin-tanimlari' && <IzinTanimlari companyId={profile?.company_id || employees[0]?.company_id} />}
 
         {/* Organizasyon Şeması */}
         {currentView === 'org-sema' && <OrganizasyonSemasi employees={employees} companyName={selectedCompany !== 'all' ? selectedCompany : (typeof companies[0] === 'string' ? companies[0] : (companies[0] as any)?.name || 'Humanius Şirket Grubu')} />}

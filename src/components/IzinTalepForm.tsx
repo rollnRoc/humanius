@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, FileText, AlertCircle, MapPin, Upload, CheckCircle } from 'lucide-react';
 import { Employee } from '../types';
 import { IzinTalebi, IzinHakki, IzinTuru } from '../types/izin';
-import { calculateWorkingDays, izinTuruLabels, getCompanyIzinTuruLabels, getMaxIzinSureleri, validateIzinTuru } from '../utils/izinCalculations';
+import { calculateWorkingDays, izinTuruLabels, getCompanyIzinTurleri, getCompanyIzinTuruLabels, getMaxIzinSureleri, validateIzinTuru } from '../utils/izinCalculations';
+import { leaveTypeService } from '../services/leaveTypeService';
 import { useScrollLock } from '../hooks/useScrollLock';
 
 interface IzinTalepFormProps {
@@ -43,6 +44,34 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
   const [belgeYuklendi, setBelgeYuklendi] = useState(false);
   const [clashingLeaves, setClashingLeaves] = useState<(IzinTalebi & { employee?: Employee })[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [availableLeaveTypes, setAvailableLeaveTypes] = useState<Array<{ id: string; ad: string }>>(() => {
+    const compId = employees[0]?.company_id;
+    return getCompanyIzinTurleri(compId);
+  });
+
+  useEffect(() => {
+    const compId = selectedEmployee?.company_id || employees[0]?.company_id;
+    leaveTypeService.getLeaveTypes(compId).then((types) => {
+      if (types && types.length > 0) {
+        setAvailableLeaveTypes(types);
+      }
+    });
+
+    const handleUpdate = () => {
+      leaveTypeService.getLeaveTypes(compId).then((types) => {
+        if (types && types.length > 0) {
+          setAvailableLeaveTypes(types);
+        }
+      });
+    };
+    window.addEventListener('humanius_izin_turleri_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('humanius_izin_turleri_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [selectedEmployee?.company_id, employees]);
 
   // Seçili izin türü için maksimum süre bilgisi
   const maxSureInfo = getMaxIzinSureleri(formData.izinTuru);
@@ -388,8 +417,8 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
                 className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 required
               >
-                {Object.entries(getCompanyIzinTuruLabels(employees[0]?.company_id)).map(([key, label]) => (
-                  <option key={key} value={key}>{label}</option>
+                {availableLeaveTypes.map((tur) => (
+                  <option key={tur.id} value={tur.id}>{tur.ad}</option>
                 ))}
               </select>
 

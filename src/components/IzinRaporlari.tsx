@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FileText, Download, BarChart3, PieChart, TrendingUp } from 'lucide-react';
 import { Employee } from '../types';
 import { IzinTalebi, IzinHakki } from '../types/izin';
-import { izinTuruLabels, izinDurumLabels, formatDate, getMaxIzinSureleri } from '../utils/izinCalculations';
+import { izinTuruLabels, getCompanyIzinTuruLabels, formatIzinTuru, izinDurumLabels, formatDate, getMaxIzinSureleri } from '../utils/izinCalculations';
 
 interface IzinRaporlariProps {
   employees: Employee[];
@@ -44,9 +44,9 @@ const IzinRaporlari: React.FC<IzinRaporlariProps> = ({
       rededilenTalep: filteredTalepler.filter(t => t.durum === 'reddedildi').length,
       
       // İzin türü bazında
-      izinTurleri: Object.keys(izinTuruLabels).map(turu => ({
+      izinTurleri: Object.entries(getCompanyIzinTuruLabels()).map(([turu, label]) => ({
         turu,
-        label: izinTuruLabels[turu],
+        label,
         sayi: filteredTalepler.filter(t => t.izinTuru === turu && t.durum === 'onaylandi').length,
         gunSayisi: filteredTalepler
           .filter(t => t.izinTuru === turu && t.durum === 'onaylandi')
@@ -75,7 +75,7 @@ const IzinRaporlari: React.FC<IzinRaporlariProps> = ({
       ...filteredTalepler.map(talep => [
         talep.employeeName,
         talep.department,
-        izinTuruLabels[talep.izinTuru],
+        formatIzinTuru(talep.izinTuru),
         formatDate(talep.baslangicTarihi),
         formatDate(talep.bitisTarihi),
         talep.gunSayisi,
@@ -241,7 +241,7 @@ const IzinRaporlari: React.FC<IzinRaporlariProps> = ({
                     <td className="px-4 py-3 text-sm text-gray-600">{talep.department}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-full text-xs">
-                        {izinTuruLabels[talep.izinTuru]}
+                        {formatIzinTuru(talep.izinTuru)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-800">

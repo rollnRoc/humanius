@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { IzinTalebi } from '../types/izin';
-import { formatDate, izinTuruLabels } from '../utils/izinCalculations';
+import { formatDate, formatIzinTuru, getCompanyIzinTuruLabels } from '../utils/izinCalculations';
 
 interface IzinTakvimiProps {
   izinTalepleri: IzinTalebi[];
@@ -132,7 +132,7 @@ const IzinTakvimi: React.FC<IzinTakvimiProps> = ({ izinTalepleri }) => {
                     <div
                       key={idx}
                       className={`text-xs px-2 py-1 rounded-md truncate ${getTuruColor(izin.izinTuru)}`}
-                      title={`${izin.employeeName} - ${izinTuruLabels[izin.izinTuru]}${izin.yolIzniTalep ? ` (+${izin.yolIzniGun} gün yol izni)` : ''}`}
+                      title={`${izin.employeeName} - ${formatIzinTuru(izin.izinTuru)}${izin.yolIzniTalep ? ` (+${izin.yolIzniGun} gün yol izni)` : ''}`}
                     >
                       <div>
                         {String(izin.employeeName ?? '').trim().split(/\s+/)[0] || 'Personel'}
@@ -158,7 +158,7 @@ const IzinTakvimi: React.FC<IzinTakvimiProps> = ({ izinTalepleri }) => {
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <h4 className="text-sm font-medium text-gray-800 mb-3">İzin Türü Renk Kodları</h4>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          {Object.entries(izinTuruLabels).map(([key, label]) => (
+          {Object.entries(getCompanyIzinTuruLabels()).map(([key, label]) => (
             <div key={key} className="flex items-center gap-2">
               <div className={`w-3 h-3 rounded-full ${getTuruColor(key).replace('text-', 'bg-').split(' ')[0]}`} />
               <span className="text-xs text-gray-600">{label}</span>

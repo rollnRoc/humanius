@@ -139,6 +139,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
        employees.find((emp) => emp.name?.toLowerCase() === profile?.full_name?.toLowerCase()))
     : employees[0];
 
+  const resolvedCompanyId = React.useMemo(() => {
+    return profile?.company_id || currentEmployee?.company_id || employees[0]?.company_id || undefined;
+  }, [profile?.company_id, currentEmployee?.company_id, employees]);
+
   const [overtimeAuthMap, setOvertimeAuthMap] = useState<Record<string, boolean>>(() => {
     try {
       const saved = localStorage.getItem('humanius_pdks_overtime_auth');
@@ -205,7 +209,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   // Load shifts and assignments from database & sync active shift
   useEffect(() => {
     let isMounted = true;
-    const targetCompanyId = profile?.company_id || undefined;
+    const targetCompanyId = resolvedCompanyId;
     const empId = currentEmployee?.id;
 
     const refreshShifts = async () => {
@@ -236,11 +240,22 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       refreshShifts();
     };
     window.addEventListener('humanius_shifts_updated', handleShiftsUpdated);
+    window.addEventListener('storage', handleShiftsUpdated);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshShifts();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       isMounted = false;
       window.removeEventListener('humanius_shifts_updated', handleShiftsUpdated);
+      window.removeEventListener('storage', handleShiftsUpdated);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [profile?.company_id, currentEmployee?.id]);
+  }, [resolvedCompanyId, currentEmployee?.id]);
   
   // Geolocation watch ID ref
   const watchIdRef = useRef<number | null>(null);
@@ -1156,7 +1171,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                           if (selected) {
                             setActiveUserShift(selected);
                             if (currentEmployee?.id) {
-                              shiftService.assignShift(profile?.company_id || 'default', currentEmployee.id, selected.id);
+                              shiftService.assignShift(resolvedCompanyId || 'default', currentEmployee.id, selected.id);
                             }
                           }
                         }}
@@ -1865,14 +1880,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         onClose={async () => {
           setShowVardiyaModal(false);
           const [fetchedShifts, fetchedAssignments] = await Promise.all([
-            shiftService.getShifts(profile?.company_id || undefined),
-            shiftService.getAssignments(profile?.company_id || undefined),
+            shiftService.getShifts(resolvedCompanyId),
+            shiftService.getAssignments(resolvedCompanyId),
           ]);
           setAllCompanyShifts(fetchedShifts);
           setAllShiftAssignments(fetchedAssignments);
         }}
         employees={employees}
-        companyId={profile?.company_id || undefined}
+        companyId={resolvedCompanyId}
       />
 
       {/* Add / Edit Office Location Modal */}

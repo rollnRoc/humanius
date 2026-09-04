@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, MapPin, CheckCircle, Clock, XCircle, Ban, Trash2, Save, ShieldAlert, Sparkles, User } from 'lucide-react';
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinTuru, IzinDurum } from '../types/izin';
-import { calculateWorkingDays } from '../utils/izinCalculations';
+import { calculateWorkingDays, getCompanyIzinTurleri } from '../utils/izinCalculations';
+import { leaveTypeService } from '../services/leaveTypeService';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -13,18 +14,6 @@ interface IzinDuzenlemeFormProps {
   onDelete?: (id: string) => void;
   onClose: () => void;
 }
-
-const IZIN_TURLERI_LIST = [
-  { id: 'yillik', label: '🌴 Yıllık İzin' },
-  { id: 'mazeret', label: '📌 Mazeret İzni' },
-  { id: 'hastalik', label: '⚕️ Hastalık / Rapor' },
-  { id: 'dogum', label: '🤰 Doğum / Analık İzni' },
-  { id: 'babalik', label: '👶 Babalık İzni' },
-  { id: 'evlilik', label: '💍 Evlilik İzni' },
-  { id: 'olum', label: '🖤 Vefat / Ölüm İzni' },
-  { id: 'askerlik', label: '🎖️ Askerlik İzni' },
-  { id: 'ucretsiz', label: '⛔ Ücretsiz İzin' },
-];
 
 const IZIN_DURUMLARI = [
   { id: 'onaylandi', label: 'Onaylandı', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
@@ -56,6 +45,33 @@ const IzinDuzenlemeForm: React.FC<IzinDuzenlemeFormProps> = ({
   const [ilDisiSeyahat, setIlDisiSeyahat] = useState(Boolean(talep.ilDisiSeyahat));
 
   const [autoCalculate, setAutoCalculate] = useState(false);
+
+  const targetCompanyId = employee?.company_id || talep?.companyId;
+  const [availableLeaveTypes, setAvailableLeaveTypes] = useState<Array<{ id: string; ad: string }>>(() => {
+    return getCompanyIzinTurleri(targetCompanyId);
+  });
+
+  useEffect(() => {
+    leaveTypeService.getLeaveTypes(targetCompanyId).then((types) => {
+      if (types && types.length > 0) {
+        setAvailableLeaveTypes(types);
+      }
+    });
+
+    const handleUpdate = () => {
+      leaveTypeService.getLeaveTypes(targetCompanyId).then((types) => {
+        if (types && types.length > 0) {
+          setAvailableLeaveTypes(types);
+        }
+      });
+    };
+    window.addEventListener('humanius_izin_turleri_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('humanius_izin_turleri_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [targetCompanyId]);
 
   // Tarih değiştiğinde otomatik gün hesabı (istenirse)
   useEffect(() => {
@@ -155,9 +171,9 @@ const IzinDuzenlemeForm: React.FC<IzinDuzenlemeFormProps> = ({
               onChange={(e) => setIzinTuru(e.target.value as IzinTuru)}
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-gray-800 focus:bg-white focus:border-blue-500 outline-none"
             >
-              {IZIN_TURLERI_LIST.map((tur) => (
+              {availableLeaveTypes.map((tur) => (
                 <option key={tur.id} value={tur.id}>
-                  {tur.label}
+                  {tur.ad}
                 </option>
               ))}
             </select>

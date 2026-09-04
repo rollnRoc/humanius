@@ -3,54 +3,41 @@ import { IzinTuruKural, VARSAYILAN_IZIN_TURLERI } from '../components/IzinTaniml
 
 class LeaveTypeService {
   /**
-   * Loads leave types for a company from local cache or Supabase database.
+   * Loads leave types for a company from Supabase database (Database-First) or local cache.
    */
   public async getLeaveTypes(companyId?: string): Promise<IzinTuruKural[]> {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_izin_turleri_${effectiveCompanyId}`;
 
-    // 1. Try local storage first for instant load
-    let localTypes: IzinTuruKural[] | null = null;
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          localTypes = parsed;
-        }
-      }
-    } catch (e) {
-      console.warn('Error reading local leave types:', e);
-    }
-
-    // If demo mode or default company with local cache, return local
-    if (!companyId || companyId === 'default' || companyId.includes('demo')) {
-      return localTypes || VARSAYILAN_IZIN_TURLERI;
-    }
-
-    // 2. Fetch from Supabase database
-    try {
-      const { data, error } = await supabase
-        .from('company_leave_types')
-        .select('leave_types')
-        .eq('company_id', companyId)
-        .maybeSingle();
-
-      if (!error && data?.leave_types && Array.isArray(data.leave_types) && data.leave_types.length > 0) {
-        localStorage.setItem(storageKey, JSON.stringify(data.leave_types));
-        return data.leave_types as IzinTuruKural[];
-      }
-    } catch {
-      // Fallback to Edge function if direct table access fails
+    // 1. If real company, fetch directly from Supabase FIRST (Database-First)
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
       try {
-        const { data: res } = await supabase.functions.invoke('user-management', {
+        const { data, error } = await supabase
+          .from('company_leave_types')
+          .select('leave_types')
+          .eq('company_id', companyId)
+          .maybeSingle();
+
+        if (!error && data?.leave_types && Array.isArray(data.leave_types) && data.leave_types.length > 0) {
+          localStorage.setItem(storageKey, JSON.stringify(data.leave_types));
+          localStorage.setItem('humanius_izin_turleri_default', JSON.stringify(data.leave_types));
+          return data.leave_types as IzinTuruKural[];
+        }
+      } catch (e) {
+        console.warn('Supabase leave types fetch warning:', e);
+      }
+
+      // Edge function fallback if direct table access fails or returns empty
+      try {
+        const { data: res, error: fnError } = await supabase.functions.invoke('user-management', {
           body: {
             operation: 'list_company_leave_types',
             companyId,
           },
         });
-        if (res?.leave_types && Array.isArray(res.leave_types) && res.leave_types.length > 0) {
+        if (!fnError && res?.leave_types && Array.isArray(res.leave_types) && res.leave_types.length > 0) {
           localStorage.setItem(storageKey, JSON.stringify(res.leave_types));
+          localStorage.setItem('humanius_izin_turleri_default', JSON.stringify(res.leave_types));
           return res.leave_types as IzinTuruKural[];
         }
       } catch (e) {
@@ -58,70 +45,100 @@ class LeaveTypeService {
       }
     }
 
-    return localTypes || VARSAYILAN_IZIN_TURLERI;
+    // 2. Offline / Fallback: check localStorage
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      const defSaved = localStorage.getItem('humanius_izin_turleri_default');
+      if (defSaved) {
+        const parsed = JSON.parse(defSaved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading local leave types:', e);
+    }
+
+    // 3. Fallback to system defaults
+    return VARSAYILAN_IZIN_TURLERI;
   }
 
   /**
-   * Saves leave types both to local storage and to Supabase database.
+   * Saves leave types both to Supabase database (Database-First) and local storage.
    */
   public async saveLeaveTypes(companyId: string, leaveTypes: IzinTuruKural[]): Promise<boolean> {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_izin_turleri_${effectiveCompanyId}`;
 
-    // 1. Immediately cache in localStorage and notify listeners
+    let savedToDb = false;
+
+    // 1. Persist to Supabase FIRST
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        const { data: existing, error: checkError } = await supabase
+          .from('company_leave_types')
+          .select('id')
+          .eq('company_id', companyId)
+          .maybeSingle();
+
+        if (!checkError && existing?.id) {
+          const { error: updateError } = await supabase
+            .from('company_leave_types')
+            .update({
+              leave_types: leaveTypes,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('company_id', companyId);
+          if (!updateError) savedToDb = true;
+        } else {
+          const { error: insertError } = await supabase
+            .from('company_leave_types')
+            .insert({
+              company_id: companyId,
+              leave_types: leaveTypes,
+              updated_at: new Date().toISOString(),
+            });
+          if (!insertError) savedToDb = true;
+        }
+      } catch (err) {
+        console.error('Direct Supabase leave types save error:', err);
+      }
+
+      // Fallback to Edge function if direct table write fails
+      if (!savedToDb) {
+        try {
+          const { data: res, error: fnError } = await supabase.functions.invoke('user-management', {
+            body: {
+              operation: 'save_company_leave_types',
+              companyId,
+              leave_types: leaveTypes,
+            },
+          });
+          savedToDb = !fnError && !!res?.success;
+        } catch (e) {
+          console.error('Edge function leave types save error:', e);
+        }
+      }
+    } else {
+      savedToDb = true;
+    }
+
+    // 2. Cache in localStorage
     try {
       localStorage.setItem(storageKey, JSON.stringify(leaveTypes));
+      localStorage.setItem('humanius_izin_turleri_default', JSON.stringify(leaveTypes));
       window.dispatchEvent(new CustomEvent('humanius_izin_turleri_updated', { detail: { companyId: effectiveCompanyId } }));
     } catch (e) {
       console.error('Failed to set local storage leave types:', e);
     }
 
-    if (!companyId || companyId === 'default' || companyId.includes('demo')) {
-      return true;
-    }
-
-    // 2. Persist to Supabase database
-    try {
-      const { data: existing } = await supabase
-        .from('company_leave_types')
-        .select('id')
-        .eq('company_id', companyId)
-        .maybeSingle();
-
-      if (existing?.id) {
-        await supabase
-          .from('company_leave_types')
-          .update({
-            leave_types: leaveTypes,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('company_id', companyId);
-      } else {
-        await supabase
-          .from('company_leave_types')
-          .insert({
-            company_id: companyId,
-            leave_types: leaveTypes,
-            updated_at: new Date().toISOString(),
-          });
-      }
-      return true;
-    } catch {
-      // Fallback to Edge function if direct table write fails
-      try {
-        const { data: res, error: fnError } = await supabase.functions.invoke('user-management', {
-          body: {
-            operation: 'save_company_leave_types',
-            companyId,
-            leave_types: leaveTypes,
-          },
-        });
-        return !fnError && !!res?.success;
-      } catch (e) {
-        console.error('Edge function leave types save error:', e);
-        return false;
-      }
-    }
+    return savedToDb;
   }
 }
 
