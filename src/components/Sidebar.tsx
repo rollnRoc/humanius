@@ -145,26 +145,28 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [profile?.company_id]);
 
-  const companyIdKey = profile?.company_id ? `_${profile.company_id}` : '';
-  const logoSrcKey = `logoSrc${companyIdKey}`;
-  const logoConfigKey = `logoConfig${companyIdKey}`;
+  const companyId = profile?.company_id;
+  const logoSrcKey = companyId ? `logoSrc_${companyId}` : null;
+  const logoConfigKey = companyId ? `logoConfig_${companyId}` : null;
 
-  // Synchronously initialize logoSrc on frame 0 to prevent F5 flicker
+  // Clean up legacy contaminated global keys
+  React.useEffect(() => {
+    try {
+      localStorage.removeItem('logoSrc');
+      localStorage.removeItem('logoConfig');
+      localStorage.removeItem('logoSrc_undefined');
+      localStorage.removeItem('logoConfig_undefined');
+      localStorage.removeItem('logoSrc_null');
+      localStorage.removeItem('logoConfig_null');
+    } catch {}
+  }, []);
+
+  // Synchronously initialize logoSrc only if this specific company has a saved logo
   const [logoSrc, setLogoSrc] = useState<string>(() => {
     try {
-      if (profile?.company_id) {
-        const compSaved = safeReadLocalStorage(`logoSrc_${profile.company_id}`);
+      if (companyId) {
+        const compSaved = safeReadLocalStorage(`logoSrc_${companyId}`);
         if (compSaved && !isInvalidLogo(compSaved)) return compSaved;
-      }
-      const savedLogoSrc = safeReadLocalStorage('logoSrc');
-      if (savedLogoSrc && !isInvalidLogo(savedLogoSrc)) return savedLogoSrc;
-
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith('logoSrc')) {
-          const val = localStorage.getItem(k);
-          if (val && !isInvalidLogo(val)) return val;
-        }
       }
     } catch {}
     return DEFAULT_LOGO_SRC;
@@ -172,16 +174,18 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const [logoConfig, setLogoConfig] = useState<LogoConfig>(() => {
     try {
-      const saved = safeReadLocalStorage(logoConfigKey) || safeReadLocalStorage('logoConfig');
-      if (saved) {
-        const parsed = JSON.parse(saved) as Partial<LogoConfig>;
-        return {
-          width: parsed.width === 180 ? 225 : (parsed.width || 225),
-          height: parsed.height === 60 ? 75 : (parsed.height || 75),
-          x: parsed.x || 0,
-          y: parsed.y || 0,
-          rotation: parsed.rotation || 0
-        };
+      if (logoConfigKey) {
+        const saved = safeReadLocalStorage(logoConfigKey);
+        if (saved) {
+          const parsed = JSON.parse(saved) as Partial<LogoConfig>;
+          return {
+            width: parsed.width === 180 ? 225 : (parsed.width || 225),
+            height: parsed.height === 60 ? 75 : (parsed.height || 75),
+            x: parsed.x || 0,
+            y: parsed.y || 0,
+            rotation: parsed.rotation || 0
+          };
+        }
       }
     } catch {}
     return { width: 225, height: 75, x: 0, y: 0, rotation: 0 };
@@ -189,17 +193,20 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleLogoSave = (config: LogoConfig) => {
     setLogoConfig(config);
-    safeWriteLocalStorage(logoConfigKey, JSON.stringify(config));
+    if (logoConfigKey) {
+      safeWriteLocalStorage(logoConfigKey, JSON.stringify(config));
+    }
   };
 
   const handleLogoSelect = async (nextLogoSrc: string) => {
     setLogoSrc(nextLogoSrc);
-    safeWriteLocalStorage(logoSrcKey, nextLogoSrc);
-    safeWriteLocalStorage('logoSrc', nextLogoSrc);
+    if (logoSrcKey) {
+      safeWriteLocalStorage(logoSrcKey, nextLogoSrc);
+    }
     
-    if (profile?.company_id && profile.company_id !== 'demo-company-id-9999' && !profile.company_id.startsWith('demo-')) {
+    if (companyId && companyId !== 'demo-company-id-9999' && !companyId.startsWith('demo-')) {
       try {
-        await companyService.update(profile.company_id, { logo_url: nextLogoSrc });
+        await companyService.update(companyId, { logo_url: nextLogoSrc });
       } catch (err) {
         console.error("Error saving company logo to database:", err);
       }
@@ -208,41 +215,38 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   React.useEffect(() => {
     const loadCompanyLogo = async () => {
-      if (profile?.company_id && profile.company_id !== 'demo-company-id-9999' && !profile.company_id.startsWith('demo-')) {
-        try {
-          const comp = await companyService.getById(profile.company_id);
-          if (comp?.name) {
-            setCompanyName(comp.name);
-          }
-          if (comp?.logo_url) {
-            if (isInvalidLogo(comp.logo_url)) {
-              // Reset legacy/toyota logo in DB to DEFAULT_LOGO_SRC
-              setLogoSrc(DEFAULT_LOGO_SRC);
-              safeWriteLocalStorage(logoSrcKey, DEFAULT_LOGO_SRC);
-              safeWriteLocalStorage('logoSrc', DEFAULT_LOGO_SRC);
-              await companyService.update(profile.company_id, { logo_url: DEFAULT_LOGO_SRC });
-            } else {
-              setLogoSrc(comp.logo_url);
-              safeWriteLocalStorage(logoSrcKey, comp.logo_url);
-              safeWriteLocalStorage('logoSrc', comp.logo_url);
-            }
-            return;
-          }
-        } catch (err) {
-          console.error("Error loading company logo:", err);
-        }
+      if (!companyId || companyId === 'demo-company-id-9999' || companyId.startsWith('demo-')) {
+        setLogoSrc(DEFAULT_LOGO_SRC);
+        return;
       }
-      
-      const savedLogoSrc = safeReadLocalStorage(logoSrcKey) || safeReadLocalStorage('logoSrc');
-      if (savedLogoSrc && !isInvalidLogo(savedLogoSrc)) {
-        setLogoSrc(savedLogoSrc);
-      } else {
+
+      try {
+        const comp = await companyService.getById(companyId);
+        if (comp?.name) {
+          setCompanyName(comp.name);
+        }
+        if (comp?.logo_url && !isInvalidLogo(comp.logo_url)) {
+          setLogoSrc(comp.logo_url);
+          if (logoSrcKey) {
+            safeWriteLocalStorage(logoSrcKey, comp.logo_url);
+          }
+        } else {
+          // Şirketin veritabanında logosu yoksa veya geçersizse: Kesinlikle default Humanius logosu ve önbellek temizliği
+          setLogoSrc(DEFAULT_LOGO_SRC);
+          if (logoSrcKey) {
+            try {
+              localStorage.removeItem(logoSrcKey);
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.error("Error loading company logo:", err);
         setLogoSrc(DEFAULT_LOGO_SRC);
       }
     };
 
     loadCompanyLogo();
-  }, [profile?.company_id, logoSrcKey, logoConfigKey]);
+  }, [companyId, logoSrcKey]);
 
   const mainNavItems = useMemo(() => {
     const navItems = RAW_NAV_ITEMS.map(item => {

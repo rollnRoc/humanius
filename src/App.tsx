@@ -156,6 +156,16 @@ const AppInner: React.FC = () => {
   const isPopStateRef = useRef(false);
 
   useEffect(() => {
+    // Clean up legacy global logo localStorage keys
+    try {
+      localStorage.removeItem('logoSrc');
+      localStorage.removeItem('logoConfig');
+      localStorage.removeItem('logoSrc_undefined');
+      localStorage.removeItem('logoConfig_undefined');
+      localStorage.removeItem('logoSrc_null');
+      localStorage.removeItem('logoConfig_null');
+    } catch {}
+
     // Initial state replace
     window.history.replaceState({ view: currentView }, '', '');
 
