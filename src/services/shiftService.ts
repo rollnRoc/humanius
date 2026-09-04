@@ -69,33 +69,7 @@ class ShiftService {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_shifts_${effectiveCompanyId}`;
 
-    let localData: CompanyShift[] | null = null;
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved !== null) {
-        localData = JSON.parse(saved);
-      }
-    } catch {}
-
-    // Eğer localStorage'da kayıt varsa (silinmiş/düzenlenmiş olsa bile) onu kullan
-    if (localData !== null && Array.isArray(localData) && localData.length > 0) {
-      return localData;
-    }
-
-    // Default key'i de kontrol et
-    if (effectiveCompanyId !== 'default') {
-      try {
-        const defSaved = localStorage.getItem('humanius_shifts_default');
-        if (defSaved !== null) {
-          const defData = JSON.parse(defSaved);
-          if (Array.isArray(defData) && defData.length > 0) {
-            localStorage.setItem(storageKey, JSON.stringify(defData));
-            return defData;
-          }
-        }
-      } catch {}
-    }
-
+    // 1. If real company, fetch directly from Supabase FIRST (Database-First)
     if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
       try {
         const { data, error } = await supabase
@@ -123,10 +97,18 @@ class ShiftService {
       }
     }
 
-    // İlk kez açılıyorsa varsayılanları kaydet ve dön
+    // 2. Offline / Fallback: check localStorage
     try {
-      localStorage.setItem(storageKey, JSON.stringify(VARSAYILAN_VARDIYALAR));
+      const saved = localStorage.getItem(storageKey);
+      if (saved !== null) {
+        const localData = JSON.parse(saved);
+        if (Array.isArray(localData) && localData.length > 0) {
+          return localData;
+        }
+      }
     } catch {}
+
+    // 3. Fallback to default shifts
     return VARSAYILAN_VARDIYALAR;
   }
 
@@ -137,6 +119,39 @@ class ShiftService {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_shifts_${effectiveCompanyId}`;
 
+    let success = false;
+
+    // 1. Write to Supabase FIRST
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        if (shift.is_default) {
+          await supabase
+            .from('company_shifts')
+            .update({ is_default: false })
+            .eq('company_id', companyId);
+        }
+        const { error } = await supabase.from('company_shifts').upsert({
+          id: shift.id,
+          company_id: companyId,
+          name: shift.name,
+          start_time: shift.start_time,
+          end_time: shift.end_time,
+          break_minutes: shift.break_minutes,
+          tolerance_minutes: shift.tolerance_minutes,
+          color: shift.color,
+          is_default: shift.is_default,
+          updated_at: new Date().toISOString(),
+        });
+        if (!error) success = true;
+        else console.error('Supabase saveShift error:', error);
+      } catch (err) {
+        console.error('Supabase saveShift exception:', err);
+      }
+    } else {
+      success = true;
+    }
+
+    // 2. Update local cache
     try {
       let list: CompanyShift[] = [];
       const saved = localStorage.getItem(storageKey);
@@ -162,34 +177,6 @@ class ShiftService {
       localStorage.setItem('humanius_shifts_default', JSON.stringify(updated));
     } catch {}
 
-    if (!companyId || companyId === 'default' || companyId.includes('demo')) {
-      window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
-      return true;
-    }
-
-    let success = false;
-    try {
-      if (shift.is_default) {
-        await supabase
-          .from('company_shifts')
-          .update({ is_default: false })
-          .eq('company_id', companyId);
-      }
-      const { error } = await supabase.from('company_shifts').upsert({
-        id: shift.id,
-        company_id: companyId,
-        name: shift.name,
-        start_time: shift.start_time,
-        end_time: shift.end_time,
-        break_minutes: shift.break_minutes,
-        tolerance_minutes: shift.tolerance_minutes,
-        color: shift.color,
-        is_default: shift.is_default,
-        updated_at: new Date().toISOString(),
-      });
-      if (!error) success = true;
-    } catch {}
-
     window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
     return success;
   }
@@ -200,6 +187,15 @@ class ShiftService {
   public async deleteShift(companyId: string, shiftId: string): Promise<boolean> {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_shifts_${effectiveCompanyId}`;
+
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        const { error } = await supabase.from('company_shifts').delete().eq('id', shiftId);
+        if (error) console.error('Supabase deleteShift error:', error);
+      } catch (err) {
+        console.error('Supabase deleteShift exception:', err);
+      }
+    }
 
     try {
       let list: CompanyShift[] = [];
@@ -219,13 +215,7 @@ class ShiftService {
       localStorage.setItem(storageKey, JSON.stringify(updated));
       localStorage.setItem('humanius_shifts_default', JSON.stringify(updated));
     } catch (e) {
-      console.error('Delete shift error:', e);
-    }
-
-    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
-      try {
-        await supabase.from('company_shifts').delete().eq('id', shiftId);
-      } catch {}
+      console.error('Delete shift cache error:', e);
     }
 
     window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
@@ -239,6 +229,26 @@ class ShiftService {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_shift_assignments_${effectiveCompanyId}`;
 
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        const { data, error } = await supabase
+          .from('company_shift_assignments')
+          .select('*')
+          .eq('company_id', companyId);
+
+        if (!error && data && Array.isArray(data)) {
+          const map: Record<string, string> = {};
+          data.forEach((row: any) => {
+            map[row.employee_id] = row.shift_id;
+          });
+          localStorage.setItem(storageKey, JSON.stringify(map));
+          return map;
+        }
+      } catch (err) {
+        console.warn('Assignments fetch error:', err);
+      }
+    }
+
     let localMap: Record<string, string> = {};
     try {
       const saved = localStorage.getItem(storageKey);
@@ -246,42 +256,6 @@ class ShiftService {
         localMap = JSON.parse(saved);
       }
     } catch {}
-
-    if (!companyId || companyId === 'default' || companyId.includes('demo')) {
-      return localMap;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('company_shift_assignments')
-        .select('*')
-        .eq('company_id', companyId);
-
-      if (!error && data && Array.isArray(data)) {
-        const map: Record<string, string> = { ...localMap };
-        data.forEach((row: any) => {
-          map[row.employee_id] = row.shift_id;
-        });
-        localStorage.setItem(storageKey, JSON.stringify(map));
-        return map;
-      }
-    } catch {
-      try {
-        const { data: res } = await supabase.functions.invoke('user-management', {
-          body: { operation: 'list_company_shift_assignments', companyId },
-        });
-        if (res?.assignments && Array.isArray(res.assignments)) {
-          const map: Record<string, string> = { ...localMap };
-          res.assignments.forEach((row: any) => {
-            map[row.employee_id] = row.shift_id;
-          });
-          localStorage.setItem(storageKey, JSON.stringify(map));
-          return map;
-        }
-      } catch (e) {
-        console.warn('Assignments fetch error:', e);
-      }
-    }
 
     return localMap;
   }
@@ -300,9 +274,46 @@ class ShiftService {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_shift_assignments_${effectiveCompanyId}`;
 
-    // 1. Update localStorage immediately
-    let map: Record<string, string> = {};
+    let success = false;
+
+    // 1. Persist to Supabase FIRST
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        const rows = employeeIds.map((empId) => ({
+          id: `sa-${companyId.substring(0, 4)}-${empId}`,
+          company_id: companyId,
+          employee_id: String(empId),
+          shift_id: String(shiftId),
+          updated_at: new Date().toISOString(),
+        }));
+        const { error } = await supabase
+          .from('company_shift_assignments')
+          .upsert(rows, { onConflict: 'company_id,employee_id' });
+        if (!error) success = true;
+      } catch {}
+
+      if (!success) {
+        try {
+          const { data: res } = await supabase.functions.invoke('user-management', {
+            body: {
+              operation: 'bulk_save_company_shift_assignments',
+              companyId,
+              employee_ids: employeeIds,
+              shift_id: shiftId,
+            },
+          });
+          success = !!res?.success;
+        } catch (e) {
+          console.error('Bulk assign shift error:', e);
+        }
+      }
+    } else {
+      success = true;
+    }
+
+    // 2. Update local cache
     try {
+      let map: Record<string, string> = {};
       const saved = localStorage.getItem(storageKey);
       if (saved) map = JSON.parse(saved);
       employeeIds.forEach((empId) => {
@@ -311,44 +322,6 @@ class ShiftService {
       localStorage.setItem(storageKey, JSON.stringify(map));
     } catch {}
 
-    if (!companyId || companyId === 'default' || companyId.includes('demo')) {
-      window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
-      return true;
-    }
-
-    // 2. Persist to Supabase and wait for completion
-    let success = false;
-    try {
-      const rows = employeeIds.map((empId) => ({
-        id: `sa-${companyId.substring(0, 4)}-${empId}`,
-        company_id: companyId,
-        employee_id: String(empId),
-        shift_id: String(shift_id),
-        updated_at: new Date().toISOString(),
-      }));
-      const { error } = await supabase
-        .from('company_shift_assignments')
-        .upsert(rows, { onConflict: 'company_id,employee_id' });
-      if (!error) success = true;
-    } catch {}
-
-    if (!success) {
-      try {
-        const { data: res } = await supabase.functions.invoke('user-management', {
-          body: {
-            operation: 'bulk_save_company_shift_assignments',
-            companyId,
-            employee_ids: employeeIds,
-            shift_id: shiftId,
-          },
-        });
-        success = !!res?.success;
-      } catch (e) {
-        console.error('Bulk assign shift error:', e);
-      }
-    }
-
-    // 3. Dispatch update event
     window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
     return success;
   }
