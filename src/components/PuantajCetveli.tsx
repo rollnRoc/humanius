@@ -27,6 +27,8 @@ import { Employee } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaKaydi } from '../services/pdksService';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG } from '../services/shiftService';
+import { leaveTypeService } from '../services/leaveTypeService';
+import { IzinTuruKural } from './IzinTanimlari';
 import {
   hesaplaPersonelAylikPuantaj,
   PersonelAylikPuantaj,
@@ -82,6 +84,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const [companyShifts, setCompanyShifts] = useState<CompanyShift[]>(VARSAYILAN_VARDIYALAR);
   const [shiftAssignments, setShiftAssignments] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [companyLeaveTypes, setCompanyLeaveTypes] = useState<IzinTuruKural[]>([]);
 
   // Cumartesi Çalışma Yapılandırması
   const [saturdayConfig, setSaturdayConfig] = useState<SaturdayWorkConfig>(DEFAULT_SATURDAY_CONFIG);
@@ -149,16 +152,18 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     setIsLoading(true);
     try {
       const targetCompanyId = profile?.company_id || employees[0]?.company_id || undefined;
-      const [fetchedVardiyalar, fetchedShifts, fetchedAssignments, fetchedSaturday] = await Promise.all([
+      const [fetchedVardiyalar, fetchedShifts, fetchedAssignments, fetchedSaturday, fetchedLeaveTypes] = await Promise.all([
         pdksService.getVardiyalar(),
         shiftService.getShifts(targetCompanyId),
         shiftService.getAssignments(targetCompanyId),
         shiftService.getSaturdayConfig(targetCompanyId),
+        leaveTypeService.getLeaveTypes(targetCompanyId),
       ]);
       setVardiyaKayitlari(fetchedVardiyalar);
       setCompanyShifts(fetchedShifts.length > 0 ? fetchedShifts : VARSAYILAN_VARDIYALAR);
       setShiftAssignments(fetchedAssignments);
       setSaturdayConfig(fetchedSaturday);
+      setCompanyLeaveTypes(fetchedLeaveTypes || []);
     } catch (err) {
       console.warn('Puantaj verileri yüklenirken hata oluştu:', err);
     } finally {
@@ -172,6 +177,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     const handleUpdate = () => loadPuantajData();
     window.addEventListener('humanius_shifts_updated', handleUpdate);
     window.addEventListener('humanius_saturday_updated', handleUpdate);
+    window.addEventListener('humanius_izin_turleri_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     const handleVisibility = () => {
@@ -182,6 +188,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     return () => {
       window.removeEventListener('humanius_shifts_updated', handleUpdate);
       window.removeEventListener('humanius_saturday_updated', handleUpdate);
+      window.removeEventListener('humanius_izin_turleri_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
@@ -261,9 +268,10 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         izinTalepleri,
         adminOverrides,
         saturdayConfig,
+        companyLeaveTypes,
       });
     });
-  }, [employees, selectedYear, selectedMonthIndex, companyShifts, shiftAssignments, vardiyaKayitlari, izinTalepleri, adminOverrides, saturdayConfig]);
+  }, [employees, selectedYear, selectedMonthIndex, companyShifts, shiftAssignments, vardiyaKayitlari, izinTalepleri, adminOverrides, saturdayConfig, companyLeaveTypes]);
 
   const filteredPuantaj = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -751,7 +759,10 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
             Yİ : Yıllık İzin
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[11px]">
-            R : SGK Raporu
+            RP : Raporlu İzin
+          </span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-100 text-teal-800 font-bold text-[11px]">
+            PZ : Pazar İzni
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 font-bold text-[11px]">
             Üİ : Ücretsiz İzin
@@ -858,25 +869,26 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                         let displayVal = g.kod;
 
                         if (g.kod === 'Ç') {
-                          badgeStyle = 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200';
+                          badgeStyle = 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 font-bold';
                           displayVal = g.netSureSaat > 0 ? `${g.netSureSaat}s` : 'Ç';
                         } else if (g.kod === 'HT') {
-                          badgeStyle = 'bg-blue-100 text-blue-800 hover:bg-blue-200';
+                          badgeStyle = 'bg-blue-100 text-blue-800 hover:bg-blue-200 font-bold';
                         } else if (g.kod === 'AT') {
-                          badgeStyle = 'bg-slate-100 text-slate-600 hover:bg-slate-200';
+                          badgeStyle = 'bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold';
                         } else if (g.kod === 'UBGT') {
-                          badgeStyle = 'bg-purple-100 text-purple-800 hover:bg-purple-200';
-                        } else if (g.kod === 'Yİ' || g.kod === 'Mİ') {
-                          badgeStyle = 'bg-teal-100 text-teal-800 hover:bg-teal-200';
-                        } else if (g.kod === 'R') {
-                          badgeStyle = 'bg-amber-100 text-amber-800 hover:bg-amber-200';
-                        } else if (g.kod === 'Üİ') {
-                          badgeStyle = 'bg-orange-100 text-orange-800 hover:bg-orange-200';
+                          badgeStyle = 'bg-purple-100 text-purple-800 hover:bg-purple-200 font-bold';
+                        } else if (g.kod === 'R' || g.kod === 'RP' || g.kod === 'HA') {
+                          badgeStyle = 'bg-amber-100 text-amber-800 hover:bg-amber-200 font-bold';
+                        } else if (g.kod === 'Üİ' || g.kod === 'UC') {
+                          badgeStyle = 'bg-orange-100 text-orange-800 hover:bg-orange-200 font-bold';
                         } else if (g.kod === 'D') {
-                          badgeStyle = 'bg-red-100 text-red-800 hover:bg-red-200';
+                          badgeStyle = 'bg-red-100 text-red-800 hover:bg-red-200 font-bold';
                         } else if (g.kod === '-') {
                           badgeStyle = 'bg-transparent text-gray-300 hover:bg-gray-100 font-normal';
                           displayVal = '-';
+                        } else {
+                          // Yİ, Mİ, PZ, EV, BA, DO, OL ve tüm şirket izinleri
+                          badgeStyle = 'bg-teal-100 text-teal-800 hover:bg-teal-200 font-bold';
                         }
 
                         if (g.isPazar) cellBg = 'bg-red-50/20';
@@ -1110,15 +1122,15 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                     const dayObj = record?.gunler.find(g => g.tarih === item.tarih);
 
                     let badgeStyle = 'bg-gray-100 text-gray-600';
-                    if (item.kod === 'Ç') badgeStyle = 'bg-emerald-100 text-emerald-800';
-                    else if (item.kod === 'HT') badgeStyle = 'bg-blue-100 text-blue-800';
-                    else if (item.kod === 'AT') badgeStyle = 'bg-slate-100 text-slate-700';
-                    else if (item.kod === 'UBGT') badgeStyle = 'bg-purple-100 text-purple-800';
-                    else if (item.kod === 'Yİ' || item.kod === 'Mİ') badgeStyle = 'bg-teal-100 text-teal-800';
-                    else if (item.kod === 'R') badgeStyle = 'bg-amber-100 text-amber-800';
-                    else if (item.kod === 'Üİ') badgeStyle = 'bg-orange-100 text-orange-800';
-                    else if (item.kod === 'D') badgeStyle = 'bg-red-100 text-red-800';
+                    if (item.kod === 'Ç') badgeStyle = 'bg-emerald-100 text-emerald-800 font-bold';
+                    else if (item.kod === 'HT') badgeStyle = 'bg-blue-100 text-blue-800 font-bold';
+                    else if (item.kod === 'AT') badgeStyle = 'bg-slate-100 text-slate-700 font-bold';
+                    else if (item.kod === 'UBGT') badgeStyle = 'bg-purple-100 text-purple-800 font-bold';
+                    else if (item.kod === 'R' || item.kod === 'RP' || item.kod === 'HA') badgeStyle = 'bg-amber-100 text-amber-800 font-bold';
+                    else if (item.kod === 'Üİ' || item.kod === 'UC') badgeStyle = 'bg-orange-100 text-orange-800 font-bold';
+                    else if (item.kod === 'D') badgeStyle = 'bg-red-100 text-red-800 font-bold';
                     else if (item.kod === '-') badgeStyle = 'bg-gray-50 text-gray-400 font-normal';
+                    else badgeStyle = 'bg-teal-100 text-teal-800 font-bold';
 
                     return (
                       <tr key={`${item.employeeName}_${item.tarih}_${idx}`} className="hover:bg-blue-50/30 transition-colors">
@@ -1211,9 +1223,17 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   <option value="UBGT">UBGT : Resmi Tatil (Ulusal Bayram)</option>
                   <option value="Yİ">Yİ : Yıllık Ücretli İzin</option>
                   <option value="Mİ">Mİ : Mazeret İzni (Evlilik, Ölüm vb.)</option>
-                  <option value="R">R : SGK İstirahat Raporu</option>
+                  <option value="RP">RP : Raporlu İzin / SGK İstirahat</option>
+                  <option value="PZ">PZ : Pazar Çalışmasına Mahsuben İzin</option>
                   <option value="Üİ">Üİ : Ücretsiz İzin</option>
                   <option value="D">D : Devamsız (Giriş Yok)</option>
+                  {companyLeaveTypes
+                    .filter(t => !['YI', 'Yİ', 'MZ', 'Mİ', 'HA', 'RP', 'R', 'UC', 'Üİ', 'PZ'].includes(t.kod?.toUpperCase()))
+                    .map(t => (
+                      <option key={t.id} value={t.kod?.toUpperCase() || t.id}>
+                        {t.kod?.toUpperCase() || t.id} : {t.ad}
+                      </option>
+                    ))}
                 </select>
               </div>
 

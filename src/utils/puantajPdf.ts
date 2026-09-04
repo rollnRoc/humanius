@@ -75,13 +75,10 @@ export const printPuantajCetveliPdf = (params: {
           } else if (g.kod === 'UBGT') {
             badgeBg = '#f3e8ff';
             badgeColor = '#7e22ce';
-          } else if (g.kod === 'Yİ' || g.kod === 'Mİ') {
-            badgeBg = '#ccfbf1';
-            badgeColor = '#0f766e';
-          } else if (g.kod === 'R') {
+          } else if (g.kod === 'R' || g.kod === 'RP') {
             badgeBg = '#fef3c7';
             badgeColor = '#b45309';
-          } else if (g.kod === 'Üİ') {
+          } else if (g.kod === 'Üİ' || g.kod === 'UC') {
             badgeBg = '#ffedd5';
             badgeColor = '#c2410c';
           } else if (g.kod === 'D') {
@@ -91,6 +88,11 @@ export const printPuantajCetveliPdf = (params: {
             badgeBg = '#ffffff';
             badgeColor = '#cbd5e1';
             text = '-';
+          } else {
+            // Yİ, Mİ, PZ, EV, BA, DO, OL ve diğer tüm şirket izinleri
+            badgeBg = '#ccfbf1';
+            badgeColor = '#0f766e';
+            text = g.kod;
           }
 
           return `<td style="padding: 2px 1px; text-align: center; font-size: 8px; font-weight: bold; border: 1px solid #e2e8f0; background: ${badgeBg}; color: ${badgeColor};" title="${g.tarih} - ${g.kodAciklama}">${text}</td>`;
@@ -246,7 +248,8 @@ export const printPuantajCetveliPdf = (params: {
         <div class="legend-item"><span class="legend-box" style="background: #f3e8ff; color: #7e22ce;">UBGT</span> Resmi Tatil</div>
         <div class="legend-item"><span class="legend-box" style="background: #ccfbf1; color: #0f766e;">Yİ</span> Yıllık İzin</div>
         <div class="legend-item"><span class="legend-box" style="background: #ccfbf1; color: #0f766e;">Mİ</span> Mazeret İzni</div>
-        <div class="legend-item"><span class="legend-box" style="background: #fef3c7; color: #b45309;">R</span> SGK Raporu</div>
+        <div class="legend-item"><span class="legend-box" style="background: #fef3c7; color: #b45309;">RP</span> Raporlu İzin</div>
+        <div class="legend-item"><span class="legend-box" style="background: #ccfbf1; color: #0f766e;">PZ</span> Pazar İzni</div>
         <div class="legend-item"><span class="legend-box" style="background: #ffedd5; color: #c2410c;">Üİ</span> Ücretsiz İzin</div>
         <div class="legend-item"><span class="legend-box" style="background: #fee2e2; color: #b91c1c;">D</span> Devamsız</div>
       </div>
@@ -364,9 +367,10 @@ export const printGunlukDetayliRaporPdf = (params: {
       if (item.kod === 'Ç') badgeStyle = 'background:#dcfce7; color:#15803d; font-weight:bold;';
       else if (item.kod === 'HT') badgeStyle = 'background:#dbeafe; color:#1d4ed8; font-weight:bold;';
       else if (item.kod === 'UBGT') badgeStyle = 'background:#f3e8ff; color:#7e22ce; font-weight:bold;';
-      else if (item.kod === 'Yİ' || item.kod === 'Mİ') badgeStyle = 'background:#ccfbf1; color:#0f766e; font-weight:bold;';
-      else if (item.kod === 'R') badgeStyle = 'background:#fef3c7; color:#b45309; font-weight:bold;';
+      else if (item.kod === 'R' || item.kod === 'RP') badgeStyle = 'background:#fef3c7; color:#b45309; font-weight:bold;';
+      else if (item.kod === 'Üİ' || item.kod === 'UC') badgeStyle = 'background:#ffedd5; color:#c2410c; font-weight:bold;';
       else if (item.kod === 'D') badgeStyle = 'background:#fee2e2; color:#b91c1c; font-weight:bold;';
+      else badgeStyle = 'background:#ccfbf1; color:#0f766e; font-weight:bold;';
 
       return `
         <tr style="page-break-inside: avoid;">

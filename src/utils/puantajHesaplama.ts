@@ -3,6 +3,8 @@
 import { Employee } from '../types';
 import { VardiyaKaydi } from '../services/pdksService';
 import { CompanyShift, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG } from '../services/shiftService';
+import { IzinTuruKural } from '../components/IzinTanimlari';
+import { formatIzinTuru } from './izinCalculations';
 
 export type PuantajKodu = 
   | 'Ç'    // Normal Fiili Çalışma
@@ -12,9 +14,12 @@ export type PuantajKodu =
   | 'Yİ'   // Yıllık Ücretli İzin
   | 'Mİ'   // Mazeret İzni (Evlilik, Ölüm, Babalık vb. - Ücretli)
   | 'R'    // İstirahat / SGK Raporu (Eksik gün)
+  | 'RP'   // Raporlu İzin (SGK Raporu)
+  | 'PZ'   // Pazar Çalışmasına Mahsuben İzin
   | 'Üİ'   // Ücretsiz İzin (Eksik gün)
   | 'D'    // Devamsız (Mazeretsiz işe gelmeme - Eksik gün)
-  | '-';   // Henüz Gelmemiş / Kayıt Yok
+  | '-'    // Henüz Gelmemiş / Kayıt Yok
+  | string; // Şirkete özel diğer izin kısaltmaları (EV, BA, DO, OL vb.)
 
 export interface GunlukPuantajDetay {
   tarih: string;           // YYYY-MM-DD
@@ -148,8 +153,9 @@ export function hesaplaPersonelAylikPuantaj(params: {
   izinTalepleri: any[];
   adminOverrides?: Record<string, any>;
   saturdayConfig?: SaturdayWorkConfig;
+  companyLeaveTypes?: IzinTuruKural[];
 }): PersonelAylikPuantaj {
-  const { employee, year, monthIndex, shift, vardiyaKayitlari, izinTalepleri, adminOverrides = {}, saturdayConfig } = params;
+  const { employee, year, monthIndex, shift, vardiyaKayitlari, izinTalepleri, adminOverrides = {}, saturdayConfig, companyLeaveTypes } = params;
 
   const monthDays = getAyinGunleri(year, monthIndex);
   const shiftTolerance = shift.tolerance_minutes || 15;
@@ -282,23 +288,91 @@ export function hesaplaPersonelAylikPuantaj(params: {
         if (!isFuture) ubgtGun += 1;
       }
     } else if (approvedLeave) {
-      const tur = (approvedLeave.izinTuru || '').toLowerCase();
-      if (tur.includes('rapor') || tur.includes('hastalik') || tur === '-r' || tur === 'r') {
-        kod = 'R';
-        kodAciklama = 'İstirahat (SGK Raporu)';
-        if (!isFuture) raporluGun += 1;
-      } else if (tur.includes('ucret') || tur.includes('ücret')) {
-        kod = 'Üİ';
-        kodAciklama = 'Ücretsiz İzin';
-        if (!isFuture) ucretsizIzinGun += 1;
-      } else if (tur.includes('mazeret') || tur.includes('evlilik') || tur.includes('olum') || tur.includes('ölüm') || tur.includes('babalik')) {
-        kod = 'Mİ';
-        kodAciklama = 'Ücretli Mazeret İzni';
-        if (!isFuture) ucretliIzinGun += 1;
+      const rawTur = (approvedLeave.izinTuru || approvedLeave.izin_turu || '').trim();
+      const turLower = rawTur.toLowerCase();
+
+      // Şirket izin tanımlarından kural ara
+      const matchedRule = (companyLeaveTypes || []).find((r) => {
+        if (!r) return false;
+        const rId = (r.id || '').toLowerCase();
+        const rKod = (r.kod || '').toLowerCase();
+        const rAd = (r.ad || '').toLowerCase();
+        return (
+          rId === turLower ||
+          rKod === turLower ||
+          rAd === turLower ||
+          (turLower.length >= 2 && (rId.includes(turLower) || rKod.includes(turLower))) ||
+          (turLower.length >= 3 && rAd.includes(turLower)) ||
+          (rAd.length >= 3 && turLower.includes(rAd))
+        );
+      });
+
+      if (matchedRule) {
+        kod = (matchedRule.kod || 'Yİ').toUpperCase() as PuantajKodu;
+        kodAciklama = matchedRule.ad || 'İzin';
+
+        const isRapor =
+          kod === 'RP' ||
+          kod === 'R' ||
+          kod === 'HA' ||
+          matchedRule.id === 'rp' ||
+          matchedRule.id === 'hastalik' ||
+          matchedRule.ad.toLowerCase().includes('rapor') ||
+          matchedRule.ad.toLowerCase().includes('hastalık');
+
+        const isUcretsiz =
+          matchedRule.ucretli === false ||
+          kod === 'Üİ' ||
+          kod === 'UC' ||
+          matchedRule.id === 'ucretsiz' ||
+          matchedRule.ad.toLowerCase().includes('ücretsiz');
+
+        if (isRapor) {
+          if (!isFuture) raporluGun += 1;
+        } else if (isUcretsiz) {
+          if (!isFuture) ucretsizIzinGun += 1;
+        } else {
+          if (!isFuture) ucretliIzinGun += 1;
+        }
       } else {
-        kod = 'Yİ';
-        kodAciklama = 'Yıllık Ücretli İzin';
-        if (!isFuture) ucretliIzinGun += 1;
+        // Standart / Fallback Kurallar
+        if (turLower === 'rp' || turLower.includes('rapor') || turLower.includes('hastalik') || turLower === 'r' || turLower === 'ha') {
+          kod = 'RP';
+          kodAciklama = 'Raporlu İzin / SGK İstirahat';
+          if (!isFuture) raporluGun += 1;
+        } else if (turLower === 'pz' || turLower.includes('pazar')) {
+          kod = 'PZ';
+          kodAciklama = 'Pazar Çalışmasına Mahsuben İzin';
+          if (!isFuture) ucretliIzinGun += 1;
+        } else if (turLower === 'uc' || turLower.includes('ucret') || turLower.includes('ücret')) {
+          kod = 'Üİ';
+          kodAciklama = 'Ücretsiz İzin';
+          if (!isFuture) ucretsizIzinGun += 1;
+        } else if (turLower === 'mz' || turLower.includes('mazeret')) {
+          kod = 'Mİ';
+          kodAciklama = 'Mazeret İzni';
+          if (!isFuture) ucretliIzinGun += 1;
+        } else if (turLower === 'ev' || turLower.includes('evlilik')) {
+          kod = 'EV';
+          kodAciklama = 'Evlilik İzni';
+          if (!isFuture) ucretliIzinGun += 1;
+        } else if (turLower === 'ba' || turLower.includes('babalik') || turLower.includes('babalık')) {
+          kod = 'BA';
+          kodAciklama = 'Babalık İzni';
+          if (!isFuture) ucretliIzinGun += 1;
+        } else if (turLower === 'ol' || turLower.includes('olum') || turLower.includes('ölüm')) {
+          kod = 'OL';
+          kodAciklama = 'Ölüm İzni';
+          if (!isFuture) ucretliIzinGun += 1;
+        } else if (turLower === 'do' || turLower.includes('dogum') || turLower.includes('doğum')) {
+          kod = 'DO';
+          kodAciklama = 'Doğum İzni';
+          if (!isFuture) ucretsizIzinGun += 1;
+        } else {
+          kod = 'Yİ';
+          kodAciklama = formatIzinTuru(rawTur);
+          if (!isFuture) ucretliIzinGun += 1;
+        }
       }
     } else if (isPazar) {
       if (girisSaati && cikisSaati && netSureSaat > 0) {
@@ -314,23 +388,21 @@ export function hesaplaPersonelAylikPuantaj(params: {
       }
     } else if (isCumartesi) {
       if (isCumartesiCalisma) {
-        // Cumartesi 6 günlük çalışma düzeninde normal çalışma günüdür
+        // Cumartesi 6 günlük çalışma düzeninde çalışma günüdür
         if (girisSaati && (cikisSaati || isToday)) {
           kod = 'Ç';
           kodAciklama = `Cumartesi Fiili Çalışma (${netSureSaat} saat)`;
           fiiliCalismaGun += 1;
           fiiliCalismaSaat += netSureSaat;
           toplamFazlaMesaiSaat += fazlaMesaiSaat;
-        } else if (isFuture) {
-          kod = '-';
-          kodAciklama = 'Gelecek Gün / Henüz Gerçekleşmedi';
-        } else if (isToday) {
-          kod = '-';
-          kodAciklama = 'Bugün / Henüz Giriş Yapılmadı';
-        } else {
+        } else if (isPast) {
           kod = 'D';
           kodAciklama = 'Devamsız / Cumartesi Mesaisine Giriş Yapılmadı';
           devamsizGun += 1;
+        } else {
+          // Bugün veya Gelecek Cumartesi: 6 günlük çalışma sisteminde Ç olarak gösterilir
+          kod = 'Ç';
+          kodAciklama = `Cumartesi Çalışma Günü (${activeStartTime} - ${activeEndTime})`;
         }
       } else {
         // Standart 5 günlük düzen (Cumartesi Akdi Tatil)
