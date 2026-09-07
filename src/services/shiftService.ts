@@ -22,10 +22,17 @@ export interface SaturdayWorkConfig {
 export const DEFAULT_SATURDAY_CONFIG: SaturdayWorkConfig = {
   isSaturdayWork: false,
   startTime: '08:30',
-  endTime: '13:00',
-  breakMinutes: 0,
+  endTime: '16:00',
+  breakMinutes: 30,
   toleranceMinutes: 15,
 };
+
+export function isNotSaturdayShift(s: any): boolean {
+  if (!s) return false;
+  const idStr = String(s.id || '').toLowerCase();
+  const nameStr = String(s.name || '').toLowerCase();
+  return !idStr.includes('cumartesi') && !nameStr.includes('cumartesi');
+}
 
 export interface ShiftAssignment {
   id: string;
@@ -79,7 +86,7 @@ export const VARSAYILAN_VARDIYALAR: CompanyShift[] = [
 
 class ShiftService {
   /**
-   * Get all shifts defined for a company
+   * Get all shifts defined for a company (strictly weekday / standard company shifts)
    */
   public async getShifts(companyId?: string): Promise<CompanyShift[]> {
     const effectiveCompanyId = companyId || 'default';
@@ -95,7 +102,8 @@ class ShiftService {
           .order('created_at', { ascending: true });
 
         if (!error && data && Array.isArray(data)) {
-          const shiftRows = data.filter((d: any) => !d.id.includes('cumartesi'));
+          // Strictly exclude any Saturday configuration records
+          const shiftRows = data.filter(isNotSaturdayShift);
           if (shiftRows.length > 0) {
             const formatted: CompanyShift[] = shiftRows.map((d: any) => ({
               id: d.id,
@@ -152,20 +160,28 @@ class ShiftService {
       }
     }
 
-    // 2. Offline / Fallback: check localStorage
+    // 2. Offline / Fallback: check localStorage with sanitization
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved !== null) {
         const localData = JSON.parse(saved);
         if (Array.isArray(localData) && localData.length > 0) {
-          return localData;
+          const clean = localData.filter(isNotSaturdayShift);
+          if (clean.length > 0) {
+            if (!clean.some((s: any) => s.is_default)) clean[0].is_default = true;
+            return clean;
+          }
         }
       }
       const defSaved = localStorage.getItem('humanius_shifts_default');
       if (defSaved !== null) {
         const localData = JSON.parse(defSaved);
         if (Array.isArray(localData) && localData.length > 0) {
-          return localData;
+          const clean = localData.filter(isNotSaturdayShift);
+          if (clean.length > 0) {
+            if (!clean.some((s: any) => s.is_default)) clean[0].is_default = true;
+            return clean;
+          }
         }
       }
     } catch {}
@@ -180,6 +196,12 @@ class ShiftService {
   public async saveShift(companyId: string, shift: CompanyShift): Promise<boolean> {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_shifts_${effectiveCompanyId}`;
+
+    // Disallow saving a saturday shift through normal shift management
+    if (!isNotSaturdayShift(shift)) {
+      console.warn('Saturday shift cannot be saved as regular company shift');
+      return false;
+    }
 
     let success = false;
 
@@ -210,7 +232,7 @@ class ShiftService {
         console.error('Supabase saveShift exception:', err);
       }
 
-      // Re-fetch from DB to ensure absolute consistency across all caches
+      // Re-fetch from DB to ensure absolute consistency across all caches (excluding Saturday shifts)
       try {
         const { data } = await supabase
           .from('company_shifts')
@@ -219,16 +241,23 @@ class ShiftService {
           .order('created_at', { ascending: true });
 
         if (data && Array.isArray(data) && data.length > 0) {
-          const formatted: CompanyShift[] = data.map((d: any) => ({
-            id: d.id,
-            name: d.name,
-            start_time: d.start_time,
-            end_time: d.end_time,
-            break_minutes: Number(d.break_minutes || 60),
-            tolerance_minutes: Number(d.tolerance_minutes || 15),
-            color: d.color || '#3b82f6',
-            is_default: Boolean(d.is_default),
-          }));
+          const formatted: CompanyShift[] = data
+            .filter(isNotSaturdayShift)
+            .map((d: any) => ({
+              id: d.id,
+              name: d.name,
+              start_time: d.start_time,
+              end_time: d.end_time,
+              break_minutes: Number(d.break_minutes || 60),
+              tolerance_minutes: Number(d.tolerance_minutes || 15),
+              color: d.color || '#3b82f6',
+              is_default: Boolean(d.is_default),
+            }));
+
+          if (formatted.length > 0 && !formatted.some((s) => s.is_default)) {
+            formatted[0].is_default = true;
+          }
+
           localStorage.setItem(storageKey, JSON.stringify(formatted));
           localStorage.setItem('humanius_shifts_default', JSON.stringify(formatted));
           window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
@@ -249,6 +278,7 @@ class ShiftService {
       if (!list || list.length === 0) {
         list = [...VARSAYILAN_VARDIYALAR];
       }
+      list = list.filter(isNotSaturdayShift);
 
       const idx = list.findIndex((s) => s.id === shift.id);
       let updated: CompanyShift[];
@@ -297,16 +327,18 @@ class ShiftService {
           .order('created_at', { ascending: true });
 
         if (data && Array.isArray(data)) {
-          const formatted: CompanyShift[] = data.map((d: any) => ({
-            id: d.id,
-            name: d.name,
-            start_time: d.start_time,
-            end_time: d.end_time,
-            break_minutes: Number(d.break_minutes || 60),
-            tolerance_minutes: Number(d.tolerance_minutes || 15),
-            color: d.color || '#3b82f6',
-            is_default: Boolean(d.is_default),
-          }));
+          const formatted: CompanyShift[] = data
+            .filter(isNotSaturdayShift)
+            .map((d: any) => ({
+              id: d.id,
+              name: d.name,
+              start_time: d.start_time,
+              end_time: d.end_time,
+              break_minutes: Number(d.break_minutes || 60),
+              tolerance_minutes: Number(d.tolerance_minutes || 15),
+              color: d.color || '#3b82f6',
+              is_default: Boolean(d.is_default),
+            }));
 
           if (formatted.length > 0 && !formatted.some((s) => s.is_default)) {
             formatted[0].is_default = true;
@@ -333,7 +365,7 @@ class ShiftService {
         list = [...VARSAYILAN_VARDIYALAR];
       }
 
-      const updated = list.filter((s) => s.id !== shiftId);
+      const updated = list.filter((s) => s.id !== shiftId && isNotSaturdayShift(s));
       if (updated.length > 0 && !updated.some((s) => s.is_default)) {
         updated[0].is_default = true;
       }
@@ -453,10 +485,10 @@ class ShiftService {
   }
 
   /**
-   * Helper to resolve the effective active shift for an employee
+   * Helper to resolve the effective active shift for an employee (strictly weekday shifts)
    */
   public async getEmployeeShift(companyId: string | undefined, employeeId: string | undefined): Promise<CompanyShift> {
-    const shifts = await this.getShifts(companyId);
+    const shifts = (await this.getShifts(companyId)).filter(isNotSaturdayShift);
     const defaultShift = shifts.find((s) => s.is_default) || shifts[0] || VARSAYILAN_VARDIYALAR[0];
 
     if (!employeeId) return defaultShift;
@@ -490,12 +522,17 @@ class ShiftService {
 
         if (!error) {
           if (data) {
+            // Self-repair: Ensure Saturday row in DB is NEVER marked default
+            if (data.is_default) {
+              supabase.from('company_shifts').update({ is_default: false }).eq('id', data.id).catch(() => {});
+            }
+
             const config: SaturdayWorkConfig = {
               isSaturdayWork: true,
               startTime: data.start_time || '08:30',
-              endTime: data.end_time || '13:00',
-              breakMinutes: Number(data.break_minutes || 0),
-              toleranceMinutes: Number(data.tolerance_minutes || 15),
+              endTime: data.end_time || '16:00',
+              breakMinutes: Number(data.break_minutes ?? 30),
+              toleranceMinutes: Number(data.tolerance_minutes ?? 15),
             };
             try {
               localStorage.setItem(storageKey, JSON.stringify(config));
@@ -544,9 +581,9 @@ class ShiftService {
               company_id: companyId,
               name: 'Cumartesi Mesaisi',
               start_time: config.startTime || '08:30',
-              end_time: config.endTime || '13:00',
-              break_minutes: Number(config.breakMinutes || 0),
-              tolerance_minutes: Number(config.toleranceMinutes || 15),
+              end_time: config.endTime || '16:00',
+              break_minutes: Number(config.breakMinutes ?? 30),
+              tolerance_minutes: Number(config.toleranceMinutes ?? 15),
               color: '#f59e0b',
               is_default: false,
             },
@@ -580,6 +617,28 @@ class ShiftService {
     try {
       localStorage.setItem(storageKey, JSON.stringify(config));
       localStorage.setItem('humanius_saturday_work_default', JSON.stringify(config));
+    } catch {}
+
+    // Clean regular shift caches to prevent any accidental leakage of Saturday shift
+    try {
+      const regularShiftsRaw = localStorage.getItem(`humanius_shifts_${effectiveCompanyId}`);
+      if (regularShiftsRaw) {
+        const parsed = JSON.parse(regularShiftsRaw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(isNotSaturdayShift);
+          if (cleaned.length > 0 && !cleaned.some((s: any) => s.is_default)) cleaned[0].is_default = true;
+          localStorage.setItem(`humanius_shifts_${effectiveCompanyId}`, JSON.stringify(cleaned));
+        }
+      }
+      const defShiftsRaw = localStorage.getItem('humanius_shifts_default');
+      if (defShiftsRaw) {
+        const parsed = JSON.parse(defShiftsRaw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(isNotSaturdayShift);
+          if (cleaned.length > 0 && !cleaned.some((s: any) => s.is_default)) cleaned[0].is_default = true;
+          localStorage.setItem('humanius_shifts_default', JSON.stringify(cleaned));
+        }
+      }
     } catch {}
 
     window.dispatchEvent(

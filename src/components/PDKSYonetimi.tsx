@@ -4,6 +4,7 @@ import { pdksService } from '../services/pdksService';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR } from '../services/shiftService';
 import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
 import { printPdksDevamRaporuPdf, exportPdksToCsv, PdksReportRecord } from '../utils/pdksReportPdf';
+import { isSaturdayWorkActive } from '../utils/izinCalculations';
 import { Loader2 } from 'lucide-react';
 
 import {
@@ -601,26 +602,55 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       return;
     }
 
-    if (!confirm(`Seçili tarihteki (${secilenTarih}) çıkış yapmamış ${ongoingRecords.length} personelin mesaisi vardiya bitiş saatleri (18:00) itibarıyla otomatik sonlandırılsın mı?`)) {
+    const targetCompanyId = profile?.company_id || employees[0]?.company_id || undefined;
+    const secilenDate = new Date(secilenTarih + 'T00:00:00');
+    const isSaturday = secilenDate.getDay() === 6;
+    let targetCikisDisplay = '18:00';
+    let satConfig: any = null;
+
+    try {
+      satConfig = await shiftService.getSaturdayConfig(targetCompanyId);
+      if (isSaturday && satConfig.isSaturdayWork) {
+        targetCikisDisplay = satConfig.endTime || '16:00';
+      }
+    } catch (e) {
+      console.warn('Failed to load saturday config in PDKSYonetimi:', e);
+    }
+
+    if (!confirm(`Seçili tarihteki (${secilenTarih} - ${isSaturday ? 'Cumartesi' : 'Hafta İçi'}) çıkış yapmamış ${ongoingRecords.length} personelin mesaisi vardiya bitiş saati (${targetCikisDisplay}) itibarıyla otomatik sonlandırılsın mı?`)) {
       return;
     }
 
     try {
       setLoading(true);
       for (const rec of ongoingRecords) {
-        const defaultVardiyaCikis = '18:00';
+        const empShiftId = companyShiftAssignments[rec.employeeId];
+        const empShift = companyShifts.find(s => s.id === empShiftId) || companyShifts[0];
+        const cikisSaati = (isSaturday && satConfig?.isSaturdayWork) 
+          ? (satConfig.endTime || '16:00') 
+          : (empShift?.end_time || '18:00');
+
         await pdksService.updateVardiya(rec.id, {
-          cikis_saati: defaultVardiyaCikis + ':00'
+          cikis_saati: cikisSaati + ':00'
         });
       }
 
       setAllKayitlar(prev => prev.map(item => {
         if (item.girisZamani && !item.cikisZamani && item.tarih === secilenTarih) {
-          const defaultVardiyaCikis = '18:00';
-          const hesap = hesaplaKayit(item.girisZamani, defaultVardiyaCikis, DEMO_VARDIYALAR[0]);
+          const empShiftId = companyShiftAssignments[item.employeeId];
+          const empShift = companyShifts.find(s => s.id === empShiftId) || companyShifts[0];
+          const cikisSaati = (isSaturday && satConfig?.isSaturdayWork) 
+            ? (satConfig.endTime || '16:00') 
+            : (empShift?.end_time || '18:00');
+
+          const vardiyaKullanim = {
+            ...DEMO_VARDIYALAR[0],
+            cikis: cikisSaati
+          };
+          const hesap = hesaplaKayit(item.girisZamani, cikisSaati, vardiyaKullanim);
           return {
             ...item,
-            cikisZamani: defaultVardiyaCikis,
+            cikisZamani: cikisSaati,
             duzeltmeTalebi: false,
             ...hesap
           };
@@ -628,7 +658,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
         return item;
       }));
 
-      alert(`İşlem Başarılı: ${ongoingRecords.length} personelin devam eden mesaisi vardiya bitiş saatinde (18:00) otomatik olarak sonlandırıldı.`);
+      alert(`İşlem Başarılı: ${ongoingRecords.length} personelin devam eden mesaisi vardiya bitiş saatinde (${targetCikisDisplay}) otomatik olarak sonlandırıldı.`);
     } catch (err) {
       console.error(err);
       alert('Otomatik mesai sonlandırma sırasında bir hata oluştu.');
@@ -768,6 +798,14 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={otomatikMesaiSonlandir}
+                className="flex items-center gap-1.5 border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs transition-all"
+                title="Günü dolan ve çıkışı eksik personellerin mesaisini vardiya bitiş saatinde sonlandır"
+              >
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                Mesaileri Kapat
+              </button>
               <button
                 onClick={handlePrintPdksRaporu}
                 className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs transition-all"

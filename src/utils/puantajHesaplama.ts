@@ -2,7 +2,8 @@
 
 import { Employee } from '../types';
 import { VardiyaKaydi } from '../services/pdksService';
-import { CompanyShift, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG } from '../services/shiftService';
+import { CompanyShift, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, VARSAYILAN_VARDIYALAR } from '../services/shiftService';
+import { getCompanyIzinTurleri, formatIzinTuru } from './izinCalculations';
 
 export type PuantajKodu = 
   | 'Ç'    // Normal Fiili Çalışma
@@ -14,7 +15,9 @@ export type PuantajKodu =
   | 'R'    // İstirahat / SGK Raporu (Eksik gün)
   | 'Üİ'   // Ücretsiz İzin (Eksik gün)
   | 'D'    // Devamsız (Mazeretsiz işe gelmeme - Eksik gün)
-  | '-';   // Henüz Gelmemiş / Kayıt Yok
+  | '-'    // Henüz Gelmemiş / Kayıt Yok
+  | (string & {});
+
 
 export interface GunlukPuantajDetay {
   tarih: string;           // YYYY-MM-DD
@@ -105,7 +108,7 @@ export function checkIsResmiTatil(dateStr: string): { isTatil: boolean; ad?: str
  */
 export function hesaplaYasalAraDinlenme(brutSaat: number, vardiyaMolaDk?: number): number {
   if (brutSaat <= 0) return 0;
-  if (vardiyaMolaDk && vardiyaMolaDk > 0) return vardiyaMolaDk;
+  if (vardiyaMolaDk !== undefined && vardiyaMolaDk !== null && vardiyaMolaDk >= 0) return vardiyaMolaDk;
   if (brutSaat <= 4) return 15;
   if (brutSaat <= 7.5) return 30;
   return 60;
@@ -137,23 +140,78 @@ export function getAyinGunleri(year: number, monthIndex: number): { tarih: strin
 }
 
 /**
+ * Bir gün için fiili veya planlanan net çalışma saatini döner
+ */
+export function getCalismaSaati(
+  gun: GunlukPuantajDetay,
+  shift?: CompanyShift,
+  saturdayConfig?: SaturdayWorkConfig
+): number {
+  if (gun.netSureSaat && gun.netSureSaat > 0) {
+    return gun.netSureSaat;
+  }
+  // Giriş ve çıkış saati mevcutsa aradaki net süreyi hesapla
+  if (gun.girisSaati && gun.cikisSaati) {
+    const [gH, gM] = gun.girisSaati.split(':').map(Number);
+    const [cH, cM] = gun.cikisSaati.split(':').map(Number);
+    if (!isNaN(gH) && !isNaN(gM) && !isNaN(cH) && !isNaN(cM)) {
+      let diffMins = (cH * 60 + cM) - (gH * 60 + gM);
+      if (diffMins < 0) diffMins += 24 * 60;
+      const netMins = Math.max(0, diffMins - (gun.molaDk ?? 60));
+      const calculated = parseFloat((netMins / 60).toFixed(1));
+      if (calculated > 0) return calculated;
+    }
+  }
+  // Cumartesi çalışma aktifse Cumartesiye özel planlanan net çalışma süresi
+  if (gun.isCumartesi && gun.isCumartesiCalisma && saturdayConfig?.isSaturdayWork) {
+    const sStr = saturdayConfig.startTime || '08:30';
+    const eStr = saturdayConfig.endTime || '16:00';
+    const [sH, sM] = sStr.split(':').map(Number);
+    const [eH, eM] = eStr.split(':').map(Number);
+    if (!isNaN(sH) && !isNaN(sM) && !isNaN(eH) && !isNaN(eM)) {
+      let diffMins = (eH * 60 + eM) - (sH * 60 + sM);
+      if (diffMins < 0) diffMins += 24 * 60;
+      const mola = Number(saturdayConfig.breakMinutes ?? 30);
+      const netMins = Math.max(0, diffMins - mola);
+      const calculated = parseFloat((netMins / 60).toFixed(1));
+      if (calculated > 0) return calculated;
+    }
+  }
+  // Vardiya planındaki net çalışma süresi
+  if (shift?.start_time && shift?.end_time) {
+    const [sH, sM] = shift.start_time.split(':').map(Number);
+    const [eH, eM] = shift.end_time.split(':').map(Number);
+    if (!isNaN(sH) && !isNaN(sM) && !isNaN(eH) && !isNaN(eM)) {
+      let diffMins = (eH * 60 + eM) - (sH * 60 + sM);
+      if (diffMins < 0) diffMins += 24 * 60;
+      const netMins = Math.max(0, diffMins - (shift.break_minutes || 60));
+      const calculated = parseFloat((netMins / 60).toFixed(1));
+      if (calculated > 0) return calculated;
+    }
+  }
+  return 8.5; // Standart tam gün çalışma süresi
+}
+
+/**
  * Tek bir personelin belirli bir ay için tam puantajını hesaplar
  */
 export function hesaplaPersonelAylikPuantaj(params: {
   employee: Employee;
   year: number;
   monthIndex: number;
-  shift: CompanyShift;
+  shift?: CompanyShift;
   vardiyaKayitlari: VardiyaKaydi[];
   izinTalepleri: any[];
   adminOverrides?: Record<string, any>;
   saturdayConfig?: SaturdayWorkConfig;
+  leaveTypes?: any[];
 }): PersonelAylikPuantaj {
-  const { employee, year, monthIndex, shift, vardiyaKayitlari, izinTalepleri, adminOverrides = {}, saturdayConfig } = params;
+  const { employee, year, monthIndex, shift, vardiyaKayitlari, izinTalepleri, adminOverrides = {}, saturdayConfig, leaveTypes } = params;
 
+  const activeShift = shift || VARSAYILAN_VARDIYALAR[0];
   const monthDays = getAyinGunleri(year, monthIndex);
-  const shiftTolerance = shift.tolerance_minutes || 15;
-  const shiftMolaDk = shift.break_minutes || 60;
+  const shiftTolerance = activeShift.tolerance_minutes || 15;
+  const shiftMolaDk = activeShift.break_minutes || 60;
 
   let fiiliCalismaGun = 0;
   let fiiliCalismaSaat = 0;
@@ -175,16 +233,16 @@ export function hesaplaPersonelAylikPuantaj(params: {
     const resmiTatilInfo = checkIsResmiTatil(tarih);
 
     // Vardiya parametreleri (Cumartesi çalışma aktifse Cumartesiye özel saatler kullanılır)
-    let activeStartTime = shift.start_time;
-    let activeEndTime = shift.end_time;
+    let activeStartTime = activeShift.start_time;
+    let activeEndTime = activeShift.end_time;
     let activeMolaDk = shiftMolaDk;
     let activeTolerance = shiftTolerance;
 
     if (isCumartesiCalisma && saturdayConfig) {
       activeStartTime = saturdayConfig.startTime || '08:30';
-      activeEndTime = saturdayConfig.endTime || '13:00';
-      activeMolaDk = Number(saturdayConfig.breakMinutes || 0);
-      activeTolerance = Number(saturdayConfig.toleranceMinutes || 15);
+      activeEndTime = saturdayConfig.endTime || '16:00';
+      activeMolaDk = Number(saturdayConfig.breakMinutes ?? 30);
+      activeTolerance = Number(saturdayConfig.toleranceMinutes ?? 15);
     }
 
     // 0. Öncelik: Manuel İK Düzeltmesi (Override)
@@ -239,9 +297,11 @@ export function hesaplaPersonelAylikPuantaj(params: {
         // Planlanan mesai süresi üzeri fazla mesai
         const [eH, eM] = activeEndTime.split(':').map(Number);
         if (!isNaN(eH) && !isNaN(eM) && !isNaN(sH) && !isNaN(sM)) {
-          let normalShiftMins = (eH * 60 + eM) - (sH * 60 + sM) - activeMolaDk;
-          if (normalShiftMins < 0) normalShiftMins += 24 * 60;
-          normalShiftMins = Math.max(0, normalShiftMins);
+          let plannedShiftDiffMins = (eH * 60 + eM) - (sH * 60 + sM);
+          if (plannedShiftDiffMins < 0) plannedShiftDiffMins += 24 * 60;
+          const plannedShiftGrossHours = plannedShiftDiffMins / 60;
+          const plannedBreakMins = hesaplaYasalAraDinlenme(plannedShiftGrossHours, activeMolaDk);
+          const normalShiftMins = Math.max(0, plannedShiftDiffMins - plannedBreakMins);
           if (netMins > normalShiftMins) {
             fazlaMesaiSaat = parseFloat(((netMins - normalShiftMins) / 60).toFixed(1));
           }
@@ -282,22 +342,76 @@ export function hesaplaPersonelAylikPuantaj(params: {
         if (!isFuture) ubgtGun += 1;
       }
     } else if (approvedLeave) {
-      const tur = (approvedLeave.izinTuru || '').toLowerCase();
-      if (tur.includes('rapor') || tur.includes('hastalik') || tur === '-r' || tur === 'r') {
+      const rawTur = approvedLeave.izinTuru || approvedLeave.izin_turu || '';
+      const turLower = String(rawTur).trim().toLowerCase();
+
+      // Şirkete tanımlı izin türlerini al (parametre verilmemişse dinamik depodan yükle)
+      const companyTurler = (leaveTypes && leaveTypes.length > 0)
+        ? leaveTypes
+        : getCompanyIzinTurleri(employee.company_id);
+
+      // İlgili izin tanımını bul (id, kod veya ad üzerinden)
+      const matched = companyTurler.find((t: any) => {
+        const idLower = (t.id || '').toLowerCase();
+        const kodLower = (t.kod || '').toLowerCase();
+        const adLower = (t.ad || '').toLowerCase();
+        return (
+          idLower === turLower ||
+          kodLower === turLower ||
+          adLower === turLower ||
+          turLower.startsWith(idLower) ||
+          idLower.startsWith(turLower)
+        );
+      });
+
+      if (matched) {
+        let shortCode = matched.kod ? String(matched.kod).toUpperCase() : 'İ';
+        // Standart puantaj kodları harf standardizasyonu
+        if (shortCode === 'YI') shortCode = 'Yİ';
+        if (shortCode === 'MZ') shortCode = 'Mİ';
+        if (shortCode === 'HA') shortCode = 'R';
+        if (shortCode === 'UC') shortCode = 'Üİ';
+
+        kod = shortCode;
+        kodAciklama = matched.ad || 'İzin';
+
+        const isUnpaid = matched.ucretli === false || turLower.includes('ucret') || turLower.includes('ücret');
+        const isRapor = matched.id === 'hastalik' || shortCode === 'R' || turLower.includes('rapor') || turLower.includes('hastalik');
+
+        if (!isFuture) {
+          if (isRapor) {
+            raporluGun += 1;
+          } else if (isUnpaid) {
+            ucretsizIzinGun += 1;
+          } else {
+            ucretliIzinGun += 1;
+          }
+        }
+      } else if (turLower.includes('rapor') || turLower.includes('hastalik') || turLower === '-r' || turLower === 'r') {
         kod = 'R';
         kodAciklama = 'İstirahat (SGK Raporu)';
         if (!isFuture) raporluGun += 1;
-      } else if (tur.includes('ucret') || tur.includes('ücret')) {
+      } else if (turLower.includes('ucret') || turLower.includes('ücret')) {
         kod = 'Üİ';
         kodAciklama = 'Ücretsiz İzin';
         if (!isFuture) ucretsizIzinGun += 1;
-      } else if (tur.includes('mazeret') || tur.includes('evlilik') || tur.includes('olum') || tur.includes('ölüm') || tur.includes('babalik')) {
+      } else if (turLower.includes('mazeret') || turLower.includes('evlilik') || turLower.includes('olum') || turLower.includes('ölüm') || turLower.includes('babalik')) {
         kod = 'Mİ';
         kodAciklama = 'Ücretli Mazeret İzni';
         if (!isFuture) ucretliIzinGun += 1;
-      } else {
+      } else if (turLower.includes('yillik') || turLower.includes('yıllık')) {
         kod = 'Yİ';
         kodAciklama = 'Yıllık Ücretli İzin';
+        if (!isFuture) ucretliIzinGun += 1;
+      } else {
+        // Tanımsız özel izin metni durumunda baş harflerden kısa kod üret
+        const title = formatIzinTuru(rawTur, employee.company_id);
+        const words = title.split(/\s+/).filter(Boolean);
+        let derivedKod = words.length >= 2
+          ? (words[0][0] + words[1][0]).toUpperCase()
+          : title.substring(0, 2).toUpperCase();
+        kod = derivedKod || 'İ';
+        kodAciklama = title;
         if (!isFuture) ucretliIzinGun += 1;
       }
     } else if (isPazar) {

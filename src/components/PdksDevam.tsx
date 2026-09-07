@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaInsert } from '../services/pdksService';
 import { companyService } from '../services/companyService';
 import { notificationService } from '../services/notificationService';
-import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR } from '../services/shiftService';
+import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, isNotSaturdayShift } from '../services/shiftService';
 import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
 import { printPdksDevamRaporuPdf, exportPdksToCsv, PdksReportRecord } from '../utils/pdksReportPdf';
 import {
@@ -14,6 +14,8 @@ import {
   Printer, FileText, Download, CalendarCheck, ArrowUpDown
 } from 'lucide-react';
 import type { Employee, CompanyOfficeLocation } from '../types';
+import { getDevamKontroluIzinLabel } from '../utils/izinCalculations';
+
 
 interface PdksDevamProps {
   employees: Employee[];
@@ -205,6 +207,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const [allCompanyShifts, setAllCompanyShifts] = useState<CompanyShift[]>(VARSAYILAN_VARDIYALAR);
   const [allShiftAssignments, setAllShiftAssignments] = useState<Record<string, string>>({});
   const [activeUserShift, setActiveUserShift] = useState<CompanyShift>(VARSAYILAN_VARDIYALAR[0]);
+  const [saturdayConfig, setSaturdayConfig] = useState<SaturdayWorkConfig>(DEFAULT_SATURDAY_CONFIG);
 
   // Load shifts and assignments from database & sync active shift
   useEffect(() => {
@@ -214,17 +217,20 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
     const refreshShifts = async () => {
       try {
-        const [fetchedShifts, fetchedAssignments] = await Promise.all([
+        const [fetchedShifts, fetchedAssignments, fetchedSat] = await Promise.all([
           shiftService.getShifts(targetCompanyId),
           shiftService.getAssignments(targetCompanyId),
+          shiftService.getSaturdayConfig(targetCompanyId),
         ]);
         if (!isMounted) return;
-        setAllCompanyShifts(fetchedShifts);
+        const cleanShifts = fetchedShifts.filter(isNotSaturdayShift);
+        setAllCompanyShifts(cleanShifts);
         setAllShiftAssignments(fetchedAssignments);
+        setSaturdayConfig(fetchedSat);
 
-        const defaultShift = fetchedShifts.find((s) => s.is_default) || fetchedShifts[0] || VARSAYILAN_VARDIYALAR[0];
+        const defaultShift = cleanShifts.find((s) => s.is_default) || cleanShifts[0] || VARSAYILAN_VARDIYALAR[0];
         if (empId && fetchedAssignments[empId]) {
-          const found = fetchedShifts.find((s) => s.id === fetchedAssignments[empId]);
+          const found = cleanShifts.find((s) => s.id === fetchedAssignments[empId]);
           setActiveUserShift(found || defaultShift);
         } else {
           setActiveUserShift(defaultShift);
@@ -239,7 +245,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     const handleShiftsUpdated = () => {
       refreshShifts();
     };
+    const handleSatUpdated = (e: any) => {
+      if (e.detail?.config) {
+        setSaturdayConfig(e.detail.config);
+      } else {
+        shiftService.getSaturdayConfig(targetCompanyId).then((c) => {
+          if (isMounted) setSaturdayConfig(c);
+        });
+      }
+    };
+
     window.addEventListener('humanius_shifts_updated', handleShiftsUpdated);
+    window.addEventListener('humanius_saturday_updated', handleSatUpdated);
+    window.addEventListener('humanius_izin_turleri_updated', handleShiftsUpdated);
     window.addEventListener('storage', handleShiftsUpdated);
 
     const handleVisibilityChange = () => {
@@ -252,6 +270,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     return () => {
       isMounted = false;
       window.removeEventListener('humanius_shifts_updated', handleShiftsUpdated);
+      window.removeEventListener('humanius_saturday_updated', handleSatUpdated);
+      window.removeEventListener('humanius_izin_turleri_updated', handleShiftsUpdated);
       window.removeEventListener('storage', handleShiftsUpdated);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
@@ -267,7 +287,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     // Read local storage for active session
     const savedActiveId = localStorage.getItem('pdks_active_shift_id');
     const savedStart = localStorage.getItem('pdks_active_shift_start');
-    const targetCikisTime = activeUserShift.end_time || '18:00';
+    const isTodaySaturday = new Date().getDay() === 6;
+    const targetCikisTime = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
+      ? (saturdayConfig.endTime || '16:00')
+      : (activeUserShift.end_time || '18:00');
     const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
     
     if (savedActiveId && savedStart) {
@@ -401,7 +424,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   useEffect(() => {
     let intervalId: any;
     if (isShiftActive && shiftStartTime) {
-      const targetCikisTime = activeUserShift?.end_time || '18:00';
+      const isTodaySaturday = new Date().getDay() === 6;
+      const targetCikisTime = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
+        ? (saturdayConfig.endTime || '16:00')
+        : (activeUserShift?.end_time || '18:00');
       const startMs = new Date(shiftStartTime).getTime();
       
       intervalId = setInterval(() => {
@@ -438,7 +464,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       setTimerText('00:00:00');
     }
     return () => clearInterval(intervalId);
-  }, [isShiftActive, shiftStartTime, activeUserShift?.end_time, activeShiftRecordId, currentEmployee?.id, overtimeAuthMap]);
+  }, [isShiftActive, shiftStartTime, activeUserShift?.end_time, activeShiftRecordId, currentEmployee?.id, overtimeAuthMap, saturdayConfig]);
 
   // Periodic Shift & Tolerance Push Notification Monitor
   useEffect(() => {
@@ -448,10 +474,17 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
 
       const now = new Date();
+      const isTodaySaturday = now.getDay() === 6;
       const currentMin = now.getHours() * 60 + now.getMinutes();
-      const shiftStartStr = activeUserShift?.start_time || '08:30';
-      const shiftEndStr = activeUserShift?.end_time || '18:00';
-      const toleranceMin = Math.max(0, Number(activeUserShift?.tolerance_minutes || 0));
+      const shiftStartStr = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
+        ? (saturdayConfig.startTime || '08:30')
+        : (activeUserShift?.start_time || '08:30');
+      const shiftEndStr = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
+        ? (saturdayConfig.endTime || '16:00')
+        : (activeUserShift?.end_time || '18:00');
+      const toleranceMin = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
+        ? Math.max(0, Number(saturdayConfig.toleranceMinutes ?? 15))
+        : Math.max(0, Number(activeUserShift?.tolerance_minutes || 0));
 
       // 1. Shift Start & Late Tolerance Alerts (If user has not started shift yet)
       if (!isShiftActive && shiftStartStr) {
@@ -895,10 +928,25 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         return notes;
       };
 
-      // Resolve employee assigned shift
+      // Resolve employee assigned shift (strictly isolate Saturday vs Weekday)
+      const isTodaySaturday = new Date().getDay() === 6;
       const assignedShiftId = allShiftAssignments[emp.id];
-      const defaultShift = allCompanyShifts.find((s) => s.is_default) || allCompanyShifts[0] || VARSAYILAN_VARDIYALAR[0];
-      const empShift = allCompanyShifts.find((s) => s.id === assignedShiftId) || defaultShift;
+      const cleanShifts = allCompanyShifts.filter(isNotSaturdayShift);
+      const defaultShift = cleanShifts.find((s) => s.is_default) || cleanShifts[0] || VARSAYILAN_VARDIYALAR[0];
+      const baseShift = cleanShifts.find((s) => s.id === assignedShiftId) || defaultShift;
+
+      // On Saturdays with 6-day work active, apply Saturday hours; on ALL OTHER DAYS (Monday-Friday) strictly use baseShift!
+      const empShift = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
+        ? {
+            ...baseShift,
+            name: 'Cumartesi Mesaisi',
+            start_time: saturdayConfig.startTime || '08:30',
+            end_time: saturdayConfig.endTime || '16:00',
+            break_minutes: Number(saturdayConfig.breakMinutes ?? 30),
+            tolerance_minutes: Number(saturdayConfig.toleranceMinutes ?? 15),
+            color: '#f59e0b',
+          }
+        : baseShift;
 
       // 0. Check admin override first (in memory or localStorage)
       const memOverride = adminOverrides[emp.id];
@@ -971,19 +1019,21 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
       
       // 2. Try to find if they are on approved leave today
-      const isOnLeave = (izinTalepleri || []).some(t => {
+      const activeLeave = (izinTalepleri || []).find((t: any) => {
         if (t.employeeId !== emp.id || t.durum !== 'onaylandi') return false;
         const startStr = t.baslangicTarihi ? t.baslangicTarihi.split('T')[0] : '';
         const endStr = t.bitisTarihi ? t.bitisTarihi.split('T')[0] : '';
         return Boolean(startStr && endStr && todayStr >= startStr && todayStr <= endStr);
       });
-      
-      if (isOnLeave) {
+
+      if (activeLeave) {
+        const leaveTitle = getDevamKontroluIzinLabel(activeLeave.izinTuru || activeLeave.izin_turu, resolvedCompanyId);
         return {
           employee: emp,
           giris: '-',
           cikis: '-',
-          durum: 'İzinli',
+          durum: leaveTitle,
+          isLeave: true,
           mesai: 0,
           officeName: '-',
           shift: empShift,
@@ -1001,7 +1051,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         shift: empShift,
       };
     });
-  }, [employees, allShiftRecords, izinTalepleri, officeLocations, allCompanyShifts, allShiftAssignments, adminOverrides]);
+  }, [employees, allShiftRecords, izinTalepleri, officeLocations, allCompanyShifts, allShiftAssignments, adminOverrides, saturdayConfig]);
 
   const filteredData = mockPdksData
     .filter((d) => {
@@ -1011,7 +1061,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         d.employee.name.toLowerCase().includes(term) ||
         (d.employee.tcNo && d.employee.tcNo.includes(term)) ||
         (d.employee.position && d.employee.position.toLowerCase().includes(term)) ||
-        (d.employee.department && d.employee.department.toLowerCase().includes(term));
+        (d.employee.department && d.employee.department.toLowerCase().includes(term)) ||
+        (d.durum && d.durum.toLowerCase().includes(term));
       const matchesDept = selectedDepartment === 'all' || d.employee.department === selectedDepartment;
       return matchesSearch && matchesDept;
     })
@@ -1711,8 +1762,9 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                         d.durum === 'Zamanında' ? 'bg-green-100 text-green-700' :
                         d.durum === 'Geç Kaldı' ? 'bg-yellow-100 text-yellow-700' :
-                        d.durum === 'İzinli' ? 'bg-blue-100 text-blue-700' :
-                        'bg-red-100 text-red-700'
+                        d.durum === 'Mesai Devam Ediyor' ? 'bg-indigo-100 text-indigo-700' :
+                        d.durum === 'Giriş Yapılmadı' || d.durum === 'Devamsız' ? 'bg-red-100 text-red-700' :
+                        'bg-blue-100 text-blue-700'
                       }`}>
                         {d.durum}
                       </span>

@@ -16,6 +16,8 @@ dist-ssr
 .env.*
 !.env.example
 gcp-key.json
+gcp-service-account.json
+deploy_*.cjs
 *.pem
 *.key
 

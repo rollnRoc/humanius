@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Calendar, User, FileText, AlertCircle, MapPin, Upload, CheckCircle } from 'lucide-react';
 import { Employee } from '../types';
 import { IzinTalebi, IzinHakki, IzinTuru } from '../types/izin';
-import { calculateWorkingDays, izinTuruLabels, getCompanyIzinTurleri, getCompanyIzinTuruLabels, getMaxIzinSureleri, validateIzinTuru } from '../utils/izinCalculations';
+import { calculateWorkingDays, izinTuruLabels, getCompanyIzinTurleri, getCompanyIzinTuruLabels, getMaxIzinSureleri, validateIzinTuru, formatDate, isSaturdayWorkActive } from '../utils/izinCalculations';
 import { leaveTypeService } from '../services/leaveTypeService';
+import { shiftService } from '../services/shiftService';
 import { useScrollLock } from '../hooks/useScrollLock';
 
 interface IzinTalepFormProps {
@@ -14,17 +15,19 @@ interface IzinTalepFormProps {
   onClose: () => void;
 }
 
+const EMPTY_TALEPLER: IzinTalebi[] = [];
+
 const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
   employees,
   izinHaklari,
-  izinTalepleri = [],
+  izinTalepleri = EMPTY_TALEPLER,
   onSubmit,
   onClose
 }) => {
   useScrollLock(true);
 
-  const [formData, setFormData] = useState({
-    employeeId: '',
+  const [formData, setFormData] = useState(() => ({
+    employeeId: employees.length === 1 ? employees[0]?.id || '' : '',
     izinTuru: 'yillik' as IzinTuru,
     kismiYillik: false,
     baslangicTarihi: '',
@@ -34,16 +37,55 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
     yolIzniGun: 0,
     seyahatYeri: '',
     ilDisiSeyahat: false
-  });
+  }));
 
-  const [gunSayisi, setGunSayisi] = useState(0);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [izinHakki, setIzinHakki] = useState<IzinHakki | null>(null);
-  const [validationError, setValidationError] = useState<string>('');
   const [belgeDosyasi, setBelgeDosyasi] = useState<File | null>(null);
   const [belgeYuklendi, setBelgeYuklendi] = useState(false);
-  const [clashingLeaves, setClashingLeaves] = useState<(IzinTalebi & { employee?: Employee })[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Pure derived state for selected employee and leave rights
+  const selectedEmployee = useMemo(() => {
+    if (!formData.employeeId) return null;
+    return employees.find(e => e.id === formData.employeeId) || null;
+  }, [employees, formData.employeeId]);
+
+  const izinHakki = useMemo(() => {
+    if (!formData.employeeId) return null;
+    return izinHaklari.find(h => h.employeeId === formData.employeeId) || null;
+  }, [izinHaklari, formData.employeeId]);
+
+  const targetCompanyId = selectedEmployee?.company_id || employees[0]?.company_id;
+  const [isSaturdayWork, setIsSaturdayWork] = useState<boolean>(() => isSaturdayWorkActive(targetCompanyId));
+
+  useEffect(() => {
+    const compId = selectedEmployee?.company_id || employees[0]?.company_id;
+    setIsSaturdayWork(isSaturdayWorkActive(compId));
+
+    shiftService.getSaturdayConfig(compId).then(cfg => {
+      if (cfg && typeof cfg.isSaturdayWork === 'boolean') {
+        setIsSaturdayWork(cfg.isSaturdayWork);
+      }
+    }).catch(() => {});
+
+    const handleSatUpdate = () => {
+      setIsSaturdayWork(isSaturdayWorkActive(compId));
+    };
+
+    window.addEventListener('humanius_saturday_updated', handleSatUpdate);
+    window.addEventListener('storage', handleSatUpdate);
+    return () => {
+      window.removeEventListener('humanius_saturday_updated', handleSatUpdate);
+      window.removeEventListener('storage', handleSatUpdate);
+    };
+  }, [selectedEmployee?.company_id, employees[0]?.company_id]);
+
+  // Pure derived state for working days calculation (6 günlük çalışma düzeninde Cumartesi de iş günüdür)
+  const gunSayisi = useMemo(() => {
+    if (formData.baslangicTarihi && formData.bitisTarihi) {
+      return calculateWorkingDays(formData.baslangicTarihi, formData.bitisTarihi, isSaturdayWork);
+    }
+    return 0;
+  }, [formData.baslangicTarihi, formData.bitisTarihi, isSaturdayWork]);
 
   const [availableLeaveTypes, setAvailableLeaveTypes] = useState<Array<{ id: string; ad: string }>>(() => {
     const compId = employees[0]?.company_id;
@@ -71,7 +113,7 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
       window.removeEventListener('humanius_izin_turleri_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
-  }, [selectedEmployee?.company_id, employees]);
+  }, [selectedEmployee?.company_id, employees[0]?.company_id]);
 
   // Seçili izin türü için maksimum süre bilgisi
   const maxSureInfo = getMaxIzinSureleri(formData.izinTuru);
@@ -86,113 +128,80 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
     ? 'Kısmi yıllık izin talepleri en az 1, en fazla 10 iş günü olabilir.'
     : maxSureInfo.aciklama;
 
-  // Personel seçildiğinde izin hakkını bul
+  // Form açılışında tek personel varsa otomatik seç
   useEffect(() => {
-    if (formData.employeeId) {
-      const employee = employees.find(e => e.id === formData.employeeId);
-      const hakki = izinHaklari.find(h => h.employeeId === formData.employeeId);
-      setSelectedEmployee(employee || null);
-      setIzinHakki(hakki || null);
+    if (employees.length === 1 && employees[0]?.id) {
+      setFormData(prev => prev.employeeId ? prev : ({ ...prev, employeeId: employees[0].id }));
     }
-  }, [formData.employeeId, employees, izinHaklari]);
+  }, [employees.length, employees[0]?.id]);
 
-  // Eğer personeller dizisinde sadece 1 kişi varsa (örneğin employee/user rolüyle giren biri için veriler filtrelendiyse), 
-  // form açılışında onu otomatik seç.
-  useEffect(() => {
-    if (employees.length === 1 && !formData.employeeId) {
-      setFormData(prev => ({ ...prev, employeeId: employees[0].id }));
+  // Pure derived validation error
+  const validationError = useMemo(() => {
+    if (!formData.baslangicTarihi || !formData.bitisTarihi) {
+      return '';
     }
-  }, [employees, formData.employeeId]);
 
-  // Tarih değiştiğinde gün sayısını hesapla
-  useEffect(() => {
-    if (formData.baslangicTarihi && formData.bitisTarihi) {
-      const days = calculateWorkingDays(formData.baslangicTarihi, formData.bitisTarihi);
-      setGunSayisi(days);
-      
-      // İzin süresi validasyonu
-      if (selectedEmployee && days > 0) {
-        const toplamGun = days + (formData.yolIzniTalep ? formData.yolIzniGun : 0);
+    if (new Date(formData.baslangicTarihi) > new Date(formData.bitisTarihi)) {
+      return 'Başlangıç tarihi bitiş tarihinden sonra olamaz.';
+    }
 
-        if (formData.izinTuru === 'yillik' && formData.kismiYillik && (days < 1 || days > 10)) {
-          setValidationError('Kısmi yıllık izin 1 ile 10 iş günü arasında olmalıdır.');
-          return;
-        }
+    const days = gunSayisi;
+    const toplamGun = days + (formData.yolIzniTalep ? formData.yolIzniGun : 0);
 
-        const validation = validateIzinTuru(formData.izinTuru, toplamGun, selectedEmployee);
+    // Hafta tatili kontrolü: Eğer tarihler girildi ama 0 iş günü çıktıysa ve yol izni de yoksa
+    if (days === 0 && !formData.yolIzniTalep) {
+      return isSaturdayWork
+        ? 'Seçilen tarihler hafta tatiline (Pazar günü) denk gelmektedir. Düşülecek iş günü 0 olduğu için izin talebi oluşturulamaz.'
+        : 'Seçilen tarihler hafta sonuna denk gelmektedir. Düşülecek iş günü 0 olduğu için izin talebi oluşturulamaz.';
+    }
 
-        if (!validation.isValid) {
-          setValidationError(validation.message || 'İzin doğrulaması başarısız.');
-          return;
-        }
+    if (formData.izinTuru === 'yillik' && formData.kismiYillik && (days < 1 || days > 10)) {
+      return 'Kısmi yıllık izin 1 ile 10 iş günü arasında olmalıdır.';
+    }
 
-        if (formData.izinTuru === 'yillik' && izinHakki && toplamGun > (izinHakki.kalanIzin || 0)) {
-          setValidationError(`Yetersiz yıllık izin bakiyesi. Kalan: ${izinHakki.kalanIzin} gün.`);
-          return;
-        }
-
-        if (formData.izinTuru === 'mazeret' && izinHakki && days > (izinHakki.kalanIzin || 0)) {
-          setValidationError(`Mazeret izni süresi kalan yıllık izin süresinden fazla olamaz. Kalan yıllık izin: ${izinHakki.kalanIzin} gün.`);
-          return;
-        }
-
-        setValidationError('');
-      } else {
-        setValidationError('');
+    if (selectedEmployee && toplamGun > 0) {
+      const validation = validateIzinTuru(formData.izinTuru, toplamGun, selectedEmployee);
+      if (!validation.isValid) {
+        return validation.message || 'İzin doğrulaması başarısız.';
       }
-    } else {
-      setGunSayisi(0);
-      setValidationError('');
+
+      if (formData.izinTuru === 'yillik' && izinHakki && toplamGun > (izinHakki.kalanIzin || 0)) {
+        return `Yetersiz yıllık izin bakiyesi. Kalan: ${izinHakki.kalanIzin} gün.`;
+      }
+
+      if (formData.izinTuru === 'mazeret' && izinHakki && days > (izinHakki.kalanIzin || 0)) {
+        return `Mazeret izni süresi kalan yıllık izin süresinden fazla olamaz. Kalan yıllık izin: ${izinHakki.kalanIzin} gün.`;
+      }
     }
 
-    // Çakışma kontrolü
-    if (formData.baslangicTarihi && formData.bitisTarihi && selectedEmployee) {
-      const start = new Date(formData.baslangicTarihi).getTime();
-      const end = new Date(formData.bitisTarihi).getTime();
+    return '';
+  }, [formData.baslangicTarihi, formData.bitisTarihi, formData.izinTuru, formData.kismiYillik, formData.yolIzniTalep, formData.yolIzniGun, gunSayisi, selectedEmployee, izinHakki]);
 
-      const clashes = izinTalepleri.filter(t => {
-        if (t.durum !== 'onaylandi') return false; // Sadece onaylı izinleri kontrol et
-        if (t.employeeId === selectedEmployee.id) return false; // Kendisi hariç
-
-        const emp = employees.find(e => e.id === t.employeeId);
-        if (!emp || emp.department !== selectedEmployee.department) return false; // Sadece aynı departman
-
-        const tStart = new Date(t.baslangicTarihi).getTime();
-        const tEnd = new Date(t.bitisTarihi).getTime();
-
-        return (start <= tEnd && end >= tStart);
-      }).map(t => ({
-        ...t,
-        employee: employees.find(e => e.id === t.employeeId)
-      }));
-
-      setClashingLeaves(clashes);
-    } else {
-      setClashingLeaves([]);
+  // Pure derived conflict detection (çakışan izinler)
+  const clashingLeaves = useMemo(() => {
+    if (!formData.baslangicTarihi || !formData.bitisTarihi || !selectedEmployee) {
+      return [];
     }
-  }, [formData.baslangicTarihi, formData.bitisTarihi, formData.izinTuru, formData.kismiYillik, formData.yolIzniTalep, formData.yolIzniGun, selectedEmployee, izinHakki, izinTalepleri, employees]);
 
-  useEffect(() => {
-    if (!formData.kismiYillik) return;
+    const start = new Date(formData.baslangicTarihi).getTime();
+    const end = new Date(formData.bitisTarihi).getTime();
 
-    setFormData((prev) => ({
-      ...prev,
-      izinTuru: 'yillik',
-      yolIzniTalep: false,
-      yolIzniGun: 0,
+    return (izinTalepleri || []).filter(t => {
+      if (t.durum !== 'onaylandi' && t.durum !== 'İK Onayladı' && t.durum !== 'Yönetici Onayladı') return false;
+      if (t.employeeId === selectedEmployee.id) return false;
+
+      const emp = employees.find(e => e.id === t.employeeId);
+      if (!emp || emp.department !== selectedEmployee.department) return false;
+
+      const tStart = new Date(t.baslangicTarihi).getTime();
+      const tEnd = new Date(t.bitisTarihi).getTime();
+
+      return (start <= tEnd && end >= tStart);
+    }).map(t => ({
+      ...t,
+      employee: employees.find(e => e.id === t.employeeId)
     }));
-  }, [formData.kismiYillik]);
-
-  // Yol izni değiştiğinde kontroller
-  useEffect(() => {
-    if (formData.yolIzniTalep) {
-      setFormData(prev => ({ ...prev, yolIzniGun: prev.yolIzniGun || 4 }));
-    } else {
-      setFormData(prev => ({ ...prev, yolIzniGun: 0, seyahatYeri: '', ilDisiSeyahat: false }));
-      setBelgeDosyasi(null);
-      setBelgeYuklendi(false);
-    }
-  }, [formData.yolIzniTalep]);
+  }, [formData.baslangicTarihi, formData.bitisTarihi, selectedEmployee, izinTalepleri, employees]);
 
   // Belge yükleme
   const handleBelgeYukle = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -251,6 +260,14 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
       alert('Seyahat yeri belirtmeniz gereklidir!');
       return;
     }
+    if (gunSayisi <= 0 && !formData.yolIzniTalep) {
+      alert(isSaturdayWork
+        ? 'Seçilen tarih aralığında iş günü bulunmamaktadır (tarihler hafta tatili olan Pazar gününe denk gelmektedir). Lütfen geçerli bir iş günü aralığı seçiniz.'
+        : 'Seçilen tarih aralığında iş günü bulunmamaktadır (tarihler hafta sonuna denk gelmektedir). Lütfen geçerli bir iş günü aralığı seçiniz.'
+      );
+      return;
+    }
+
     if (validationError) {
       alert(validationError);
       return;
@@ -274,10 +291,29 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
   };
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      if (field === 'kismiYillik' && value) {
+        next.izinTuru = 'yillik';
+        next.yolIzniTalep = false;
+        next.yolIzniGun = 0;
+      }
+      if (field === 'yolIzniTalep') {
+        if (value) {
+          next.yolIzniGun = next.yolIzniGun || 4;
+        } else {
+          next.yolIzniGun = 0;
+          next.seyahatYeri = '';
+          next.ilDisiSeyahat = false;
+        }
+      }
+      return next;
+    });
+
+    if (field === 'yolIzniTalep' && !value) {
+      setBelgeDosyasi(null);
+      setBelgeYuklendi(false);
+    }
   };
 
   // Minimum tarih (bugün)
@@ -501,7 +537,24 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
                     )}
                   </div>
                   <div className="text-xs text-gray-500 font-medium">
-                    (Cumartesi ve Pazar günleri izin süresinden düşülmez)
+                    {isSaturdayWork
+                      ? '(6 günlük çalışma düzeni: Cumartesi iş günüdür, sadece Pazar tatildir)'
+                      : '(5 günlük çalışma düzeni: Cumartesi ve Pazar günleri izin süresinden düşülmez)'}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Hafta tatili bilgilendirmesi (sadece tatil günleri seçildiğinde, örn. 5 günlükte Cts/Paz, 6 günlükte sadece Pazar) */}
+            {formData.baslangicTarihi && formData.bitisTarihi && gunSayisi === 0 && !formData.yolIzniTalep && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <div className="font-semibold text-amber-900">
+                    {isSaturdayWork ? 'Hafta Tatili Bilgilendirmesi (Pazar)' : 'Hafta Sonu Bilgilendirmesi (0 İş Günü)'}
+                  </div>
+                  <div className="text-amber-800 mt-1">
+                    Seçtiğiniz tarihler ({formatDate(formData.baslangicTarihi)} - {formatDate(formData.bitisTarihi)}) {isSaturdayWork ? 'hafta tatiline (Pazar günü)' : 'hafta sonuna (Cumartesi / Pazar)'} denk gelmektedir. {isSaturdayWork ? 'Şirketinizde 6 günlük çalışma düzeni geçerli olup Cumartesi günleri normal iş günü, Pazar günleri ise tatildir.' : 'Şirket çalışma takvimine göre hafta sonları tatil olduğundan'} düşülecek izin süresi <strong>0 iş günü</strong> olarak hesaplanmıştır.
                   </div>
                 </div>
               </div>
@@ -660,7 +713,7 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
             <button
               type="submit"
               onClick={handleSubmit}
-              disabled={isSubmitting || !!validationError || !formData.employeeId || !formData.baslangicTarihi || !formData.bitisTarihi}
+              disabled={isSubmitting || !!validationError || !formData.employeeId || !formData.baslangicTarihi || !formData.bitisTarihi || (gunSayisi <= 0 && !formData.yolIzniTalep)}
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
             >
               {isSubmitting ? 'Gönderiliyor...' : 'Talebi Gönder'}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, FileText, AlertCircle, MapPin, Upload, CheckCircle } from 'lucide-react';
 import { Employee } from '../types';
 import { IzinTalebi, IzinHakki, IzinTuru } from '../types/izin';
-import { calculateWorkingDays, izinTuruLabels, getCompanyIzinTurleri, getCompanyIzinTuruLabels, getMaxIzinSureleri, validateIzinTuru } from '../utils/izinCalculations';
+import { calculateWorkingDays, izinTuruLabels, getCompanyIzinTurleri, getCompanyIzinTuruLabels, getMaxIzinSureleri, validateIzinTuru, isSaturdayWorkActive } from '../utils/izinCalculations';
 import { leaveTypeService } from '../services/leaveTypeService';
 import { useScrollLock } from '../hooks/useScrollLock';
 
@@ -372,7 +372,9 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
                       <span className="text-sm font-bold text-blue-600">{formData.yolIzniGun} gün</span>
                     </>
                   )}
-                  <span className="text-xs text-gray-500">(Hafta sonları hariç)</span>
+                  <span className="text-xs text-gray-500">
+                    ({isSaturdayWorkActive() ? '6 günlük düzen: Cumartesi dahil, Pazar hariç' : '5 günlük düzen: Hafta sonları hariç'})
+                  </span>
                   <span className="text-xs text-gray-500">
                     / Maks: {effectiveMaxLabel}{formData.yolIzniTalep ? ' + 4 gün yol izni' : ''}
                   </span>

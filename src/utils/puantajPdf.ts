@@ -1,6 +1,5 @@
-// Resmi Aylık Puantaj Cetveli PDF & Excel / CSV Dökümü
-
-import { PersonelAylikPuantaj, PuantajKodu } from './puantajHesaplama';
+import { PersonelAylikPuantaj, PuantajKodu, getCalismaSaati } from './puantajHesaplama';
+import XLSX from 'xlsx-js-style';
 
 const AY_ADLARI = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -65,7 +64,8 @@ export const printPuantajCetveliPdf = (params: {
           if (g.kod === 'Ç') {
             badgeBg = '#dcfce7';
             badgeColor = '#15803d';
-            text = g.netSureSaat > 0 ? `${g.netSureSaat}s` : 'Ç';
+            const hours = getCalismaSaati(g, rec.shift);
+            text = `${hours}s`;
           } else if (g.kod === 'HT') {
             badgeBg = '#dbeafe';
             badgeColor = '#1d4ed8';
@@ -75,13 +75,13 @@ export const printPuantajCetveliPdf = (params: {
           } else if (g.kod === 'UBGT') {
             badgeBg = '#f3e8ff';
             badgeColor = '#7e22ce';
-          } else if (g.kod === 'Yİ' || g.kod === 'Mİ') {
+          } else if (g.kod === 'Yİ' || g.kod === 'Mİ' || g.kod === 'YI' || g.kod === 'MZ') {
             badgeBg = '#ccfbf1';
             badgeColor = '#0f766e';
-          } else if (g.kod === 'R') {
+          } else if (g.kod === 'R' || g.kod === 'HA') {
             badgeBg = '#fef3c7';
             badgeColor = '#b45309';
-          } else if (g.kod === 'Üİ') {
+          } else if (g.kod === 'Üİ' || g.kod === 'UC') {
             badgeBg = '#ffedd5';
             badgeColor = '#c2410c';
           } else if (g.kod === 'D') {
@@ -91,6 +91,10 @@ export const printPuantajCetveliPdf = (params: {
             badgeBg = '#ffffff';
             badgeColor = '#cbd5e1';
             text = '-';
+          } else {
+            // Dinamik / özel izin kodu (Örn: EG, BA, EV, OL vb.)
+            badgeBg = '#e0f2fe';
+            badgeColor = '#0369a1';
           }
 
           return `<td style="padding: 2px 1px; text-align: center; font-size: 8px; font-weight: bold; border: 1px solid #e2e8f0; background: ${badgeBg}; color: ${badgeColor};" title="${g.tarih} - ${g.kodAciklama}">${text}</td>`;
@@ -238,9 +242,28 @@ export const printPuantajCetveliPdf = (params: {
       </table>
 
       <!-- Lejant (Kod Açıklamaları) -->
+      ${(() => {
+        const customCodesMap = new Map<string, string>();
+        records.forEach((r) => {
+          r.gunler.forEach((g) => {
+            if (
+              g.kod &&
+              !['Ç', 'HT', 'AT', 'UBGT', 'Yİ', 'YI', 'Mİ', 'MZ', 'R', 'HA', 'Üİ', 'UC', 'D', '-'].includes(g.kod)
+            ) {
+              if (!customCodesMap.has(g.kod)) {
+                customCodesMap.set(g.kod, g.kodAciklama || 'Özel İzin');
+              }
+            }
+          });
+        });
+        const customLegendHtml = Array.from(customCodesMap.entries())
+          .map(([c, desc]) => `<div class="legend-item"><span class="legend-box" style="background: #e0f2fe; color: #0369a1;">${c}</span> ${desc}</div>`)
+          .join('');
+
+        return `
       <div class="legend">
         <strong style="margin-right: 4px;">Puantaj Kodları:</strong>
-        <div class="legend-item"><span class="legend-box" style="background: #dcfce7; color: #15803d;">Ç</span> Fiili Çalışma</div>
+        <div class="legend-item"><span class="legend-box" style="background: #dcfce7; color: #15803d;">8.5s</span> Fiili Çalışma Saati</div>
         <div class="legend-item"><span class="legend-box" style="background: #dbeafe; color: #1d4ed8;">HT</span> Hafta Tatili (Md. 46)</div>
         <div class="legend-item"><span class="legend-box" style="background: #f1f5f9; color: #475569;">AT</span> Akdi Tatil (Cmt)</div>
         <div class="legend-item"><span class="legend-box" style="background: #f3e8ff; color: #7e22ce;">UBGT</span> Resmi Tatil</div>
@@ -249,7 +272,9 @@ export const printPuantajCetveliPdf = (params: {
         <div class="legend-item"><span class="legend-box" style="background: #fef3c7; color: #b45309;">R</span> SGK Raporu</div>
         <div class="legend-item"><span class="legend-box" style="background: #ffedd5; color: #c2410c;">Üİ</span> Ücretsiz İzin</div>
         <div class="legend-item"><span class="legend-box" style="background: #fee2e2; color: #b91c1c;">D</span> Devamsız</div>
-      </div>
+        ${customLegendHtml}
+      </div>`;
+      })()}
 
       <!-- İmzalar -->
       <div class="signatures">
@@ -285,6 +310,290 @@ export const printPuantajCetveliPdf = (params: {
 };
 
 /**
+ * Excel (.xlsx) Formatında Resmi Puantaj Cetveli İndirme (Stilli ve Ortalı)
+ */
+export const exportPuantajExcel = (
+  companyName: string,
+  year: number,
+  monthIndex: number,
+  records: PersonelAylikPuantaj[]
+) => {
+  const monthName = AY_ADLARI[monthIndex];
+  const daysCount = new Date(year, monthIndex + 1, 0).getDate();
+
+  // Excel Başlıkları
+  const headers = [
+    'No',
+    'Personel Adı Soyadı',
+    'TC Kimlik No',
+    'Departman',
+    ...Array.from({ length: daysCount }, (_, i) => `Gün ${i + 1}`),
+    'Fiili Gün',
+    'Fiili Saat',
+    'Hafta Tatili',
+    'İzinli Gün',
+    'Raporlu Gün',
+    'Devamsız Gün',
+    'Bordro Günü (30G)',
+    'Fazla Mesai Saati',
+  ];
+
+  const dataRows = records.map((rec, i) => {
+    const emp = rec.employee;
+    const ozet = rec.ozet;
+    const dayCells = rec.gunler.map((g) => {
+      if (g.kod === 'Ç') {
+        return getCalismaSaati(g, rec.shift);
+      }
+      return g.kod;
+    });
+
+    return [
+      i + 1,
+      emp.name,
+      emp.tcNo || '',
+      emp.department || 'Genel',
+      ...dayCells,
+      ozet.fiiliCalismaGun,
+      ozet.fiiliCalismaSaat,
+      ozet.haftaTatiliGun,
+      ozet.ucretliIzinGun,
+      ozet.raporluGun,
+      ozet.devamsizGun,
+      ozet.bordroGun,
+      ozet.toplamFazlaMesaiSaat,
+    ];
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+
+  // Hücre Kenarlığı
+  const thinBorder = {
+    top: { style: 'thin', color: { rgb: 'CBD5E1' } },
+    bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
+    left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+    right: { style: 'thin', color: { rgb: 'CBD5E1' } },
+  };
+
+  // Başlık Stili
+  const headerStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 10 },
+    fill: { fgColor: { rgb: '1E3A8A' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: thinBorder,
+  };
+
+  // İsim ve Departman Stili (Sola Yaslı)
+  const textLeftStyle = {
+    font: { sz: 9 },
+    alignment: { horizontal: 'left', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  // Standart Ortalı Stil
+  const centerDefaultStyle = {
+    font: { sz: 9 },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  // Gün Hücreleri Özel Stilleri (Hepsi Kesinlikle Ortalanmış)
+  const calismaStyle = {
+    font: { bold: true, color: { rgb: '15803D' }, sz: 9 },
+    fill: { fgColor: { rgb: 'DCFCE7' } }, // Açık yeşil
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const haftaTatiliStyle = {
+    font: { bold: true, color: { rgb: '1D4ED8' }, sz: 9 },
+    fill: { fgColor: { rgb: 'DBEAFE' } }, // Açık mavi
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const akdiTatilStyle = {
+    font: { bold: true, color: { rgb: '475569' }, sz: 9 },
+    fill: { fgColor: { rgb: 'F1F5F9' } }, // Açık gri
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const ubgtStyle = {
+    font: { bold: true, color: { rgb: '7E22CE' }, sz: 9 },
+    fill: { fgColor: { rgb: 'F3E8FF' } }, // Açık mor
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const izinStyle = {
+    font: { bold: true, color: { rgb: '0F766E' }, sz: 9 },
+    fill: { fgColor: { rgb: 'CCFBF1' } }, // Açık turkuaz
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const raporStyle = {
+    font: { bold: true, color: { rgb: 'B45309' }, sz: 9 },
+    fill: { fgColor: { rgb: 'FEF3C7' } }, // Açık amber
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const ucretsizIzinStyle = {
+    font: { bold: true, color: { rgb: 'C2410C' }, sz: 9 },
+    fill: { fgColor: { rgb: 'FFEDD5' } }, // Açık turuncu
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const devamsizStyle = {
+    font: { bold: true, color: { rgb: 'B91C1C' }, sz: 9 },
+    fill: { fgColor: { rgb: 'FEE2E2' } }, // Açık kırmızı
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const bosStyle = {
+    font: { color: { rgb: '94A3B8' }, sz: 9 },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const ozetSayiStyle = {
+    font: { bold: true, color: { rgb: '0F172A' }, sz: 9 },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  // Tüm çalışma sayfası hücrelerini stillendir (Harfler ve rakamlar tamamen ortalı)
+  if (ws['!ref']) {
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+        const cell = ws[cellAddress];
+        if (!cell) continue;
+
+        if (R === 0) {
+          // Başlık satırı
+          cell.s = headerStyle;
+        } else {
+          // Veri satırları
+          if (C === 1 || C === 3) {
+            // Personel Adı veya Departman (Sola yaslı okunabilirlik için)
+            cell.s = textLeftStyle;
+          } else if (C >= 4 && C < 4 + daysCount) {
+            // Gün hücreleri: Harf veya rakam fark etmeksizin hepsi ortalı!
+            const val = cell.v;
+            if (typeof val === 'number' || (!isNaN(Number(val)) && val !== '-' && val !== '')) {
+              cell.s = calismaStyle;
+            } else if (val === 'HT') {
+              cell.s = haftaTatiliStyle;
+            } else if (val === 'AT') {
+              cell.s = akdiTatilStyle;
+            } else if (val === 'UBGT') {
+              cell.s = ubgtStyle;
+            } else if (val === 'Yİ' || val === 'Mİ' || val === 'YI' || val === 'MZ') {
+              cell.s = izinStyle;
+            } else if (val === 'R' || val === 'HA') {
+              cell.s = raporStyle;
+            } else if (val === 'Üİ' || val === 'UC') {
+              cell.s = ucretsizIzinStyle;
+            } else if (val === 'D') {
+              cell.s = devamsizStyle;
+            } else if (val === '-') {
+              cell.s = bosStyle;
+            } else {
+              cell.s = izinStyle;
+            }
+          } else if (C >= 4 + daysCount) {
+            // Özet toplam sütunları (Ortalı ve belirgin)
+            cell.s = ozetSayiStyle;
+          } else {
+            // No ve TC Kimlik sütunları (Ortalı)
+            cell.s = centerDefaultStyle;
+          }
+        }
+      }
+    }
+  }
+
+  // Sütun Genişlikleri
+  ws['!cols'] = [
+    { wch: 6 },   // No
+    { wch: 25 },  // Personel Adı
+    { wch: 14 },  // TC
+    { wch: 18 },  // Departman
+    ...Array.from({ length: daysCount }, () => ({ wch: 8 })), // Günler
+    { wch: 10 },  // Fiili Gün
+    { wch: 10 },  // Fiili Saat
+    { wch: 12 },  // Hafta Tatili
+    { wch: 11 },  // İzinli Gün
+    { wch: 12 },  // Raporlu Gün
+    { wch: 14 },  // Devamsız Gün
+    { wch: 16 },  // Bordro Günü
+    { wch: 16 },  // Fazla Mesai
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, `Puantaj ${monthName} ${year}`);
+
+  // Kod Açıklamaları Sayfası (Lejant)
+  const dynamicCustomCodes: [string, string][] = [];
+  records.forEach((r) => {
+    r.gunler.forEach((g) => {
+      if (
+        g.kod &&
+        !['Ç', 'HT', 'AT', 'UBGT', 'Yİ', 'YI', 'Mİ', 'MZ', 'R', 'HA', 'Üİ', 'UC', 'D', '-'].includes(g.kod)
+      ) {
+        if (!dynamicCustomCodes.some(([k]) => k === g.kod)) {
+          dynamicCustomCodes.push([g.kod, g.kodAciklama || 'Özel İzin']);
+        }
+      }
+    });
+  });
+
+  const legendData = [
+    ['Puantaj Kodu / Değeri', 'Açıklama'],
+    ['Sayısal Değer (örn: 8, 8.5)', 'Fiili Çalışma Süresi (Saat)'],
+    ['HT', 'Hafta Tatili (İş Kanunu Madde 46)'],
+    ['AT', 'Akdi Tatil (Cumartesi)'],
+    ['UBGT', 'Ulusal Bayram ve Genel Tatil'],
+    ['Yİ', 'Yıllık Ücretli İzin'],
+    ['Mİ', 'Mazeret İzni (Evlilik, Vefat, Babalık vb.)'],
+    ['R', 'SGK İstirahat Raporu'],
+    ['Üİ', 'Ücretsiz İzin'],
+    ['D', 'Devamsız (Mazeretsiz İşe Gelmeme)'],
+    ...dynamicCustomCodes,
+    ['-', 'Henüz Gerçekleşmedi / Kayıt Yok'],
+  ];
+  const legendWs = XLSX.utils.aoa_to_sheet(legendData);
+  legendWs['!cols'] = [{ wch: 28 }, { wch: 42 }];
+
+  // Lejant stillendirme
+  if (legendWs['!ref']) {
+    const lRange = XLSX.utils.decode_range(legendWs['!ref']);
+    for (let R = lRange.s.r; R <= lRange.e.r; ++R) {
+      for (let C = lRange.s.c; C <= lRange.e.c; ++C) {
+        const addr = XLSX.utils.encode_cell({ r: R, c: C });
+        const cell = legendWs[addr];
+        if (!cell) continue;
+        if (R === 0) {
+          cell.s = headerStyle;
+        } else {
+          cell.s = C === 0 ? centerDefaultStyle : textLeftStyle;
+        }
+      }
+    }
+  }
+
+  XLSX.utils.book_append_sheet(wb, legendWs, 'Kod Açıklamaları');
+
+  XLSX.writeFile(wb, `${companyName}_Puantaj_${monthName}_${year}.xlsx`);
+};
+
+/**
  * Excel / CSV Formatında Puantaj Verisi İndirme
  */
 export const exportPuantajCsv = (
@@ -304,7 +613,15 @@ export const exportPuantajCsv = (
     .map((rec, i) => {
       const emp = rec.employee;
       const ozet = rec.ozet;
-      const dayValues = rec.gunler.map((g) => g.kod).join(';');
+      // Çalışmış ise 'Ç' yerine çalışma saati yazılır
+      const dayValues = rec.gunler
+        .map((g) => {
+          if (g.kod === 'Ç') {
+            return getCalismaSaati(g, rec.shift);
+          }
+          return g.kod;
+        })
+        .join(';');
       return `${i + 1};"${emp.name}";"${emp.tcNo || ''}";"${emp.department || ''}";${dayValues};${ozet.fiiliCalismaGun};${ozet.fiiliCalismaSaat};${ozet.haftaTatiliGun};${ozet.ucretliIzinGun};${ozet.raporluGun};${ozet.devamsizGun};${ozet.bordroGun};${ozet.toplamFazlaMesaiSaat}`;
     })
     .join('\n');
@@ -542,3 +859,127 @@ export const exportGunlukDetayliCsv = (
   link.click();
   document.body.removeChild(link);
 };
+
+/**
+ * Günlük Detaylı Rapor Excel (.xlsx) İndirme
+ */
+export const exportGunlukDetayliExcel = (
+  companyName: string,
+  periodStr: string,
+  items: GunlukDetayliRaporItem[]
+) => {
+  const headers = [
+    'No',
+    'Personel Adı',
+    'TC Kimlik',
+    'Departman',
+    'Tarih',
+    'Gün',
+    'Vardiya',
+    'İlk Giriş',
+    'Son Çıkış',
+    'Mola (Dk)',
+    'Net Çalışma (Saat)',
+    'Fazla Mesai (Saat)',
+    'Geç Kalma (Dk)',
+    'Kod',
+    'Durum'
+  ];
+
+  const rows = items.map((item, i) => [
+    i + 1,
+    item.employeeName,
+    item.tcNo || '',
+    item.department || '',
+    item.tarih,
+    item.gunAdi,
+    item.shiftHours,
+    item.girisSaati || '-',
+    item.cikisSaati || '-',
+    item.molaDk,
+    item.netSureSaat,
+    item.fazlaMesaiSaat,
+    item.gecikmeDk,
+    item.kod,
+    item.kodAciklama
+  ]);
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws['!cols'] = [
+    { wch: 5 },
+    { wch: 24 },
+    { wch: 14 },
+    { wch: 18 },
+    { wch: 12 },
+    { wch: 8 },
+    { wch: 14 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 14 },
+    { wch: 8 },
+    { wch: 24 }
+  ];
+
+  const thinBorder = {
+    top: { style: 'thin', color: { rgb: 'CBD5E1' } },
+    bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
+    left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+    right: { style: 'thin', color: { rgb: 'CBD5E1' } },
+  };
+
+  const headerStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 10 },
+    fill: { fgColor: { rgb: '1E3A8A' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: thinBorder,
+  };
+
+  const textLeftStyle = {
+    font: { sz: 9 },
+    alignment: { horizontal: 'left', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const centerDefaultStyle = {
+    font: { sz: 9 },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const netSureStyle = {
+    font: { bold: true, color: { rgb: '15803D' }, sz: 9 },
+    fill: { fgColor: { rgb: 'DCFCE7' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  if (ws['!ref']) {
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const addr = XLSX.utils.encode_cell({ r: R, c: C });
+        const cell = ws[addr];
+        if (!cell) continue;
+        if (R === 0) {
+          cell.s = headerStyle;
+        } else {
+          if (C === 1 || C === 3 || C === 14) {
+            cell.s = textLeftStyle;
+          } else if (C === 10) {
+            cell.s = netSureStyle;
+          } else {
+            cell.s = centerDefaultStyle;
+          }
+        }
+      }
+    }
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Günlük Mesai Detayı');
+  XLSX.writeFile(wb, `${companyName}_Gunluk_Mesai_${periodStr.replace(/\s+/g, '_')}.xlsx`);
+};
+

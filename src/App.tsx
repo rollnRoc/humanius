@@ -17,7 +17,6 @@ import IzinTalepForm from './components/IzinTalepForm';
 import TopluIzinForm from './components/TopluIzinForm';
 import IzinDuzenlemeForm from './components/IzinDuzenlemeForm';
 import { IzinHakedisModal } from './components/IzinHakedisModal';
-import IzinTakvimi from './components/IzinTakvimi';
 import IzinRaporlari from './components/IzinRaporlari';
 import TakvimYonetimi from './components/TakvimYonetimi';
 import SistemAyarlari from './components/SistemAyarlari';
@@ -31,6 +30,7 @@ import { ContextualHelp } from './components/ContextualHelp';
 import KullanicilarPage from './components/KullanicilarPage';
 import SifreDegistir from './components/SifreDegistir';
 import IzinOzetKartlari from './components/IzinOzetKartlari';
+import IzinYonetimi from './components/IzinYonetimi';
 import IzinliKisiler from './components/IzinliKisiler';
 import PdksDevam from './components/PdksDevam';
 import IsAkisi from './components/IsAkisi';
@@ -43,7 +43,6 @@ import * as XLSX from 'xlsx';
 
 import { Suspense } from 'react';
 import { lazyWithRetry } from './utils/lazyWithRetry';
-import { IzinWorkflowListesi } from './components/IzinWorkflow';
 import { formatIzinTuru } from './utils/izinCalculations';
 import { leaveTypeService } from './services/leaveTypeService';
 import { shiftService } from './services/shiftService';
@@ -445,6 +444,7 @@ const AppInner: React.FC = () => {
         leaveTypeService.getLeaveTypes(resolvedCompanyId).catch(console.warn);
         shiftService.getShifts(resolvedCompanyId).catch(console.warn);
         shiftService.getAssignments(resolvedCompanyId).catch(console.warn);
+        shiftService.getSaturdayConfig(resolvedCompanyId).catch(console.warn);
       }
 
       // İzin talepleri
@@ -1592,106 +1592,27 @@ const AppInner: React.FC = () => {
 
         {/* İzin Yönetimi */}
         {currentView === 'izin' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-              <h2 className="text-xl font-bold text-gray-800">İzin Yönetimi</h2>
-              <div className="flex gap-2 flex-wrap">
-                {!['employee', 'user'].includes(effectiveAppRole) && (
-                  <>
-                    <button
-                      onClick={() => {
-                        setHakedisEmployeeId(null);
-                        setShowHakedisModal(true);
-                      }}
-                      className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-xs transition-all"
-                    >
-                      ✨ İzin Hak Edişi Tanımla
-                    </button>
-                    <button
-                      onClick={() => setShowTopluIzinForm(true)}
-                      className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
-                    >
-                      👥 Toplu İzin Tanımla
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => setShowIzinForm(true)}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
-                >
-                  + Yeni İzin Talebi
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Aktif Kullanıcı İzin Özeti</p>
-                  <h3 className="mt-1 text-lg font-bold text-indigo-900">{profile?.full_name || 'Kullanıcı'}</h3>
-                  <p className="mt-1 text-sm text-indigo-800">
-                    {currentEmployeeMatch
-                      ? `${currentEmployeeMatch.department || 'Departman belirtilmedi'} • ${currentEmployeeMatch.position || 'Pozisyon belirtilmedi'}`
-                      : 'Personel kaydı eşleşmedi'}
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-3 min-w-[220px]">
-                  <div className="rounded-xl bg-white px-3 py-2 border border-indigo-100">
-                    <p className="text-[11px] text-indigo-500">Kullanılan</p>
-                    <p className="text-lg font-bold text-indigo-900">{currentEmployeeIzinHakki?.kullanilanIzin ?? 0} gün</p>
-                  </div>
-                  <div className="rounded-xl bg-white px-3 py-2 border border-indigo-100">
-                    <p className="text-[11px] text-indigo-500">Kalan</p>
-                    <p className="text-lg font-bold text-indigo-900">{currentEmployeeIzinHakki?.kalanIzin ?? 0} gün</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-xl bg-white border border-indigo-100 p-3">
-                <p className="text-xs font-semibold text-gray-600 mb-2">Son İzin Talepleri</p>
-                {currentEmployeeIzinTalepleri.length === 0 ? (
-                  <p className="text-sm text-gray-500">Bu kullanıcıya ait izin talebi bulunamadı.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {currentEmployeeIzinTalepleri.map((talep) => (
-                      <div key={talep.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
-                        <p className="text-sm font-semibold text-gray-800">{formatIzinTuru(talep.izinTuru)} • {talep.gunSayisi} gün</p>
-                        <p className="text-xs text-gray-500">{talep.baslangicTarihi} - {talep.bitisTarihi} • {talep.durum}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Özet kartlar + personel izin durumu */}
-            {!['employee', 'user'].includes(effectiveAppRole) && (
-              <>
-                <IzinWorkflowListesi
-                  talepleri={izinTalepleri}
-                  onOnay={handleIzinOnay}
-                  onRed={handleIzinRed}
-                  onEdit={(talep) => setEditingIzin(talep)}
-                  onDelete={handleDeleteIzin}
-                />
-                <IzinOzetKartlari
-                  employees={employees}
-                  izinTalepleri={izinTalepleri}
-                  izinHaklari={izinHaklari}
-                  onUpdateHak={handleUpdateIzinHakki}
-                  onOpenHakedisModal={(empId?: string) => {
-                    setHakedisEmployeeId(empId || null);
-                    setShowHakedisModal(true);
-                  }}
-                  onEditIzin={(talep) => setEditingIzin(talep)}
-                  onDeleteIzin={handleDeleteIzin}
-                />
-              </>
-            )}
-
-
-            <IzinTakvimi izinTalepleri={izinTalepleri} />
-          </div>
+          <IzinYonetimi
+            employees={employees}
+            izinTalepleri={izinTalepleri}
+            izinHaklari={izinHaklari}
+            profile={profile}
+            currentEmployeeMatch={currentEmployeeMatch}
+            currentEmployeeIzinHakki={currentEmployeeIzinHakki}
+            currentEmployeeIzinTalepleri={currentEmployeeIzinTalepleri}
+            effectiveAppRole={effectiveAppRole}
+            onNewTalep={() => setShowIzinForm(true)}
+            onOpenHakedisModal={(empId?: string) => {
+              setHakedisEmployeeId(empId || null);
+              setShowHakedisModal(true);
+            }}
+            onOpenTopluIzin={() => setShowTopluIzinForm(true)}
+            onOnay={handleIzinOnay}
+            onRed={handleIzinRed}
+            onEdit={(talep) => setEditingIzin(talep)}
+            onDelete={handleDeleteIzin}
+            onUpdateHak={handleUpdateIzinHakki}
+          />
         )}
 
         <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
@@ -1768,7 +1689,16 @@ const AppInner: React.FC = () => {
         {currentView === 'izin-tanimlari' && <IzinTanimlari companyId={profile?.company_id || employees[0]?.company_id} />}
 
         {/* Organizasyon Şeması */}
-        {currentView === 'org-sema' && <OrganizasyonSemasi employees={employees} companyName={selectedCompany !== 'all' ? selectedCompany : (typeof companies[0] === 'string' ? companies[0] : (companies[0] as any)?.name || 'Humanius Şirket Grubu')} />}
+        {currentView === 'org-sema' && (
+          <OrganizasyonSemasi 
+            employees={employees} 
+            companies={companies}
+            selectedCompany={selectedCompany}
+            onCompanyChange={setSelectedCompany}
+            userCompanyId={profile?.company_id}
+            companyName={selectedCompany !== 'all' ? selectedCompany : (typeof companies[0] === 'string' ? companies[0] : (companies[0] as any)?.name || 'Humanius Şirket Grubu')} 
+          />
+        )}
 
         {/* Zimmet Yönetimi */}
         {currentView === 'zimmet' && <ZimmetYonetimi employees={employees} />}
@@ -2123,6 +2053,7 @@ const AppInner: React.FC = () => {
         <IzinTalepForm
           employees={employees}
           izinHaklari={izinHaklari}
+          izinTalepleri={izinTalepleri}
           onSubmit={handleIzinSubmit}
           onClose={() => setShowIzinForm(false)}
         />

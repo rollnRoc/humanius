@@ -58,45 +58,59 @@ const UYGULAMALAR_IDS: View[] = ['kvkk', 'kullanim-kilavuzu'];
 
 const RAW_NAV_ITEMS = [
   { id: 'arama' as View, label: 'Ana Sayfa', icon: Home },
-  { id: 'personel' as View, label: 'Şirket Yönetimi', icon: Users, children: [
-    { id: 'personel' as View, label: 'Personel Listesi' },
-    { id: 'org-sema' as View, label: 'Organizasyon Şeması' },
-    { id: 'zimmet' as View, label: 'Tüm Zimmetler Listesi' },
-    { id: 'kullanicilar' as View, label: 'Kullanıcılar' },
-    { id: 'sirket-bilgileri' as View, label: 'Şirket Bilgileri & Yönetimi' },
-    { id: 'ayar' as View, label: 'Kanunlar ve Kurallar' },
-  ]},
-  { id: 'ozluk-dosyasi' as View, label: 'Personel Yönetimi', icon: UserCircle, children: [
-    { id: 'ozluk-dosyasi' as View, label: 'Personel Kartı ve Özlük' },
-    { id: 'gorev-tanimi' as View, label: 'Görev Tanımı' },
-    { id: 'tazminat-hesaplama' as View, label: 'Tazminat & Bilirkişi Hesaplama' },
-  ]},
-  { id: 'bordro' as View, label: 'Bordro ve İcmal', icon: CreditCard, children: [
-    { id: 'bordro' as View, label: 'Bordro' },
-    { id: 'yan-haklar' as View, label: 'Esnek Yan Haklar' },
-    { id: 'bordro-icmal' as View, label: 'Bordro İcmal Raporu' },
-  ]},
-  { id: 'izin' as View, label: 'İzin Yönetimi', icon: Calendar, children: [
-    { id: 'izin' as View, label: 'İzin Talepleri' },
-    { id: 'izin-cakisma' as View, label: 'İzin Çakışma Kontrolü' },
-    { id: 'izin-tanimlari' as View, label: 'İzin Türleri Tanımları' },
-    { id: 'izin-listesi' as View, label: 'İzinli Kişiler Listesi' },
-  ]},
-  { id: 'is-akisi-menu' as View, label: 'İş Akışı ve PDKS', icon: Clock, children: [
-    { id: 'is-akisi' as View, label: 'İş Akışı Panosu' },
-    { id: 'pdks-devam' as View, label: 'Devam Kontrolü' },
-    { id: 'puantaj' as View, label: 'Aylık Puantaj Cetveli' },
-    { id: 'analitik' as View, label: 'Veri Analitiği' },
-  ]},
+  {
+    id: 'personel' as View, label: 'Şirket Yönetimi', icon: Users, children: [
+      { id: 'personel' as View, label: 'Personel Listesi' },
+      { id: 'org-sema' as View, label: 'Organizasyon Şeması' },
+      { id: 'zimmet' as View, label: 'Tüm Zimmetler Listesi' },
+      { id: 'kullanicilar' as View, label: 'Kullanıcılar' },
+      { id: 'sirket-bilgileri' as View, label: 'Şirket Bilgileri & Yönetimi' },
+      { id: 'ayar' as View, label: 'Kanunlar ve Kurallar' },
+    ]
+  },
+  {
+    id: 'ozluk-dosyasi' as View, label: 'Personel Yönetimi', icon: UserCircle, children: [
+      { id: 'ozluk-dosyasi' as View, label: 'Personel Kartı ve Özlük' },
+      { id: 'gorev-tanimi' as View, label: 'Görev Tanımı' },
+      { id: 'tazminat-hesaplama' as View, label: 'Tazminat & Bilirkişi Hesaplama' },
+    ]
+  },
+  {
+    id: 'bordro' as View, label: 'Bordro ve İcmal', icon: CreditCard, children: [
+      { id: 'bordro' as View, label: 'Bordro' },
+      { id: 'yan-haklar' as View, label: 'Esnek Yan Haklar' },
+      { id: 'bordro-icmal' as View, label: 'Bordro İcmal Raporu' },
+    ]
+  },
+  {
+    id: 'izin' as View, label: 'İzin Yönetimi', icon: Calendar, children: [
+      { id: 'izin' as View, label: 'İzin Talepleri' },
+      { id: 'izin-cakisma' as View, label: 'İzin Çakışma Kontrolü' },
+      { id: 'izin-tanimlari' as View, label: 'İzin Türleri Tanımları' },
+      { id: 'izin-listesi' as View, label: 'İzinli Kişiler Listesi' },
+    ]
+  },
+  {
+    id: 'is-akisi-menu' as View, label: 'İş Akışı ve PDKS', icon: Clock, children: [
+      { id: 'is-akisi' as View, label: 'İş Akışı Panosu' },
+      { id: 'pdks-devam' as View, label: 'Devam Kontrolü' },
+      { id: 'puantaj' as View, label: 'Aylık Puantaj Cetveli' },
+      { id: 'analitik' as View, label: 'Veri Analitiği' },
+    ]
+  },
   { id: 'uyari' as View, label: 'Uyarılar Takvimi', icon: Bell },
-  { id: 'egitim' as View, label: 'Eğitim & Gelişim (LMS)', icon: GraduationCap, children: [
-    { id: 'egitim' as View, label: 'Eğitim Kataloğu & LMS' },
-    { id: 'yetkinlik' as View, label: 'Gap Analysis' },
-  ]},
-  { id: 'performans' as View, label: 'Performans Yönetimi', icon: Layout, children: [
-    { id: 'performans' as View, label: 'Performans Değerlendirme' },
-    { id: 'okr' as View, label: 'OKR Hedefler' },
-  ]},
+  {
+    id: 'egitim' as View, label: 'Eğitim & Gelişim (LMS)', icon: GraduationCap, children: [
+      { id: 'egitim' as View, label: 'Eğitim Kataloğu & LMS' },
+      { id: 'yetkinlik' as View, label: 'Gap Analysis' },
+    ]
+  },
+  {
+    id: 'performans' as View, label: 'Performans Yönetimi', icon: Layout, children: [
+      { id: 'performans' as View, label: 'Performans Değerlendirme' },
+      { id: 'okr' as View, label: 'OKR Hedefler' },
+    ]
+  },
   { id: 'kullanim-kilavuzu' as View, label: 'Kullanım Kılavuzu', icon: BookOpen },
 ];
 
@@ -129,7 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     const handleStorage = () => {
       try {
         setShowAlertDot(localStorage.getItem('humanius_new_alert_notification') === 'true');
-      } catch {}
+      } catch { }
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
@@ -141,7 +155,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (profile?.company_id) {
       companyService.getById(profile.company_id).then(comp => {
         if (comp?.name) setCompanyName(comp.name);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [profile?.company_id]);
 
@@ -158,7 +172,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       localStorage.removeItem('logoConfig_undefined');
       localStorage.removeItem('logoSrc_null');
       localStorage.removeItem('logoConfig_null');
-    } catch {}
+    } catch { }
   }, []);
 
   // Synchronously initialize logoSrc only if this specific company has a saved logo
@@ -168,7 +182,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         const compSaved = safeReadLocalStorage(`logoSrc_${companyId}`);
         if (compSaved && !isInvalidLogo(compSaved)) return compSaved;
       }
-    } catch {}
+    } catch { }
     return DEFAULT_LOGO_SRC;
   });
 
@@ -187,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           };
         }
       }
-    } catch {}
+    } catch { }
     return { width: 225, height: 75, x: 0, y: 0, rotation: 0 };
   });
 
@@ -203,7 +217,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (logoSrcKey) {
       safeWriteLocalStorage(logoSrcKey, nextLogoSrc);
     }
-    
+
     if (companyId && companyId !== 'demo-company-id-9999' && !companyId.startsWith('demo-')) {
       try {
         await companyService.update(companyId, { logo_url: nextLogoSrc });
@@ -236,7 +250,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           if (logoSrcKey) {
             try {
               localStorage.removeItem(logoSrcKey);
-            } catch {}
+            } catch { }
           }
         }
       } catch (err) {
@@ -366,11 +380,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                   onViewChange(item.id);
                 }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all ${
-                  isHighlighted
-                    ? 'bg-blue-50 border border-blue-200 text-blue-700 font-semibold'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border border-transparent font-medium'
-                }`}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all ${isHighlighted
+                  ? 'bg-blue-50 border border-blue-200 text-blue-700 font-semibold'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border border-transparent font-medium'
+                  }`}
               >
                 <div className="w-5 h-5 flex items-center justify-center shrink-0">
                   <Icon className="w-4 h-4" />
@@ -393,11 +406,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         key={child.id}
                         onClick={() => onViewChange(child.id)}
-                        className={`w-full flex items-start gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all ${
-                          isChildActive
-                            ? 'bg-blue-50 text-blue-700 font-bold'
-                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800 font-medium'
-                        }`}
+                        className={`w-full flex items-start gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all ${isChildActive
+                          ? 'bg-blue-50 text-blue-700 font-bold'
+                          : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800 font-medium'
+                          }`}
                       >
                         <div className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
                           <FileText className={`w-3.5 h-3.5 ${isChildActive ? 'text-blue-600' : 'text-gray-400'}`} />
@@ -422,11 +434,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onViewChange(item.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all ${
-                    isActive
-                      ? 'bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border border-transparent font-medium'
-                  }`}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all ${isActive
+                    ? 'bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border border-transparent font-medium'
+                    }`}
                 >
                   <div className="w-5 h-5 flex items-center justify-center shrink-0">
                     <Icon className="w-4 h-4" />
@@ -444,11 +455,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="mt-3 space-y-1">
           <button
             onClick={() => onViewChange('sifre-degistir')}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all border ${
-              currentView === 'sifre-degistir'
-                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border-transparent hover:border-gray-200'
-            }`}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all border ${currentView === 'sifre-degistir'
+              ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold'
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border-transparent hover:border-gray-200'
+              }`}
           >
             <div className="w-5 h-5 flex items-center justify-center shrink-0">
               <Lock className="w-4 h-4" />

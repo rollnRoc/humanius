@@ -379,4 +379,6 @@ export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({ talepl
   );
 };
 
+export { IzinWorkflow };
 export default IzinWorkflow;
+

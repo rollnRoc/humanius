@@ -7,7 +7,9 @@ export type IzinTuru =
   | 'evlilik'
   | 'olum'
   | 'askerlik'
-  | 'ucretsiz';
+  | 'ucretsiz'
+  | (string & {});
+
 
 export type IzinDurum = 'beklemede' | 'onaylandi' | 'reddedildi' | 'iptal';
 

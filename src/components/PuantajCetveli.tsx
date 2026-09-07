@@ -21,22 +21,29 @@ import {
   Briefcase,
   AlertCircle,
   User,
-  ArrowUpDown
+  ArrowUpDown,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Employee } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaKaydi } from '../services/pdksService';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG } from '../services/shiftService';
+import { leaveTypeService } from '../services/leaveTypeService';
+import { IzinTuruKural } from './IzinTanimlari';
+import { getCompanyIzinTurleri } from '../utils/izinCalculations';
 import {
   hesaplaPersonelAylikPuantaj,
   PersonelAylikPuantaj,
   PuantajKodu,
-  GunlukPuantajDetay
+  GunlukPuantajDetay,
+  getCalismaSaati,
 } from '../utils/puantajHesaplama';
 import {
   printPuantajCetveliPdf,
+  exportPuantajExcel,
   exportPuantajCsv,
   printGunlukDetayliRaporPdf,
+  exportGunlukDetayliExcel,
   exportGunlukDetayliCsv,
   GunlukDetayliRaporItem,
 } from '../utils/puantajPdf';
@@ -87,6 +94,12 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const [saturdayConfig, setSaturdayConfig] = useState<SaturdayWorkConfig>(DEFAULT_SATURDAY_CONFIG);
   const [saturdayModalOpen, setSaturdayModalOpen] = useState<boolean>(false);
   const [isSavingSaturday, setIsSavingSaturday] = useState<boolean>(false);
+
+  // Tanımlı Şirket İzin Türleri
+  const [leaveTypes, setLeaveTypes] = useState<IzinTuruKural[]>(() => {
+    const compId = profile?.company_id || employees[0]?.company_id;
+    return getCompanyIzinTurleri(compId) as any[];
+  });
 
   // Cumartesi Modal Form Değerleri
   const [modalIsSatWork, setModalIsSatWork] = useState<boolean>(false);
@@ -149,16 +162,20 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     setIsLoading(true);
     try {
       const targetCompanyId = profile?.company_id || employees[0]?.company_id || undefined;
-      const [fetchedVardiyalar, fetchedShifts, fetchedAssignments, fetchedSaturday] = await Promise.all([
+      const [fetchedVardiyalar, fetchedShifts, fetchedAssignments, fetchedSaturday, fetchedLeaveTypes] = await Promise.all([
         pdksService.getVardiyalar(),
         shiftService.getShifts(targetCompanyId),
         shiftService.getAssignments(targetCompanyId),
         shiftService.getSaturdayConfig(targetCompanyId),
+        leaveTypeService.getLeaveTypes(targetCompanyId),
       ]);
       setVardiyaKayitlari(fetchedVardiyalar);
       setCompanyShifts(fetchedShifts.length > 0 ? fetchedShifts : VARSAYILAN_VARDIYALAR);
       setShiftAssignments(fetchedAssignments);
       setSaturdayConfig(fetchedSaturday);
+      if (fetchedLeaveTypes && fetchedLeaveTypes.length > 0) {
+        setLeaveTypes(fetchedLeaveTypes);
+      }
     } catch (err) {
       console.warn('Puantaj verileri yüklenirken hata oluştu:', err);
     } finally {
@@ -172,6 +189,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     const handleUpdate = () => loadPuantajData();
     window.addEventListener('humanius_shifts_updated', handleUpdate);
     window.addEventListener('humanius_saturday_updated', handleUpdate);
+    window.addEventListener('humanius_izin_turleri_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     const handleVisibility = () => {
@@ -182,6 +200,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     return () => {
       window.removeEventListener('humanius_shifts_updated', handleUpdate);
       window.removeEventListener('humanius_saturday_updated', handleUpdate);
+      window.removeEventListener('humanius_izin_turleri_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
@@ -191,8 +210,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const handleOpenSaturdayModal = () => {
     setModalIsSatWork(saturdayConfig.isSaturdayWork);
     setModalSatStart(saturdayConfig.startTime || '08:30');
-    setModalSatEnd(saturdayConfig.endTime || '13:00');
-    setModalSatBreak(saturdayConfig.breakMinutes ?? 0);
+    setModalSatEnd(saturdayConfig.endTime || '16:00');
+    setModalSatBreak(saturdayConfig.breakMinutes ?? 30);
     setModalSatTolerance(saturdayConfig.toleranceMinutes ?? 15);
     setSatSaveSuccess(false);
     setSaturdayModalOpen(true);
@@ -224,9 +243,14 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     }
   };
 
-  const applySaturdayPreset = (preset: 'half1' | 'half2' | 'full') => {
+  const applySaturdayPreset = (preset: 'standard16' | 'half1' | 'half2' | 'full') => {
     setModalIsSatWork(true);
-    if (preset === 'half1') {
+    if (preset === 'standard16') {
+      setModalSatStart('08:30');
+      setModalSatEnd('16:00');
+      setModalSatBreak(30);
+      setModalSatTolerance(15);
+    } else if (preset === 'half1') {
       setModalSatStart('08:30');
       setModalSatEnd('13:00');
       setModalSatBreak(0);
@@ -261,9 +285,10 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         izinTalepleri,
         adminOverrides,
         saturdayConfig,
+        leaveTypes,
       });
     });
-  }, [employees, selectedYear, selectedMonthIndex, companyShifts, shiftAssignments, vardiyaKayitlari, izinTalepleri, adminOverrides, saturdayConfig]);
+  }, [employees, selectedYear, selectedMonthIndex, companyShifts, shiftAssignments, vardiyaKayitlari, izinTalepleri, adminOverrides, saturdayConfig, leaveTypes]);
 
   const filteredPuantaj = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -331,7 +356,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const handleSaveCellEdit = async () => {
     if (!editTarget) return;
     const { employee, gun } = editTarget;
-    const overrideKey = `${employee.id}_${gun.tarih}`;
+    const matchedCustom = leaveTypes.find((lt) => lt.kod === editKod || lt.id === editKod);
+    const customDesc = matchedCustom?.ad;
 
     const newOverride = {
       kod: editKod,
@@ -341,19 +367,23 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
       kodAciklama:
         editKod === 'Ç'
           ? `Fiili Çalışma (${editGiris}-${editCikis})`
-          : editKod === 'Yİ'
+          : editKod === 'Yİ' || editKod === 'YI'
           ? 'Yıllık Ücretli İzin'
-          : editKod === 'Mİ'
+          : editKod === 'Mİ' || editKod === 'MZ'
           ? 'Mazeret İzni'
-          : editKod === 'R'
+          : editKod === 'R' || editKod === 'HA'
           ? 'İstirahat (SGK Raporu)'
-          : editKod === 'Üİ'
+          : editKod === 'Üİ' || editKod === 'UC'
           ? 'Ücretsiz İzin'
           : editKod === 'HT'
           ? 'Hafta Tatili'
+          : editKod === 'AT'
+          ? 'Akdi Tatil'
           : editKod === 'UBGT'
           ? 'Resmi Tatil'
-          : 'Devamsız',
+          : editKod === 'D'
+          ? 'Devamsız'
+          : customDesc || 'Özel İzin',
     };
 
     const nextOverrides = { ...adminOverrides, [overrideKey]: newOverride };
@@ -392,6 +422,15 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
       preparedBy: profile?.full_name || 'İnsan Kaynakları & PDKS Sorumlusu',
       saturdayConfig,
     });
+  };
+
+  const handleExportExcel = () => {
+    exportPuantajExcel(
+      profile?.company_name || 'Humanius',
+      selectedYear,
+      selectedMonthIndex,
+      filteredPuantaj
+    );
   };
 
   const handleExportCsv = () => {
@@ -500,6 +539,24 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     );
   };
 
+  const handleExportDailyExcel = () => {
+    const periodStr =
+      selectedDayFilter === 'all'
+        ? `${AY_ADLARI[selectedMonthIndex]}_${selectedYear}`
+        : `${selectedDayFilter}_${AY_ADLARI[selectedMonthIndex]}_${selectedYear}`;
+
+    const prefix =
+      activeDailyEmployeeId === 'all'
+        ? 'Toplu_Gunluk'
+        : `${selectedPuantajRecord?.employee.name.replace(/\s+/g, '_') || 'Personel'}_Gunluk`;
+
+    exportGunlukDetayliExcel(
+      profile?.company_name || 'Humanius',
+      `${prefix}_${periodStr}`,
+      dailyFilteredItems
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* ÜST BAŞLIK & DÖNEM SEÇİCİ */}
@@ -570,7 +627,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
             </button>
           </div>
 
-          {/* Yazdır & Excel Butonları */}
+          {/* Yazdır & Excel / CSV Butonları */}
           <button
             onClick={handlePrintPdf}
             className="flex items-center gap-1.5 bg-slate-900 hover:bg-black text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
@@ -581,12 +638,21 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
           </button>
 
           <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+            title="Bordro ve Muhasebe Uyumlu Excel (.xlsx) İndir"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-white" />
+            <span>Excel İndir (.xlsx)</span>
+          </button>
+
+          <button
             onClick={handleExportCsv}
-            className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-            title="Bordro ve Muhasebe Uyumlu Excel/CSV Aktarımı"
+            className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+            title="Bordro ve Muhasebe Uyumlu CSV (.csv) İndir"
           >
             <Download className="w-4 h-4 text-emerald-600" />
-            <span>Excel / CSV İndir</span>
+            <span>CSV</span>
           </button>
         </div>
       </div>
@@ -729,8 +795,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between flex-wrap gap-2 text-xs">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-bold text-slate-700">Puantaj Kodları:</span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[11px]">
-            Ç : Fiili Çalışma
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[11px]" title="Fiili çalışma olan günlerde hücrede net çalışma saati (örn: 8.5s) gösterilir">
+            Sayı / Ç : Fiili Çalışma (Saat)
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-bold text-[11px]">
             HT : Hafta Tatili (Paz)
@@ -759,6 +825,17 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-100 text-red-800 font-bold text-[11px]">
             D : Devamsız
           </span>
+          {leaveTypes
+            .filter((lt) => !['yillik', 'mazeret', 'hastalik', 'ucretsiz'].includes(lt.id) && lt.kod !== 'YI' && lt.kod !== 'MZ' && lt.kod !== 'HA' && lt.kod !== 'UC')
+            .map((lt) => (
+              <span
+                key={lt.id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-100 text-cyan-800 font-bold text-[11px] border border-cyan-200"
+                title={lt.aciklama || lt.ad}
+              >
+                {lt.kod} : {lt.ad}
+              </span>
+            ))}
         </div>
         <div className="text-[11px] text-slate-500 italic">
           💡 Hücreye tıklayarak ilgili günün giriş/çıkış saatini veya durumunu anında düzenleyebilirsiniz.
@@ -859,24 +936,28 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
                         if (g.kod === 'Ç') {
                           badgeStyle = 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200';
-                          displayVal = g.netSureSaat > 0 ? `${g.netSureSaat}s` : 'Ç';
+                          const hours = getCalismaSaati(g, p.shift);
+                          displayVal = `${hours}s`;
                         } else if (g.kod === 'HT') {
                           badgeStyle = 'bg-blue-100 text-blue-800 hover:bg-blue-200';
                         } else if (g.kod === 'AT') {
                           badgeStyle = 'bg-slate-100 text-slate-600 hover:bg-slate-200';
                         } else if (g.kod === 'UBGT') {
                           badgeStyle = 'bg-purple-100 text-purple-800 hover:bg-purple-200';
-                        } else if (g.kod === 'Yİ' || g.kod === 'Mİ') {
+                        } else if (g.kod === 'Yİ' || g.kod === 'Mİ' || g.kod === 'YI' || g.kod === 'MZ') {
                           badgeStyle = 'bg-teal-100 text-teal-800 hover:bg-teal-200';
-                        } else if (g.kod === 'R') {
+                        } else if (g.kod === 'R' || g.kod === 'HA') {
                           badgeStyle = 'bg-amber-100 text-amber-800 hover:bg-amber-200';
-                        } else if (g.kod === 'Üİ') {
+                        } else if (g.kod === 'Üİ' || g.kod === 'UC') {
                           badgeStyle = 'bg-orange-100 text-orange-800 hover:bg-orange-200';
                         } else if (g.kod === 'D') {
                           badgeStyle = 'bg-red-100 text-red-800 hover:bg-red-200';
                         } else if (g.kod === '-') {
                           badgeStyle = 'bg-transparent text-gray-300 hover:bg-gray-100 font-normal';
                           displayVal = '-';
+                        } else {
+                          // Dinamik / özel izin kodu (Örn: EG, BA, EV, OL vb.)
+                          badgeStyle = 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 font-extrabold';
                         }
 
                         if (g.isPazar) cellBg = 'bg-red-50/20';
@@ -1015,12 +1096,20 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   <span>{activeDailyEmployeeId === 'all' ? 'Toplu Günlük PDF' : 'Personel Günlük PDF'}</span>
                 </button>
                 <button
+                  onClick={handleExportDailyExcel}
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                  title="Seçili Kayıtları Excel (.xlsx) İndir"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-white" />
+                  <span>Excel (.xlsx)</span>
+                </button>
+                <button
                   onClick={handleExportDailyCsv}
-                  className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                  title="Seçili Kayıtları Excel/CSV İndir"
+                  className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                  title="Seçili Kayıtları CSV (.csv) İndir"
                 >
                   <Download className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Excel / CSV</span>
+                  <span>CSV</span>
                 </button>
               </div>
             </div>
@@ -1114,11 +1203,12 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                     else if (item.kod === 'HT') badgeStyle = 'bg-blue-100 text-blue-800';
                     else if (item.kod === 'AT') badgeStyle = 'bg-slate-100 text-slate-700';
                     else if (item.kod === 'UBGT') badgeStyle = 'bg-purple-100 text-purple-800';
-                    else if (item.kod === 'Yİ' || item.kod === 'Mİ') badgeStyle = 'bg-teal-100 text-teal-800';
-                    else if (item.kod === 'R') badgeStyle = 'bg-amber-100 text-amber-800';
-                    else if (item.kod === 'Üİ') badgeStyle = 'bg-orange-100 text-orange-800';
+                    else if (item.kod === 'Yİ' || item.kod === 'Mİ' || item.kod === 'YI' || item.kod === 'MZ') badgeStyle = 'bg-teal-100 text-teal-800';
+                    else if (item.kod === 'R' || item.kod === 'HA') badgeStyle = 'bg-amber-100 text-amber-800';
+                    else if (item.kod === 'Üİ' || item.kod === 'UC') badgeStyle = 'bg-orange-100 text-orange-800';
                     else if (item.kod === 'D') badgeStyle = 'bg-red-100 text-red-800';
                     else if (item.kod === '-') badgeStyle = 'bg-gray-50 text-gray-400 font-normal';
+                    else badgeStyle = 'bg-cyan-100 text-cyan-800 font-bold';
 
                     return (
                       <tr key={`${item.employeeName}_${item.tarih}_${idx}`} className="hover:bg-blue-50/30 transition-colors">
@@ -1214,6 +1304,13 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   <option value="R">R : SGK İstirahat Raporu</option>
                   <option value="Üİ">Üİ : Ücretsiz İzin</option>
                   <option value="D">D : Devamsız (Giriş Yok)</option>
+                  {leaveTypes
+                    .filter((lt) => !['yillik', 'mazeret', 'hastalik', 'ucretsiz'].includes(lt.id) && lt.kod !== 'YI' && lt.kod !== 'MZ' && lt.kod !== 'HA' && lt.kod !== 'UC')
+                    .map((lt) => (
+                      <option key={lt.id} value={lt.kod}>
+                        {lt.kod} : {lt.ad}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -1323,7 +1420,13 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
                 {/* 6 Günlük Seçenek */}
                 <div
-                  onClick={() => setModalIsSatWork(true)}
+                  onClick={() => {
+                    setModalIsSatWork(true);
+                    if (modalSatEnd === '13:00' || !modalSatEnd) {
+                      setModalSatEnd('16:00');
+                      setModalSatBreak(30);
+                    }
+                  }}
                   className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
                     modalIsSatWork
                       ? 'border-amber-500 bg-amber-50/50 shadow-xs'
@@ -1353,7 +1456,19 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                       <span>Hızlı Çalışma Şablonları:</span>
                     </label>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applySaturdayPreset('standard16')}
+                      className={`p-2 rounded-lg text-[11px] font-bold border transition-all cursor-pointer text-center ${
+                        modalSatStart === '08:30' && modalSatEnd === '16:00'
+                          ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                          : 'bg-white hover:bg-amber-100 text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      <div>08:30 - 16:00</div>
+                      <div className="text-[10px] font-normal opacity-90">6 Günlük (16:00 Bitiş)</div>
+                    </button>
                     <button
                       type="button"
                       onClick={() => applySaturdayPreset('half1')}
@@ -1437,10 +1552,10 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-[11px] text-amber-800 bg-amber-100/60 p-2.5 rounded-lg">
+                <div className="flex items-center gap-1.5 text-[11px] text-amber-900 bg-amber-100/70 p-2.5 rounded-lg border border-amber-200/80">
                   <Info className="w-4 h-4 shrink-0 text-amber-600" />
                   <span>
-                    Cumartesi mesai bitiş saatinden sonraki çalışmalar otomatik olarak <strong>Fazla Mesai (FM)</strong> sütununa eklenir.
+                    6 Günlük Çalışma Düzeninde Cumartesi mesaisi saat <strong>{modalSatEnd || '16:00'}</strong> itibarıyla sona erer. Bu saatten sonraki çalışmalar otomatik olarak <strong>Fazla Mesai (FM)</strong> sütununa eklenir. Hafta içi (Pazartesi - Cuma) mesaileri bu ayardan kesinlikle etkilenmez (normal 18:00 vardiyası devam eder).
                   </span>
                 </div>
               </div>

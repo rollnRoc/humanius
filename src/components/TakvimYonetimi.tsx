@@ -92,13 +92,15 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
   
-  // Takvim başlangıcı (önceki ayın son günleri dahil)
+  // Takvim başlangıcı (Pazartesi = 0, önceki ayın son günleri dahil)
+  const startDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
   const startDate = new Date(firstDayOfMonth);
-  startDate.setDate(startDate.getDate() - firstDayOfMonth.getDay());
+  startDate.setDate(startDate.getDate() - startDayOfWeek);
   
-  // Takvim bitişi (sonraki ayın ilk günleri dahil)
+  // Takvim bitişi (Pazar = 6, sonraki ayın ilk günleri dahil)
+  const endDayOfWeek = (lastDayOfMonth.getDay() + 6) % 7;
   const endDate = new Date(lastDayOfMonth);
-  endDate.setDate(endDate.getDate() + (6 - lastDayOfMonth.getDay()));
+  endDate.setDate(endDate.getDate() + (6 - endDayOfWeek));
 
   // Takvim günlerini oluştur
   const calendarDays = [];

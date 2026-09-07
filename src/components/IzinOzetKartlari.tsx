@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Calendar, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, PlusCircle, Edit2, Trash2, ArrowUpDown } from 'lucide-react';
+import { Users, Calendar, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, PlusCircle, Edit2, Trash2, ArrowUpDown, Search } from 'lucide-react';
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,6 +13,8 @@ interface IzinOzetKartlariProps {
   onOpenHakedisModal?: (employeeId?: string) => void;
   onEditIzin?: (talep: IzinTalebi) => void;
   onDeleteIzin?: (id: string) => void;
+  viewMode?: 'all' | 'kpi' | 'table';
+  onNavigateToPending?: () => void;
 }
 
 const IZIN_TURU_LABEL: Record<string, string> = {
@@ -37,6 +39,8 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
   onOpenHakedisModal,
   onEditIzin,
   onDeleteIzin,
+  viewMode = 'all',
+  onNavigateToPending,
 }) => {
   const { isSuperAdmin, isAdmin, isHR } = useAuth();
   const isAuthorized = isSuperAdmin || isAdmin || isHR;
@@ -46,6 +50,8 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
   const [inputToplamHak, setInputToplamHak] = useState<number>(14);
   const [inputMazeretHak, setInputMazeretHak] = useState<number>(5);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
 
   const yil = new Date().getFullYear();
   const bugun = new Date().toISOString().split('T')[0];
@@ -98,12 +104,16 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
       const bekleyen = talepleri.filter((t) => t.durum === 'beklemede');
       const onaylanan = talepleri.filter((t) => t.durum === 'onaylandi');
 
-      const kullanilanYillik = onaylanan
+      const kullanilanYillikFromTalepler = onaylanan
         .filter((t) => {
           const ty = new Date(t.baslangicTarihi).getFullYear();
           return t.izinTuru === 'yillik' && ty === yil;
         })
         .reduce((sum, t) => sum + (t.gunSayisi || 0), 0);
+
+      const kullanilanYillik = (hak && typeof hak.kullanilanIzin === 'number' && hak.kullanilanIzin > 0)
+        ? Math.max(kullanilanYillikFromTalepler, hak.kullanilanIzin)
+        : kullanilanYillikFromTalepler;
 
       const kullanilanMazeret = onaylanan
         .filter((t) => t.izinTuru === 'mazeret')
@@ -137,8 +147,10 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
       }
 
       const toplamHak = (hak && hak.toplamHak !== undefined && hak.toplamHak !== null) ? hak.toplamHak : calculatedToplamHak;
-      const kalanYillik = Math.max(0, toplamHak - kullanilanYillik);
-      const pct = toplamHak > 0 ? Math.round((kullanilanYillik / toplamHak) * 100) : 0;
+      const kalanYillik = (hak && typeof hak.kalanIzin === 'number')
+        ? hak.kalanIzin
+        : Math.max(0, toplamHak - kullanilanYillik);
+      const pct = toplamHak > 0 ? Math.min(100, Math.max(0, Math.round((kullanilanYillik / toplamHak) * 100))) : 0;
 
       const siradakiIzin = onaylanan
         .filter((t) => t.baslangicTarihi > bugun)
@@ -163,6 +175,7 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
         kalanYillik,
         pct,
         bugunIzinde,
+        siradakiIzin,
       };
     })
     .sort((a, b) => {
@@ -170,170 +183,273 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
       return sortOrder === 'asc' ? cmp : -cmp;
     });
 
+  const departments = Array.from(
+    new Set(
+      employees
+        .map((e) => e.department)
+        .filter((d): d is string => Boolean(d && d.trim()))
+    )
+  ).sort((a, b) => a.localeCompare(b, 'tr'));
+
+  const filteredEmpSummaries = empSummaries.filter(({ emp }) => {
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      !term ||
+      (emp.name || '').toLowerCase().includes(term) ||
+      (emp.department || '').toLowerCase().includes(term) ||
+      (emp.position || '').toLowerCase().includes(term);
+    const matchesDept = selectedDepartment === 'all' || emp.department === selectedDepartment;
+    return matchesSearch && matchesDept;
+  });
+
   const toggle = (id: string) => setExpandedEmp((prev) => (prev === id ? null : id));
+
+  const showKpi = viewMode === 'all' || viewMode === 'kpi';
+  const showTable = viewMode === 'all' || viewMode === 'table';
 
   return (
     <div className="space-y-4">
-      {/* ── Üst stat kartları ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
-            <Users className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 leading-tight">Aktif Personel</p>
-            <p className="text-2xl font-bold text-gray-900">{employees.filter((e) => e.status === 'active' || e.status === 'onLeave').length}</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-blue-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
-            <Calendar className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 leading-tight">Bugün İzinli</p>
-            <p className="text-2xl font-bold text-blue-700">{bugünIzinli}</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-amber-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 text-amber-600" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 leading-tight">Bekleyen Talep</p>
-            <p className="text-2xl font-bold text-amber-700">{bekleyenTalep}</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-emerald-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0">
-            <CheckCircle className="w-5 h-5 text-emerald-600" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 leading-tight">Bu Yıl Kullanılan</p>
-            <p className="text-2xl font-bold text-emerald-700">{buYilKullanilanToplamGun} <span className="text-sm font-normal text-gray-500">gün</span></p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-cyan-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-cyan-50 rounded-xl flex items-center justify-center shrink-0">
-            <CheckCircle className="w-5 h-5 text-cyan-600" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 leading-tight">Toplam Ücretli Bakiye</p>
-            <p className="text-2xl font-bold text-cyan-700">{toplamUcretliIzinBakiyesi} <span className="text-sm font-normal text-gray-500">gün</span></p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-violet-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center shrink-0">
-            <Calendar className="w-5 h-5 text-violet-600" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 leading-tight">Kullanılan Ücretli</p>
-            <p className="text-2xl font-bold text-violet-700">{buYilKullanilanUcretliIzin} <span className="text-sm font-normal text-gray-500">gün</span></p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-rose-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center shrink-0">
-            <XCircle className="w-5 h-5 text-rose-600" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 leading-tight">Ücretsiz İzin</p>
-            <p className="text-2xl font-bold text-rose-700">{buYilKullanilanUcretsizIzin} <span className="text-sm font-normal text-gray-500">gün</span></p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-indigo-200 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
-            <AlertCircle className="w-5 h-5 text-indigo-600" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 leading-tight">Yaklaşan İzin</p>
-            <p className="text-2xl font-bold text-indigo-700">{yaklasanIzinler}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {empSummaries.map(({ emp, kullanilanUcretliToplam, kalanYillik, kullanilanUcretsiz, siradakiIzin, bekleyen }) => (
-          <div key={`ozet-${emp.id}`} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
+      {/* ── Üst stat kartları & Hızlı Özet ── */}
+      {showKpi && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5 text-blue-600" />
+              </div>
               <div>
-                <h4 className="text-sm font-semibold text-gray-900">{emp.name}</h4>
-                <p className="text-xs text-gray-500 mt-1">{emp.department} · {emp.position}</p>
-              </div>
-              {bekleyen.length > 0 && (
-                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">{bekleyen.length} bekliyor</span>
-              )}
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-              <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
-                <p className="text-[11px] text-emerald-700">Kullanılan</p>
-                <p className="mt-1 text-lg font-bold text-emerald-800">{kullanilanUcretliToplam}</p>
-              </div>
-              <div className="rounded-lg bg-blue-50 border border-blue-100 p-3">
-                <p className="text-[11px] text-blue-700">Kalan Ücretli</p>
-                <p className="mt-1 text-lg font-bold text-blue-800">{kalanYillik}</p>
-              </div>
-              <div className="rounded-lg bg-rose-50 border border-rose-100 p-3">
-                <p className="text-[11px] text-rose-700">Ücretsiz</p>
-                <p className="mt-1 text-lg font-bold text-rose-800">{kullanilanUcretsiz}</p>
+                <p className="text-xs text-gray-500 leading-tight">Aktif Personel</p>
+                <p className="text-2xl font-bold text-gray-900">{employees.filter((e) => e.status === 'active' || e.status === 'onLeave').length}</p>
               </div>
             </div>
 
-            <div className="mt-4 rounded-lg border border-dashed border-gray-200 px-3 py-2.5">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400">Sıradaki İzin</p>
-              {siradakiIzin ? (
-                <p className="mt-1 text-sm text-gray-700">
-                  {formatIzinTuru(siradakiIzin.izinTuru)} · {siradakiIzin.baslangicTarihi} - {siradakiIzin.bitisTarihi}
-                </p>
-              ) : (
-                <p className="mt-1 text-sm text-gray-400">Planlı izin görünmüyor.</p>
-              )}
+            <div className="bg-white rounded-xl border border-blue-200 p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+                <Calendar className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 leading-tight">Bugün İzinli</p>
+                <p className="text-2xl font-bold text-blue-700">{bugünIzinli}</p>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
 
-      {/* ── Personel İzin Durumu ── */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-500" />
-            <h3 className="text-sm font-semibold text-gray-800">Personel İzin Durumu — {yil}</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-              className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
-              title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+            <div 
+              onClick={() => {
+                if (onNavigateToPending && bekleyenTalep > 0) onNavigateToPending();
+              }}
+              className={`bg-white rounded-xl border border-amber-200 p-4 flex items-center gap-3 transition-all ${
+                onNavigateToPending && bekleyenTalep > 0 ? 'cursor-pointer hover:border-amber-400 hover:shadow-xs hover:bg-amber-50/30' : ''
+              }`}
+              title={onNavigateToPending && bekleyenTalep > 0 ? 'Onay bekleyen talepleri görmek için tıklayın' : undefined}
             >
-              <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
-              <span>{sortOrder === 'asc' ? 'A → Z Sırala' : 'Z → A Sırala'}</span>
-            </button>
-            {isAuthorized && onOpenHakedisModal && (
-              <button
-                onClick={() => onOpenHakedisModal()}
-                className="flex items-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                <span>+ İzin Hak Edişi Tanımla</span>
-              </button>
-            )}
+              <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 leading-tight">Bekleyen Talep</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-2xl font-bold text-amber-700">{bekleyenTalep}</p>
+                  {onNavigateToPending && bekleyenTalep > 0 && (
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded-full">
+                      İncele →
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-emerald-200 p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0">
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 leading-tight">Bu Yıl Kullanılan</p>
+                <p className="text-2xl font-bold text-emerald-700">{buYilKullanilanToplamGun} <span className="text-sm font-normal text-gray-500">gün</span></p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-cyan-200 p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-cyan-50 rounded-xl flex items-center justify-center shrink-0">
+                <CheckCircle className="w-5 h-5 text-cyan-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 leading-tight">Toplam Ücretli Bakiye</p>
+                <p className="text-2xl font-bold text-cyan-700">{toplamUcretliIzinBakiyesi} <span className="text-sm font-normal text-gray-500">gün</span></p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-violet-200 p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center shrink-0">
+                <Calendar className="w-5 h-5 text-violet-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 leading-tight">Kullanılan Ücretli</p>
+                <p className="text-2xl font-bold text-violet-700">{buYilKullanilanUcretliIzin} <span className="text-sm font-normal text-gray-500">gün</span></p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-rose-200 p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center shrink-0">
+                <XCircle className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 leading-tight">Ücretsiz İzin</p>
+                <p className="text-2xl font-bold text-rose-700">{buYilKullanilanUcretsizIzin} <span className="text-sm font-normal text-gray-500">gün</span></p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-indigo-200 p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 leading-tight">Yaklaşan İzin</p>
+                <p className="text-2xl font-bold text-indigo-700">{yaklasanIzinler}</p>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="divide-y divide-gray-100">
-          {empSummaries.length === 0 && (
-            <p className="px-5 py-8 text-center text-sm text-gray-400">Henüz personel verisi yok.</p>
-          )}
+          {/* Personel Hızlı Özet Kartları */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            {empSummaries.map(({ emp, kullanilanUcretliToplam, kalanYillik, kullanilanUcretsiz, siradakiIzin, bekleyen }) => (
+              <div key={`ozet-${emp.id}`} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900">{emp.name}</h4>
+                    <p className="text-xs text-gray-500 mt-1">{emp.department} · {emp.position}</p>
+                  </div>
+                  {bekleyen.length > 0 && (
+                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">{bekleyen.length} bekliyor</span>
+                  )}
+                </div>
 
-          {empSummaries.map(({ emp, hak, bekleyen, kullanilanYillik, kullanilanMazeret, kullanilanHastalik, kullanilanUcretsiz, toplamHak, kalanYillik, pct, bugunIzinde, talepleri }) => {
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
+                    <p className="text-[11px] text-emerald-700">Kullanılan</p>
+                    <p className="mt-1 text-lg font-bold text-emerald-800">{kullanilanUcretliToplam}</p>
+                  </div>
+                  <div className="rounded-lg bg-blue-50 border border-blue-100 p-3">
+                    <p className="text-[11px] text-blue-700">Kalan Ücretli</p>
+                    <p className="mt-1 text-lg font-bold text-blue-800">{kalanYillik}</p>
+                  </div>
+                  <div className="rounded-lg bg-rose-50 border border-rose-100 p-3">
+                    <p className="text-[11px] text-rose-700">Ücretsiz</p>
+                    <p className="mt-1 text-lg font-bold text-rose-800">{kullanilanUcretsiz}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-lg border border-dashed border-gray-200 px-3 py-2.5">
+                  <p className="text-[11px] uppercase tracking-wide text-gray-400">Sıradaki İzin</p>
+                  {siradakiIzin ? (
+                    <p className="mt-1 text-sm text-gray-700">
+                      {formatIzinTuru(siradakiIzin.izinTuru)} · {siradakiIzin.baslangicTarihi} - {siradakiIzin.bitisTarihi}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-sm text-gray-400">Planlı izin görünmüyor.</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── Personel İzin Durumu Tablosu ── */}
+      {showTable && (
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
+          <div className="p-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-indigo-600" />
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Personel İzin Durumu — {yil}</h3>
+                <p className="text-xs text-gray-500">Çalışanların yıllık ve mazeret hak edişleri, kullanılan ve kalan bakiyeleri</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Arama Inputu */}
+              <div className="relative min-w-[200px]">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Personel ara..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 font-medium"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {/* Departman Filtresi */}
+              {departments.length > 0 && (
+                <select
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                  className="px-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 font-medium text-gray-700"
+                >
+                  <option value="all">Tüm Departmanlar ({departments.length})</option>
+                  {departments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* A → Z Sıralama Butonu */}
+              <button
+                type="button"
+                onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                title={sortOrder === 'asc' ? 'A → Z Sıralı (Z → A yapmak için tıklayın)' : 'Z → A Sıralı (A → Z yapmak için tıklayın)'}
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
+                <span>{sortOrder === 'asc' ? 'A → Z' : 'Z → A'}</span>
+              </button>
+
+              {isAuthorized && onOpenHakedisModal && (
+                <button
+                  onClick={() => onOpenHakedisModal()}
+                  className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>+ Hak Ediş Tanımla</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="divide-y divide-gray-100">
+            {filteredEmpSummaries.length === 0 && (
+              <div className="px-5 py-12 text-center">
+                <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm font-medium text-gray-500">
+                  {searchTerm || selectedDepartment !== 'all'
+                    ? 'Filtre kriterlerine uygun personel bulunamadı.'
+                    : 'Henüz personel verisi yok.'}
+                </p>
+                {(searchTerm || selectedDepartment !== 'all') && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSelectedDepartment('all');
+                    }}
+                    className="mt-2 text-xs text-blue-600 hover:underline font-semibold"
+                  >
+                    Filtreleri Temizle
+                  </button>
+                )}
+              </div>
+            )}
+
+            {filteredEmpSummaries.map(({ emp, hak, bekleyen, kullanilanYillik, kullanilanMazeret, kullanilanHastalik, kullanilanUcretsiz, toplamHak, kalanYillik, pct, bugunIzinde, talepleri }) => {
             const isExpanded = expandedEmp === emp.id;
             return (
               <div key={emp.id}>
@@ -361,14 +477,16 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
                     <div className="hidden sm:block w-36">
                       {toplamHak > 0 ? (
                         <>
-                          <div className="flex justify-between text-xs text-gray-500 mb-1">
-                            <span>Yıllık {kullanilanYillik}/{toplamHak} gün</span>
-                            <span className="font-medium text-gray-700">{kalanYillik} kalan</span>
+                          <div className="flex justify-between items-center text-xs text-gray-500 mb-1">
+                            <span>Yıllık <b className="text-gray-800">{kullanilanYillik}</b>/{toplamHak} gün</span>
+                            <span className="font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-[11px]">{kalanYillik} kalan</span>
                           </div>
-                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden border border-gray-200/60" title={`Kullanılan: %${pct} (${kullanilanYillik}/${toplamHak} gün) • Kalan: ${kalanYillik} gün`}>
                             <div
-                              className={`h-full rounded-full transition-all ${pct >= 80 ? 'bg-red-400' : pct >= 50 ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                              style={{ width: `${Math.min(pct, 100)}%` }}
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                pct >= 80 ? 'bg-red-500' : pct >= 50 ? 'bg-amber-500' : pct > 0 ? 'bg-blue-600' : 'bg-transparent'
+                              }`}
+                              style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
                             />
                           </div>
                         </>
@@ -541,6 +659,7 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
           })}
         </div>
       </div>
+      )}
     </div>
   );
 };

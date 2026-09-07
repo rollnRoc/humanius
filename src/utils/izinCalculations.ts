@@ -177,6 +177,70 @@ export function formatIzinTuru(tur: string | undefined | null, companyId?: strin
   return `${titleCased} İzni`;
 }
 
+/**
+ * Devam Kontrolü (PDKS) ekranında personelin hangi izinde olduğunu açık ve net
+ * şekilde ifade eden durum metnini üretir.
+ * Örn: 'Yıllık İzin', 'Raporlu', 'Ücretsiz İzin', 'Eğitim İzni', 'Babalık İzni' vb.
+ */
+export function getDevamKontroluIzinLabel(tur: string | undefined | null, companyId?: string): string {
+  if (!tur) return 'İzinli';
+  const clean = String(tur).trim();
+  const lower = clean.toLowerCase();
+
+  // 1. Şirkete ait dinamik izin tanımlarını kontrol et (Özel izinler öncelikli)
+  try {
+    const companyTurler = getCompanyIzinTurleri(companyId);
+    const found = companyTurler.find(
+      (t) =>
+        t.id === clean ||
+        t.id.toLowerCase() === lower ||
+        (t.kod && t.kod.toLowerCase() === lower) ||
+        (t.ad && t.ad.toLowerCase() === lower) ||
+        lower.startsWith(t.id.toLowerCase())
+    );
+    if (found && found.ad) {
+      // Hastalık izni/rapor için PDKS'de yaygın resmi standart 'Raporlu' ifadesidir
+      if (found.id === 'hastalik' && (found.ad.includes('Hastalık') || found.ad.includes('Rapor'))) {
+        return 'Raporlu';
+      }
+      return found.ad;
+    }
+  } catch {}
+
+  // 2. Özel durum kontrolleri
+  if (lower.includes('rapor') || lower.includes('hastalik') || lower === 'r' || lower === '-r' || lower === 'ha') {
+    return 'Raporlu';
+  }
+  if (lower.includes('yillik') || lower.includes('yıllık') || lower === 'yi' || lower === 'yillik') {
+    return 'Yıllık İzin';
+  }
+  if (lower.includes('ucret') || lower.includes('ücret') || lower === 'ui' || lower === 'üi') {
+    return 'Ücretsiz İzin';
+  }
+  if (lower.includes('mazeret') || lower === 'mi') {
+    return 'Mazeret İzni';
+  }
+  if (lower.includes('egitim') || lower.includes('eğitim')) {
+    return 'Eğitim İzni';
+  }
+  if (lower.includes('dogum') || lower.includes('doğum')) {
+    return 'Doğum İzni';
+  }
+  if (lower.includes('babalik') || lower.includes('babalık')) {
+    return 'Babalık İzni';
+  }
+  if (lower.includes('evlilik')) {
+    return 'Evlilik İzni';
+  }
+  if (lower.includes('olum') || lower.includes('ölüm')) {
+    return 'Ölüm İzni';
+  }
+
+  // 3. Genel biçimlendirme fonksiyonuna devret
+  const formatted = formatIzinTuru(clean, companyId);
+  return formatted || 'İzinli';
+}
+
 type MaxIzinInfo = {
   max: number;
   label: string;
@@ -303,19 +367,80 @@ export function formatDate(dateStr: string): string {
 }
 
 /**
- * İki tarih arasındaki iş günü sayısını hesaplar (hafta sonu hariç).
+ * Şirketin veya varsayılan çalışma düzeninde Cumartesi çalışmasının (6 günlük düzen) aktif olup olmadığını kontrol eder.
  */
-export function calculateWorkingDays(startDate: string, endDate: string): number {
+export function isSaturdayWorkActive(companyId?: string): boolean {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      if (companyId && companyId !== 'default') {
+        const raw = localStorage.getItem(`humanius_saturday_work_${companyId}`);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed?.isSaturdayWork === 'boolean') {
+              return parsed.isSaturdayWork;
+            }
+          } catch {}
+        }
+      }
+
+      const rawDef = localStorage.getItem('humanius_saturday_work_default');
+      if (rawDef) {
+        try {
+          const parsed = JSON.parse(rawDef);
+          if (typeof parsed?.isSaturdayWork === 'boolean') {
+            return parsed.isSaturdayWork;
+          }
+        } catch {}
+      }
+
+      // Check any saved company saturday work setting if companyId is not specifically matched
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('humanius_saturday_work_')) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed?.isSaturdayWork === true) {
+                return true;
+              }
+            } catch {}
+          }
+        }
+      }
+    }
+  } catch {}
+  return false;
+}
+
+/**
+ * İki tarih arasındaki iş günü sayısını hesaplar.
+ * Şirkette 6 günlük çalışma düzeni (Cumartesi çalışma) aktifse veya isSaturdayWorking true ise
+ * Cumartesi günleri de iş günü olarak sayılır. Pazar günleri ise tatil olarak hariç tutulur.
+ */
+export function calculateWorkingDays(
+  startDate: string,
+  endDate: string,
+  isSaturdayWorking?: boolean | string
+): number {
   if (!startDate || !endDate) return 0;
   const start = new Date(startDate);
   const end = new Date(endDate);
   if (start > end) return 0;
 
+  const satWork = typeof isSaturdayWorking === 'boolean'
+    ? isSaturdayWorking
+    : isSaturdayWorkActive(typeof isSaturdayWorking === 'string' ? isSaturdayWorking : undefined);
+
   let count = 0;
   const current = new Date(start);
   while (current <= end) {
     const dayOfWeek = current.getDay();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) count++;
+    // Pazar (0) her zaman tatildir. Cumartesi (6) ise 6 günlük çalışma düzeni aktifse iş günüdür.
+    if (dayOfWeek !== 0 && (satWork || dayOfWeek !== 6)) {
+      count++;
+    }
     current.setDate(current.getDate() + 1);
   }
   return count;

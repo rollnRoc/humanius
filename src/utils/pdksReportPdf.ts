@@ -51,7 +51,7 @@ export const printPdksDevamRaporuPdf = (params: {
     toplam: records.length,
     gelen: records.filter((r) => r.durum === 'Zamanında' || r.durum === 'Geç Kaldı' || r.durum === 'Mesai Devam Ediyor').length,
     gecKalan: records.filter((r) => r.durum === 'Geç Kaldı').length,
-    izinli: records.filter((r) => r.durum === 'İzinli').length,
+    izinli: records.filter((r) => r.durum !== 'Zamanında' && r.durum !== 'Geç Kaldı' && r.durum !== 'Mesai Devam Ediyor' && r.durum !== 'Giriş Yapılmadı' && r.durum !== 'Devamsız').length,
     devamsiz: records.filter((r) => r.durum === 'Giriş Yapılmadı' || r.durum === 'Devamsız').length,
     toplamMesai: records.reduce((acc, r) => acc + (Number(r.mesaiSaat) || 0), 0),
   };
@@ -62,8 +62,9 @@ export const printPdksDevamRaporuPdf = (params: {
       if (r.durum === 'Zamanında') badgeStyle = 'background:#dcfce7; color:#166534; font-weight:bold;';
       else if (r.durum === 'Geç Kaldı') badgeStyle = 'background:#fef9c3; color:#854d0e; font-weight:bold;';
       else if (r.durum === 'Mesai Devam Ediyor') badgeStyle = 'background:#e0e7ff; color:#3730a3; font-weight:bold;';
-      else if (r.durum === 'İzinli') badgeStyle = 'background:#e0f2fe; color:#0369a1; font-weight:bold;';
       else if (r.durum === 'Giriş Yapılmadı' || r.durum === 'Devamsız') badgeStyle = 'background:#fee2e2; color:#991b1b; font-weight:bold;';
+      else badgeStyle = 'background:#e0f2fe; color:#0369a1; font-weight:bold;'; // Yıllık İzin, Raporlu, Ücretsiz İzin, Eğitim İzni vb.
+
 
       return `
         <tr>
