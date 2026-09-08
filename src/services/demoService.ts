@@ -15,6 +15,8 @@ export interface DemoEmployee {
   email: string;
   join_date: string;
   address: string;
+  il?: string;
+  ilce?: string;
   avatar_url: string | null;
   skills: string[];
   medeni_durum: 'bekar' | 'evli';
@@ -797,7 +799,15 @@ export const demoService = {
     emps = emps.map(emp => {
       if (emp.email && emp.email.includes('@demo.com')) {
         modified = true;
-        return { ...emp, email: emp.email.replace(/@demo\.com/g, '@humanius.net') };
+        emp = { ...emp, email: emp.email.replace(/@demo\.com/g, '@humanius.net') };
+      }
+      if (!emp.il && emp.address && emp.address.includes('/')) {
+        const parts = emp.address.split('/').map(s => s.trim());
+        if (parts.length >= 2) {
+          emp.ilce = parts[0];
+          emp.il = parts[1];
+          modified = true;
+        }
       }
       return emp;
     });
@@ -841,6 +851,8 @@ export const demoService = {
       email: rawEmail,
       join_date: data.join_date || new Date().toISOString().split('T')[0],
       address: data.address || '',
+      il: (data as any).il || '',
+      ilce: (data as any).ilce || '',
       avatar_url: null,
       skills: data.skills || [],
       medeni_durum: data.medeni_durum || 'bekar',
@@ -883,6 +895,8 @@ export const demoService = {
         email: updates.email || '',
         join_date: updates.join_date || new Date().toISOString().split('T')[0],
         address: updates.address || '',
+        il: updates.il || '',
+        ilce: updates.ilce || '',
         avatar_url: null,
         skills: updates.skills || [],
         medeni_durum: updates.medeni_durum || 'bekar',

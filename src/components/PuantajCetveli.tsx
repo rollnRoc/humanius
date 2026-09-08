@@ -356,6 +356,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const handleSaveCellEdit = async () => {
     if (!editTarget) return;
     const { employee, gun } = editTarget;
+    const overrideKey = `${employee.id}_${gun.tarih}`;
     const matchedCustom = leaveTypes.find((lt) => lt.kod === editKod || lt.id === editKod);
     const customDesc = matchedCustom?.ad;
 
@@ -408,6 +409,18 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
       console.warn('Veritabanı puantaj güncelleme uyarısı:', err);
     }
 
+    setEditModalOpen(false);
+  };
+
+  // Manuel Düzeltmeyi Kaldır (Otomatik Hesaplamaya Dön)
+  const handleClearCellEdit = () => {
+    if (!editTarget) return;
+    const { employee, gun } = editTarget;
+    const overrideKey = `${employee.id}_${gun.tarih}`;
+    const nextOverrides = { ...adminOverrides };
+    delete nextOverrides[overrideKey];
+    setAdminOverrides(nextOverrides);
+    localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(nextOverrides));
     setEditModalOpen(false);
   };
 
@@ -1349,21 +1362,35 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={() => setEditModalOpen(false)}
-                className="px-4 py-2 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 text-xs cursor-pointer"
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveCellEdit}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-xs cursor-pointer"
-              >
-                Değişiklikleri Kaydet
-              </button>
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-100">
+              {editTarget && adminOverrides[`${editTarget.employee.id}_${editTarget.gun.tarih}`] ? (
+                <button
+                  type="button"
+                  onClick={handleClearCellEdit}
+                  className="px-3 py-2 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl font-bold text-xs cursor-pointer"
+                  title="Manuel düzeltmeyi kaldırıp otomatik puantaj değerine dön"
+                >
+                  Otomatik Değere Dön
+                </button>
+              ) : (
+                <div />
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="px-4 py-2 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 text-xs cursor-pointer"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCellEdit}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-xs cursor-pointer"
+                >
+                  Değişiklikleri Kaydet
+                </button>
+              </div>
             </div>
           </div>
         </div>

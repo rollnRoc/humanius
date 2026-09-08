@@ -1251,6 +1251,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                   />
                   <InfoSatiri icon={Phone} label="Telefon" value={selectedEmp.phone || '-'} />
                   <InfoSatiri icon={Mail} label="E-posta" value={selectedEmp.email || '-'} />
+                  <InfoSatiri icon={MapPin} label="İl / İlçe" value={[selectedEmp.ilce, selectedEmp.il].filter(Boolean).join(' / ') || '-'} />
                   <InfoSatiri icon={MapPin} label="Adres" value={selectedEmp.address || '-'} />
                   <InfoSatiri
                     icon={Shield}

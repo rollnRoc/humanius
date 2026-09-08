@@ -4,7 +4,9 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Humanius - Kapsamlı İnsan Kaynakları Yönetim Sistemi: Bordro, PDKS, İzin, Performans, ATS ve AI Analitik." />
-    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta name="theme-color" content="#4f46e5" />
     <title>Humanius — İK Yönetim Sistemi</title>
     <!-- Material Symbols — AI Tarayıcı bileşeni için gerekli -->
@@ -23,13 +25,29 @@
     <script>
       (function () {
         var rootMounted = false;
+
+        function cleanupFallback() {
+          var box = document.getElementById('app-fallback-box');
+          if (box) box.remove();
+        }
+
         var timer = setTimeout(function () {
-          if (rootMounted) return;
+          var root = document.getElementById('root');
+          if (rootMounted || (root && root.childElementCount > 0)) {
+            cleanupFallback();
+            return;
+          }
+          if (document.getElementById('app-fallback-box')) return;
           var box = document.createElement('div');
-          box.style.cssText = 'position:fixed;inset:16px;z-index:99999;padding:16px;border:1px solid #f5c2c7;background:#f8d7da;color:#842029;border-radius:12px;font-family:Arial,sans-serif;line-height:1.5';
-          box.innerHTML = '<strong>Uygulama yuklenemedi.</strong><br/>Muhtemel neden: JS/CSS dosyalari (assets) yuklenemiyor veya sunucu yanlis MIME donuyor.<br/>Lutfen tarayici Console ve Network sekmesinde ilk hatayi kontrol edin.';
+          box.id = 'app-fallback-box';
+          box.style.cssText = 'position:fixed;bottom:16px;right:16px;max-width:420px;z-index:99999;padding:16px 20px;border:1px solid #f5c2c7;background:#fff5f5;color:#842029;border-radius:12px;font-family:system-ui,-apple-system,sans-serif;line-height:1.5;box-shadow:0 10px 25px -5px rgba(0,0,0,0.1),0 8px 10px -6px rgba(0,0,0,0.1)';
+          box.innerHTML = '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">' +
+            '<div><strong style="font-size:14px;">Uygulama yükleniyor veya gecikiyor</strong>' +
+            '<p style="font-size:12px;margin:6px 0 0;color:#5c1d24;">Geliştirme derlemesi veya varlıklar hazırlanıyor olabilir. Açılmazsa sayfayı yenileyebilirsiniz.</p></div>' +
+            '<button onclick="this.closest(\'#app-fallback-box\').remove()" style="background:none;border:none;color:#842029;cursor:pointer;font-size:18px;line-height:1;padding:0;">&times;</button>' +
+            '</div>';
           document.body.appendChild(box);
-        }, 3500);
+        }, 12000);
 
         window.addEventListener('error', function (event) {
           if (!event || !event.target) return;
@@ -44,10 +62,19 @@
           if (root && root.childElementCount > 0) {
             rootMounted = true;
             clearTimeout(timer);
+            cleanupFallback();
             observer.disconnect();
           }
         });
         observer.observe(document.body, { childList: true, subtree: true });
+
+        // Initial check in case React mounted before observer attached
+        var initialRoot = document.getElementById('root');
+        if (initialRoot && initialRoot.childElementCount > 0) {
+          rootMounted = true;
+          clearTimeout(timer);
+          cleanupFallback();
+        }
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>

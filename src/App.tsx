@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Bell, X, Megaphone, Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { canApproveLeave, type AppRole } from './auth/roles';
 import { LanguageProvider } from './contexts/LanguageContext';
 import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
@@ -48,6 +49,7 @@ import { leaveTypeService } from './services/leaveTypeService';
 import { shiftService } from './services/shiftService';
 import AIBrowserPage from './browser/AIBrowserPage';
 import GuideContextMenu from './components/GuideContextMenu';
+import { getEmployeeLocationMeta, parseAddressCity, saveEmployeeLocationMeta } from './utils/employeeLocationMeta';
 
 const PDKSYonetimi = lazyWithRetry(() => import('./components/PDKSYonetimi'));
 const PerformansYonetimi = lazyWithRetry(() => import('./components/PerformansYonetimi'));
@@ -344,6 +346,12 @@ const AppInner: React.FC = () => {
         const cleanEmpName = empName.replace(/[\s-]/g, '');
         const resolvedCompName = companyMap.get(e.company_id) || (profile?.company_id === e.company_id ? (profile as any)?.company_name : null) || 'Şirket';
         const resolvedRole = profileRoleMap.get(e.id) ?? profileRoleMap.get(empEmail) ?? profileRoleMap.get(empName) ?? profileRoleMap.get(cleanEmpName) ?? e.role ?? 'employee';
+
+        const locMeta = getEmployeeLocationMeta(e.id, empEmail);
+        const parsedAddr = parseAddressCity(e.address);
+        const resolvedIl = (e.il && String(e.il).trim()) || locMeta.il || parsedAddr.il || '';
+        const resolvedIlce = (e.ilce && String(e.ilce).trim()) || locMeta.ilce || parsedAddr.ilce || '';
+
         return {
           id: e.id,
           company_id: e.company_id,
@@ -365,6 +373,8 @@ const AppInner: React.FC = () => {
           birthDate: e.birth_date,
           birth_date: e.birth_date,
           address: e.address ?? '',
+          il: resolvedIl,
+          ilce: resolvedIlce,
           avatar_url: e.avatar_url,
           skills: e.skills ?? [],
           medeni_durum: e.medeni_durum,
@@ -739,12 +749,13 @@ const AppInner: React.FC = () => {
     ? izinHaklari.find((hak) => hak.employeeId === currentEmployeeMatch.id)
     : undefined;
 
-  const currentEmployeeIzinTalepleri = currentEmployeeMatch
+  const currentEmployeeAllIzinTalepleri = currentEmployeeMatch
     ? izinTalepleri
         .filter((talep) => talep.employeeId === currentEmployeeMatch.id)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 3)
     : [];
+
+  const currentEmployeeIzinTalepleri = currentEmployeeAllIzinTalepleri.slice(0, 3);
 
   // ── Employee CRUD ───────────────────────────────────────────────────────────
   const handleEmployeeClick = (emp: Employee) => {
@@ -917,6 +928,8 @@ const AppInner: React.FC = () => {
           phone: emp.phone ?? '',
           email: targetEmail || emp.email,
           address: emp.address ?? '',
+          il: emp.il ?? '',
+          ilce: emp.ilce ?? '',
           skills: emp.skills ?? [],
           employee_type: emp.employeeType ?? emp.employee_type ?? 'normal',
           tc_no: emp.tc_no ?? '',
@@ -945,19 +958,25 @@ const AppInner: React.FC = () => {
             }
           } catch {}
         }
+        saveEmployeeLocationMeta(emp.id, targetEmail || emp.email, emp.il, emp.ilce);
       } catch (clientEmpErr) {
         console.warn('İstemci personel güncelleme uyarısı:', clientEmpErr);
       }
 
       // Ekranda değişikliklerin anında görünmesi için local state'i güncelle
       setEmployees(prev => {
-        if (isNewEmployee) return [emp, ...prev];
-        return prev.map(item => item.id === emp.id ? {
-          ...item,
+        const fullEmp = {
           ...emp,
           email: targetEmail || emp.email,
-          joinDate: cleanJoinDate || item.joinDate,
-          join_date: cleanJoinDate || item.join_date,
+          il: emp.il || '',
+          ilce: emp.ilce || '',
+          joinDate: cleanJoinDate || emp.joinDate,
+          join_date: cleanJoinDate || emp.join_date,
+        };
+        if (isNewEmployee) return [fullEmp, ...prev];
+        return prev.map(item => item.id === emp.id ? {
+          ...item,
+          ...fullEmp,
         } : item);
       });
 
@@ -1132,6 +1151,14 @@ const AppInner: React.FC = () => {
 
   const handleIzinUpdate = async (updatedTalep: Partial<IzinTalebi>) => {
     if (!editingIzin) return;
+    if (
+      (updatedTalep.durum === 'onaylandi' || updatedTalep.durum === 'reddedildi') &&
+      updatedTalep.durum !== editingIzin.durum &&
+      !canApproveLeave(effectiveAppRole as AppRole)
+    ) {
+      alert('İzin durumunu onaylandı veya reddedildi olarak güncelleme yetkisi yalnızca İK ve Şirket Yöneticisine aittir.');
+      return;
+    }
     try {
       await izinService.updateTalep(editingIzin.id, {
         izin_turu: updatedTalep.izinTuru,
@@ -1170,6 +1197,10 @@ const AppInner: React.FC = () => {
   const handleIzinOnay = async (id: string) => {
     if (!profile?.id) {
       alert('Kullanıcı bilgisi bulunamadı.');
+      return;
+    }
+    if (!canApproveLeave(effectiveAppRole as AppRole)) {
+      alert('İzin onaylama yetkisi sadece İnsan Kaynakları ve Şirket Yöneticilerine aittir. Birim müdürleri izin onaylayamaz.');
       return;
     }
     try {
@@ -1215,11 +1246,13 @@ const AppInner: React.FC = () => {
     }
   };
 
-
-
   const handleIzinRed = async (id: string) => {
     if (!profile?.id) {
       alert('Kullanıcı bilgisi bulunamadı.');
+      return;
+    }
+    if (!canApproveLeave(effectiveAppRole as AppRole)) {
+      alert('İzin reddetme yetkisi sadece İnsan Kaynakları ve Şirket Yöneticilerine aittir. Birim müdürleri izin reddedemez.');
       return;
     }
     const neden = prompt('Red nedenini giriniz (İsteğe bağlı):');
@@ -1599,7 +1632,7 @@ const AppInner: React.FC = () => {
             profile={profile}
             currentEmployeeMatch={currentEmployeeMatch}
             currentEmployeeIzinHakki={currentEmployeeIzinHakki}
-            currentEmployeeIzinTalepleri={currentEmployeeIzinTalepleri}
+            currentEmployeeIzinTalepleri={currentEmployeeAllIzinTalepleri}
             effectiveAppRole={effectiveAppRole}
             onNewTalep={() => setShowIzinForm(true)}
             onOpenHakedisModal={(empId?: string) => {
@@ -1632,6 +1665,9 @@ const AppInner: React.FC = () => {
             izinTalepleri={izinTalepleri}
             departments={departments}
             onNavigateToPuantaj={() => setCurrentView('puantaj')}
+            selectedCompany={selectedCompany}
+            onCompanyChange={setSelectedCompany}
+            companies={companies}
           />
         )}
         {currentView === 'puantaj' && (
@@ -2051,7 +2087,7 @@ const AppInner: React.FC = () => {
 
       {showIzinForm && (
         <IzinTalepForm
-          employees={employees}
+          employees={isEmployeeOnly && currentEmployeeMatch ? [currentEmployeeMatch] : employees}
           izinHaklari={izinHaklari}
           izinTalepleri={izinTalepleri}
           onSubmit={handleIzinSubmit}

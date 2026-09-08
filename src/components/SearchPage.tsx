@@ -205,6 +205,8 @@ export const SearchPage: React.FC<SearchPageProps> = ({
         { label: 'E-posta',   value: safe(emp.email) },
         { label: 'Telefon',   value: safe(emp.phone) },
         { label: 'Adres',     value: safe(emp.address) },
+        { label: 'İl',        value: safe(emp.il) },
+        { label: 'İlçe',      value: safe(emp.ilce) },
         { label: 'Sicil No',  value: safe(emp.sicil_no) },
         { label: 'TC No',     value: safe(emp.tc_no) },
         { label: 'Durum',     value: statusLabel },

@@ -62,6 +62,8 @@ export interface Employee {
   birthDate?: string;
   birth_date?: string;
   address: string;
+  il?: string;
+  ilce?: string;
   avatar_url?: string | null;
   skills: string[];
   medeni_durum?: 'bekar' | 'evli';
@@ -92,6 +94,8 @@ export interface CompanyOfficeLocation {
   lng: number;
   radius_meters: number;
   address?: string;
+  il?: string;
+  ilce?: string;
   is_default?: boolean;
   created_at?: string;
   updated_at?: string;

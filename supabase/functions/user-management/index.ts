@@ -325,7 +325,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (operation === 'save_company_location') {
-      const { id, company_id, name, lat, lng, radius_meters, address, is_default } = payload;
+      const { id, company_id, name, lat, lng, radius_meters, address, il, ilce, is_default } = payload;
       if (!company_id || !name || lat == null || lng == null) {
         return jsonResponse({ error: 'company_id, name, lat ve lng alanları zorunludur' }, 400);
       }
@@ -336,6 +336,8 @@ Deno.serve(async (req: Request) => {
         lng: Number(lng),
         radius_meters: Number(radius_meters || 200),
         address: String(address || '').trim(),
+        il: il ? String(il).trim() : null,
+        ilce: ilce ? String(ilce).trim() : null,
         is_default: Boolean(is_default),
         updated_at: new Date().toISOString(),
       };

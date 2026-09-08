@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Clock,
   History,
@@ -23,6 +23,7 @@ import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
 import { formatIzinTuru } from '../utils/izinCalculations';
 import { IzinWorkflow } from './IzinWorkflow';
+import { canApproveLeave } from '../auth/roles';
 import IzinOzetKartlari from './IzinOzetKartlari';
 import IzinTakvimi from './IzinTakvimi';
 
@@ -95,22 +96,49 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
   onUpdateHak,
 }) => {
   const isAuthorized = !['employee', 'user'].includes(effectiveAppRole);
+  const canApprove = canApproveLeave(effectiveAppRole as any);
 
-  // Ayrılmış talepler
+  // Normal personel sadece kendisine ait talepleri görebilir, yetkili roller tüm şirket taleplerini görebilir
+  const userLeaves = useMemo(() => {
+    if (isAuthorized) return izinTalepleri;
+    return izinTalepleri.filter((talep) => {
+      if (currentEmployeeMatch && talep.employeeId === currentEmployeeMatch.id) return true;
+      const profileEmail = String(profile?.email ?? '').trim().toLowerCase();
+      const empEmail = String(talep.employees?.email ?? '').trim().toLowerCase();
+      if (profileEmail && empEmail && profileEmail === empEmail) return true;
+      const profileName = String(profile?.full_name ?? '').trim().toLowerCase();
+      const talepEmpName = String(talep.employeeName ?? '').trim().toLowerCase();
+      if (profileName && talepEmpName) {
+        if (profileName === talepEmpName) return true;
+        if (profileName.replace(/[\s-]/g, '') === talepEmpName.replace(/[\s-]/g, '')) return true;
+      }
+      return false;
+    });
+  }, [isAuthorized, izinTalepleri, currentEmployeeMatch, profile]);
+
+  // Ayrılmış talepler (personel için yalnızca kendi talepleri)
   const bekleyenler = useMemo(() => {
-    return izinTalepleri.filter((t) => t.durum === 'beklemede');
-  }, [izinTalepleri]);
+    return userLeaves.filter((t) => t.durum === 'beklemede');
+  }, [userLeaves]);
 
   const sonIslemler = useMemo(() => {
-    return izinTalepleri
+    return userLeaves
       .filter((t) => t.durum !== 'beklemede')
       .sort((a, b) => (b.baslangicTarihi || '').localeCompare(a.baslangicTarihi || ''));
-  }, [izinTalepleri]);
+  }, [userLeaves]);
 
-  // Varsayılan sekme: Onay bekleyen varsa oraya, yoksa özet paneline
+  // Varsayılan sekme: Normal personelde her zaman 'onay-bekleyen', yöneticide bekleyen varsa 'onay-bekleyen', yoksa 'ozet-paneli'
   const [activeTab, setActiveTab] = useState<IzinTabId>(() => {
-    return bekleyenler.length > 0 && isAuthorized ? 'onay-bekleyen' : 'ozet-paneli';
+    if (!isAuthorized) return 'onay-bekleyen';
+    return bekleyenler.length > 0 ? 'onay-bekleyen' : 'ozet-paneli';
   });
+
+  // Güvenlik koruması: Normal personel yetkisiz bir sekmeye erişemez
+  useEffect(() => {
+    if (!isAuthorized && !['onay-bekleyen', 'son-islemler'].includes(activeTab)) {
+      setActiveTab('onay-bekleyen');
+    }
+  }, [isAuthorized, activeTab]);
 
   // Tab 2 (Son İşlemler) Filtreleri
   const [sonIslemSearch, setSonIslemSearch] = useState('');
@@ -151,45 +179,76 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
   // Benzersiz izin türleri listesi
   const availableIzinTurleri = useMemo(() => {
     const set = new Set<string>();
-    izinTalepleri.forEach((t) => {
+    userLeaves.forEach((t) => {
       if (t.izinTuru) set.add(t.izinTuru);
     });
     return Array.from(set);
-  }, [izinTalepleri]);
+  }, [userLeaves]);
 
-  const tabs: { id: IzinTabId; label: string; icon: React.ReactNode; badge?: number; badgeColor?: string }[] = [
-    {
-      id: 'onay-bekleyen',
-      label: 'Onay Bekleyen Talepler',
-      icon: <Clock className="w-4 h-4" />,
-      badge: bekleyenler.length,
-      badgeColor: bekleyenler.length > 0 ? 'bg-amber-500 text-white animate-pulse' : 'bg-gray-100 text-gray-600',
-    },
-    {
-      id: 'son-islemler',
-      label: 'Son İşlemler / Kullanılmış İzinler',
-      icon: <History className="w-4 h-4" />,
-      badge: sonIslemler.length,
-      badgeColor: 'bg-slate-100 text-slate-700',
-    },
-    {
-      id: 'ozet-paneli',
-      label: 'Özet Paneli',
-      icon: <LayoutDashboard className="w-4 h-4" />,
-    },
-    {
-      id: 'personel-durumu',
-      label: 'Personel İzin Durumu',
-      icon: <Users className="w-4 h-4" />,
-      badge: employees.filter((e) => e.status === 'active' || e.status === 'onLeave').length,
-      badgeColor: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
-    },
-    {
-      id: 'takvim',
-      label: 'İzin Takvimi',
-      icon: <Calendar className="w-4 h-4" />,
-    },
-  ];
+  // Kişisel izin bakiyesi (yedek eşleme ile)
+  const effectiveHak = useMemo(() => {
+    if (currentEmployeeIzinHakki) return currentEmployeeIzinHakki;
+    if (currentEmployeeMatch) {
+      return izinHaklari.find((h) => h.employeeId === currentEmployeeMatch.id);
+    }
+    return undefined;
+  }, [currentEmployeeIzinHakki, currentEmployeeMatch, izinHaklari]);
+
+  // Sekmeler: Normal personel için yalnızca 'Bekleyen Taleplerim' ve 'İzin Geçmişim'
+  const tabs: { id: IzinTabId; label: string; icon: React.ReactNode; badge?: number; badgeColor?: string }[] = useMemo(() => {
+    if (!isAuthorized) {
+      return [
+        {
+          id: 'onay-bekleyen',
+          label: 'Bekleyen Taleplerim',
+          icon: <Clock className="w-4 h-4" />,
+          badge: bekleyenler.length,
+          badgeColor: bekleyenler.length > 0 ? 'bg-amber-500 text-white animate-pulse' : 'bg-gray-100 text-gray-600',
+        },
+        {
+          id: 'son-islemler',
+          label: 'İzin Geçmişim',
+          icon: <History className="w-4 h-4" />,
+          badge: sonIslemler.length,
+          badgeColor: 'bg-slate-100 text-slate-700',
+        },
+      ];
+    }
+
+    return [
+      {
+        id: 'onay-bekleyen',
+        label: 'Onay Bekleyen Talepler',
+        icon: <Clock className="w-4 h-4" />,
+        badge: bekleyenler.length,
+        badgeColor: bekleyenler.length > 0 ? 'bg-amber-500 text-white animate-pulse' : 'bg-gray-100 text-gray-600',
+      },
+      {
+        id: 'son-islemler',
+        label: 'Son İşlemler / Kullanılmış İzinler',
+        icon: <History className="w-4 h-4" />,
+        badge: sonIslemler.length,
+        badgeColor: 'bg-slate-100 text-slate-700',
+      },
+      {
+        id: 'ozet-paneli',
+        label: 'Özet Paneli',
+        icon: <LayoutDashboard className="w-4 h-4" />,
+      },
+      {
+        id: 'personel-durumu',
+        label: 'Personel İzin Durumu',
+        icon: <Users className="w-4 h-4" />,
+        badge: employees.filter((e) => e.status === 'active' || e.status === 'onLeave').length,
+        badgeColor: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+      },
+      {
+        id: 'takvim',
+        label: 'İzin Takvimi',
+        icon: <Calendar className="w-4 h-4" />,
+      },
+    ];
+  }, [isAuthorized, bekleyenler.length, sonIslemler.length, employees]);
 
   return (
     <div className="space-y-5">
@@ -201,9 +260,13 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900 leading-tight">İzin Yönetimi</h2>
+              <h2 className="text-xl font-bold text-gray-900 leading-tight">
+                {isAuthorized ? 'İzin Yönetimi' : 'İzinlerim ve Taleplerim'}
+              </h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                İzin onay süreçleri, çalışan hak edişleri, özet göstergeler ve takvim planlaması
+                {isAuthorized
+                  ? 'İzin onay süreçleri, çalışan hak edişleri, özet göstergeler ve takvim planlaması'
+                  : 'Kişisel izin bakiyeniz, onay sürecindeki talepleriniz ve geçmiş izin kayıtlarınız'}
               </p>
             </div>
           </div>
@@ -241,6 +304,55 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
         </div>
       </div>
 
+      {/* ── Normal Personel İçin Kişisel İzin Bakiyesi Kartı ── */}
+      {!isAuthorized && (
+        <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30 p-5 shadow-xs">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">
+                <Briefcase className="w-3.5 h-3.5" />
+                Kişisel İzin Bakiyesi
+              </span>
+              <h3 className="mt-1.5 text-lg font-bold text-gray-900">
+                {profile?.full_name || currentEmployeeMatch?.name || 'Personel'}
+              </h3>
+              <p className="mt-0.5 text-xs text-gray-500">
+                {currentEmployeeMatch
+                  ? `${currentEmployeeMatch.company || ''} ${currentEmployeeMatch.department ? '• ' + currentEmployeeMatch.department : ''} ${currentEmployeeMatch.position ? '• ' + currentEmployeeMatch.position : ''}`
+                  : 'Personel Profili'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full sm:w-auto">
+              <div className="rounded-xl bg-white p-3 border border-gray-200/80 shadow-2xs">
+                <p className="text-[11px] font-semibold text-gray-500">Toplam Hak</p>
+                <p className="text-xl font-bold text-gray-900 mt-0.5">
+                  {effectiveHak?.toplamHak ?? 14} <span className="text-xs font-normal text-gray-500">gün</span>
+                </p>
+              </div>
+              <div className="rounded-xl bg-white p-3 border border-gray-200/80 shadow-2xs">
+                <p className="text-[11px] font-semibold text-gray-500">Kullanılan İzin</p>
+                <p className="text-xl font-bold text-indigo-700 mt-0.5">
+                  {effectiveHak?.kullanilanIzin ?? 0} <span className="text-xs font-normal text-gray-500">gün</span>
+                </p>
+              </div>
+              <div className="rounded-xl bg-white p-3 border border-emerald-300 bg-emerald-50/40 shadow-2xs">
+                <p className="text-[11px] font-bold text-emerald-800">Kalan İzin</p>
+                <p className="text-xl font-extrabold text-emerald-700 mt-0.5">
+                  {effectiveHak?.kalanIzin ?? 14} <span className="text-xs font-normal text-emerald-600">gün</span>
+                </p>
+              </div>
+              <div className="rounded-xl bg-white p-3 border border-gray-200/80 shadow-2xs">
+                <p className="text-[11px] font-semibold text-gray-500">Mazeret İzni</p>
+                <p className="text-xl font-bold text-slate-700 mt-0.5">
+                  {effectiveHak?.mazeretHak ?? 0} <span className="text-xs font-normal text-gray-500">gün</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── TabPane Sekme Çubuğu ── */}
       <div className="bg-white p-1.5 rounded-2xl border border-gray-200 shadow-xs">
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
@@ -277,22 +389,36 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
       {/* ── Tab 1: Onay Bekleyen Talepler ── */}
       {activeTab === 'onay-bekleyen' && (
         <div className="space-y-4 animate-fade-in">
+          {/* İK / Şirket Yöneticisi Yetki Bilgilendirmesi (Müdürler için, normal personele gösterilmez) */}
+          {isAuthorized && !canApprove && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start sm:items-center gap-3 text-amber-900 text-xs shadow-xs">
+              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5 sm:mt-0" />
+              <div>
+                <span className="font-bold text-amber-950">Onay Yetkisi Bilgilendirmesi:</span> İzin onaylama ve reddetme yetkisi şirket politikası gereğince yalnızca <strong>İnsan Kaynakları (İK)</strong> ve <strong>Şirket Yöneticisi</strong> rollerine aittir. Birim müdürleri talepleri yalnızca inceleme yetkisine sahiptir.
+              </div>
+            </div>
+          )}
+
           {/* Workflow Süreci Bilgi Bannerı */}
           <div className="bg-gradient-to-r from-indigo-50 via-blue-50 to-indigo-50 rounded-2xl border border-indigo-100 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-indigo-700" />
-                <h3 className="text-sm font-bold text-indigo-900">Onay Süreci ve Akış Aşamaları</h3>
+                <h3 className="text-sm font-bold text-indigo-900">
+                  {isAuthorized ? 'Onay Süreci ve Akış Aşamaları' : 'İzin Talep Onay Süreciniz'}
+                </h3>
               </div>
               <span className="text-xs font-semibold text-indigo-700 bg-white/80 px-2.5 py-0.5 rounded-full border border-indigo-200">
-                {bekleyenler.length} Talep Onay Bekliyor
+                {isAuthorized
+                  ? `${bekleyenler.length} Talep Onay Bekliyor`
+                  : `${bekleyenler.length} Talebiniz Onay Bekliyor`}
               </span>
             </div>
 
             <div className="flex items-center justify-between pt-1 max-w-2xl">
               {[
-                { label: '1. Çalışan Talebi', sub: 'Talep Oluşturuldu' },
-                { label: '2. Yönetici Değerlendirmesi', sub: 'Onay / Red Bekleniyor' },
+                { label: isAuthorized ? '1. Çalışan Talebi' : '1. Talebiniz', sub: 'Oluşturuldu' },
+                { label: isAuthorized ? '2. İK / Şirket Yöneticisi Onayı' : '2. Yönetici Değerlendirmesi', sub: isAuthorized ? 'Onay / Red Bekleniyor' : 'İnceleme ve Karar' },
                 { label: '3. Bordro ve Takvim', sub: 'Otomatik Güncellenir' },
               ].map((adim, i, arr) => (
                 <React.Fragment key={i}>
@@ -312,7 +438,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Bekleyen taleplerde personel veya tür ara..."
+                placeholder={isAuthorized ? 'Bekleyen taleplerde personel veya tür ara...' : 'Bekleyen taleplerimde ara...'}
                 value={bekleyenSearch}
                 onChange={(e) => setBekleyenSearch(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 font-medium"
@@ -327,12 +453,18 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
                 <CheckCircle2 className="w-7 h-7" />
               </div>
               <h4 className="text-base font-bold text-gray-900">
-                {bekleyenSearch ? 'Aramaya Uygun Onay Bekleyen Talep Bulunamadı' : 'Harika! Onay Bekleyen Talep Bulunmuyor'}
+                {bekleyenSearch
+                  ? 'Aramaya Uygun Onay Bekleyen Talep Bulunamadı'
+                  : isAuthorized
+                  ? 'Harika! Onay Bekleyen Talep Bulunmuyor'
+                  : 'Onay Bekleyen İzin Talebiniz Bulunmuyor'}
               </h4>
               <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
                 {bekleyenSearch
                   ? 'Farklı bir arama kelimesi deneyebilir veya aramayı temizleyebilirsiniz.'
-                  : 'Şu anda değerlendirilmeyi bekleyen herhangi bir izin talebi yok. Yeni bir talep geldiğinde burada listelenecektir.'}
+                  : isAuthorized
+                  ? 'Şu anda değerlendirilmeyi bekleyen herhangi bir izin talebi yok. Yeni bir talep geldiğinde burada listelenecektir.'
+                  : 'Şu anda onay sürecinde bekleyen bir izin talebiniz bulunmamaktadır. İhtiyaç halinde yeni izin talebi oluşturabilirsiniz.'}
               </p>
               <div className="mt-4 flex justify-center gap-2">
                 {bekleyenSearch && (
@@ -343,11 +475,20 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
                     Aramayı Temizle
                   </button>
                 )}
+                {!isAuthorized && (
+                  <button
+                    type="button"
+                    onClick={onNewTalep}
+                    className="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-2xs"
+                  >
+                    + Yeni İzin Talebi
+                  </button>
+                )}
                 <button
                   onClick={() => setActiveTab('son-islemler')}
                   className="px-3.5 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
                 >
-                  Son İşlemleri İncele →
+                  {isAuthorized ? 'Son İşlemleri İncele →' : 'İzin Geçmişimi İncele →'}
                 </button>
               </div>
             </div>
@@ -357,11 +498,11 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
                 <IzinWorkflow
                   key={talep.id}
                   talep={talep}
-                  onOnay={onOnay}
-                  onRed={onRed}
+                  onOnay={canApprove ? onOnay : undefined}
+                  onRed={canApprove ? onRed : undefined}
                   onEdit={onEdit}
                   onDelete={onDelete}
-                  talepleri={izinTalepleri}
+                  talepleri={userLeaves}
                 />
               ))}
             </div>
@@ -444,7 +585,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Personel veya açıklama ara..."
+                  placeholder={isAuthorized ? "Personel veya açıklama ara..." : "İzin türü veya açıklama ara..."}
                   value={sonIslemSearch}
                   onChange={(e) => setSonIslemSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 font-medium"
@@ -465,9 +606,13 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
           {filteredSonIslemler.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-xs">
               <History className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <h4 className="text-base font-bold text-gray-900">İşlem Kaydı Bulunamadı</h4>
+              <h4 className="text-base font-bold text-gray-900">
+                {isAuthorized ? 'İşlem Kaydı Bulunamadı' : 'Henüz İzin Kaydınız Bulunmuyor'}
+              </h4>
               <p className="text-xs text-gray-500 mt-1">
-                Filtrelere veya arama kriterlerine uygun tamamlanmış izin işlemi bulunmamaktadır.
+                {isAuthorized
+                  ? 'Filtrelere veya arama kriterlerine uygun tamamlanmış izin işlemi bulunmamaktadır.'
+                  : 'Filtrelere uygun onaylanmış, reddedilmiş veya tamamlanmış bir izin kaydınız bulunmuyor.'}
               </p>
               {(sonIslemSearch || sonIslemStatusFilter !== 'all' || sonIslemTurFilter !== 'all') && (
                 <button
@@ -562,7 +707,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
       )}
 
       {/* ── Tab 3: Özet Paneli ── */}
-      {activeTab === 'ozet-paneli' && (
+      {isAuthorized && activeTab === 'ozet-paneli' && (
         <div className="space-y-5 animate-fade-in">
           {/* Aktif Kullanıcı İzin Özeti Kartı */}
           <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-5 shadow-xs">
@@ -580,11 +725,11 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
               <div className="grid grid-cols-2 gap-3 min-w-[240px]">
                 <div className="rounded-xl bg-white px-3.5 py-2.5 border border-indigo-100 shadow-xs">
                   <p className="text-[11px] font-semibold text-gray-500">Kullanılan İzin</p>
-                  <p className="text-xl font-bold text-indigo-900">{currentEmployeeIzinHakki?.kullanilanIzin ?? 0} <span className="text-xs font-normal text-gray-500">gün</span></p>
+                  <p className="text-xl font-bold text-indigo-900">{effectiveHak?.kullanilanIzin ?? 0} <span className="text-xs font-normal text-gray-500">gün</span></p>
                 </div>
                 <div className="rounded-xl bg-white px-3.5 py-2.5 border border-indigo-100 shadow-xs">
                   <p className="text-[11px] font-semibold text-gray-500">Kalan İzin</p>
-                  <p className="text-xl font-bold text-emerald-700">{currentEmployeeIzinHakki?.kalanIzin ?? 0} <span className="text-xs font-normal text-gray-500">gün</span></p>
+                  <p className="text-xl font-bold text-emerald-700">{effectiveHak?.kalanIzin ?? 0} <span className="text-xs font-normal text-gray-500">gün</span></p>
                 </div>
               </div>
             </div>
@@ -641,7 +786,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
       )}
 
       {/* ── Tab 4: Personel İzin Durumu ── */}
-      {activeTab === 'personel-durumu' && (
+      {isAuthorized && activeTab === 'personel-durumu' && (
         <div className="space-y-4 animate-fade-in">
           <IzinOzetKartlari
             employees={employees}
@@ -657,7 +802,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
       )}
 
       {/* ── Tab 5: Takvim ── */}
-      {activeTab === 'takvim' && (
+      {isAuthorized && activeTab === 'takvim' && (
         <div className="space-y-4 animate-fade-in">
           <IzinTakvimi izinTalepleri={izinTalepleri} employees={employees} />
         </div>

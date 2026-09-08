@@ -22,7 +22,7 @@ interface WorkflowAdim {
 
 const WORKFLOW_ADIMLARI: WorkflowAdim[] = [
   { id: 'talep', label: 'Çalışan Talebi', altLabel: 'Oluşturuldu', icon: <User className="w-4 h-4" /> },
-  { id: 'yonetici', label: 'Yönetici Onayı', altLabel: 'Onay Bekliyor', icon: <UserCheck className="w-4 h-4" /> },
+  { id: 'yonetici', label: 'İK / Şirket Yöneticisi Onayı', altLabel: 'Onay Bekliyor', icon: <UserCheck className="w-4 h-4" /> },
   { id: 'bordro', label: 'Bordro Güncelleme', altLabel: 'Sistem', icon: <CreditCard className="w-4 h-4" /> },
 ];
 
@@ -247,6 +247,15 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({ talep, onOnay, onRed, onEdi
             )}
           </div>
         )}
+
+        {talep.durum === 'beklemede' && !onOnay && !onRed && (
+          <div className="ml-auto">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              Onay Yetkisi: İK / Şirket Yöneticisi
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Red nedeni */}
@@ -278,7 +287,7 @@ export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({ talepl
       <div>
         <h3 className="text-base font-bold text-gray-800">Onay Bekleyen Talepler</h3>
         <p className="text-xs text-gray-500 mt-0.5">
-          Çalışan Talebi → Yönetici Onayı → Bordro Güncelleme
+          Çalışan Talebi → İK / Şirket Yöneticisi Onayı → Bordro Güncelleme
         </p>
       </div>
 
@@ -287,7 +296,7 @@ export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({ talepl
         <div className="flex items-center justify-between">
           {[
             { label: 'Çalışan', sub: 'Talep Oluşturur' },
-            { label: 'Yönetici', sub: 'Onaylar' },
+            { label: 'İK / Yönetici', sub: 'Onaylar' },
             { label: 'Bordro', sub: 'Otomatik Güncelleme' },
           ].map((adim, i, arr) => (
             <React.Fragment key={i}>

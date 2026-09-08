@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
-import { canAccessView, normalizeRole, type AppRole } from '../auth/roles';
+import { canAccessView, normalizeRole, canApproveLeave, type AppRole } from '../auth/roles';
 import type { View } from '../types';
 import { demoService } from '../services/demoService';
 
@@ -105,6 +105,7 @@ interface AuthContextType {
   isHr: boolean;
   isManager: boolean;
   isUser: boolean;
+  canApproveLeave: boolean;
   loading: boolean;
   isDemo: boolean;
   startDemoSession: () => void;
@@ -528,6 +529,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isHr: appRole === 'hr',
     isManager: appRole === 'manager',
     isUser: appRole === 'user' || appRole === 'employee',
+    canApproveLeave: canApproveLeave(appRole),
     loading,
     isDemo,
     startDemoSession,

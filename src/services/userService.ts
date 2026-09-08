@@ -315,7 +315,6 @@ export const userService = {
       const empUpdates: Record<string, any> = {};
       if (updates.full_name) empUpdates.name = updates.full_name;
       if (updates.company_id) empUpdates.company_id = updates.company_id;
-      if (updates.role) empUpdates.role = updates.role;
       
       if (Object.keys(empUpdates).length > 0) {
         if (targetId) {

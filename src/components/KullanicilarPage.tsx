@@ -737,7 +737,8 @@ const KullanicilarPage: React.FC = () => {
           <p className="text-sm text-gray-500 mt-0.5">Sisteme kayıtlı tüm kullanıcıları ve erişim hesaplarını yönetin</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          {/* Personellerle Eşitle butonu geçici olarak gizlendi */}
+          {/* <button
             onClick={handleSyncWithEmployees}
             disabled={syncing}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-bold transition-all shadow-xs disabled:opacity-50"
@@ -745,7 +746,7 @@ const KullanicilarPage: React.FC = () => {
           >
             <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
             <span>{syncing ? 'Eşitleniyor...' : '🔄 Personellerle Eşitle'}</span>
-          </button>
+          </button> */}
           <button
             onClick={loadData}
             className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"

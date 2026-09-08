@@ -30,7 +30,8 @@ const IzinDuzenlemeForm: React.FC<IzinDuzenlemeFormProps> = ({
   onClose
 }) => {
   useScrollLock(true);
-  const { isSuperAdmin, isAdmin } = useAuth();
+  const { isSuperAdmin, isAdmin, isHr, canApproveLeave } = useAuth();
+  const canApprove = Boolean(canApproveLeave ?? (isSuperAdmin || isAdmin || isHr));
 
   const [izinTuru, setIzinTuru] = useState<IzinTuru>(talep.izinTuru || 'yillik');
   const [baslangicTarihi, setBaslangicTarihi] = useState(talep.baslangicTarihi || '');
@@ -89,6 +90,11 @@ const IzinDuzenlemeForm: React.FC<IzinDuzenlemeFormProps> = ({
     }
     if (gunSayisi <= 0) {
       alert('Gün sayısı en az 1 olmalıdır.');
+      return;
+    }
+
+    if (!canApprove && (durum === 'onaylandi' || durum === 'reddedildi') && talep.durum !== durum) {
+      alert('İzin onaylama ve reddetme yetkisi yalnızca İK ve Şirket Yöneticisine aittir. Birim müdürleri bu durumu seçemez.');
       return;
     }
 
@@ -239,13 +245,22 @@ const IzinDuzenlemeForm: React.FC<IzinDuzenlemeFormProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {IZIN_DURUMLARI.map((d) => {
                 const isSelected = durum === d.id;
+                const isRestricted = !canApprove && (d.id === 'onaylandi' || d.id === 'reddedildi');
                 return (
                   <button
                     key={d.id}
                     type="button"
-                    onClick={() => setDurum(d.id as IzinDurum)}
+                    disabled={isRestricted}
+                    title={isRestricted ? 'İzin onaylama ve reddetme yetkisi yalnızca İK ve Şirket Yöneticisindedir.' : undefined}
+                    onClick={() => {
+                      if (!isRestricted) {
+                        setDurum(d.id as IzinDurum);
+                      }
+                    }}
                     className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                      isSelected
+                      isRestricted
+                        ? 'opacity-40 cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+                        : isSelected
                         ? `${d.color} ring-2 ring-blue-500/20 shadow-xs`
                         : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
                     }`}
@@ -259,6 +274,12 @@ const IzinDuzenlemeForm: React.FC<IzinDuzenlemeFormProps> = ({
                 );
               })}
             </div>
+            {!canApprove && (
+              <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2.5 mt-2 flex items-center gap-2 font-medium">
+                <ShieldAlert className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <span>İzin onaylama ve reddetme işlemi şirket politikası gereğince yalnızca <strong>İK</strong> ve <strong>Şirket Yöneticisi</strong> tarafından yapılabilir.</span>
+              </div>
+            )}
             <p className="text-[11px] text-gray-400 mt-1.5">
               * Durum "Onaylandı" olduğunda çalışanın yıllık izin kotasından düşülür; "İptal" veya "Reddedildi" olduğunda bakiye personelin hesabına iade edilir.
             </p>

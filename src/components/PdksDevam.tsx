@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaInsert } from '../services/pdksService';
-import { companyService } from '../services/companyService';
+import { companyService, BIGSAFER_COMPANY_ID, MICI_COMPANY_ID, normalizeCompanyId } from '../services/companyService';
 import { notificationService } from '../services/notificationService';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, isNotSaturdayShift } from '../services/shiftService';
 import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { Employee, CompanyOfficeLocation } from '../types';
 import { getDevamKontroluIzinLabel } from '../utils/izinCalculations';
+import iller, { type IlIlceItem } from '../lib/illce';
 
 
 interface PdksDevamProps {
@@ -22,6 +23,9 @@ interface PdksDevamProps {
   izinTalepleri?: any[];
   departments?: any[];
   onNavigateToPuantaj?: () => void;
+  selectedCompany?: string;
+  onCompanyChange?: (company: string) => void;
+  companies?: any[];
 }
 
 // Haversine formula to compute distance between two coordinates in meters
@@ -120,9 +124,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   izinTalepleri = [],
   departments = [],
   onNavigateToPuantaj,
+  selectedCompany = 'all',
+  onCompanyChange,
+  companies = [],
 }) => {
   const { profile, appRole } = useAuth();
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
+  const isHrOrAdmin = ['superadmin', 'admin', 'hr'].includes(appRole);
 
   const [activeTab, setActiveTab] = useState<'personal' | 'team'>(isManagement ? 'team' : 'personal');
   const [searchTerm, setSearchTerm] = useState('');
@@ -136,14 +144,42 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     return Array.from(new Set(employees.map((e) => e.department).filter(Boolean))) as string[];
   }, [departments, employees]);
 
-  const currentEmployee = isManagement
-    ? (employees.find((emp) => emp.email?.toLowerCase() === profile?.email?.toLowerCase()) || 
-       employees.find((emp) => emp.name?.toLowerCase() === profile?.full_name?.toLowerCase()))
-    : employees[0];
+  const currentEmployee = (
+    employees.find((emp) => emp.email?.toLowerCase() === profile?.email?.toLowerCase()) || 
+    employees.find((emp) => emp.name?.toLowerCase() === profile?.full_name?.toLowerCase()) ||
+    employees[0]
+  );
 
   const resolvedCompanyId = React.useMemo(() => {
-    return profile?.company_id || currentEmployee?.company_id || employees[0]?.company_id || undefined;
-  }, [profile?.company_id, currentEmployee?.company_id, employees]);
+    // 1. If superadmin selected a specific company in the dropdown:
+    if (selectedCompany && selectedCompany !== 'all') {
+      const normalized = normalizeCompanyId(selectedCompany);
+      if (normalized) return normalized;
+      const targetLower = selectedCompany.toLowerCase().trim();
+      const matchedEmp = employees.find(
+        (e) => (e.company || '').toLowerCase().trim() === targetLower
+      );
+      if (matchedEmp?.company_id) return matchedEmp.company_id;
+    }
+
+    // 2. Personal tab / employee profile company
+    if (currentEmployee?.company_id) {
+      return currentEmployee.company_id;
+    }
+
+    // 3. User profile company
+    if (profile?.company_id && profile.company_id !== 'demo-company-id-9999') {
+      return profile.company_id;
+    }
+
+    // 4. Employee list fallback
+    const firstEmpWithComp = employees.find((e) => e.company_id)?.company_id;
+    if (firstEmpWithComp) {
+      return firstEmpWithComp;
+    }
+
+    return BIGSAFER_COMPANY_ID;
+  }, [selectedCompany, currentEmployee?.company_id, profile?.company_id, employees]);
 
   const [overtimeAuthMap, setOvertimeAuthMap] = useState<Record<string, boolean>>(() => {
     try {
@@ -192,8 +228,75 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const [locLng, setLocLng] = useState<string>('');
   const [locRadius, setLocRadius] = useState<number>(200);
   const [locAddress, setLocAddress] = useState('');
+  const [locIl, setLocIl] = useState('');
+  const [locIlce, setLocIlce] = useState('');
   const [locIsDefault, setLocIsDefault] = useState(false);
   const [isSavingLoc, setIsSavingLoc] = useState(false);
+
+  // 81 ilin alfabetik sıralı listesi
+  const sortedIller = useMemo(() => {
+    return [...iller].sort((a, b) => a.il.localeCompare(b.il, 'tr'));
+  }, []);
+
+  // Seçilen ile ait ilçe listesi
+  const selectedLocIlData = useMemo(() => {
+    if (!locIl) return null;
+    return iller.find((item) => item.il.toLowerCase() === locIl.toLowerCase()) || null;
+  }, [locIl]);
+
+  const availableLocIlceler = useMemo(() => {
+    if (!selectedLocIlData) return [];
+    return [...selectedLocIlData.ilceleri].sort((a, b) => a.localeCompare(b, 'tr'));
+  }, [selectedLocIlData]);
+
+  // Şehir bazlı ofis filtrelemesi:
+  // - İK ve Şirket Yöneticisi (superadmin, admin, hr) şirketin tüm ofislerini görür.
+  // - Normal personel için:
+  //   1. Personelin ili seçiliyse, SADECE kendi ilindeki ofis(ler)i görür.
+  //   2. Eğer personelin bulunduğu şehirde hiçbir ofis yoksa veya şehir seçili değilse, tüm ofisleri görür.
+  const hasCityOffices = useMemo(() => {
+    if (isHrOrAdmin) return false;
+    const userCityNorm = currentEmployee?.il ? currentEmployee.il.trim().toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '') : '';
+    if (!userCityNorm) return false;
+    return officeLocations.some((loc) => {
+      const locCityNorm = loc.il ? loc.il.trim().toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '') : '';
+      return locCityNorm === userCityNorm;
+    });
+  }, [isHrOrAdmin, currentEmployee?.il, officeLocations]);
+
+  const visibleOfficeLocations = useMemo(() => {
+    if (isHrOrAdmin) {
+      return officeLocations;
+    }
+    const userCity = currentEmployee?.il?.trim();
+    if (!userCity) {
+      return officeLocations;
+    }
+    const userCityNorm = userCity.toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
+    const cityOffices = officeLocations.filter((loc) => {
+      if (!loc.il || !loc.il.trim()) return false;
+      const locCityNorm = loc.il.trim().toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
+      return locCityNorm === userCityNorm;
+    });
+
+    // Eğer personelin olduğu şehirde kayıtlı ofis(ler) varsa SADECE onları göster;
+    // Eğer personelin olduğu şehirde hiçbir ofis yoksa personeli engellememek için tüm ofisleri göster.
+    if (cityOffices.length > 0) {
+      return cityOffices;
+    }
+    return officeLocations;
+  }, [isHrOrAdmin, officeLocations, currentEmployee?.il]);
+
+  // Visible office değiştiğinde (şehir filtresine göre) seçili ofisi güncelle
+  useEffect(() => {
+    if (visibleOfficeLocations && visibleOfficeLocations.length > 0) {
+      setSelectedOfficeId((prev) => {
+        if (prev && visibleOfficeLocations.some((l) => l.id === prev)) return prev;
+        const def = visibleOfficeLocations.find((l) => l.is_default) || visibleOfficeLocations[0];
+        return def.id;
+      });
+    }
+  }, [visibleOfficeLocations]);
   
   // Edit Employee PDKS Modal states
   const [editEmpModal, setEditEmpModal] = useState<any | null>(null);
@@ -325,8 +428,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     requestLocation();
 
     // Load company coordinates from database
-    if (profile?.company_id) {
-      companyService.getById(profile.company_id).then(comp => {
+    if (resolvedCompanyId) {
+      companyService.getById(resolvedCompanyId).then(comp => {
         if (comp) {
           setCompanyDetails(comp);
           const parsed = parseCompanyCoords(comp.address);
@@ -340,12 +443,12 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [profile?.company_id, activeUserShift?.end_time]);
+  }, [resolvedCompanyId, activeUserShift?.end_time]);
 
   // Load office locations for the company
   const loadOfficeLocations = React.useCallback(async () => {
     try {
-      const locs = await companyService.getOfficeLocations(profile?.company_id || undefined);
+      const locs = await companyService.getOfficeLocations(resolvedCompanyId);
       setOfficeLocations(locs);
       if (locs && locs.length > 0) {
         setSelectedOfficeId((prev) => {
@@ -357,7 +460,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     } catch (e) {
       console.error("Error loading office locations:", e);
     }
-  }, [profile?.company_id]);
+  }, [resolvedCompanyId]);
 
   useEffect(() => {
     loadOfficeLocations();
@@ -582,14 +685,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
   // Active selected office
   const activeOffice = React.useMemo<CompanyOfficeLocation>(() => {
-    if (officeLocations.length > 0) {
-      const found = officeLocations.find((l) => l.id === selectedOfficeId);
+    const listToUse = visibleOfficeLocations.length > 0 ? visibleOfficeLocations : officeLocations;
+    if (listToUse.length > 0) {
+      const found = listToUse.find((l) => l.id === selectedOfficeId);
       if (found) return found;
-      return officeLocations[0];
+      return listToUse.find((l) => l.is_default) || listToUse[0];
     }
     return {
       id: 'default',
-      company_id: profile?.company_id || '',
+      company_id: resolvedCompanyId || '',
       name: companyDetails?.name ? `${companyDetails.name} Ana Ofisi` : 'Şirket Merkez Ofisi',
       lat: companyCoords.lat,
       lng: companyCoords.lng,
@@ -597,7 +701,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       address: companyDetails?.address || '',
       is_default: true,
     };
-  }, [officeLocations, selectedOfficeId, companyDetails, companyCoords, geofenceRadius, profile?.company_id]);
+  }, [visibleOfficeLocations, officeLocations, selectedOfficeId, companyDetails, companyCoords, geofenceRadius, resolvedCompanyId]);
 
   // Distance to selected active office
   const distanceToSelectedOffice = React.useMemo(() => {
@@ -619,6 +723,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     setLocLng(userCoords ? userCoords.lng.toFixed(5) : '');
     setLocRadius(200);
     setLocAddress('');
+    setLocIl('');
+    setLocIlce('');
     setLocIsDefault(officeLocations.length === 0);
     setShowLocationModal(true);
   };
@@ -630,6 +736,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     setLocLng(String(loc.lng));
     setLocRadius(loc.radius_meters || 200);
     setLocAddress(loc.address || '');
+    setLocIl(loc.il || '');
+    setLocIlce(loc.ilce || '');
     setLocIsDefault(Boolean(loc.is_default));
     setShowLocationModal(true);
   };
@@ -659,7 +767,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
     try {
       setIsSavingLoc(true);
-      const targetCompanyId = profile?.company_id || 'demo-company-id-9999';
+      const targetCompanyId = resolvedCompanyId || 'demo-company-id-9999';
       const saved = await companyService.saveOfficeLocation({
         id: editingLocation?.id,
         company_id: targetCompanyId,
@@ -668,6 +776,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         lng: lngNum,
         radius_meters: Number(locRadius) || 200,
         address: locAddress.trim(),
+        il: locIl.trim(),
+        ilce: locIlce.trim(),
         is_default: locIsDefault,
       });
       await loadOfficeLocations();
@@ -688,7 +798,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const handleDeleteOffice = async (locId: string, name: string) => {
     if (!window.confirm(`"${name}" konumunu silmek istediğinize emin misiniz?`)) return;
     try {
-      await companyService.deleteOfficeLocation(locId, profile?.company_id || undefined);
+      await companyService.deleteOfficeLocation(locId, resolvedCompanyId);
       await loadOfficeLocations();
       alert(`"${name}" konumu silindi.`);
     } catch (err: any) {
@@ -726,10 +836,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       const statusValue = isLate ? 'gec-kaldi' : 'zamaninda';
       const officeName = activeOffice?.name || 'Ofis';
 
-      // Sync with Supabase if profile is available
-      if (profile?.company_id) {
+      // Sync with Supabase if company is available
+      const shiftCompId = currentEmployee?.company_id || resolvedCompanyId || profile?.company_id;
+      if (shiftCompId) {
         const payload: VardiyaInsert = {
-          company_id: profile.company_id,
+          company_id: shiftCompId,
           employee_id: empId,
           tarih: dateStr,
           vardiya_tipi: 'tam-gun',
@@ -860,7 +971,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     setCompanyCoords({ lat, lng });
 
     // Update active office or default office in DB
-    const targetCompanyId = profile?.company_id || 'demo-company-id-9999';
+    const targetCompanyId = resolvedCompanyId || 'demo-company-id-9999';
     try {
       await companyService.saveOfficeLocation({
         id: activeOffice?.id !== 'default' ? activeOffice?.id : undefined,
@@ -877,11 +988,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       console.warn("Error updating office location:", err);
     }
 
-    if (profile?.company_id && companyDetails) {
+    if (resolvedCompanyId && companyDetails) {
       const parsed = parseCompanyCoords(companyDetails.address);
       const newAddress = formatCompanyAddressWithCoords(lat, lng, parsed.cleanAddress);
       try {
-        await companyService.update(profile.company_id, { address: newAddress });
+        await companyService.update(resolvedCompanyId, { address: newAddress });
         setCompanyDetails({ ...companyDetails, address: newAddress });
       } catch (err) {
         console.warn("Error updating company address in DB:", err);
@@ -1055,6 +1166,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
   const filteredData = mockPdksData
     .filter((d) => {
+      // Multi-tenant company isolation
+      if (selectedCompany && selectedCompany !== 'all') {
+        const target = selectedCompany.toLowerCase().trim();
+        const empCompName = (d.employee.company || '').toLowerCase().trim();
+        const empCompId = (d.employee.company_id || '').toLowerCase().trim();
+        const isMatch = empCompName === target || empCompId === target || empCompId === resolvedCompanyId;
+        if (!isMatch) return false;
+      } else if (!isHrOrAdmin && resolvedCompanyId) {
+        if (d.employee.company_id && d.employee.company_id !== resolvedCompanyId) {
+          return false;
+        }
+      }
+
       const term = searchTerm.trim().toLowerCase();
       const matchesSearch =
         !term ||
@@ -1270,32 +1394,41 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       <Building2 className="w-4 h-4 text-indigo-600" />
                       Bulunduğunuz Ofis / Şube:
                     </label>
-                    {isManagement && (
+                    {!isHrOrAdmin && currentEmployee?.il ? (
+                      <span className="text-[11px] bg-white text-indigo-700 font-semibold px-2 py-0.5 rounded-md border border-indigo-200 shadow-xs flex items-center gap-1">
+                        {hasCityOffices
+                          ? `📍 ${currentEmployee.il} (${visibleOfficeLocations.length} Ofis)`
+                          : `📍 ${currentEmployee.il} (Şehirde Ofis Yok • Tüm Ofisler)`}
+                      </span>
+                    ) : isHrOrAdmin && isManagement ? (
                       <button
                         onClick={handleOpenNewOffice}
                         className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-indigo-200 shadow-xs"
                       >
                         <Plus className="w-3 h-3" /> Yeni Ofis Ekle
                       </button>
-                    )}
+                    ) : null}
                   </div>
                   <select
                     value={selectedOfficeId}
                     onChange={(e) => setSelectedOfficeId(e.target.value)}
                     className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none shadow-xs"
                   >
-                    {officeLocations.map((loc) => {
+                    {visibleOfficeLocations.map((loc) => {
                       const dist = userCoords ? Math.round(getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng)) : null;
                       const distStr = dist !== null ? (dist < 1000 ? `${dist}m` : `${(dist / 1000).toFixed(1)}km`) : '';
                       const inRange = dist !== null && dist <= loc.radius_meters;
+                      const locInfo = loc.il ? `[${loc.il}${loc.ilce ? ` / ${loc.ilce}` : ''}] ` : '';
                       return (
                         <option key={loc.id} value={loc.id}>
-                          🏢 {loc.name} {distStr ? `(${distStr} • ${inRange ? '✅ Ofis İçi' : '❌ Alan Dışı'})` : ''}
+                          🏢 {loc.name} {locInfo}{distStr ? `(${distStr} • ${inRange ? '✅ Ofis İçi' : '❌ Alan Dışı'})` : ''}
                         </option>
                       );
                     })}
-                    {officeLocations.length === 0 && (
-                      <option value="default">🏢 {companyDetails?.name || 'Şirket'} Ana Ofisi</option>
+                    {visibleOfficeLocations.length === 0 && (
+                      <option value="default">
+                        🏢 {currentEmployee?.il ? `${currentEmployee.il} Bölgesi Ofisi Bulunamadı` : `${companyDetails?.name || 'Şirket'} Ana Ofisi`}
+                      </option>
                     )}
                   </select>
                 </div>
@@ -1317,9 +1450,9 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     </p>
                     <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
                       {isWithinGeofence 
-                        ? `GPS Doğrulaması Başarılı • ${activeOffice.name} (Uzaklık: ${distanceToSelectedOffice}m • Sınır: ${activeOffice.radius_meters}m)`
+                        ? `GPS Doğrulaması Başarılı • ${activeOffice.name}${activeOffice.il ? ` (${activeOffice.il}${activeOffice.ilce ? ` / ${activeOffice.ilce}` : ''})` : ''} (Uzaklık: ${distanceToSelectedOffice}m • Sınır: ${activeOffice.radius_meters}m)`
                         : distanceToSelectedOffice !== null 
-                          ? `"${activeOffice.name}" konumuna uzaklığınız ${distanceToSelectedOffice >= 1000 ? `${(distanceToSelectedOffice / 1000).toFixed(1)} km` : `${distanceToSelectedOffice} metre`} (İzin verilen sınır: ${activeOffice.radius_meters}m). Farklı bir ofisteyseniz lütfen yukarıdan ofisinizi seçiniz.`
+                          ? `"${activeOffice.name}${activeOffice.il ? ` (${activeOffice.il}${activeOffice.ilce ? ` / ${activeOffice.ilce}` : ''})` : ''}" konumuna uzaklığınız ${distanceToSelectedOffice >= 1000 ? `${(distanceToSelectedOffice / 1000).toFixed(1)} km` : `${distanceToSelectedOffice} metre`} (İzin verilen sınır: ${activeOffice.radius_meters}m). Farklı bir ofisteyseniz lütfen yukarıdan ofisinizi seçiniz.`
                           : "Konum doğrulanıyor, lütfen tarayıcınızdan konum izni veriniz..."
                       }
                     </p>
@@ -1459,19 +1592,32 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 <div className="flex items-center justify-between border-b border-indigo-800/80 pb-3">
                   <div className="flex items-center gap-2">
                     <Building2 className="w-5 h-5 text-indigo-400" />
-                    <h3 className="font-bold text-sm">Şirket Ofis & Şubeleri</h3>
+                    <div>
+                      <h3 className="font-bold text-sm">Şirket Ofis & Şubeleri</h3>
+                      {!isHrOrAdmin && currentEmployee?.il ? (
+                        <p className="text-[10px] text-indigo-300">
+                          {hasCityOffices
+                            ? `📍 ${currentEmployee.il} Bölgesi (${visibleOfficeLocations.length} Ofis)`
+                            : `📍 ${currentEmployee.il} (Şehirde Ofis Yok • Tüm Ofisler - ${visibleOfficeLocations.length})`}
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-indigo-300">Tüm Şirket Ofisleri ({officeLocations.length})</p>
+                      )}
+                    </div>
                   </div>
-                  <button
-                    onClick={handleOpenNewOffice}
-                    className="text-[11px] bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm transition-all"
-                  >
-                    <Plus className="w-3 h-3" /> Ofis Ekle
-                  </button>
+                  {isHrOrAdmin && (
+                    <button
+                      onClick={handleOpenNewOffice}
+                      className="text-[11px] bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm transition-all"
+                    >
+                      <Plus className="w-3 h-3" /> Ofis Ekle
+                    </button>
+                  )}
                 </div>
                 
                 {/* Registered Offices List */}
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                  {officeLocations.map((loc) => {
+                  {visibleOfficeLocations.map((loc) => {
                     const dist = userCoords ? Math.round(getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng)) : null;
                     const isSelected = loc.id === selectedOfficeId;
                     const inRange = dist !== null && dist <= loc.radius_meters;
@@ -1487,31 +1633,38 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-sm">🏢</span>
                             <span className="font-bold text-xs text-white">{loc.name}</span>
+                            {(loc.il || loc.ilce) && (
+                              <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded font-medium border border-indigo-400/20">
+                                📍 {loc.il}{loc.ilce ? ` / ${loc.ilce}` : ''}
+                              </span>
+                            )}
                             {loc.is_default && (
                               <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded font-semibold border border-amber-400/30">
                                 Merkez
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={() => handleOpenEditOffice(loc)}
-                              className="p-1 text-indigo-300 hover:text-white hover:bg-indigo-700/50 rounded"
-                              title="Düzenle"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteOffice(loc.id, loc.name)}
-                              className="p-1 text-red-400 hover:text-red-200 hover:bg-red-900/40 rounded"
-                              title="Sil"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
+                          {isHrOrAdmin && (
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => handleOpenEditOffice(loc)}
+                                className="p-1 text-indigo-300 hover:text-white hover:bg-indigo-700/50 rounded"
+                                title="Düzenle"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOffice(loc.id, loc.name)}
+                                className="p-1 text-red-400 hover:text-red-200 hover:bg-red-900/40 rounded"
+                                title="Sil"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between text-[11px] text-indigo-200 mt-1.5">
@@ -1528,9 +1681,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     );
                   })}
 
-                  {officeLocations.length === 0 && (
+                  {visibleOfficeLocations.length === 0 && (
                     <div className="p-3 bg-white/5 rounded-xl text-center text-xs text-indigo-200">
-                      Henüz kayıtlı şube bulunmuyor. Merkez ofis varsayılan olarak kullanılmaktadır.
+                      {currentEmployee?.il
+                        ? `${currentEmployee.il} bölgesinde kayıtlı şube bulunmuyor.`
+                        : 'Henüz kayıtlı şube bulunmuyor. Merkez ofis varsayılan olarak kullanılmaktadır.'}
                     </div>
                   )}
                 </div>
@@ -1624,6 +1779,31 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Şirket Seçici (Çoklu Şirket Yönetimi) */}
+            {companies && companies.length > 0 && onCompanyChange && (
+              <div className="flex items-center gap-2 pt-2.5 border-t border-gray-100 flex-wrap">
+                <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 shadow-xs">
+                  <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                  <span className="text-xs text-gray-500 font-medium">Şirket:</span>
+                  <select
+                    value={selectedCompany || 'all'}
+                    onChange={(e) => onCompanyChange(e.target.value)}
+                    className="bg-transparent text-gray-800 text-xs font-bold outline-none cursor-pointer"
+                  >
+                    <option value="all">Tüm Şirketler (BigSafer)</option>
+                    {companies.map((c) => {
+                      const cName = typeof c === 'string' ? c : c.name;
+                      return (
+                        <option key={cName} value={cName}>
+                          {cName}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
+            )}
 
             {/* Departman / Birim Filtre Butonları */}
             {deptList.length > 0 && (
@@ -1819,10 +1999,12 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   onChange={(e) => setEditOfficeName(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
-                  {officeLocations.map((l) => (
-                    <option key={l.id} value={l.name}>🏢 {l.name}</option>
+                  {(isHrOrAdmin ? officeLocations : visibleOfficeLocations).map((l) => (
+                    <option key={l.id} value={l.name}>
+                      🏢 {l.name} {l.il ? `(${l.il}${l.ilce ? ` / ${l.ilce}` : ''})` : ''}
+                    </option>
                   ))}
-                  {officeLocations.length === 0 && (
+                  {(isHrOrAdmin ? officeLocations : visibleOfficeLocations).length === 0 && (
                     <option value="Merkez Ofis">🏢 Merkez Ofis</option>
                   )}
                 </select>
@@ -1888,9 +2070,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
                   setAdminOverrides((prev) => ({ ...prev, [editEmpModal.employee.id]: overrideObj }));
 
+                  const targetCompanyId = editEmpModal.employee.company_id || resolvedCompanyId || '';
                   const newRecord = {
                     id: `v-edit-${Date.now()}`,
-                    company_id: profile?.company_id,
+                    company_id: targetCompanyId,
                     employee_id: editEmpModal.employee.id,
                     tarih: todayStr,
                     giris_saati: editGiris + ':00',
@@ -1902,9 +2085,9 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   setAllShiftRecords((prev) => [newRecord, ...prev.filter(r => !(r.employee_id === editEmpModal.employee.id && r.tarih === todayStr))]);
 
                   // Also record shift to pdksService if possible
-                  if (profile?.company_id && editEmpModal.employee.id) {
+                  if (targetCompanyId && editEmpModal.employee.id) {
                     pdksService.createVardiya({
-                      company_id: profile.company_id,
+                      company_id: targetCompanyId,
                       employee_id: editEmpModal.employee.id,
                       tarih: todayStr,
                       giris_saati: editGiris + ':00',
@@ -1977,6 +2160,52 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   onChange={(e) => setLocName(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                 />
+              </div>
+
+              {/* İl ve İlçe Seçimi */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                    İl
+                  </label>
+                  <select
+                    value={locIl}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLocIl(val);
+                      setLocIlce('');
+                    }}
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer font-medium"
+                  >
+                    <option value="">İl Seçiniz</option>
+                    {sortedIller.map((item) => (
+                      <option key={item.il} value={item.il}>
+                        {item.il}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                    İlçe
+                  </label>
+                  <select
+                    value={locIlce}
+                    onChange={(e) => setLocIlce(e.target.value)}
+                    disabled={!locIl}
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer font-medium disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                  >
+                    <option value="">{locIl ? 'İlçe Seçiniz' : 'Önce İl Seçiniz'}</option>
+                    {availableLocIlceler.map((ilceName) => (
+                      <option key={ilceName} value={ilceName}>
+                        {ilceName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>

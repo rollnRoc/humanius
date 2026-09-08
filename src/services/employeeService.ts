@@ -2,6 +2,11 @@ import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 import bcrypt from 'bcryptjs';
 import { demoService } from './demoService';
+import {
+  formatAddressWithCity,
+  saveEmployeeLocationMeta,
+  enrichEmployeeWithLocation,
+} from '../utils/employeeLocationMeta';
 
 type Employee = Database['public']['Tables']['employees']['Row'];
 type EmployeeInsert = Database['public']['Tables']['employees']['Insert'];
@@ -47,6 +52,42 @@ function sanitizeLevel(level?: string | null): string | null {
   return null;
 }
 
+const VALID_DB_EMPLOYEE_COLUMNS = new Set([
+  'id',
+  'company_id',
+  'name',
+  'tc_no',
+  'sicil_no',
+  'department',
+  'position',
+  'level',
+  'salary',
+  'status',
+  'phone',
+  'email',
+  'join_date',
+  'address',
+  'avatar_url',
+  'skills',
+  'medeni_durum',
+  'cocuk_sayisi',
+  'engelli_durumu',
+  'approval_passcode',
+  'employee_type',
+  'approval_signature',
+  'birth_date',
+]);
+
+function filterDbEmployeePayload(obj: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (VALID_DB_EMPLOYEE_COLUMNS.has(key) && value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 export const employeeService = {
   async getAll(companyId?: string): Promise<Employee[] | EmployeePublic[]> {
     if (demoService.isDemoActive()) {
@@ -60,7 +101,7 @@ export const employeeService = {
       }
       const { data, error } = await query.order('created_at', { ascending: false });
       if (!error && data && data.length > 0) {
-        return data as Employee[] | EmployeePublic[];
+        return (data as any[]).map(enrichEmployeeWithLocation) as Employee[] | EmployeePublic[];
       }
     } catch {}
 
@@ -70,7 +111,7 @@ export const employeeService = {
         body: { operation: 'list_employees', companyId }
       });
       if (resData?.employees && resData.employees.length > 0) {
-        return resData.employees as Employee[];
+        return (resData.employees as any[]).map(enrichEmployeeWithLocation) as Employee[];
       }
     } catch {}
 
@@ -80,7 +121,7 @@ export const employeeService = {
   async getById(id: string): Promise<Employee | EmployeePublic | null> {
     if (demoService.isDemoActive()) {
       const emp = demoService.getEmployees().find(e => e.id === id);
-      return (emp ?? null) as any;
+      return (emp ? enrichEmployeeWithLocation(emp) : null) as any;
     }
     const source = await pickSource();
     const { data, error } = await supabase
@@ -89,18 +130,32 @@ export const employeeService = {
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
-    return data as Employee | EmployeePublic | null;
+    return data ? enrichEmployeeWithLocation(data as any) as Employee | EmployeePublic : null;
   },
 
   async create(employee: EmployeeInsert): Promise<Employee> {
     if (demoService.isDemoActive()) {
       return demoService.createEmployee(employee as any) as any;
     }
-    const { contact_email, personal_email, joinDate, employeeType, role, ...rawPayload } = employee as any;
-    const payload = {
+    const { contact_email, personal_email, joinDate, employeeType, role, il, ilce, ...rawPayload } = employee as any;
+    const cleanAddress = formatAddressWithCity(rawPayload.address, il, ilce);
+    const cleanLevel = sanitizeLevel(rawPayload.level);
+    const cleanJoinDate = rawPayload.join_date
+      ? String(rawPayload.join_date).split('T')[0]
+      : (joinDate ? String(joinDate).split('T')[0] : null);
+    const cleanBirthDate = rawPayload.birth_date
+      ? String(rawPayload.birth_date).split('T')[0]
+      : ((rawPayload as any).birthDate ? String((rawPayload as any).birthDate).split('T')[0] : null);
+
+    const payload = filterDbEmployeePayload({
       ...rawPayload,
-      level: sanitizeLevel(rawPayload.level)
-    };
+      address: cleanAddress,
+      level: cleanLevel ?? undefined,
+      join_date: cleanJoinDate,
+      birth_date: cleanBirthDate,
+      employee_type: rawPayload.employee_type || rawPayload.employeeType || employeeType || 'normal',
+    });
+
     const { data, error } = await supabase
       .from('employees')
       .insert(payload)
@@ -109,6 +164,9 @@ export const employeeService = {
     if (error) throw error;
 
     if (data?.id) {
+      if (il || ilce) {
+        saveEmployeeLocationMeta(data.id, data.email, il, ilce);
+      }
       try {
         const { userManagementService } = await import('./userManagementService');
         const empEmail = data.email || `${String(data.name || 'personel').toLowerCase().replace(/[^a-z0-9]+/g, '.')}@humanius.net`;
@@ -130,7 +188,11 @@ export const employeeService = {
       }
     }
 
-    return data;
+    return enrichEmployeeWithLocation({
+      ...data,
+      il: il || '',
+      ilce: ilce || '',
+    });
   },
 
   async batchCreate(employees: any[]): Promise<{ count: number; error?: any }> {
@@ -150,6 +212,8 @@ export const employeeService = {
           email: emp.email || '',
           join_date: emp.join_date || new Date().toISOString().split('T')[0],
           address: emp.address || '',
+          il: emp.il || '',
+          ilce: emp.ilce || '',
           skills: emp.skills || [],
           company_id: 'demo-company-id-9999',
         });
@@ -200,13 +264,17 @@ export const employeeService = {
       if (match) {
         // Mükerrer personel bulundu! İkinci satır eklemek yerine mevcut kartı güncelle
         try {
+          const updateAddr = formatAddressWithCity(emp.address, emp.il, emp.ilce);
+          if (emp.il || emp.ilce) {
+            saveEmployeeLocationMeta(match.id, emp.email, emp.il, emp.ilce);
+          }
           const { error: upErr } = await supabase
             .from('employees')
             .update({
               department: emp.department || undefined,
               position: emp.position || undefined,
               phone: emp.phone || undefined,
-              address: emp.address || undefined,
+              address: updateAddr || undefined,
               sicil_no: emp.sicil_no || undefined,
               join_date: emp.join_date || undefined,
               status: emp.status || 'active',
@@ -217,7 +285,9 @@ export const employeeService = {
           console.warn('Mevcut personel güncelleme uyarısı:', upCatch);
         }
       } else {
-        toInsert.push(emp);
+        const insertAddr = formatAddressWithCity(emp.address, emp.il, emp.ilce);
+        const { il: _il, ilce: _ilce, ...cleanEmp } = emp;
+        toInsert.push(filterDbEmployeePayload({ ...cleanEmp, address: insertAddr }));
       }
     }
 
@@ -259,7 +329,15 @@ export const employeeService = {
     if (demoService.isDemoActive()) {
       return demoService.updateEmployee(id, updates as any) as any;
     }
-    const { contact_email, personal_email, joinDate, employeeType, role, ...rawUpdates } = updates as any;
+    const { contact_email, personal_email, joinDate, employeeType, role, il, ilce, ...rawUpdates } = updates as any;
+    const targetIl = il !== undefined ? il : (updates as any).il;
+    const targetIlce = ilce !== undefined ? ilce : (updates as any).ilce;
+
+    if (targetIl !== undefined || targetIlce !== undefined) {
+      saveEmployeeLocationMeta(id, updates.email, targetIl, targetIlce);
+      rawUpdates.address = formatAddressWithCity(rawUpdates.address ?? updates.address, targetIl, targetIlce);
+    }
+
     const cleanLevel = sanitizeLevel(rawUpdates.level);
     const cleanJoinDate = rawUpdates.join_date
       ? String(rawUpdates.join_date).split('T')[0]
@@ -268,12 +346,14 @@ export const employeeService = {
       ? String(rawUpdates.birth_date).split('T')[0]
       : (rawUpdates.birthDate ? String(rawUpdates.birthDate).split('T')[0] : null);
 
-    const payload: any = {
+    const payload = filterDbEmployeePayload({
       ...rawUpdates,
+      address: rawUpdates.address,
       level: cleanLevel ?? undefined,
       join_date: cleanJoinDate,
       birth_date: cleanBirthDate,
-    };
+      employee_type: rawUpdates.employee_type || rawUpdates.employeeType || undefined,
+    });
 
     let updatedRow: Employee | null = null;
     try {
@@ -306,7 +386,7 @@ export const employeeService = {
         employeeId: id,
         email: updates.email || '',
         phone: updates.phone ?? '',
-        address: updates.address ?? '',
+        address: rawUpdates.address ?? updates.address ?? '',
         join_date: cleanJoinDate,
         birth_date: cleanBirthDate,
         companyId: updates.company_id,
@@ -325,7 +405,11 @@ export const employeeService = {
       console.warn('Edge function update warning:', edgeErr);
     }
 
-    return (updatedRow || { id, ...updates }) as Employee;
+    return enrichEmployeeWithLocation({
+      ...(updatedRow || { id, ...updates }),
+      il: targetIl,
+      ilce: targetIlce,
+    }) as Employee;
   },
 
   async delete(id: string): Promise<void> {

@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle, AlertCircle, MapPin } from 'lucide-react';
 import { Employee, Company, Department } from '../types';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useAuth } from '../contexts/AuthContext';
 import { canDeleteUsers } from '../auth/roles';
 import { supabase } from '../lib/supabase';
 import { userService } from '../services/userService';
+import iller, { type IlIlceItem } from '../lib/illce';
+import { getEmployeeLocationMeta, parseAddressCity } from '../utils/employeeLocationMeta';
 
 interface EmployeeDrawerProps {
   isOpen: boolean;
@@ -36,6 +38,30 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const [activeTab, setActiveTab] = useState('genel');
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [emailStatus, setEmailStatus] = useState<'checking' | 'available' | 'taken' | 'idle'>('idle');
+
+  // 81 ilin alfabetik sıralı listesi
+  const sortedIller = useMemo(() => {
+    return [...iller].sort((a, b) => a.il.localeCompare(b.il, 'tr'));
+  }, []);
+
+  // Seçilen ile ait ilçe listesi
+  const selectedIlData = useMemo(() => {
+    if (!formData?.il) return null;
+    return iller.find((item) => item.il.toLowerCase() === formData.il.toLowerCase()) || null;
+  }, [formData?.il]);
+
+  const availableIlceler = useMemo(() => {
+    if (!selectedIlData) return [];
+    return [...selectedIlData.ilceleri].sort((a, b) => a.localeCompare(b, 'tr'));
+  }, [selectedIlData]);
+
+  const handleIlChange = (newIl: string) => {
+    setFormData((prev) => (prev ? { ...prev, il: newIl, ilce: '' } : null));
+  };
+
+  const handleIlceChange = (newIlce: string) => {
+    setFormData((prev) => (prev ? { ...prev, ilce: newIlce } : null));
+  };
 
   const ONAY_GRUPLARI = [
     {
@@ -167,14 +193,24 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         const rawBd = (employee as any).birth_date || (employee as any).birthDate || (employee as any).dogum_tarihi || '';
         const formattedBd = rawBd ? String(rawBd).split('T')[0] : '';
         const cEmail = employee.contact_email ?? (employee as any).personal_email ?? '';
+
+        const locMeta = getEmployeeLocationMeta(employee.id, employee.email);
+        const parsedAddr = parseAddressCity(employee.address);
+        const resolvedIl = (employee.il && String(employee.il).trim()) || locMeta.il || parsedAddr.il || '';
+        const resolvedIlce = (employee.ilce && String(employee.ilce).trim()) || locMeta.ilce || parsedAddr.ilce || '';
+        const cleanAddr = parsedAddr.cleanAddress || employee.address || '';
+
         setFormData({
           ...employee,
+          address: cleanAddr,
           contact_email: cEmail,
           personal_email: cEmail,
           joinDate: formattedJd,
           join_date: formattedJd,
           birthDate: formattedBd,
           birth_date: formattedBd,
+          il: resolvedIl,
+          ilce: resolvedIlce,
           role: employee.role || 'employee',
         });
 
@@ -213,6 +249,8 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           phone: '',
           email: '',
           address: '',
+          il: '',
+          ilce: '',
           skills: [],
           employeeType: 'normal',
           tc_no: '',
@@ -410,6 +448,41 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       placeholder="SGK Sicil Numarası"
                     />
                   </div>
+                  <div>
+                    <label htmlFor="employee-il" className="block text-sm font-medium text-gray-700 mb-2">İkamet İli</label>
+                    <select
+                      id="employee-il"
+                      value={formData.il || ''}
+                      onChange={(e) => handleIlChange(e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium"
+                    >
+                      <option value="">-- İl Seçin --</option>
+                      {sortedIller.map((item) => (
+                        <option key={item.plaka} value={item.il}>
+                          {item.il} ({item.plaka < 10 ? `0${item.plaka}` : item.plaka})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="employee-ilce" className="block text-sm font-medium text-gray-700 mb-2">İkamet İlçesi</label>
+                    <select
+                      id="employee-ilce"
+                      value={formData.ilce || ''}
+                      disabled={!formData.il}
+                      onChange={(e) => handleIlceChange(e.target.value)}
+                      className={`w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium ${
+                        !formData.il ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <option value="">{formData.il ? '-- İlçe Seçin --' : '-- Önce İl Seçiniz --'}</option>
+                      {availableIlceler.map((ilce) => (
+                        <option key={ilce} value={ilce}>
+                          {ilce}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
@@ -582,24 +655,61 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
             {activeTab === 'iletisim' && (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
                     <label htmlFor="employee-phone" className="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
                     <input
                       id="employee-phone"
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => handleInputChange('phone', e.target.value)}
+                      placeholder="05XX XXX XX XX"
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
                   <div>
-                    <label htmlFor="employee-address" className="block text-sm font-medium text-gray-700 mb-2">Adres</label>
+                    <label htmlFor="contact-employee-il" className="block text-sm font-medium text-gray-700 mb-2">İl (Şehir)</label>
+                    <select
+                      id="contact-employee-il"
+                      value={formData.il || ''}
+                      onChange={(e) => handleIlChange(e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium"
+                    >
+                      <option value="">-- İl Seçin --</option>
+                      {sortedIller.map((item) => (
+                        <option key={`contact-${item.plaka}`} value={item.il}>
+                          {item.il} ({item.plaka < 10 ? `0${item.plaka}` : item.plaka})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="contact-employee-ilce" className="block text-sm font-medium text-gray-700 mb-2">İlçe</label>
+                    <select
+                      id="contact-employee-ilce"
+                      value={formData.ilce || ''}
+                      disabled={!formData.il}
+                      onChange={(e) => handleIlceChange(e.target.value)}
+                      className={`w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium ${
+                        !formData.il ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <option value="">{formData.il ? '-- İlçe Seçin --' : '-- Önce İl Seçiniz --'}</option>
+                      {availableIlceler.map((ilce) => (
+                        <option key={`contact-${ilce}`} value={ilce}>
+                          {ilce}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label htmlFor="employee-address" className="block text-sm font-medium text-gray-700 mb-2">Açık Adres Detayı</label>
                     <textarea
                       id="employee-address"
                       value={formData.address}
                       onChange={(e) => handleInputChange('address', e.target.value)}
                       rows={3}
+                      placeholder="Mahalle, cadde, sokak, bina ve daire no..."
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none"
                     />
                   </div>

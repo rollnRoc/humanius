@@ -113,3 +113,8 @@ export function canCreateCompany(role: AppRole): boolean {
 export function isManagementRole(role: AppRole): boolean {
   return role === 'superadmin' || role === 'admin' || role === 'hr';
 }
+
+// İzin onaylama ve reddetme yetkisi (Sadece Süper Admin, Şirket Yöneticisi ve İK Uzmanı; Birim amirleri/müdürler onaylayamaz)
+export function canApproveLeave(role: AppRole): boolean {
+  return role === 'superadmin' || role === 'admin' || role === 'hr';
+}

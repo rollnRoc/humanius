@@ -140,99 +140,210 @@ export const companyService = {
   },
 
   async getOfficeLocations(companyId?: string): Promise<import('../types').CompanyOfficeLocation[]> {
+    const targetCompId = normalizeCompanyId(companyId);
+
+    // 1. DEMO MODE
     if (demoService.isDemoActive()) {
-      const saved = localStorage.getItem('humanius_demo_office_locations');
-      if (saved) return JSON.parse(saved);
-      return [
-        { id: 'loc-1', company_id: 'demo-company-id-9999', name: 'Düzce Ofisi', lat: 40.8438, lng: 31.1565, radius_meters: 200, address: 'Düzce Merkez', is_default: true },
-        { id: 'loc-2', company_id: 'demo-company-id-9999', name: 'Bolu Şubesi', lat: 40.7350, lng: 31.6061, radius_meters: 250, address: 'Bolu Merkez', is_default: false },
-        { id: 'loc-3', company_id: 'demo-company-id-9999', name: 'İstanbul Genel Merkez', lat: 41.0082, lng: 28.9784, radius_meters: 300, address: 'Maslak, İstanbul', is_default: false },
-      ];
+      const demoKey = `humanius_demo_office_locations_${targetCompId}`;
+      const saved = localStorage.getItem(demoKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch {}
+      }
+      if (targetCompId === BIGSAFER_COMPANY_ID) {
+        return BIGSAFER_DEFAULT_OFFICES;
+      }
+      if (targetCompId === MICI_COMPANY_ID) {
+        return MICI_DEFAULT_OFFICES;
+      }
+      return [];
     }
 
+    // 2. SUPABASE / PRODUCTION MODE
+    let locations: import('../types').CompanyOfficeLocation[] = [];
+
     try {
-      let query = supabase.from('company_locations').select('*').order('created_at', { ascending: true });
-      if (companyId) query = query.eq('company_id', companyId);
-      const { data, error } = await query;
+      // Query strictly by company_id to avoid cross-tenant pollution
+      const { data, error } = await supabase
+        .from('company_locations')
+        .select('*')
+        .eq('company_id', targetCompId)
+        .order('created_at', { ascending: true });
+
       if (!error && data && data.length > 0) {
-        return data as import('../types').CompanyOfficeLocation[];
+        locations = data as import('../types').CompanyOfficeLocation[];
       }
     } catch {}
 
-    try {
-      const { data: res } = await supabase.functions.invoke('user-management', {
-        body: { operation: 'list_company_locations', companyId }
-      });
-      if (res?.locations && res.locations.length > 0) {
-        return res.locations as import('../types').CompanyOfficeLocation[];
-      }
-    } catch {}
+    // Edge function fallback if direct query returned empty
+    if (locations.length === 0) {
+      try {
+        const { data: res } = await supabase.functions.invoke('user-management', {
+          body: { operation: 'list_company_locations', companyId: targetCompId }
+        });
+        if (res?.locations && res.locations.length > 0) {
+          locations = (res.locations as import('../types').CompanyOfficeLocation[]).filter(
+            (l) => l.company_id === targetCompId
+          );
+        }
+      } catch {}
+    }
 
-    const saved = localStorage.getItem(`humanius_office_locations_${companyId || 'default'}`);
-    return saved ? JSON.parse(saved) : [];
+    // STRICT MULTI-TENANCY FILTER:
+    // Guarantee that ONLY locations belonging to targetCompId are ever returned!
+    locations = locations.filter((l) => l.company_id === targetCompId);
+
+    // If still empty in database, provide company-specific defaults without leaking other companies
+    if (locations.length === 0) {
+      if (targetCompId === BIGSAFER_COMPANY_ID) {
+        locations = [...BIGSAFER_DEFAULT_OFFICES];
+      } else if (targetCompId === MICI_COMPANY_ID) {
+        locations = [...MICI_DEFAULT_OFFICES];
+      } else {
+        const localSaved = localStorage.getItem(`humanius_office_locations_${targetCompId}`);
+        locations = localSaved ? JSON.parse(localSaved) : [];
+      }
+    }
+
+    // For BigSafer: ensure Düzce Ofisi, Bolu Şubesi, İstanbul Genel Merkez are always present
+    if (targetCompId === BIGSAFER_COMPANY_ID) {
+      for (const defOff of BIGSAFER_DEFAULT_OFFICES) {
+        if (!locations.some((l) => l.name.trim().toLowerCase() === defOff.name.trim().toLowerCase())) {
+          locations.push(defOff);
+        }
+      }
+    }
+
+    // For Mıçı Otomotiv: ensure BigSafer offices are NEVER present
+    if (targetCompId === MICI_COMPANY_ID) {
+      locations = locations.filter(
+        (l) =>
+          !['düzce ofisi', 'bolu şubesi', 'istanbul genel merkez'].includes(l.name.trim().toLowerCase()) &&
+          l.company_id === MICI_COMPANY_ID
+      );
+      if (locations.length === 0) {
+        locations = [...MICI_DEFAULT_OFFICES];
+      }
+    }
+
+    // Enrich every location with il / ilce from metadata or intelligent fallback
+    return locations.map((loc) => {
+      const meta = getLocationMeta(loc.id);
+      const inferred = inferIlIlce(loc.name, loc.address, loc.il || meta.il, loc.ilce || meta.ilce);
+      return {
+        ...loc,
+        company_id: targetCompId,
+        il: loc.il || meta.il || inferred.il || '',
+        ilce: loc.ilce || meta.ilce || inferred.ilce || ''
+      };
+    });
   },
 
   async saveOfficeLocation(location: Partial<import('../types').CompanyOfficeLocation>): Promise<import('../types').CompanyOfficeLocation | null> {
+    const targetCompId = normalizeCompanyId(location.company_id);
+    const locId = location.id || `loc-${Date.now()}`;
+
+    if (location.il || location.ilce) {
+      saveLocationMeta(locId, location.il, location.ilce);
+    }
+
     if (demoService.isDemoActive() || !location.company_id) {
-      const current = await this.getOfficeLocations(location.company_id);
+      const current = await this.getOfficeLocations(targetCompId);
       let updated: import('../types').CompanyOfficeLocation[];
       let savedLoc: import('../types').CompanyOfficeLocation;
       if (location.id) {
-        savedLoc = { ...current.find(l => l.id === location.id), ...location } as import('../types').CompanyOfficeLocation;
-        updated = current.map(l => l.id === location.id ? savedLoc : l);
+        savedLoc = { ...current.find((l) => l.id === location.id), ...location, company_id: targetCompId } as import('../types').CompanyOfficeLocation;
+        updated = current.map((l) => (l.id === location.id ? savedLoc : l));
       } else {
         savedLoc = {
-          id: `loc-${Date.now()}`,
-          company_id: location.company_id || 'demo-company-id-9999',
+          id: locId,
+          company_id: targetCompId,
           name: location.name || 'Yeni Ofis',
           lat: location.lat || 0,
           lng: location.lng || 0,
           radius_meters: location.radius_meters || 200,
           address: location.address || '',
+          il: location.il || '',
+          ilce: location.ilce || '',
           is_default: Boolean(location.is_default),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
         updated = [...current, savedLoc];
       }
-      localStorage.setItem('humanius_demo_office_locations', JSON.stringify(updated));
+      localStorage.setItem(`humanius_demo_office_locations_${targetCompId}`, JSON.stringify(updated));
       return savedLoc;
     }
 
     try {
       const { data: res } = await supabase.functions.invoke('user-management', {
-        body: { operation: 'save_company_location', ...location }
+        body: { operation: 'save_company_location', ...location, company_id: targetCompId }
       });
       if (res?.location) {
-        return res.location as import('../types').CompanyOfficeLocation;
+        const result = res.location as import('../types').CompanyOfficeLocation;
+        if (location.il || location.ilce) {
+          saveLocationMeta(result.id, location.il, location.ilce);
+        }
+        return {
+          ...result,
+          il: location.il || result.il || '',
+          ilce: location.ilce || result.ilce || ''
+        };
       }
     } catch (e) {
       console.warn("Save location invoke error:", e);
     }
 
     try {
+      const payload: any = {
+        name: location.name,
+        lat: location.lat,
+        lng: location.lng,
+        radius_meters: location.radius_meters,
+        address: location.address,
+        is_default: location.is_default,
+      };
+      if (location.il !== undefined) payload.il = location.il;
+      if (location.ilce !== undefined) payload.ilce = location.ilce;
+
       if (location.id) {
-        const { data, error } = await supabase.from('company_locations').update({
-          name: location.name,
-          lat: location.lat,
-          lng: location.lng,
-          radius_meters: location.radius_meters,
-          address: location.address,
-          is_default: location.is_default,
-          updated_at: new Date().toISOString()
-        } as any).eq('id', location.id).select().single();
-        if (!error && data) return data as import('../types').CompanyOfficeLocation;
+        payload.updated_at = new Date().toISOString();
+        let { data, error } = await supabase.from('company_locations').update(payload).eq('id', location.id).select().single();
+        if (error && (error as any).code === '42703') {
+          delete payload.il;
+          delete payload.ilce;
+          const retry = await supabase.from('company_locations').update(payload).eq('id', location.id).select().single();
+          data = retry.data;
+          error = retry.error;
+        }
+        if (!error && data) {
+          if (location.il || location.ilce) saveLocationMeta(data.id, location.il, location.ilce);
+          return {
+            ...data,
+            il: location.il || data.il || '',
+            ilce: location.ilce || data.ilce || ''
+          } as import('../types').CompanyOfficeLocation;
+        }
       } else {
-        const { data, error } = await supabase.from('company_locations').insert({
-          company_id: location.company_id,
-          name: location.name,
-          lat: location.lat,
-          lng: location.lng,
-          radius_meters: location.radius_meters,
-          address: location.address,
-          is_default: location.is_default,
-        } as any).select().single();
-        if (!error && data) return data as import('../types').CompanyOfficeLocation;
+        payload.company_id = targetCompId;
+        let { data, error } = await supabase.from('company_locations').insert(payload).select().single();
+        if (error && (error as any).code === '42703') {
+          delete payload.il;
+          delete payload.ilce;
+          const retry = await supabase.from('company_locations').insert(payload).select().single();
+          data = retry.data;
+          error = retry.error;
+        }
+        if (!error && data) {
+          if (location.il || location.ilce) saveLocationMeta(data.id, location.il, location.ilce);
+          return {
+            ...data,
+            il: location.il || data.il || '',
+            ilce: location.ilce || data.ilce || ''
+          } as import('../types').CompanyOfficeLocation;
+        }
       }
     } catch {}
 
@@ -240,10 +351,12 @@ export const companyService = {
   },
 
   async deleteOfficeLocation(id: string, companyId?: string): Promise<boolean> {
+    const targetCompId = normalizeCompanyId(companyId);
+
     if (demoService.isDemoActive() || id.startsWith('loc-')) {
-      const current = await this.getOfficeLocations(companyId);
-      const updated = current.filter(l => l.id !== id);
-      localStorage.setItem('humanius_demo_office_locations', JSON.stringify(updated));
+      const current = await this.getOfficeLocations(targetCompId);
+      const updated = current.filter((l) => l.id !== id);
+      localStorage.setItem(`humanius_demo_office_locations_${targetCompId}`, JSON.stringify(updated));
       return true;
     }
 
@@ -262,3 +375,80 @@ export const companyService = {
     return false;
   }
 };
+
+export const BIGSAFER_COMPANY_ID = '11111111-1111-1111-1111-111111111111';
+export const MICI_COMPANY_ID = '735825a4-f12b-4ee7-959c-a8a29e674617';
+
+export function normalizeCompanyId(companyId?: string | null): string {
+  if (!companyId) return BIGSAFER_COMPANY_ID;
+  const s = String(companyId).trim().toLowerCase();
+  if (s === 'all' || s === 'default' || s === 'demo-company-id-9999') return BIGSAFER_COMPANY_ID;
+  if (s === BIGSAFER_COMPANY_ID || s.includes('bigsafer') || s.includes('bigsafely')) {
+    return BIGSAFER_COMPANY_ID;
+  }
+  if (s === MICI_COMPANY_ID || s.includes('mıçı') || s.includes('mici')) {
+    return MICI_COMPANY_ID;
+  }
+  if (s.includes('çavdarlı') || s.includes('cavdarli')) {
+    return '87ed6f79-6a54-40ea-b188-8b325513dc41';
+  }
+  if (s.includes('hızel') || s.includes('hizel')) {
+    return 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9';
+  }
+  return companyId;
+}
+
+const BIGSAFER_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
+  { id: 'loc-bigsafer-1', company_id: BIGSAFER_COMPANY_ID, name: 'Düzce Ofisi', lat: 40.8438, lng: 31.1565, radius_meters: 200, address: 'Düzce Merkez', il: 'Düzce', ilce: 'Merkez', is_default: true },
+  { id: 'loc-bigsafer-2', company_id: BIGSAFER_COMPANY_ID, name: 'Bolu Şubesi', lat: 40.7350, lng: 31.6061, radius_meters: 250, address: 'Bolu Merkez', il: 'Bolu', ilce: 'Merkez', is_default: false },
+  { id: 'loc-bigsafer-3', company_id: BIGSAFER_COMPANY_ID, name: 'İstanbul Genel Merkez', lat: 41.0082, lng: 28.9784, radius_meters: 300, address: 'Maslak, Sarıyer', il: 'İstanbul', ilce: 'Sarıyer', is_default: false },
+];
+
+const MICI_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
+  { id: '0442aec2-6107-41b5-afde-6363b58c3b54', company_id: MICI_COMPANY_ID, name: 'Kayseri Ofis', lat: 38.765104, lng: 35.487037, radius_meters: 200, address: 'Kayseri', il: 'Kayseri', ilce: 'Melikgazi', is_default: false },
+  { id: 'c8a208a1-16e4-4e08-8ccc-7c3d2d9fae06', company_id: MICI_COMPANY_ID, name: 'Tarsus Ofis', lat: 36.904161, lng: 35.06787, radius_meters: 400, address: 'Tarsus', il: 'Mersin', ilce: 'Tarsus', is_default: false },
+  { id: 'f4715a38-36e2-4e5b-aed6-de7e869e304a', company_id: MICI_COMPANY_ID, name: 'TOYOTA/BYD/LX', lat: 36.994158, lng: 35.196171, radius_meters: 400, address: 'Merkez', il: 'Adana', ilce: 'Seyhan', is_default: false },
+  { id: 'cbf1a8e2-dbe5-4da6-bcc9-cab0bc5af1d0', company_id: MICI_COMPANY_ID, name: 'Sixt Adana', lat: 37.005433, lng: 35.331296, radius_meters: 200, address: 'Adana', il: 'Adana', ilce: 'Seyhan', is_default: false },
+  { id: 'f48267c8-bf34-4e7a-8f02-a02cd2bfc592', company_id: MICI_COMPANY_ID, name: 'Suzuki / Mg', lat: 36.99479, lng: 35.28881, radius_meters: 200, address: '', il: 'Adana', ilce: 'Yüreğir', is_default: false },
+];
+
+function inferIlIlce(name?: string, address?: string, currentIl?: string, currentIlce?: string): { il: string; ilce: string } {
+  if (currentIl && currentIl.trim()) {
+    return { il: currentIl.trim(), ilce: currentIlce ? currentIlce.trim() : '' };
+  }
+  const text = `${name || ''} ${address || ''}`.toLowerCase();
+  if (text.includes('düzce') || text.includes('duzce')) return { il: 'Düzce', ilce: 'Merkez' };
+  if (text.includes('bolu')) return { il: 'Bolu', ilce: 'Merkez' };
+  if (text.includes('istanbul') || text.includes('maslak') || text.includes('sarıyer') || text.includes('pendik')) {
+    return { il: 'İstanbul', ilce: text.includes('pendik') ? 'Pendik' : 'Sarıyer' };
+  }
+  if (text.includes('kayseri')) return { il: 'Kayseri', ilce: 'Melikgazi' };
+  if (text.includes('tarsus') || text.includes('mersin')) return { il: 'Mersin', ilce: 'Tarsus' };
+  if (text.includes('adana') || text.includes('toyota') || text.includes('byd') || text.includes('sixt') || text.includes('suzuki')) {
+    return { il: 'Adana', ilce: text.includes('yüreğir') ? 'Yüreğir' : 'Seyhan' };
+  }
+  if (text.includes('kütahya') || text.includes('kutahya')) return { il: 'Kütahya', ilce: 'Merkez' };
+  if (text.includes('ankara')) return { il: 'Ankara', ilce: 'Çankaya' };
+  return { il: '', ilce: '' };
+}
+
+function getLocationMeta(locId: string): { il?: string; ilce?: string } {
+  try {
+    const raw = localStorage.getItem('humanius_location_cities');
+    if (!raw) return {};
+    const map = JSON.parse(raw);
+    return map[locId] || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLocationMeta(locId: string, il?: string, ilce?: string) {
+  try {
+    const raw = localStorage.getItem('humanius_location_cities');
+    const map = raw ? JSON.parse(raw) : {};
+    map[locId] = { il: il || '', ilce: ilce || '' };
+    localStorage.setItem('humanius_location_cities', JSON.stringify(map));
+  } catch {}
+}
+
