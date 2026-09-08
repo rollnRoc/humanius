@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { normalizeCompanyId } from './companyService';
 
 export interface CompanyShift {
   id: string;
@@ -9,6 +10,120 @@ export interface CompanyShift {
   tolerance_minutes: number;
   color: string;
   is_default: boolean;
+  office_id?: string;
+  office_name?: string;
+}
+
+export function parseShiftOffice(rawName: string): { cleanName: string; officeName: string } {
+  if (!rawName) return { cleanName: '', officeName: '' };
+  const trimmed = String(rawName).trim();
+  const match = trimmed.match(/\[(?:Ofis|Office|Şube):\s*(.*?)\]/i);
+  if (match) {
+    const officeName = match[1].trim();
+    const cleanName = trimmed.replace(/\[(?:Ofis|Office|Şube):\s*.*?\]/i, '').trim();
+    return { cleanName, officeName };
+  }
+  return { cleanName: trimmed, officeName: '' };
+}
+
+export function formatShiftNameWithOffice(cleanName: string, officeName?: string | null): string {
+  const trimmedName = (cleanName || '').replace(/\[(?:Ofis|Office|Şube):\s*.*?\]/i, '').trim();
+  const trimmedOffice = (officeName || '').trim();
+  if (!trimmedOffice || trimmedOffice === 'all') return trimmedName;
+  return `${trimmedName} [Ofis: ${trimmedOffice}]`;
+}
+
+const normalizeTr = (str: string) =>
+  (str || '')
+    .toLocaleLowerCase('tr-TR')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/i̇/g, 'i')
+    .replace(/ı/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c');
+
+export function inferOfficeForShift(
+  shift: { id?: string; name: string; office_id?: string; office_name?: string },
+  offices: Array<{ id: string; name: string }>
+): { office_id: string; office_name: string } | null {
+  if (shift.office_id && shift.office_name) {
+    return { office_id: shift.office_id, office_name: shift.office_name };
+  }
+  if (shift.office_id && !shift.office_name) {
+    const o = offices.find((off) => off.id === shift.office_id);
+    if (o) return { office_id: o.id, office_name: o.name };
+  }
+  if (shift.office_name && !shift.office_id) {
+    const normShiftOffice = normalizeTr(shift.office_name);
+    const o = offices.find((off) => normalizeTr(off.name) === normShiftOffice);
+    if (o) return { office_id: o.id, office_name: o.name };
+  }
+
+  // Check if name has [Ofis: ...] embedded
+  const parsed = parseShiftOffice(shift.name);
+  if (parsed.officeName) {
+    const normParsed = normalizeTr(parsed.officeName);
+    const o = offices.find((off) => normalizeTr(off.name) === normParsed);
+    if (o) return { office_id: o.id, office_name: o.name };
+    return { office_id: '', office_name: parsed.officeName };
+  }
+
+  // Name keyword matching against office locations (e.g. "TARSUS HVL" -> "Tarsus Ofis")
+  const normS = normalizeTr(shift.name || '');
+  for (const o of offices) {
+    if (!o.name) continue;
+    const parts = normalizeTr(o.name)
+      .split(/[\s\/\-_]+/)
+      .filter((p) => p.length >= 3 && !['ofis', 'sube', 'merkez', 'hvl', 'genel'].includes(p));
+    if (parts.some((p) => normS.includes(p))) {
+      return { office_id: o.id, office_name: o.name };
+    }
+  }
+
+  return null;
+}
+
+export function isShiftMatchingOffice(
+  shift: { id?: string; name: string; office_id?: string; office_name?: string },
+  selectedOfficeId: string,
+  offices: Array<{ id: string; name: string }>,
+  includeGeneral: boolean = false
+): boolean {
+  if (!selectedOfficeId || selectedOfficeId === 'all') return true;
+
+  const inferred = inferOfficeForShift(shift, offices);
+  if (selectedOfficeId === 'general') {
+    return !inferred;
+  }
+
+  if (inferred) {
+    return inferred.office_id === selectedOfficeId;
+  }
+
+  // Truly general shift (not matching any specific office)
+  return includeGeneral;
+}
+
+export function saveShiftOfficeMeta(shiftId: string, officeId?: string | null, officeName?: string | null): void {
+  if (!shiftId) return;
+  try {
+    localStorage.setItem(`humanius_shift_loc_${shiftId}`, JSON.stringify({
+      office_id: officeId || '',
+      office_name: officeName || '',
+    }));
+  } catch {}
+}
+
+export function getShiftOfficeMeta(shiftId: string): { office_id: string; office_name: string } {
+  if (!shiftId) return { office_id: '', office_name: '' };
+  try {
+    const raw = localStorage.getItem(`humanius_shift_loc_${shiftId}`);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { office_id: '', office_name: '' };
 }
 
 export interface SaturdayWorkConfig {
@@ -89,32 +204,40 @@ class ShiftService {
    * Get all shifts defined for a company (strictly weekday / standard company shifts)
    */
   public async getShifts(companyId?: string): Promise<CompanyShift[]> {
-    const effectiveCompanyId = companyId || 'default';
+    const effectiveCompanyId = normalizeCompanyId(companyId);
     const storageKey = `humanius_shifts_${effectiveCompanyId}`;
 
     // 1. If real company, fetch directly from Supabase FIRST (Database-First)
-    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+    if (effectiveCompanyId && !effectiveCompanyId.includes('demo')) {
       try {
         const { data, error } = await supabase
           .from('company_shifts')
           .select('*')
-          .eq('company_id', companyId)
+          .eq('company_id', effectiveCompanyId)
           .order('created_at', { ascending: true });
 
         if (!error && data && Array.isArray(data)) {
           // Strictly exclude any Saturday configuration records
           const shiftRows = data.filter(isNotSaturdayShift);
           if (shiftRows.length > 0) {
-            const formatted: CompanyShift[] = shiftRows.map((d: any) => ({
-              id: d.id,
-              name: d.name,
-              start_time: d.start_time,
-              end_time: d.end_time,
-              break_minutes: Number(d.break_minutes || 60),
-              tolerance_minutes: Number(d.tolerance_minutes || 15),
-              color: d.color || '#3b82f6',
-              is_default: Boolean(d.is_default),
-            }));
+            const formatted: CompanyShift[] = shiftRows.map((d: any) => {
+              const { cleanName, officeName } = parseShiftOffice(d.name);
+              const meta = getShiftOfficeMeta(d.id);
+              const resolvedOfficeName = d.office_name || officeName || meta.office_name || '';
+              const resolvedOfficeId = d.office_id || meta.office_id || '';
+              return {
+                id: d.id,
+                name: cleanName || d.name,
+                start_time: d.start_time,
+                end_time: d.end_time,
+                break_minutes: Number(d.break_minutes || 60),
+                tolerance_minutes: Number(d.tolerance_minutes || 15),
+                color: d.color || '#3b82f6',
+                is_default: Boolean(d.is_default),
+                office_id: resolvedOfficeId,
+                office_name: resolvedOfficeName,
+              };
+            });
 
             // Guarantee at least one default shift if none is set
             if (!formatted.some((s) => s.is_default)) {
@@ -194,7 +317,7 @@ class ShiftService {
    * Save or update a shift definition
    */
   public async saveShift(companyId: string, shift: CompanyShift): Promise<boolean> {
-    const effectiveCompanyId = companyId || 'default';
+    const effectiveCompanyId = normalizeCompanyId(companyId);
     const storageKey = `humanius_shifts_${effectiveCompanyId}`;
 
     // Disallow saving a saturday shift through normal shift management
@@ -206,18 +329,20 @@ class ShiftService {
     let success = false;
 
     // 1. Write to Supabase FIRST
-    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+    if (effectiveCompanyId && !effectiveCompanyId.includes('demo')) {
       try {
         if (shift.is_default) {
           await supabase
             .from('company_shifts')
             .update({ is_default: false })
-            .eq('company_id', companyId);
+            .eq('company_id', effectiveCompanyId);
         }
+        saveShiftOfficeMeta(shift.id, shift.office_id, shift.office_name);
+        const dbName = formatShiftNameWithOffice(shift.name, shift.office_name);
         const { error } = await supabase.from('company_shifts').upsert({
           id: shift.id,
-          company_id: companyId,
-          name: shift.name,
+          company_id: effectiveCompanyId,
+          name: dbName,
           start_time: shift.start_time,
           end_time: shift.end_time,
           break_minutes: shift.break_minutes,
@@ -237,22 +362,30 @@ class ShiftService {
         const { data } = await supabase
           .from('company_shifts')
           .select('*')
-          .eq('company_id', companyId)
+          .eq('company_id', effectiveCompanyId)
           .order('created_at', { ascending: true });
 
         if (data && Array.isArray(data) && data.length > 0) {
           const formatted: CompanyShift[] = data
             .filter(isNotSaturdayShift)
-            .map((d: any) => ({
-              id: d.id,
-              name: d.name,
-              start_time: d.start_time,
-              end_time: d.end_time,
-              break_minutes: Number(d.break_minutes || 60),
-              tolerance_minutes: Number(d.tolerance_minutes || 15),
-              color: d.color || '#3b82f6',
-              is_default: Boolean(d.is_default),
-            }));
+            .map((d: any) => {
+              const { cleanName, officeName } = parseShiftOffice(d.name);
+              const meta = getShiftOfficeMeta(d.id);
+              const resolvedOfficeName = d.office_name || officeName || meta.office_name || '';
+              const resolvedOfficeId = d.office_id || meta.office_id || '';
+              return {
+                id: d.id,
+                name: cleanName || d.name,
+                start_time: d.start_time,
+                end_time: d.end_time,
+                break_minutes: Number(d.break_minutes || 60),
+                tolerance_minutes: Number(d.tolerance_minutes || 15),
+                color: d.color || '#3b82f6',
+                is_default: Boolean(d.is_default),
+                office_id: resolvedOfficeId,
+                office_name: resolvedOfficeName,
+              };
+            });
 
           if (formatted.length > 0 && !formatted.some((s) => s.is_default)) {
             formatted[0].is_default = true;
@@ -303,10 +436,10 @@ class ShiftService {
    * Delete a shift definition
    */
   public async deleteShift(companyId: string, shiftId: string): Promise<boolean> {
-    const effectiveCompanyId = companyId || 'default';
+    const effectiveCompanyId = normalizeCompanyId(companyId);
     const storageKey = `humanius_shifts_${effectiveCompanyId}`;
 
-    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+    if (effectiveCompanyId && !effectiveCompanyId.includes('demo')) {
       try {
         // Delete from Supabase company_shifts
         const { error } = await supabase.from('company_shifts').delete().eq('id', shiftId);
@@ -323,7 +456,7 @@ class ShiftService {
         const { data } = await supabase
           .from('company_shifts')
           .select('*')
-          .eq('company_id', companyId)
+          .eq('company_id', effectiveCompanyId)
           .order('created_at', { ascending: true });
 
         if (data && Array.isArray(data)) {

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Clock, Plus, Trash2, Edit2, CheckCircle, Users, Sliders, Check, Search, Filter, AlertCircle, ShieldCheck } from 'lucide-react';
-import type { Employee } from '../types';
-import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR } from '../services/shiftService';
+import { X, Clock, Plus, Trash2, Edit2, CheckCircle, Users, Sliders, Check, Search, Filter, AlertCircle, ShieldCheck, Building2, MapPin } from 'lucide-react';
+import type { Employee, CompanyOfficeLocation } from '../types';
+import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, inferOfficeForShift, isShiftMatchingOffice } from '../services/shiftService';
+import { companyService } from '../services/companyService';
 
 interface VardiyaYonetimiModalProps {
   isOpen: boolean;
@@ -20,6 +21,11 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
   const [shifts, setShifts] = useState<CompanyShift[]>(VARSAYILAN_VARDIYALAR);
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  // Office state & filtering
+  const [offices, setOffices] = useState<CompanyOfficeLocation[]>([]);
+  const [formOfficeId, setFormOfficeId] = useState<string>('');
+  const [filterOfficeId, setFilterOfficeId] = useState<string>('all');
 
   // Shift Form State
   const [editingShift, setEditingShift] = useState<CompanyShift | null>(null);
@@ -54,19 +60,39 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
     return foundEmp?.company_id || companyId || 'default';
   }, [companyId, employees]);
 
-  // Load shifts and assignments on mount or companyId change
+  const displayedShifts = useMemo(() => {
+    return shifts.filter((s) => isShiftMatchingOffice(s, filterOfficeId, offices));
+  }, [shifts, filterOfficeId, offices]);
+
+  // Load shifts, assignments, and company offices
   const loadData = async () => {
     setLoading(true);
     try {
-      const [fetchedShifts, fetchedAssignments] = await Promise.all([
+      const [fetchedShifts, fetchedAssignments, fetchedOffices] = await Promise.all([
         shiftService.getShifts(effectiveCompanyId),
         shiftService.getAssignments(effectiveCompanyId),
+        companyService.getOfficeLocations(effectiveCompanyId),
       ]);
-      setShifts(fetchedShifts);
+      setOffices(fetchedOffices || []);
+
+      // If shift has office_name but missing office_id, match it with fetchedOffices
+      const resolvedShifts = (fetchedShifts || []).map((s) => {
+        if (!s.office_id && s.office_name && fetchedOffices && fetchedOffices.length > 0) {
+          const match = fetchedOffices.find(
+            (o) => o.name.trim().toLocaleLowerCase('tr-TR') === s.office_name?.trim().toLocaleLowerCase('tr-TR')
+          );
+          if (match) {
+            return { ...s, office_id: match.id };
+          }
+        }
+        return s;
+      });
+
+      setShifts(resolvedShifts);
       setAssignments(fetchedAssignments);
-      if (fetchedShifts.length > 0) {
-        setBulkShiftId(fetchedShifts[0].id);
-        setDeptTargetShiftId(fetchedShifts[0].id);
+      if (resolvedShifts.length > 0) {
+        setBulkShiftId(resolvedShifts[0].id);
+        setDeptTargetShiftId(resolvedShifts[0].id);
       }
       if (departments.length > 0) {
         setDeptTargetDept(departments[0]);
@@ -95,6 +121,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
     setFormTolerance(15);
     setFormColor('#3b82f6');
     setFormIsDefault(shifts.length === 0);
+    setFormOfficeId(filterOfficeId !== 'all' && filterOfficeId !== 'general' ? filterOfficeId : '');
     setShowShiftForm(true);
   };
 
@@ -107,6 +134,8 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
     setFormTolerance(shift.tolerance_minutes);
     setFormColor(shift.color || '#3b82f6');
     setFormIsDefault(Boolean(shift.is_default));
+    const inferred = inferOfficeForShift(shift, offices);
+    setFormOfficeId(inferred ? inferred.office_id : '');
     setShowShiftForm(true);
   };
 
@@ -117,21 +146,33 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
       return;
     }
 
-    const shiftData: CompanyShift = {
-      id: editingShift ? editingShift.id : `shift-${Date.now()}`,
-      name: formName.trim(),
-      start_time: formStart,
-      end_time: formEnd,
-      break_minutes: Number(formBreak) || 0,
-      tolerance_minutes: Number(formTolerance) || 0,
-      color: formColor,
-      is_default: formIsDefault,
-    };
+    try {
+      const selectedOffice = offices.find((o) => o.id === formOfficeId);
+      const officeName = selectedOffice ? selectedOffice.name : '';
+      const officeId = selectedOffice ? selectedOffice.id : '';
 
-    await shiftService.saveShift(effectiveCompanyId, shiftData);
-    await loadData();
-    setShowShiftForm(false);
-    setEditingShift(null);
+      const shiftData: CompanyShift = {
+        id: editingShift ? editingShift.id : `shift-${Date.now()}`,
+        name: formName.trim(),
+        start_time: formStart,
+        end_time: formEnd,
+        break_minutes: Number(formBreak) || 0,
+        tolerance_minutes: Number(formTolerance) || 0,
+        color: formColor,
+        is_default: formIsDefault,
+        office_id: officeId || undefined,
+        office_name: officeName || undefined,
+      };
+
+      await shiftService.saveShift(effectiveCompanyId, shiftData);
+      await loadData();
+      setShowShiftForm(false);
+      setEditingShift(null);
+      setFormOfficeId('');
+    } catch (err) {
+      console.error('Vardiya kaydetme hatası:', err);
+      alert('Vardiya kaydedilirken bir hata oluştu.');
+    }
   };
 
   const handleDeleteShift = async (shiftId: string, name: string) => {
@@ -228,7 +269,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
             <div>
               <h3 className="font-bold text-base">Vardiya & Çalışma Saatleri Yönetimi</h3>
               <p className="text-xs text-indigo-200">
-                Şirket vardiyalarını tanımlayın, departman veya personel bazında esnek atama yapın.
+                Şirket vardiyalarını tanımlayın, ofis bazında filtreleyin, departman veya personel bazında esnek atama yapın.
               </p>
             </div>
           </div>
@@ -270,17 +311,45 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
           {activeTab === 'shifts' ? (
             <div className="space-y-6">
-              {/* Top Controls */}
+              {/* Top Controls & Office Filter */}
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <p className="text-xs text-gray-500 font-medium">
-                  Şirketinizde uygulanan tüm mesai ve vardiya saatlerini buradan oluşturup yönetebilirsiniz.
-                </p>
-                <button
-                  onClick={handleOpenNewShift}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all"
-                >
-                  <Plus className="w-4 h-4" /> Yeni Vardiya Tanımla
-                </button>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">
+                    Şirketinizde uygulanan tüm mesai ve vardiya saatlerini buradan oluşturup yönetebilirsiniz.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {offices.length > 0 && (
+                    <div className="flex items-center gap-1.5 bg-indigo-50/70 border border-indigo-150 px-3 py-1.5 rounded-xl">
+                      <Filter className="w-3.5 h-3.5 text-indigo-600" />
+                      <span className="text-[11px] font-bold text-indigo-900">Ofis:</span>
+                      <select
+                        value={filterOfficeId}
+                        onChange={(e) => setFilterOfficeId(e.target.value)}
+                        className="bg-transparent text-xs font-bold text-indigo-950 outline-none cursor-pointer"
+                      >
+                        <option value="all">Tüm Ofisler ({shifts.length})</option>
+                        <option value="general">🌐 Şirket Geneli (Ofissiz)</option>
+                        {offices.map((off) => {
+                          const count = shifts.filter((s) =>
+                            isShiftMatchingOffice(s, off.id, offices)
+                          ).length;
+                          return (
+                            <option key={off.id} value={off.id}>
+                              📍 {off.name} ({count})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleOpenNewShift}
+                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" /> Yeni Vardiya Tanımla
+                  </button>
+                </div>
               </div>
 
               {/* Shift Form (Add / Edit) */}
@@ -314,6 +383,28 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                         onChange={(e) => setFormName(e.target.value)}
                         className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
                       />
+                    </div>
+
+                    <div className="sm:col-span-2 md:col-span-1">
+                      <label className="block font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                        Bağlı Olduğu Ofis / Şube
+                      </label>
+                      <select
+                        value={formOfficeId}
+                        onChange={(e) => setFormOfficeId(e.target.value)}
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-semibold"
+                      >
+                        <option value="">🏢 Tüm Ofisler (Şirket Geneli)</option>
+                        {offices.map((off) => (
+                          <option key={off.id} value={off.id}>
+                            📍 {off.name} {off.il ? `(${off.il})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Bu ofise bağlı çalışanlar mesai başlarken bu vardiyayı görür.
+                      </p>
                     </div>
 
                     <div>
@@ -391,13 +482,13 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setShowShiftForm(false)}
-                        className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                        className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer"
                       >
                         İptal
                       </button>
                       <button
                         type="submit"
-                        className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs"
+                        className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
                       >
                         {editingShift ? 'Güncelle' : 'Kaydet'}
                       </button>
@@ -407,74 +498,97 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
               )}
 
               {/* Shifts List Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {shifts.map((shift) => {
-                  const assignedCount = Object.values(assignments).filter((sid) => sid === shift.id).length;
-                  const isDefault = Boolean(shift.is_default);
+              {displayedShifts.length === 0 ? (
+                <div className="bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-8 text-center text-gray-500 space-y-2">
+                  <Building2 className="w-8 h-8 text-gray-400 mx-auto" />
+                  <p className="font-bold text-sm text-gray-700">Bu ofis için henüz vardiya tanımlanmamış</p>
+                  <p className="text-xs text-gray-500">
+                    "Yeni Vardiya Tanımla" butonuna basarak bu ofise özel mesai saatleri ekleyebilirsiniz.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {displayedShifts.map((shift) => {
+                    const assignedCount = Object.values(assignments).filter((sid) => sid === shift.id).length;
+                    const isDefault = Boolean(shift.is_default);
+                    const inferredOffice = inferOfficeForShift(shift, offices);
+                    const officeBadgeName = inferredOffice ? inferredOffice.office_name : '';
 
-                  return (
-                    <div
-                      key={shift.id}
-                      className="bg-white border rounded-2xl p-5 shadow-xs transition-all hover:border-indigo-200 relative group"
-                      style={{ borderLeftWidth: '6px', borderLeftColor: shift.color || '#3b82f6' }}
-                    >
-                      <div className="flex items-start justify-between flex-wrap gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-gray-900 text-sm">{shift.name}</h4>
-                            {isDefault && (
-                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                                ✓ Varsayılan
-                              </span>
-                            )}
+                    return (
+                      <div
+                        key={shift.id}
+                        className="bg-white border rounded-2xl p-5 shadow-xs transition-all hover:border-indigo-200 relative group"
+                        style={{ borderLeftWidth: '6px', borderLeftColor: shift.color || '#3b82f6' }}
+                      >
+                        <div className="flex items-start justify-between flex-wrap gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-bold text-gray-900 text-sm">{shift.name}</h4>
+                              {officeBadgeName ? (
+                                <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <MapPin className="w-2.5 h-2.5 text-indigo-500" />
+                                  {officeBadgeName}
+                                </span>
+                              ) : (
+                                <span className="bg-gray-100 text-gray-600 border border-gray-200 text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <Building2 className="w-2.5 h-2.5 text-gray-400" />
+                                  Tüm Ofisler
+                                </span>
+                              )}
+                              {isDefault && (
+                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                                  ✓ Varsayılan
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xl font-mono font-black text-gray-800 mt-1">
+                              {shift.start_time} - {shift.end_time}
+                            </p>
                           </div>
-                          <p className="text-xl font-mono font-black text-gray-800 mt-1">
-                            {shift.start_time} - {shift.end_time}
-                          </p>
+
+                          <div className="flex items-center gap-1 opacity-90 group-hover:opacity-100">
+                            <button
+                              onClick={() => handleOpenEditShift(shift)}
+                              className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                              title="Düzenle"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteShift(shift.id, shift.name);
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              title="Bu Vardiyayı Sil"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-1 opacity-90 group-hover:opacity-100">
-                          <button
-                            onClick={() => handleOpenEditShift(shift)}
-                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Düzenle"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteShift(shift.id, shift.name);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                            title="Bu Vardiyayı Sil"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-gray-100 text-center text-xs">
+                          <div className="bg-gray-50 rounded-xl p-2">
+                            <p className="text-[10px] text-gray-400">Mola</p>
+                            <p className="font-bold text-gray-700">{shift.break_minutes} dk</p>
+                          </div>
+                          <div className="bg-gray-50 rounded-xl p-2">
+                            <p className="text-[10px] text-gray-400">Tolerans</p>
+                            <p className="font-bold text-gray-700">{shift.tolerance_minutes} dk</p>
+                          </div>
+                          <div className="bg-indigo-50/60 rounded-xl p-2">
+                            <p className="text-[10px] text-indigo-500">Atanan</p>
+                            <p className="font-bold text-indigo-700">
+                              {assignedCount > 0 ? `${assignedCount} Kişi` : (isDefault ? 'Otomatik' : '0 Kişi')}
+                            </p>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-gray-100 text-center text-xs">
-                        <div className="bg-gray-50 rounded-xl p-2">
-                          <p className="text-[10px] text-gray-400">Mola</p>
-                          <p className="font-bold text-gray-700">{shift.break_minutes} dk</p>
-                        </div>
-                        <div className="bg-gray-50 rounded-xl p-2">
-                          <p className="text-[10px] text-gray-400">Tolerans</p>
-                          <p className="font-bold text-gray-700">{shift.tolerance_minutes} dk</p>
-                        </div>
-                        <div className="bg-indigo-50/60 rounded-xl p-2">
-                          <p className="text-[10px] text-indigo-500">Atanan</p>
-                          <p className="font-bold text-indigo-700">
-                            {assignedCount > 0 ? `${assignedCount} Kişi` : (isDefault ? 'Otomatik' : '0 Kişi')}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-6">
@@ -511,11 +625,14 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                       onChange={(e) => setDeptTargetShiftId(e.target.value)}
                       className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-500"
                     >
-                      {shifts.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} ({s.start_time} - {s.end_time})
-                        </option>
-                      ))}
+                      {shifts.map((s) => {
+                        const off = inferOfficeForShift(s, offices);
+                        return (
+                          <option key={s.id} value={s.id}>
+                            {s.name} {off ? `[📍 ${off.office_name}]` : '[🏢 Genel]'} ({s.start_time} - {s.end_time})
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -568,11 +685,14 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                       onChange={(e) => setBulkShiftId(e.target.value)}
                       className="border border-indigo-200 rounded-lg px-2 py-1 text-xs font-semibold bg-white"
                     >
-                      {shifts.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} ({s.start_time}-{s.end_time})
-                        </option>
-                      ))}
+                      {shifts.map((s) => {
+                        const off = inferOfficeForShift(s, offices);
+                        return (
+                          <option key={s.id} value={s.id}>
+                            {s.name} {off ? `[📍 ${off.office_name}]` : '[🏢 Genel]'} ({s.start_time}-{s.end_time})
+                          </option>
+                        );
+                      })}
                     </select>
                     <button
                       type="button"
@@ -646,11 +766,14 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                                   borderLeftColor: activeShift.color || '#3b82f6',
                                 }}
                               >
-                                {shifts.map((s) => (
-                                  <option key={s.id} value={s.id}>
-                                    {s.name} ({s.start_time} - {s.end_time})
-                                  </option>
-                                ))}
+                                {shifts.map((s) => {
+                                  const off = inferOfficeForShift(s, offices);
+                                  return (
+                                    <option key={s.id} value={s.id}>
+                                      {s.name} {off ? `[📍 ${off.office_name}]` : ''} ({s.start_time} - {s.end_time})
+                                    </option>
+                                  );
+                                })}
                               </select>
                               {isCustomAssigned ? (
                                 <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full">

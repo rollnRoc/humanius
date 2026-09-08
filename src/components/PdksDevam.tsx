@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaInsert } from '../services/pdksService';
 import { companyService, BIGSAFER_COMPANY_ID, MICI_COMPANY_ID, normalizeCompanyId } from '../services/companyService';
 import { notificationService } from '../services/notificationService';
-import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, isNotSaturdayShift } from '../services/shiftService';
+import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, isNotSaturdayShift, inferOfficeForShift, isShiftMatchingOffice } from '../services/shiftService';
 import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
 import { printPdksDevamRaporuPdf, exportPdksToCsv, PdksReportRecord } from '../utils/pdksReportPdf';
 import {
@@ -380,6 +380,44 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     };
   }, [resolvedCompanyId, currentEmployee?.id]);
   
+  // Ofise bağlı vardiya filtrelemesi:
+  // - İK ve Şirket Yöneticisi (superadmin, admin, hr) şirketin tüm vardiyalarını görür.
+  // - Normal personel için:
+  //   1. Personelin seçili/bulunduğu ofise ait vardiyalar varsa SADECE onlar gösterilir.
+  //   2. Eğer personelin ofisine özel hiçbir vardiya tanımlı değilse, şirket geneli vardiyalar gösterilir.
+  const visibleShiftsForEmployee = useMemo(() => {
+    if (isHrOrAdmin) {
+      return allCompanyShifts;
+    }
+
+    if (selectedOfficeId) {
+      // 1. Önce bu ofise özel/eşleşen vardiyaları filtrele
+      const officeShifts = allCompanyShifts.filter((shift) =>
+        isShiftMatchingOffice(shift, selectedOfficeId, officeLocations, false)
+      );
+      if (officeShifts.length > 0) {
+        return officeShifts;
+      }
+    }
+
+    // 2. Ofise özel vardiya yoksa genel (herhangi bir ofise ait olmayan) vardiyaları göster
+    const generalShifts = allCompanyShifts.filter(
+      (s) => !inferOfficeForShift(s, officeLocations)
+    );
+    return generalShifts.length > 0 ? generalShifts : allCompanyShifts;
+  }, [isHrOrAdmin, allCompanyShifts, selectedOfficeId, officeLocations]);
+
+  // Ofis veya vardiya listesi değiştiğinde aktif vardiya görünür listede yoksa varsayılana geç
+  useEffect(() => {
+    if (visibleShiftsForEmployee && visibleShiftsForEmployee.length > 0 && !isShiftActive) {
+      const exists = visibleShiftsForEmployee.some((s) => s.id === activeUserShift?.id);
+      if (!exists) {
+        const def = visibleShiftsForEmployee.find((s) => s.is_default) || visibleShiftsForEmployee[0];
+        setActiveUserShift(def);
+      }
+    }
+  }, [visibleShiftsForEmployee, isShiftActive]);
+
   // Geolocation watch ID ref
   const watchIdRef = useRef<number | null>(null);
 
@@ -1342,7 +1380,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       <select
                         value={activeUserShift?.id || ''}
                         onChange={(e) => {
-                          const selected = allCompanyShifts.find((s) => s.id === e.target.value);
+                          const selected = visibleShiftsForEmployee.find((s) => s.id === e.target.value);
                           if (selected) {
                             setActiveUserShift(selected);
                             if (currentEmployee?.id) {
@@ -1352,11 +1390,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         }}
                         className="w-full bg-white border border-indigo-200 hover:border-indigo-400 focus:border-indigo-600 rounded-xl px-3 py-2.5 text-xs font-bold text-gray-800 outline-none transition-all shadow-xs cursor-pointer"
                       >
-                        {allCompanyShifts.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} ({s.start_time} - {s.end_time}) • Mola: {s.break_minutes}dk
-                          </option>
-                        ))}
+                        {visibleShiftsForEmployee.map((s) => {
+                          const off = inferOfficeForShift(s, officeLocations);
+                          const offName = s.office_name || off?.office_name;
+                          return (
+                            <option key={s.id} value={s.id}>
+                              {s.name} {offName ? `[📍 ${offName}]` : ''} ({s.start_time} - {s.end_time}) • Mola: {s.break_minutes}dk
+                            </option>
+                          );
+                        })}
                       </select>
                       <div className="flex items-center justify-between text-[11px] text-indigo-900/80 px-1 font-medium">
                         <span>Mola: <strong>{activeUserShift.break_minutes} dk</strong></span>
@@ -1374,7 +1416,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                           style={{ backgroundColor: activeUserShift.color || '#3b82f6' }}
                         />
                         <div>
-                          <p className="text-xs font-bold text-indigo-950">{activeUserShift.name}</p>
+                          <p className="text-xs font-bold text-indigo-950">
+                            {activeUserShift.name}{' '}
+                            {(() => {
+                              const off = inferOfficeForShift(activeUserShift, officeLocations);
+                              const offName = activeUserShift.office_name || off?.office_name;
+                              return offName ? `[📍 ${offName}]` : '';
+                            })()}
+                          </p>
                           <p className="text-[11px] font-mono text-indigo-700 font-medium">
                             {activeUserShift.start_time} - {activeUserShift.end_time}
                           </p>
