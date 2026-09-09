@@ -26,6 +26,8 @@ interface PdksDevamProps {
   selectedCompany?: string;
   onCompanyChange?: (company: string) => void;
   companies?: any[];
+  selectedDepartment?: string;
+  onDepartmentChange?: (dept: string) => void;
 }
 
 // Haversine formula to compute distance between two coordinates in meters
@@ -127,6 +129,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   selectedCompany = 'all',
   onCompanyChange,
   companies = [],
+  selectedDepartment: propSelectedDepartment,
+  onDepartmentChange,
 }) => {
   const { profile, appRole } = useAuth();
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
@@ -134,8 +138,22 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
   const [activeTab, setActiveTab] = useState<'personal' | 'team'>(isManagement ? 'team' : 'personal');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [localDepartment, setLocalDepartment] = useState<string>('all');
+  const selectedDepartment = propSelectedDepartment ?? localDepartment;
+  const setSelectedDepartment = onDepartmentChange ?? setLocalDepartment;
+
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  type PdksSortField = 'name' | 'department' | 'shift' | 'giris' | 'cikis' | 'office' | 'mesai' | 'durum';
+  const [sortField, setSortField] = useState<PdksSortField>('name');
+
+  const handleSort = (field: PdksSortField) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
 
   const deptList = React.useMemo(() => {
     if (departments && departments.length > 0) {
@@ -1229,7 +1247,47 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       return matchesSearch && matchesDept;
     })
     .sort((a, b) => {
-      const cmp = (a.employee.name || '').localeCompare(b.employee.name || '', 'tr');
+      let cmp = 0;
+      switch (sortField) {
+        case 'name':
+          cmp = (a.employee.name || '').localeCompare(b.employee.name || '', 'tr');
+          break;
+        case 'department':
+          cmp = (a.employee.department || 'Genel').localeCompare(b.employee.department || 'Genel', 'tr');
+          break;
+        case 'shift': {
+          const sA = `${a.shift?.name || ''} ${a.shift?.start_time || ''}`;
+          const sB = `${b.shift?.name || ''} ${b.shift?.start_time || ''}`;
+          cmp = sA.localeCompare(sB, 'tr');
+          break;
+        }
+        case 'giris': {
+          const gA = a.giris === '-' ? '' : (a.giris || '');
+          const gB = b.giris === '-' ? '' : (b.giris || '');
+          cmp = gA.localeCompare(gB);
+          break;
+        }
+        case 'cikis': {
+          const cA = a.cikis === '-' ? '' : (a.cikis || '');
+          const cB = b.cikis === '-' ? '' : (b.cikis || '');
+          cmp = cA.localeCompare(cB);
+          break;
+        }
+        case 'office': {
+          const oA = a.officeName === '-' ? '' : (a.officeName || '');
+          const oB = b.officeName === '-' ? '' : (b.officeName || '');
+          cmp = oA.localeCompare(oB, 'tr');
+          break;
+        }
+        case 'mesai':
+          cmp = (a.mesai || 0) - (b.mesai || 0);
+          break;
+        case 'durum':
+          cmp = (a.durum || '').localeCompare(b.durum || '', 'tr');
+          break;
+        default:
+          cmp = (a.employee.name || '').localeCompare(b.employee.name || '', 'tr');
+      }
       return sortOrder === 'asc' ? cmp : -cmp;
     });
 
@@ -1891,27 +1949,159 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th
-                    onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    onClick={() => handleSort('name')}
                     className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
-                    title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+                    title={sortField === 'name' && sortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
                   >
                     <div className="flex items-center gap-1.5">
                       <span>Personel</span>
-                      <span className="text-blue-600 font-bold text-xs">
-                        {sortOrder === 'asc' ? '▲' : '▼'}
-                      </span>
-                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                        {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
-                      </span>
+                      {sortField === 'name' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
                     </div>
                   </th>
-                  <th className="px-6 py-4">Departman</th>
-                  <th className="px-6 py-4 text-center">Atanmış Vardiya</th>
-                  <th className="px-6 py-4 text-center">Giriş Saati</th>
-                  <th className="px-6 py-4 text-center">Çıkış Saati</th>
-                  <th className="px-6 py-4 text-center">Mesai Yapılan Ofis</th>
-                  {isManagement && <th className="px-6 py-4 text-center">Fazla Mesai</th>}
-                  <th className="px-6 py-4 text-center">Durum</th>
+                  <th
+                    onClick={() => handleSort('department')}
+                    className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                    title={sortField === 'department' && sortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Departman</span>
+                      {sortField === 'department' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('shift')}
+                    className="px-6 py-4 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                    title={sortField === 'shift' && sortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>Atanmış Vardiya</span>
+                      {sortField === 'shift' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('giris')}
+                    className="px-6 py-4 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                    title={sortField === 'giris' && sortOrder === 'asc' ? 'Geçten Erken Sırala' : 'Erkenden Geçe Sırala'}
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>Giriş Saati</span>
+                      {sortField === 'giris' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('cikis')}
+                    className="px-6 py-4 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                    title={sortField === 'cikis' && sortOrder === 'asc' ? 'Geçten Erken Sırala' : 'Erkenden Geçe Sırala'}
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>Çıkış Saati</span>
+                      {sortField === 'cikis' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('office')}
+                    className="px-6 py-4 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                    title={sortField === 'office' && sortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>Mesai Yapılan Ofis</span>
+                      {sortField === 'office' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
+                    </div>
+                  </th>
+                  {isManagement && (
+                    <th
+                      onClick={() => handleSort('mesai')}
+                      className="px-6 py-4 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                      title={sortField === 'mesai' && sortOrder === 'asc' ? 'Büyükten Küçüğe Sırala' : 'Küçükten Büyüğe Sırala'}
+                    >
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span>Fazla Mesai</span>
+                        {sortField === 'mesai' ? (
+                          <>
+                            <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                            <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                              {sortOrder === 'asc' ? '0-9' : '9-0'}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-gray-300 text-xs">↕</span>
+                        )}
+                      </div>
+                    </th>
+                  )}
+                  <th
+                    onClick={() => handleSort('durum')}
+                    className="px-6 py-4 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                    title={sortField === 'durum' && sortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>Durum</span>
+                      {sortField === 'durum' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
+                    </div>
+                  </th>
                   {isManagement && <th className="px-6 py-4 text-right">İşlemler</th>}
                 </tr>
               </thead>

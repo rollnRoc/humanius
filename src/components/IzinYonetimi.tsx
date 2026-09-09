@@ -17,7 +17,8 @@ import {
   Trash2,
   UserCheck,
   Briefcase,
-  FileText
+  FileText,
+  ArrowUpDown
 } from 'lucide-react';
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
@@ -144,25 +145,51 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
   const [sonIslemSearch, setSonIslemSearch] = useState('');
   const [sonIslemStatusFilter, setSonIslemStatusFilter] = useState<'all' | 'onaylandi' | 'reddedildi' | 'iptal'>('all');
   const [sonIslemTurFilter, setSonIslemTurFilter] = useState<string>('all');
+  type SonIslemSort = 'tarih' | 'name' | 'tur' | 'gun' | 'durum';
+  const [sonIslemSortField, setSonIslemSortField] = useState<SonIslemSort>('tarih');
+  const [sonIslemSortOrder, setSonIslemSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Tab 1 (Bekleyenler) Arama
+  // Tab 1 (Bekleyenler) Arama ve Sıralama
   const [bekleyenSearch, setBekleyenSearch] = useState('');
+  type BekleyenSort = 'tarih' | 'name' | 'tur' | 'gun';
+  const [bekleyenSortField, setBekleyenSortField] = useState<BekleyenSort>('tarih');
+  const [bekleyenSortOrder, setBekleyenSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Filtrelenmiş bekleyenler
   const filteredBekleyenler = useMemo(() => {
-    if (!bekleyenSearch.trim()) return bekleyenler;
-    const term = bekleyenSearch.toLowerCase().trim();
-    return bekleyenler.filter((t) => {
-      const name = (t.employeeName || '').toLowerCase();
-      const tur = formatIzinTuru(t.izinTuru).toLowerCase();
-      const aciklama = (t.aciklama || '').toLowerCase();
-      return name.includes(term) || tur.includes(term) || aciklama.includes(term);
+    let list = bekleyenler;
+    if (bekleyenSearch.trim()) {
+      const term = bekleyenSearch.toLowerCase().trim();
+      list = bekleyenler.filter((t) => {
+        const name = (t.employeeName || '').toLowerCase();
+        const tur = formatIzinTuru(t.izinTuru).toLowerCase();
+        const aciklama = (t.aciklama || '').toLowerCase();
+        return name.includes(term) || tur.includes(term) || aciklama.includes(term);
+      });
+    }
+    return list.slice().sort((a, b) => {
+      let cmp = 0;
+      switch (bekleyenSortField) {
+        case 'name':
+          cmp = (a.employeeName || '').localeCompare(b.employeeName || '', 'tr');
+          break;
+        case 'tur':
+          cmp = formatIzinTuru(a.izinTuru).localeCompare(formatIzinTuru(b.izinTuru), 'tr');
+          break;
+        case 'tarih':
+          cmp = (a.baslangicTarihi || '').localeCompare(b.baslangicTarihi || '');
+          break;
+        case 'gun':
+          cmp = (a.gunSayisi || 0) - (b.gunSayisi || 0);
+          break;
+      }
+      return bekleyenSortOrder === 'asc' ? cmp : -cmp;
     });
-  }, [bekleyenler, bekleyenSearch]);
+  }, [bekleyenler, bekleyenSearch, bekleyenSortField, bekleyenSortOrder]);
 
   // Filtrelenmiş son işlemler
   const filteredSonIslemler = useMemo(() => {
-    return sonIslemler.filter((t) => {
+    const list = sonIslemler.filter((t) => {
       const matchesStatus = sonIslemStatusFilter === 'all' || t.durum === sonIslemStatusFilter;
       const matchesTur = sonIslemTurFilter === 'all' || t.izinTuru === sonIslemTurFilter;
       const term = sonIslemSearch.toLowerCase().trim();
@@ -174,7 +201,29 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
         (t.redNedeni || '').toLowerCase().includes(term);
       return matchesStatus && matchesTur && matchesSearch;
     });
-  }, [sonIslemler, sonIslemStatusFilter, sonIslemTurFilter, sonIslemSearch]);
+
+    return list.slice().sort((a, b) => {
+      let cmp = 0;
+      switch (sonIslemSortField) {
+        case 'name':
+          cmp = (a.employeeName || '').localeCompare(b.employeeName || '', 'tr');
+          break;
+        case 'tur':
+          cmp = formatIzinTuru(a.izinTuru).localeCompare(formatIzinTuru(b.izinTuru), 'tr');
+          break;
+        case 'tarih':
+          cmp = (a.baslangicTarihi || '').localeCompare(b.baslangicTarihi || '');
+          break;
+        case 'gun':
+          cmp = (a.gunSayisi || 0) - (b.gunSayisi || 0);
+          break;
+        case 'durum':
+          cmp = (a.durum || '').localeCompare(b.durum || '', 'tr');
+          break;
+      }
+      return sonIslemSortOrder === 'asc' ? cmp : -cmp;
+    });
+  }, [sonIslemler, sonIslemStatusFilter, sonIslemTurFilter, sonIslemSearch, sonIslemSortField, sonIslemSortOrder]);
 
   // Benzersiz izin türleri listesi
   const availableIzinTurleri = useMemo(() => {
@@ -432,17 +481,41 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
             </div>
           </div>
 
-          {/* Bekleyen Talepler Arama (varsa) */}
+          {/* Bekleyen Talepler Arama ve Sıralama (varsa) */}
           {bekleyenler.length > 1 && (
-            <div className="relative max-w-md">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder={isAuthorized ? 'Bekleyen taleplerde personel veya tür ara...' : 'Bekleyen taleplerimde ara...'}
-                value={bekleyenSearch}
-                onChange={(e) => setBekleyenSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 font-medium"
-              />
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <div className="relative flex-1 min-w-[240px] max-w-md">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder={isAuthorized ? 'Bekleyen taleplerde personel veya tür ara...' : 'Bekleyen taleplerimde ara...'}
+                  value={bekleyenSearch}
+                  onChange={(e) => setBekleyenSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 font-medium"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={bekleyenSortField}
+                  onChange={(e) => setBekleyenSortField(e.target.value as BekleyenSort)}
+                  className="px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 font-semibold text-gray-700 cursor-pointer"
+                >
+                  <option value="tarih">Tarihe Göre</option>
+                  <option value="name">Personele Göre</option>
+                  <option value="tur">İzin Türüne Göre</option>
+                  <option value="gun">Gün Sayısına Göre</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setBekleyenSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  title={bekleyenSortOrder === 'asc' ? 'A → Z / 0-9 (Tersine çevirmek için tıklayın)' : 'Z → A / 9-0 (Düz çevirmek için tıklayın)'}
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
+                  <span>{bekleyenSortOrder === 'asc' ? 'A-Z / 0-9' : 'Z-A / 9-0'}</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -581,7 +654,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
               )}
 
               {/* Arama Inputu */}
-              <div className="relative min-w-[220px]">
+              <div className="relative min-w-[200px]">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
@@ -599,6 +672,30 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
                   </button>
                 )}
               </div>
+
+              {/* Sıralama Seçimi */}
+              <select
+                value={sonIslemSortField}
+                onChange={(e) => setSonIslemSortField(e.target.value as SonIslemSort)}
+                className="px-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 font-semibold text-gray-700 cursor-pointer"
+              >
+                <option value="tarih">Tarihe Göre</option>
+                <option value="name">Personele Göre</option>
+                <option value="tur">İzin Türüne Göre</option>
+                <option value="gun">Gün Sayısına Göre</option>
+                <option value="durum">Duruma Göre</option>
+              </select>
+
+              {/* A-Z / Z-A Sıralama Butonu */}
+              <button
+                type="button"
+                onClick={() => setSonIslemSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                title={sonIslemSortOrder === 'asc' ? 'A → Z / 0-9 (Tersine çevirmek için tıklayın)' : 'Z → A / 9-0 (Düz çevirmek için tıklayın)'}
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
+                <span>{sonIslemSortOrder === 'asc' ? 'A-Z / 0-9' : 'Z-A / 9-0'}</span>
+              </button>
             </div>
           </div>
 

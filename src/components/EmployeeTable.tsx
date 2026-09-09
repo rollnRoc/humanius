@@ -106,34 +106,164 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+    <div className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto min-h-[350px]">
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
               <th
-                onClick={toggleSort}
+                onClick={() => handleSort('name')}
                 className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                title={currentSortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+                title={sortField === 'name' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
               >
                 <div className="flex items-center gap-1.5">
                   <span>{t('table.name')}</span>
-                  <span className="text-blue-600 font-bold text-xs">
-                    {currentSortOrder === 'asc' ? '▲' : '▼'}
-                  </span>
-                  <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                    {currentSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
-                  </span>
+                  {sortField === 'name' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{currentSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {currentSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
                 </div>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.company')}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.department')}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.position')}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sistem Rolü</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çalışan Tipi</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.status')}</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.mobile')}</th>
+              <th
+                onClick={() => handleSort('company')}
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'company' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>{t('table.company')}</span>
+                  {sortField === 'company' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{currentSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {currentSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('department')}
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'department' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>{t('table.department')}</span>
+                  {sortField === 'department' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{currentSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {currentSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('position')}
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'position' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>{t('table.position')}</span>
+                  {sortField === 'position' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{currentSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {currentSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('role')}
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'role' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>Sistem Rolü</span>
+                  {sortField === 'role' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{currentSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {currentSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('employeeType')}
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'employeeType' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>Çalışan Tipi</span>
+                  {sortField === 'employeeType' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{currentSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {currentSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('status')}
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'status' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>{t('table.status')}</span>
+                  {sortField === 'status' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{currentSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {currentSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('phone')}
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'phone' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>{t('table.mobile')}</span>
+                  {sortField === 'phone' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{currentSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {currentSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.actions')}</th>
             </tr>
           </thead>

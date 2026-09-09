@@ -1668,6 +1668,8 @@ const AppInner: React.FC = () => {
             selectedCompany={selectedCompany}
             onCompanyChange={setSelectedCompany}
             companies={companies}
+            selectedDepartment={selectedDepartment}
+            onDepartmentChange={setSelectedDepartment}
           />
         )}
         {currentView === 'puantaj' && (

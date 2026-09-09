@@ -81,8 +81,32 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [selectedDayFilter, setSelectedDayFilter] = useState<number | 'all'>('all');
-  const [selectedDailyEmployeeId, setSelectedDailyEmployeeId] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  type PuantajSortField = 'name' | 'department' | 'fiili' | 'ht' | 'yillik' | 'ucretsiz' | 'rapor' | 'devamsiz' | 'bordro' | 'fm';
+  const [matrixSortField, setMatrixSortField] = useState<PuantajSortField>('name');
+  const [matrixSortOrder, setMatrixSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleMatrixSort = (field: PuantajSortField) => {
+    if (matrixSortField === field) {
+      setMatrixSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setMatrixSortField(field);
+      setMatrixSortOrder('asc');
+    }
+  };
+
+  type DailySortField = 'employeeName' | 'tarih' | 'shiftHours' | 'girisSaati' | 'cikisSaati' | 'molaDk' | 'netSureSaat' | 'fazlaMesaiSaat' | 'gecikmeDk' | 'kod';
+  const [dailySortField, setDailySortField] = useState<DailySortField>('tarih');
+  const [dailySortOrder, setDailySortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleDailySort = (field: DailySortField) => {
+    if (dailySortField === field) {
+      setDailySortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setDailySortField(field);
+      setDailySortOrder('asc');
+    }
+  };
 
   // Veri Durumları
   const [vardiyaKayitlari, setVardiyaKayitlari] = useState<VardiyaKaydi[]>([]);
@@ -307,10 +331,44 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         return matchesSearch && matchesDept;
       })
       .sort((a, b) => {
-        const cmp = (a.employee.name || '').localeCompare(b.employee.name || '', 'tr');
-        return sortOrder === 'asc' ? cmp : -cmp;
+        let cmp = 0;
+        switch (matrixSortField) {
+          case 'name':
+            cmp = (a.employee.name || '').localeCompare(b.employee.name || '', 'tr');
+            break;
+          case 'department':
+            cmp = (a.employee.department || 'Genel').localeCompare(b.employee.department || 'Genel', 'tr');
+            break;
+          case 'fiili':
+            cmp = a.ozet.fiiliCalismaSaat - b.ozet.fiiliCalismaSaat;
+            break;
+          case 'ht':
+            cmp = a.ozet.haftaTatiliGun - b.ozet.haftaTatiliGun;
+            break;
+          case 'yillik':
+            cmp = a.ozet.yillikIzinGun - b.ozet.yillikIzinGun;
+            break;
+          case 'ucretsiz':
+            cmp = a.ozet.ucretsizIzinGun - b.ozet.ucretsizIzinGun;
+            break;
+          case 'rapor':
+            cmp = a.ozet.raporluGun - b.ozet.raporluGun;
+            break;
+          case 'devamsiz':
+            cmp = a.ozet.devamsizGun - b.ozet.devamsizGun;
+            break;
+          case 'bordro':
+            cmp = a.ozet.bordroGun - b.ozet.bordroGun;
+            break;
+          case 'fm':
+            cmp = a.ozet.toplamFazlaMesaiSaat - b.ozet.toplamFazlaMesaiSaat;
+            break;
+          default:
+            cmp = (a.employee.name || '').localeCompare(b.employee.name || '', 'tr');
+        }
+        return matrixSortOrder === 'asc' ? cmp : -cmp;
       });
-  }, [allCalculatedPuantaj, searchTerm, selectedDepartment, sortOrder]);
+  }, [allCalculatedPuantaj, searchTerm, selectedDepartment, matrixSortField, matrixSortOrder]);
 
   // İstatistik Kartları (KPIs)
   const totalStats = useMemo(() => {
@@ -328,7 +386,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
     const totalFiiliSaat = filteredPuantaj.reduce((acc, p) => acc + p.ozet.fiiliCalismaSaat, 0);
     const totalFazlaMesai = filteredPuantaj.reduce((acc, p) => acc + p.ozet.toplamFazlaMesaiSaat, 0);
-    const totalIzinliRaporlu = filteredPuantaj.reduce((acc, p) => acc + p.ozet.ucretliIzinGun + p.ozet.raporluGun, 0);
+    const totalIzinliRaporlu = filteredPuantaj.reduce((acc, p) => acc + (p.ozet.toplamIzinGun || p.ozet.yillikIzinGun + p.ozet.ucretliIzinGun) + p.ozet.raporluGun, 0);
     const tamBordroSayisi = filteredPuantaj.filter((p) => p.ozet.bordroGun === 30).length;
 
     return {
@@ -370,6 +428,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
           ? `Fiili Çalışma (${editGiris}-${editCikis})`
           : editKod === 'Yİ' || editKod === 'YI'
           ? 'Yıllık Ücretli İzin'
+          : editKod === 'EG'
+          ? 'Eğitim İzni'
           : editKod === 'Mİ' || editKod === 'MZ'
           ? 'Mazeret İzni'
           : editKod === 'R' || editKod === 'HA'
@@ -511,8 +571,45 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
           kod: g.kod,
           kodAciklama: g.kodAciklama,
         }))
-    );
-  }, [filteredPuantaj, activeDailyEmployeeId, selectedPuantajRecord, selectedDayFilter]);
+    ).sort((a, b) => {
+      let cmp = 0;
+      switch (dailySortField) {
+        case 'employeeName':
+          cmp = (a.employeeName || '').localeCompare(b.employeeName || '', 'tr');
+          break;
+        case 'tarih':
+          cmp = (a.tarih || '').localeCompare(b.tarih || '');
+          break;
+        case 'shiftHours':
+          cmp = (a.shiftHours || '').localeCompare(b.shiftHours || '');
+          break;
+        case 'girisSaati':
+          cmp = (a.girisSaati || '').localeCompare(b.girisSaati || '');
+          break;
+        case 'cikisSaati':
+          cmp = (a.cikisSaati || '').localeCompare(b.cikisSaati || '');
+          break;
+        case 'molaDk':
+          cmp = (a.molaDk || 0) - (b.molaDk || 0);
+          break;
+        case 'netSureSaat':
+          cmp = (a.netSureSaat || 0) - (b.netSureSaat || 0);
+          break;
+        case 'fazlaMesaiSaat':
+          cmp = (a.fazlaMesaiSaat || 0) - (b.fazlaMesaiSaat || 0);
+          break;
+        case 'gecikmeDk':
+          cmp = (a.gecikmeDk || 0) - (b.gecikmeDk || 0);
+          break;
+        case 'kod':
+          cmp = (a.kod || '').localeCompare(b.kod || '', 'tr');
+          break;
+        default:
+          cmp = (a.tarih || '').localeCompare(b.tarih || '');
+      }
+      return dailySortOrder === 'asc' ? cmp : -cmp;
+    });
+  }, [filteredPuantaj, activeDailyEmployeeId, selectedPuantajRecord, selectedDayFilter, dailySortField, dailySortOrder]);
 
   const handlePrintDailyPdf = () => {
     const periodStr =
@@ -863,18 +960,22 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
               <thead className="bg-gray-100 text-gray-700 sticky top-0 z-20 border-b border-gray-300">
                 <tr>
                   <th
-                    onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    onClick={() => handleMatrixSort('name')}
                     className="px-3 py-3 font-bold border-r border-gray-300 bg-gray-100 sticky left-0 z-30 min-w-[200px] cursor-pointer hover:bg-gray-200 transition-colors select-none"
-                    title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+                    title={matrixSortField === 'name' && matrixSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
                   >
                     <div className="flex items-center gap-1.5">
                       <span>Personel Bilgisi</span>
-                      <span className="text-blue-600 font-bold text-xs">
-                        {sortOrder === 'asc' ? '▲' : '▼'}
-                      </span>
-                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                        {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
-                      </span>
+                      {matrixSortField === 'name' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{matrixSortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {matrixSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
                     </div>
                   </th>
 
@@ -901,26 +1002,117 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   })}
 
                   {/* Sağ Özet Sütunları */}
-                  <th className="px-2 py-3 text-center border-r border-gray-200 bg-emerald-50 text-emerald-800 font-bold min-w-[65px]">
-                    Fiili Gün/Saat
+                  <th
+                    onClick={() => handleMatrixSort('fiili')}
+                    className="px-2 py-3 text-center border-r border-gray-200 bg-emerald-50 text-emerald-800 font-bold min-w-[65px] cursor-pointer hover:bg-emerald-100 transition-colors select-none"
+                    title="Fiili Çalışılan Gün/Saat Sırala"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Fiili Gün/Saat</span>
+                      {matrixSortField === 'fiili' ? (
+                        <span className="text-emerald-700 font-bold text-[10px]">{matrixSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      ) : (
+                        <span className="text-gray-300 text-[10px]">↕</span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-2 py-3 text-center border-r border-gray-200 bg-blue-50 text-blue-800 font-bold min-w-[40px]">
-                    HT
+                  <th
+                    onClick={() => handleMatrixSort('ht')}
+                    className="px-2 py-3 text-center border-r border-gray-200 bg-blue-50 text-blue-800 font-bold min-w-[40px] cursor-pointer hover:bg-blue-100 transition-colors select-none"
+                    title="Hafta Tatili Gün Sayısı Sırala"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>HT</span>
+                      {matrixSortField === 'ht' ? (
+                        <span className="text-blue-700 font-bold text-[10px]">{matrixSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      ) : (
+                        <span className="text-gray-300 text-[10px]">↕</span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-2 py-3 text-center border-r border-gray-200 bg-teal-50 text-teal-800 font-bold min-w-[40px]">
-                    İzin
+                  <th
+                    onClick={() => handleMatrixSort('yillik')}
+                    className="px-2 py-3 text-center border-r border-gray-200 bg-teal-50 text-teal-800 font-bold min-w-[48px] cursor-pointer hover:bg-teal-100 transition-colors select-none"
+                    title="Yıllık Ücretli İzin Gün Sayısı Sırala"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Yıllık İzin</span>
+                      {matrixSortField === 'yillik' ? (
+                        <span className="text-teal-700 font-bold text-[10px]">{matrixSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      ) : (
+                        <span className="text-gray-300 text-[10px]">↕</span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-2 py-3 text-center border-r border-gray-200 bg-amber-50 text-amber-800 font-bold min-w-[40px]">
-                    Rap.
+                  <th
+                    onClick={() => handleMatrixSort('ucretsiz')}
+                    className="px-2 py-3 text-center border-r border-gray-200 bg-orange-50 text-orange-800 font-bold min-w-[48px] cursor-pointer hover:bg-orange-100 transition-colors select-none"
+                    title="Ücretsiz İzin Gün Sayısı Sırala"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Ücr. İzin</span>
+                      {matrixSortField === 'ucretsiz' ? (
+                        <span className="text-orange-700 font-bold text-[10px]">{matrixSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      ) : (
+                        <span className="text-gray-300 text-[10px]">↕</span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-2 py-3 text-center border-r border-gray-200 bg-red-50 text-red-800 font-bold min-w-[40px]">
-                    Dev.
+                  <th
+                    onClick={() => handleMatrixSort('rapor')}
+                    className="px-2 py-3 text-center border-r border-gray-200 bg-amber-50 text-amber-800 font-bold min-w-[40px] cursor-pointer hover:bg-amber-100 transition-colors select-none"
+                    title="SGK İstirahat Raporlu Gün Sayısı Sırala"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Rap.</span>
+                      {matrixSortField === 'rapor' ? (
+                        <span className="text-amber-700 font-bold text-[10px]">{matrixSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      ) : (
+                        <span className="text-gray-300 text-[10px]">↕</span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-2 py-3 text-center border-r border-gray-300 bg-blue-600 text-white font-extrabold min-w-[65px]">
-                    Bordro (30G)
+                  <th
+                    onClick={() => handleMatrixSort('devamsiz')}
+                    className="px-2 py-3 text-center border-r border-gray-200 bg-red-50 text-red-800 font-bold min-w-[40px] cursor-pointer hover:bg-red-100 transition-colors select-none"
+                    title="Mazeretsiz Devamsız Gün Sayısı Sırala"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Dev.</span>
+                      {matrixSortField === 'devamsiz' ? (
+                        <span className="text-red-700 font-bold text-[10px]">{matrixSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      ) : (
+                        <span className="text-gray-300 text-[10px]">↕</span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-2 py-3 text-center bg-amber-50 text-amber-800 font-bold min-w-[55px]">
-                    FM Saat
+                  <th
+                    onClick={() => handleMatrixSort('bordro')}
+                    className="px-2 py-3 text-center border-r border-gray-300 bg-blue-600 text-white font-extrabold min-w-[65px] cursor-pointer hover:bg-blue-700 transition-colors select-none"
+                    title="Bordro Günü (30G) Sırala"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Bordro (30G)</span>
+                      {matrixSortField === 'bordro' ? (
+                        <span className="text-white font-bold text-[10px]">{matrixSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      ) : (
+                        <span className="text-blue-200 text-[10px]">↕</span>
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleMatrixSort('fm')}
+                    className="px-2 py-3 text-center bg-amber-50 text-amber-800 font-bold min-w-[55px] cursor-pointer hover:bg-amber-100 transition-colors select-none"
+                    title="Toplam Fazla Mesai Saati Sırala"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>FM Saat</span>
+                      {matrixSortField === 'fm' ? (
+                        <span className="text-amber-700 font-bold text-[10px]">{matrixSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      ) : (
+                        <span className="text-gray-300 text-[10px]">↕</span>
+                      )}
+                    </div>
                   </th>
                 </tr>
               </thead>
@@ -957,8 +1149,12 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                           badgeStyle = 'bg-slate-100 text-slate-600 hover:bg-slate-200';
                         } else if (g.kod === 'UBGT') {
                           badgeStyle = 'bg-purple-100 text-purple-800 hover:bg-purple-200';
-                        } else if (g.kod === 'Yİ' || g.kod === 'Mİ' || g.kod === 'YI' || g.kod === 'MZ') {
-                          badgeStyle = 'bg-teal-100 text-teal-800 hover:bg-teal-200';
+                        } else if (g.kod === 'Yİ' || g.kod === 'YI') {
+                          badgeStyle = 'bg-teal-100 text-teal-800 hover:bg-teal-200 font-bold';
+                        } else if (g.kod === 'Mİ' || g.kod === 'MZ') {
+                          badgeStyle = 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200';
+                        } else if (g.kod === 'EG') {
+                          badgeStyle = 'bg-sky-100 text-sky-800 hover:bg-sky-200 font-bold';
                         } else if (g.kod === 'R' || g.kod === 'HA') {
                           badgeStyle = 'bg-amber-100 text-amber-800 hover:bg-amber-200';
                         } else if (g.kod === 'Üİ' || g.kod === 'UC') {
@@ -969,7 +1165,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                           badgeStyle = 'bg-transparent text-gray-300 hover:bg-gray-100 font-normal';
                           displayVal = '-';
                         } else {
-                          // Dinamik / özel izin kodu (Örn: EG, BA, EV, OL vb.)
+                          // Dinamik / özel izin kodu (Örn: BA, EV, OL vb.)
                           badgeStyle = 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 font-extrabold';
                         }
 
@@ -1004,13 +1200,16 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                       <td className="px-2 py-2 text-center border-r border-gray-200 font-semibold text-blue-700 bg-blue-50/30">
                         {ozet.haftaTatiliGun}
                       </td>
-                      <td className="px-2 py-2 text-center border-r border-gray-200 font-semibold text-teal-700 bg-teal-50/30">
-                        {ozet.ucretliIzinGun}
+                      <td className="px-2 py-2 text-center border-r border-gray-200 font-bold text-teal-700 bg-teal-50/30" title="Yıllık İzin">
+                        {ozet.yillikIzinGun > 0 ? ozet.yillikIzinGun : '-'}
                       </td>
-                      <td className="px-2 py-2 text-center border-r border-gray-200 font-semibold text-amber-700 bg-amber-50/30">
+                      <td className="px-2 py-2 text-center border-r border-gray-200 font-semibold text-orange-700 bg-orange-50/30" title="Ücretsiz İzin">
+                        {ozet.ucretsizIzinGun > 0 ? ozet.ucretsizIzinGun : '-'}
+                      </td>
+                      <td className="px-2 py-2 text-center border-r border-gray-200 font-semibold text-amber-700 bg-amber-50/30" title="Raporlu">
                         {ozet.raporluGun > 0 ? ozet.raporluGun : '-'}
                       </td>
-                      <td className="px-2 py-2 text-center border-r border-gray-200 font-semibold text-red-700 bg-red-50/30">
+                      <td className="px-2 py-2 text-center border-r border-gray-200 font-semibold text-red-700 bg-red-50/30" title="Devamsız">
                         {ozet.devamsizGun > 0 ? ozet.devamsizGun : '-'}
                       </td>
                       <td className="px-2 py-2 text-center border-r border-gray-300 font-extrabold text-blue-700 bg-blue-50">
@@ -1176,8 +1375,20 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                       {selectedPuantajRecord.ozet.bordroGun} gün
                     </div>
                   </div>
+                  <div className="bg-white border border-teal-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
+                    <div className="text-[10px] text-teal-600 font-bold uppercase">Yıllık İzin</div>
+                    <div className="text-sm font-extrabold text-teal-700">
+                      {selectedPuantajRecord.ozet.yillikIzinGun} gün
+                    </div>
+                  </div>
+                  <div className="bg-white border border-orange-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
+                    <div className="text-[10px] text-orange-600 font-bold uppercase">Ücretsiz İzin</div>
+                    <div className="text-sm font-extrabold text-orange-700">
+                      {selectedPuantajRecord.ozet.ucretsizIzinGun} gün
+                    </div>
+                  </div>
                   <div className="bg-white border border-gray-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
-                    <div className="text-[10px] text-gray-500 font-bold uppercase">İzin / Rapor</div>
+                    <div className="text-[10px] text-gray-500 font-bold uppercase">Rapor / Mazeret</div>
                     <div className="text-sm font-extrabold text-gray-700">
                       {selectedPuantajRecord.ozet.ucretliIzinGun + selectedPuantajRecord.ozet.raporluGun} gün
                     </div>
@@ -1193,16 +1404,148 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
               <table className="w-full text-xs text-left">
                 <thead className="bg-gray-50 text-gray-700 uppercase text-[10px] border-b border-gray-200">
                   <tr>
-                    {activeDailyEmployeeId === 'all' && <th className="px-4 py-3">Personel</th>}
-                    <th className="px-4 py-3">Tarih</th>
-                    <th className="px-4 py-3 text-center">Vardiya</th>
-                    <th className="px-4 py-3 text-center">İlk Giriş Saati</th>
-                    <th className="px-4 py-3 text-center">Son Çıkış Saati</th>
-                    <th className="px-4 py-3 text-center">Yasal Mola</th>
-                    <th className="px-4 py-3 text-center bg-emerald-50 text-emerald-900">Net Fiili Süre</th>
-                    <th className="px-4 py-3 text-center">Fazla Mesai</th>
-                    <th className="px-4 py-3 text-center">Geç Kalma</th>
-                    <th className="px-4 py-3 text-center">Puantaj Durumu</th>
+                    {activeDailyEmployeeId === 'all' && (
+                      <th
+                        onClick={() => handleDailySort('employeeName')}
+                        className="px-4 py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                        title="Personel Adına Göre Sırala"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Personel</span>
+                          {dailySortField === 'employeeName' ? (
+                            <span className="text-blue-600 font-bold">{dailySortOrder === 'asc' ? '▲' : '▼'}</span>
+                          ) : (
+                            <span className="text-gray-300">↕</span>
+                          )}
+                        </div>
+                      </th>
+                    )}
+                    <th
+                      onClick={() => handleDailySort('tarih')}
+                      className="px-4 py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                      title="Tarihe Göre Sırala"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Tarih</span>
+                        {dailySortField === 'tarih' ? (
+                          <span className="text-blue-600 font-bold">{dailySortOrder === 'asc' ? '▲' : '▼'}</span>
+                        ) : (
+                          <span className="text-gray-300">↕</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleDailySort('shiftHours')}
+                      className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                      title="Vardiya Saatlerine Göre Sırala"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Vardiya</span>
+                        {dailySortField === 'shiftHours' ? (
+                          <span className="text-blue-600 font-bold">{dailySortOrder === 'asc' ? '▲' : '▼'}</span>
+                        ) : (
+                          <span className="text-gray-300">↕</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleDailySort('girisSaati')}
+                      className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                      title="Giriş Saatine Göre Sırala"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>İlk Giriş Saati</span>
+                        {dailySortField === 'girisSaati' ? (
+                          <span className="text-blue-600 font-bold">{dailySortOrder === 'asc' ? '▲' : '▼'}</span>
+                        ) : (
+                          <span className="text-gray-300">↕</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleDailySort('cikisSaati')}
+                      className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                      title="Çıkış Saatine Göre Sırala"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Son Çıkış Saati</span>
+                        {dailySortField === 'cikisSaati' ? (
+                          <span className="text-blue-600 font-bold">{dailySortOrder === 'asc' ? '▲' : '▼'}</span>
+                        ) : (
+                          <span className="text-gray-300">↕</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleDailySort('molaDk')}
+                      className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                      title="Yasal Molaya Göre Sırala"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Yasal Mola</span>
+                        {dailySortField === 'molaDk' ? (
+                          <span className="text-blue-600 font-bold">{dailySortOrder === 'asc' ? '▲' : '▼'}</span>
+                        ) : (
+                          <span className="text-gray-300">↕</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleDailySort('netSureSaat')}
+                      className="px-4 py-3 text-center bg-emerald-50 text-emerald-900 cursor-pointer hover:bg-emerald-100 transition-colors select-none"
+                      title="Net Fiili Süreye Göre Sırala"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Net Fiili Süre</span>
+                        {dailySortField === 'netSureSaat' ? (
+                          <span className="text-emerald-700 font-bold">{dailySortOrder === 'asc' ? '▲' : '▼'}</span>
+                        ) : (
+                          <span className="text-gray-300">↕</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleDailySort('fazlaMesaiSaat')}
+                      className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                      title="Fazla Mesaiye Göre Sırala"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Fazla Mesai</span>
+                        {dailySortField === 'fazlaMesaiSaat' ? (
+                          <span className="text-blue-600 font-bold">{dailySortOrder === 'asc' ? '▲' : '▼'}</span>
+                        ) : (
+                          <span className="text-gray-300">↕</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleDailySort('gecikmeDk')}
+                      className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                      title="Geç Kalmaya Göre Sırala"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Geç Kalma</span>
+                        {dailySortField === 'gecikmeDk' ? (
+                          <span className="text-blue-600 font-bold">{dailySortOrder === 'asc' ? '▲' : '▼'}</span>
+                        ) : (
+                          <span className="text-gray-300">↕</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleDailySort('kod')}
+                      className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                      title="Puantaj Durumuna Göre Sırala"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Puantaj Durumu</span>
+                        {dailySortField === 'kod' ? (
+                          <span className="text-blue-600 font-bold">{dailySortOrder === 'asc' ? '▲' : '▼'}</span>
+                        ) : (
+                          <span className="text-gray-300">↕</span>
+                        )}
+                      </div>
+                    </th>
                     <th className="px-4 py-3 text-center">İşlem</th>
                   </tr>
                 </thead>
@@ -1216,7 +1559,9 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                     else if (item.kod === 'HT') badgeStyle = 'bg-blue-100 text-blue-800';
                     else if (item.kod === 'AT') badgeStyle = 'bg-slate-100 text-slate-700';
                     else if (item.kod === 'UBGT') badgeStyle = 'bg-purple-100 text-purple-800';
-                    else if (item.kod === 'Yİ' || item.kod === 'Mİ' || item.kod === 'YI' || item.kod === 'MZ') badgeStyle = 'bg-teal-100 text-teal-800';
+                    else if (item.kod === 'Yİ' || item.kod === 'YI') badgeStyle = 'bg-teal-100 text-teal-800 font-bold';
+                    else if (item.kod === 'Mİ' || item.kod === 'MZ') badgeStyle = 'bg-emerald-100 text-emerald-700';
+                    else if (item.kod === 'EG') badgeStyle = 'bg-sky-100 text-sky-800 font-bold';
                     else if (item.kod === 'R' || item.kod === 'HA') badgeStyle = 'bg-amber-100 text-amber-800';
                     else if (item.kod === 'Üİ' || item.kod === 'UC') badgeStyle = 'bg-orange-100 text-orange-800';
                     else if (item.kod === 'D') badgeStyle = 'bg-red-100 text-red-800';
@@ -1313,6 +1658,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   <option value="AT">AT : Akdi Tatil (Cumartesi)</option>
                   <option value="UBGT">UBGT : Resmi Tatil (Ulusal Bayram)</option>
                   <option value="Yİ">Yİ : Yıllık Ücretli İzin</option>
+                  <option value="EG">EG : Eğitim İzni (Toplam İzinde Toplanmaz)</option>
                   <option value="Mİ">Mİ : Mazeret İzni (Evlilik, Ölüm vb.)</option>
                   <option value="R">R : SGK İstirahat Raporu</option>
                   <option value="Üİ">Üİ : Ücretsiz İzin</option>

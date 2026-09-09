@@ -599,7 +599,18 @@ const KullanicilarPage: React.FC = () => {
   const [loading, setLoading]           = useState(true);
   const [searchTerm, setSearchTerm]     = useState('');
   const [roleFilter, setRoleFilter]     = useState('all');
+  type SortField = 'name' | 'role' | 'company' | 'date';
+  const [sortField, setSortField]       = useState<SortField>('name');
   const [sortOrder, setSortOrder]       = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
   const [modalMode, setModalMode]       = useState<'create' | 'edit' | null>(null);
   const [editTarget, setEditTarget]     = useState<UserProfile | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
@@ -713,7 +724,27 @@ const KullanicilarPage: React.FC = () => {
       return matchSearch && matchRole;
     })
     .sort((a, b) => {
-      const cmp = (a.full_name || '').localeCompare(b.full_name || '', 'tr');
+      let cmp = 0;
+      switch (sortField) {
+        case 'name':
+          cmp = (a.full_name || '').localeCompare(b.full_name || '', 'tr');
+          break;
+        case 'role': {
+          const roleA = getRoleConfig(a.role).label;
+          const roleB = getRoleConfig(b.role).label;
+          cmp = roleA.localeCompare(roleB, 'tr');
+          break;
+        }
+        case 'company': {
+          const compA = a.company_id ? (companyNameMap[a.company_id] || '') : '';
+          const compB = b.company_id ? (companyNameMap[b.company_id] || '') : '';
+          cmp = compA.localeCompare(compB, 'tr');
+          break;
+        }
+        case 'date':
+          cmp = (a.created_at || '').localeCompare(b.created_at || '');
+          break;
+      }
       return sortOrder === 'asc' ? cmp : -cmp;
     });
 
@@ -843,28 +874,80 @@ const KullanicilarPage: React.FC = () => {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th
-                    onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    onClick={() => handleSort('name')}
                     className="text-left px-5 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                    title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+                    title={sortField === 'name' ? (sortOrder === 'asc' ? 'A → Z Sıralı' : 'Z → A Sıralı') : 'Kullanıcı adına göre sırala'}
                   >
                     <div className="flex items-center gap-1.5">
                       <span>Kullanıcı</span>
-                      <span className="text-blue-600 font-bold text-xs">
-                        {sortOrder === 'asc' ? '▲' : '▼'}
-                      </span>
-                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                        {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
-                      </span>
+                      {sortField === 'name' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
                     </div>
                   </th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Rol
+                  <th
+                    onClick={() => handleSort('role')}
+                    className="text-left px-5 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                    title={sortField === 'role' ? (sortOrder === 'asc' ? 'A → Z Sıralı' : 'Z → A Sıralı') : 'Role göre sırala'}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Rol</span>
+                      {sortField === 'role' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
+                    </div>
                   </th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                    Şirket
+                  <th
+                    onClick={() => handleSort('company')}
+                    className="text-left px-5 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider hidden sm:table-cell cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                    title={sortField === 'company' ? (sortOrder === 'asc' ? 'A → Z Sıralı' : 'Z → A Sıralı') : 'Şirkete göre sırala'}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Şirket</span>
+                      {sortField === 'company' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
+                    </div>
                   </th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                    Kayıt Tarihi
+                  <th
+                    onClick={() => handleSort('date')}
+                    className="text-left px-5 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider hidden md:table-cell cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                    title={sortField === 'date' ? (sortOrder === 'asc' ? 'Eskiden Yeniye' : 'Yeniden Eskiye') : 'Kayıt tarihine göre sırala'}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Kayıt Tarihi</span>
+                      {sortField === 'date' ? (
+                        <>
+                          <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                          <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {sortOrder === 'asc' ? '0-9' : '9-0'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-xs">↕</span>
+                      )}
+                    </div>
                   </th>
                   {canManageUsers(appRole) && (
                     <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">

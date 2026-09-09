@@ -49,6 +49,8 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
   const [editingHakEmpId, setEditingHakEmpId] = useState<string | null>(null);
   const [inputToplamHak, setInputToplamHak] = useState<number>(14);
   const [inputMazeretHak, setInputMazeretHak] = useState<number>(5);
+  type SortField = 'name' | 'department' | 'kullanilan' | 'kalan' | 'toplam';
+  const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
@@ -179,7 +181,24 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
       };
     })
     .sort((a, b) => {
-      const cmp = (a.emp.name || '').localeCompare(b.emp.name || '', 'tr');
+      let cmp = 0;
+      switch (sortField) {
+        case 'name':
+          cmp = (a.emp.name || '').localeCompare(b.emp.name || '', 'tr');
+          break;
+        case 'department':
+          cmp = (a.emp.department || '').localeCompare(b.emp.department || '', 'tr');
+          break;
+        case 'kullanilan':
+          cmp = a.kullanilanUcretliToplam - b.kullanilanUcretliToplam;
+          break;
+        case 'kalan':
+          cmp = a.kalanYillik - b.kalanYillik;
+          break;
+        case 'toplam':
+          cmp = a.toplamHak - b.toplamHak;
+          break;
+      }
       return sortOrder === 'asc' ? cmp : -cmp;
     });
 
@@ -403,15 +422,28 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
                 </select>
               )}
 
+              {/* Sıralama Ölçütü */}
+              <select
+                value={sortField}
+                onChange={(e) => setSortField(e.target.value as SortField)}
+                className="px-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 font-semibold text-gray-700 cursor-pointer"
+              >
+                <option value="name">Ada Göre</option>
+                <option value="department">Departmana Göre</option>
+                <option value="kalan">Kalan İzne Göre</option>
+                <option value="kullanilan">Kullanılan İzne Göre</option>
+                <option value="toplam">Toplam Hakka Göre</option>
+              </select>
+
               {/* A → Z Sıralama Butonu */}
               <button
                 type="button"
                 onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
                 className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-                title={sortOrder === 'asc' ? 'A → Z Sıralı (Z → A yapmak için tıklayın)' : 'Z → A Sıralı (A → Z yapmak için tıklayın)'}
+                title={sortOrder === 'asc' ? 'A → Z / 0-9 Sıralı' : 'Z → A / 9-0 Sıralı'}
               >
                 <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
-                <span>{sortOrder === 'asc' ? 'A → Z' : 'Z → A'}</span>
+                <span>{sortOrder === 'asc' ? 'A-Z / 0-9' : 'Z-A / 9-0'}</span>
               </button>
 
               {isAuthorized && onOpenHakedisModal && (

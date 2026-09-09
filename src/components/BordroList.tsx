@@ -25,7 +25,18 @@ const BordroList: React.FC<BordroListProps> = ({
 }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('all');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  type SortField = 'name' | 'period' | 'brut' | 'net' | 'kesinti';
+  const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
 
   const periods = ['all', ...Array.from(new Set(bordrolar.map((b) => b.period))).sort().reverse()];
 
@@ -33,9 +44,27 @@ const BordroList: React.FC<BordroListProps> = ({
     ? bordrolar
     : bordrolar.filter((b) => b.period === selectedPeriod)
   ).slice().sort((a, b) => {
-    const nameA = (a as any).employeeName ?? (a as any).employees?.name ?? (employees?.find((e: any) => e.id === a.employee_id)?.name) ?? '';
-    const nameB = (b as any).employeeName ?? (b as any).employees?.name ?? (employees?.find((e: any) => e.id === b.employee_id)?.name) ?? '';
-    const cmp = nameA.localeCompare(nameB, 'tr');
+    let cmp = 0;
+    switch (sortField) {
+      case 'name': {
+        const nameA = (a as any).employeeName ?? (a as any).employees?.name ?? (employees?.find((e: any) => e.id === a.employee_id)?.name) ?? '';
+        const nameB = (b as any).employeeName ?? (b as any).employees?.name ?? (employees?.find((e: any) => e.id === b.employee_id)?.name) ?? '';
+        cmp = nameA.localeCompare(nameB, 'tr');
+        break;
+      }
+      case 'period':
+        cmp = (a.period || '').localeCompare(b.period || '');
+        break;
+      case 'brut':
+        cmp = (a.brut_maas || 0) - (b.brut_maas || 0);
+        break;
+      case 'net':
+        cmp = (a.net_maas || 0) - (b.net_maas || 0);
+        break;
+      case 'kesinti':
+        cmp = (a.toplam_kesinti || 0) - (b.toplam_kesinti || 0);
+        break;
+    }
     return sortOrder === 'asc' ? cmp : -cmp;
   });
 
@@ -110,24 +139,100 @@ const BordroList: React.FC<BordroListProps> = ({
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <th
-                  onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  onClick={() => handleSort('name')}
                   className="px-4 py-3 text-left cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
-                  title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+                  title={sortField === 'name' ? (sortOrder === 'asc' ? 'A → Z Sıralı' : 'Z → A Sıralı') : 'Personele göre sırala'}
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Personel</span>
-                    <span className="text-blue-600 font-bold text-xs">
-                      {sortOrder === 'asc' ? '▲' : '▼'}
-                    </span>
-                    <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                      {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
-                    </span>
+                    {sortField === 'name' ? (
+                      <>
+                        <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                        <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                          {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-300 text-xs">↕</span>
+                    )}
                   </div>
                 </th>
-                <th className="px-4 py-3 text-left">Dönem</th>
-                <th className="px-4 py-3 text-right">Brüt Ücret</th>
-                <th className="px-4 py-3 text-right">Net Ücret</th>
-                <th className="px-4 py-3 text-right">Toplam Kesinti</th>
+                <th
+                  onClick={() => handleSort('period')}
+                  className="px-4 py-3 text-left cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                  title={sortField === 'period' ? (sortOrder === 'asc' ? 'Eskiden Yeniye' : 'Yeniden Eskiye') : 'Döneme göre sırala'}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Dönem</span>
+                    {sortField === 'period' ? (
+                      <>
+                        <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                        <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                          {sortOrder === 'asc' ? '0-9' : '9-0'}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-300 text-xs">↕</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('brut')}
+                  className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                  title={sortField === 'brut' ? (sortOrder === 'asc' ? 'Küçükten Büyüğe' : 'Büyükten Küçüğe') : 'Brüt ücrete göre sırala'}
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>Brüt Ücret</span>
+                    {sortField === 'brut' ? (
+                      <>
+                        <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                        <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                          {sortOrder === 'asc' ? '0-9' : '9-0'}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-300 text-xs">↕</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('net')}
+                  className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                  title={sortField === 'net' ? (sortOrder === 'asc' ? 'Küçükten Büyüğe' : 'Büyükten Küçüğe') : 'Net ücrete göre sırala'}
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>Net Ücret</span>
+                    {sortField === 'net' ? (
+                      <>
+                        <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                        <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                          {sortOrder === 'asc' ? '0-9' : '9-0'}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-300 text-xs">↕</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('kesinti')}
+                  className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
+                  title={sortField === 'kesinti' ? (sortOrder === 'asc' ? 'Küçükten Büyüğe' : 'Büyükten Küçüğe') : 'Toplam kesintiye göre sırala'}
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>Toplam Kesinti</span>
+                    {sortField === 'kesinti' ? (
+                      <>
+                        <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                        <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                          {sortOrder === 'asc' ? '0-9' : '9-0'}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-300 text-xs">↕</span>
+                    )}
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-left">İşlemler</th>
               </tr>
             </thead>

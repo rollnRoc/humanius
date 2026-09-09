@@ -75,9 +75,15 @@ export const printPuantajCetveliPdf = (params: {
           } else if (g.kod === 'UBGT') {
             badgeBg = '#f3e8ff';
             badgeColor = '#7e22ce';
-          } else if (g.kod === 'Yİ' || g.kod === 'Mİ' || g.kod === 'YI' || g.kod === 'MZ') {
+          } else if (g.kod === 'Yİ' || g.kod === 'YI') {
             badgeBg = '#ccfbf1';
             badgeColor = '#0f766e';
+          } else if (g.kod === 'Mİ' || g.kod === 'MZ') {
+            badgeBg = '#d1fae5';
+            badgeColor = '#047857';
+          } else if (g.kod === 'EG') {
+            badgeBg = '#e0f2fe';
+            badgeColor = '#0369a1';
           } else if (g.kod === 'R' || g.kod === 'HA') {
             badgeBg = '#fef3c7';
             badgeColor = '#b45309';
@@ -112,9 +118,10 @@ export const printPuantajCetveliPdf = (params: {
           ${dayCellsHtml}
           <td style="padding: 4px 2px; text-align: center; font-size: 8px; font-weight: bold; border: 1px solid #cbd5e1; background: #ecfdf5; color: #047857;">${ozet.fiiliCalismaGun}g / ${ozet.fiiliCalismaSaat}s</td>
           <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1;">${ozet.haftaTatiliGun}</td>
-          <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1;">${ozet.ucretliIzinGun}</td>
-          <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1; color: ${ozet.raporluGun > 0 ? '#b45309' : '#64748b'};">${ozet.raporluGun}</td>
-          <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1; color: ${ozet.devamsizGun > 0 ? '#b91c1c' : '#64748b'};">${ozet.devamsizGun}</td>
+          <td style="padding: 4px 2px; text-align: center; font-size: 8px; font-weight: bold; border: 1px solid #cbd5e1; color: #0f766e;">${ozet.yillikIzinGun > 0 ? ozet.yillikIzinGun : '-'}</td>
+          <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1; color: #c2410c;">${ozet.ucretsizIzinGun > 0 ? ozet.ucretsizIzinGun : '-'}</td>
+          <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1; color: ${ozet.raporluGun > 0 ? '#b45309' : '#64748b'};">${ozet.raporluGun > 0 ? ozet.raporluGun : '-'}</td>
+          <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1; color: ${ozet.devamsizGun > 0 ? '#b91c1c' : '#64748b'};">${ozet.devamsizGun > 0 ? ozet.devamsizGun : '-'}</td>
           <td style="padding: 4px 2px; text-align: center; font-size: 9px; font-weight: bold; border: 1px solid #cbd5e1; background: #eff6ff; color: #1d4ed8;">${ozet.bordroGun}</td>
           <td style="padding: 4px 2px; text-align: center; font-size: 8px; font-weight: bold; border: 1px solid #cbd5e1; color: ${ozet.toplamFazlaMesaiSaat > 0 ? '#ea580c' : '#64748b'};">${ozet.toplamFazlaMesaiSaat > 0 ? `+${ozet.toplamFazlaMesaiSaat}s` : '-'}</td>
         </tr>
@@ -227,13 +234,14 @@ export const printPuantajCetveliPdf = (params: {
             <th style="padding: 5px 6px; font-size: 9px; border: 1px solid #cbd5e1; text-align: left; min-width: 130px;">Personel Adı Soyadı</th>
             <th style="padding: 5px 6px; font-size: 8px; border: 1px solid #cbd5e1; text-align: left; min-width: 80px;">Departman</th>
             ${dayHeadersHtml}
-            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 48px;">Fiili Çal.</th>
-            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 24px;">HT</th>
-            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 24px;">İzin</th>
-            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 24px;">Rap.</th>
-            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 24px;">Dev.</th>
-            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 34px; background: #dbeafe;">Bordro (30G)</th>
-            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 36px;">FM Saat</th>
+            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 44px;">Fiili Çal.</th>
+            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 20px;">HT</th>
+            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 26px;">Yıllık İzin</th>
+            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 24px;">Ücr. İzin</th>
+            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 20px;">Rap.</th>
+            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 20px;">Dev.</th>
+            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 32px; background: #dbeafe;">Bordro (30G)</th>
+            <th style="padding: 5px 3px; font-size: 8px; border: 1px solid #cbd5e1; width: 34px;">FM Saat</th>
           </tr>
         </thead>
         <tbody>
@@ -248,7 +256,7 @@ export const printPuantajCetveliPdf = (params: {
           r.gunler.forEach((g) => {
             if (
               g.kod &&
-              !['Ç', 'HT', 'AT', 'UBGT', 'Yİ', 'YI', 'Mİ', 'MZ', 'R', 'HA', 'Üİ', 'UC', 'D', '-'].includes(g.kod)
+              !['Ç', 'HT', 'AT', 'UBGT', 'Yİ', 'YI', 'Mİ', 'MZ', 'EG', 'R', 'HA', 'Üİ', 'UC', 'D', '-'].includes(g.kod)
             ) {
               if (!customCodesMap.has(g.kod)) {
                 customCodesMap.set(g.kod, g.kodAciklama || 'Özel İzin');
@@ -268,7 +276,8 @@ export const printPuantajCetveliPdf = (params: {
         <div class="legend-item"><span class="legend-box" style="background: #f1f5f9; color: #475569;">AT</span> Akdi Tatil (Cmt)</div>
         <div class="legend-item"><span class="legend-box" style="background: #f3e8ff; color: #7e22ce;">UBGT</span> Resmi Tatil</div>
         <div class="legend-item"><span class="legend-box" style="background: #ccfbf1; color: #0f766e;">Yİ</span> Yıllık İzin</div>
-        <div class="legend-item"><span class="legend-box" style="background: #ccfbf1; color: #0f766e;">Mİ</span> Mazeret İzni</div>
+        <div class="legend-item"><span class="legend-box" style="background: #e0f2fe; color: #0369a1;">EG</span> Eğitim İzni</div>
+        <div class="legend-item"><span class="legend-box" style="background: #d1fae5; color: #047857;">Mİ</span> Mazeret İzni</div>
         <div class="legend-item"><span class="legend-box" style="background: #fef3c7; color: #b45309;">R</span> SGK Raporu</div>
         <div class="legend-item"><span class="legend-box" style="background: #ffedd5; color: #c2410c;">Üİ</span> Ücretsiz İzin</div>
         <div class="legend-item"><span class="legend-box" style="background: #fee2e2; color: #b91c1c;">D</span> Devamsız</div>
@@ -331,7 +340,8 @@ export const exportPuantajExcel = (
     'Fiili Gün',
     'Fiili Saat',
     'Hafta Tatili',
-    'İzinli Gün',
+    'Yıllık İzin',
+    'Ücretsiz İzin',
     'Raporlu Gün',
     'Devamsız Gün',
     'Bordro Günü (30G)',
@@ -357,7 +367,8 @@ export const exportPuantajExcel = (
       ozet.fiiliCalismaGun,
       ozet.fiiliCalismaSaat,
       ozet.haftaTatiliGun,
-      ozet.ucretliIzinGun,
+      ozet.yillikIzinGun,
+      ozet.ucretsizIzinGun,
       ozet.raporluGun,
       ozet.devamsizGun,
       ozet.bordroGun,
@@ -607,7 +618,7 @@ export const exportPuantajCsv = (
 
   // CSV Başlıkları
   const headerDays = Array.from({ length: daysCount }, (_, i) => `Gün ${i + 1}`).join(';');
-  const csvHeaders = `No;Personel Adı;TC Kimlik;Departman;${headerDays};Fiili Gün;Fiili Saat;Hafta Tatili;İzinli Gün;Raporlu Gün;Devamsız Gün;Bordro Günü (30G);Fazla Mesai Saati\n`;
+  const csvHeaders = `No;Personel Adı;TC Kimlik;Departman;${headerDays};Fiili Gün;Fiili Saat;Hafta Tatili;Yıllık İzin;Ücretsiz İzin;Raporlu Gün;Devamsız Gün;Bordro Günü (30G);Fazla Mesai Saati\n`;
 
   const csvRows = records
     .map((rec, i) => {
@@ -622,7 +633,7 @@ export const exportPuantajCsv = (
           return g.kod;
         })
         .join(';');
-      return `${i + 1};"${emp.name}";"${emp.tcNo || ''}";"${emp.department || ''}";${dayValues};${ozet.fiiliCalismaGun};${ozet.fiiliCalismaSaat};${ozet.haftaTatiliGun};${ozet.ucretliIzinGun};${ozet.raporluGun};${ozet.devamsizGun};${ozet.bordroGun};${ozet.toplamFazlaMesaiSaat}`;
+      return `${i + 1};"${emp.name}";"${emp.tcNo || ''}";"${emp.department || ''}";${dayValues};${ozet.fiiliCalismaGun};${ozet.fiiliCalismaSaat};${ozet.haftaTatiliGun};${ozet.yillikIzinGun};${ozet.ucretsizIzinGun};${ozet.raporluGun};${ozet.devamsizGun};${ozet.bordroGun};${ozet.toplamFazlaMesaiSaat}`;
     })
     .join('\n');
 

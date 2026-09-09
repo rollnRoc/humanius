@@ -20,6 +20,19 @@ const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees,
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  type SortField = 'name' | 'department' | 'tur' | 'start' | 'end' | 'gun';
+  type SortOrder = 'asc' | 'desc';
+  const [sortField, setSortField] = useState<SortField>('start');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
 
   // Sadece onaylanmis izinleri goster
   const approvedLeaves = useMemo(() => {
@@ -27,7 +40,7 @@ const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees,
   }, [izinTalepleri]);
 
   const activeLeaves = useMemo(() => {
-    return approvedLeaves.map(leave => {
+    const list = approvedLeaves.map(leave => {
       const emp = employees.find(e => e.id === leave.employeeId);
       return { ...leave, employee: emp };
     }).filter(leave => {
@@ -43,8 +56,33 @@ const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees,
       const matchMonth = selectedMonth === 'all' || startMonthStr === selectedMonth;
 
       return matchSearch && matchDept && matchMonth;
-    }).sort((a, b) => new Date(a.baslangicTarihi).getTime() - new Date(b.baslangicTarihi).getTime());
-  }, [approvedLeaves, employees, searchTerm, selectedDept, selectedMonth]);
+    });
+
+    return list.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'name':
+          cmp = (a.employee?.name || '').localeCompare(b.employee?.name || '', 'tr');
+          break;
+        case 'department':
+          cmp = (a.employee?.department || '').localeCompare(b.employee?.department || '', 'tr');
+          break;
+        case 'tur':
+          cmp = formatIzinTuru(a.izinTuru).localeCompare(formatIzinTuru(b.izinTuru), 'tr');
+          break;
+        case 'start':
+          cmp = (a.baslangicTarihi || '').localeCompare(b.baslangicTarihi || '');
+          break;
+        case 'end':
+          cmp = (a.bitisTarihi || '').localeCompare(b.bitisTarihi || '');
+          break;
+        case 'gun':
+          cmp = (a.kullanilanGun || a.gunSayisi || 0) - (b.kullanilanGun || b.gunSayisi || 0);
+          break;
+      }
+      return sortOrder === 'asc' ? cmp : -cmp;
+    });
+  }, [approvedLeaves, employees, searchTerm, selectedDept, selectedMonth, sortField, sortOrder]);
 
   const months = useMemo(() => {
     const mSet = new Set<string>();
@@ -124,12 +162,120 @@ const IzinliKisiler: React.FC<IzinliKisilerProps> = ({ izinTalepleri, employees,
         <table className="w-full text-sm text-left">
           <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-4">Personel</th>
-              <th className="px-6 py-4">Departman</th>
-              <th className="px-6 py-4">İzin Türü</th>
-              <th className="px-6 py-4">Başlangıç</th>
-              <th className="px-6 py-4">Bitiş</th>
-              <th className="px-6 py-4">Süre</th>
+              <th
+                onClick={() => handleSort('name')}
+                className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'name' ? (sortOrder === 'asc' ? 'A → Z Sıralı' : 'Z → A Sıralı') : 'Ada göre sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>Personel</span>
+                  {sortField === 'name' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('department')}
+                className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'department' ? (sortOrder === 'asc' ? 'A → Z Sıralı' : 'Z → A Sıralı') : 'Departmana göre sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>Departman</span>
+                  {sortField === 'department' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('tur')}
+                className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'tur' ? (sortOrder === 'asc' ? 'A → Z Sıralı' : 'Z → A Sıralı') : 'İzin türüne göre sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>İzin Türü</span>
+                  {sortField === 'tur' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('start')}
+                className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'start' ? (sortOrder === 'asc' ? 'Eskiden Yeniye' : 'Yeniden Eskiye') : 'Başlangıç tarihine göre sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>Başlangıç</span>
+                  {sortField === 'start' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {sortOrder === 'asc' ? '0-9' : '9-0'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('end')}
+                className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'end' ? (sortOrder === 'asc' ? 'Eskiden Yeniye' : 'Yeniden Eskiye') : 'Bitiş tarihine göre sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>Bitiş</span>
+                  {sortField === 'end' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {sortOrder === 'asc' ? '0-9' : '9-0'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('gun')}
+                className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'gun' ? (sortOrder === 'asc' ? 'Küçükten Büyüğe' : 'Büyükten Küçüğe') : 'Süreye göre sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>Süre</span>
+                  {sortField === 'gun' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {sortOrder === 'asc' ? '0-9' : '9-0'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
               {!['employee', 'user'].includes(userRole) && <th className="px-6 py-4 text-right">İşlemler</th>}
             </tr>
           </thead>
