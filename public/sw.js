@@ -1,4 +1,4 @@
-// Humanius HRMS Service Worker v1.0.6 - 2026-09-10
+// Humanius HRMS Service Worker v1.0.7 - 2026-09-10
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });

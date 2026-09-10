@@ -76,14 +76,26 @@ export const printPuantajCetveliPdf = (params: {
             badgeBg = '#f3e8ff';
             badgeColor = '#7e22ce';
           } else if (g.kod === 'Yİ' || g.kod === 'YI') {
-            badgeBg = '#ccfbf1';
-            badgeColor = '#0f766e';
+            badgeBg = '#be123c';
+            badgeColor = '#ffffff';
+          } else if (g.kod === 'EV') {
+            badgeBg = '#92400e';
+            badgeColor = '#ffffff';
           } else if (g.kod === 'Mİ' || g.kod === 'MZ') {
-            badgeBg = '#d1fae5';
-            badgeColor = '#047857';
+            badgeBg = '#c2410c';
+            badgeColor = '#ffffff';
           } else if (g.kod === 'EG') {
-            badgeBg = '#e0f2fe';
-            badgeColor = '#0369a1';
+            badgeBg = '#475569';
+            badgeColor = '#ffffff';
+          } else if (g.kod === 'DO') {
+            badgeBg = '#be185d';
+            badgeColor = '#ffffff';
+          } else if (g.kod === 'OL') {
+            badgeBg = '#57534e';
+            badgeColor = '#ffffff';
+          } else if (g.kod === 'BA') {
+            badgeBg = '#d97706';
+            badgeColor = '#ffffff';
           } else if (g.kod === 'R' || g.kod === 'HA' || g.kod === 'RP') {
             badgeBg = '#fef3c7';
             badgeColor = '#b45309';
@@ -98,9 +110,9 @@ export const printPuantajCetveliPdf = (params: {
             badgeColor = '#cbd5e1';
             text = '-';
           } else {
-            // Dinamik / özel izin kodu (Örn: EG, BA, EV, OL vb.)
-            badgeBg = '#e0f2fe';
-            badgeColor = '#0369a1';
+            // Dinamik / özel izin kodu
+            badgeBg = '#ede9fe';
+            badgeColor = '#5b21b6';
           }
 
           return `<td style="padding: 2px 1px; text-align: center; font-size: 8px; font-weight: bold; border: 1px solid #e2e8f0; background: ${badgeBg}; color: ${badgeColor};" title="${g.tarih} - ${g.kodAciklama}">${text}</td>`;
@@ -118,7 +130,7 @@ export const printPuantajCetveliPdf = (params: {
           ${dayCellsHtml}
           <td style="padding: 4px 2px; text-align: center; font-size: 8px; font-weight: bold; border: 1px solid #cbd5e1; background: #ecfdf5; color: #047857;">${ozet.fiiliCalismaGun}g / ${ozet.fiiliCalismaSaat}s</td>
           <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1;">${ozet.haftaTatiliGun}</td>
-          <td style="padding: 4px 2px; text-align: center; font-size: 8px; font-weight: bold; border: 1px solid #cbd5e1; color: #0f766e;">${ozet.yillikIzinGun > 0 ? ozet.yillikIzinGun : '-'}</td>
+          <td style="padding: 4px 2px; text-align: center; font-size: 8px; font-weight: bold; border: 1px solid #cbd5e1; background: #fff1f2; color: #be123c;">${ozet.yillikIzinGun > 0 ? ozet.yillikIzinGun : '-'}</td>
           <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1; color: #c2410c;">${ozet.ucretsizIzinGun > 0 ? ozet.ucretsizIzinGun : '-'}</td>
           <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1; color: ${ozet.raporluGun > 0 ? '#b45309' : '#64748b'};">${ozet.raporluGun > 0 ? ozet.raporluGun : '-'}</td>
           <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1; color: ${ozet.devamsizGun > 0 ? '#b91c1c' : '#64748b'};">${ozet.devamsizGun > 0 ? ozet.devamsizGun : '-'}</td>
@@ -275,12 +287,13 @@ export const printPuantajCetveliPdf = (params: {
         <div class="legend-item"><span class="legend-box" style="background: #dbeafe; color: #1d4ed8;">HT</span> Hafta Tatili (Md. 46)</div>
         <div class="legend-item"><span class="legend-box" style="background: #f1f5f9; color: #475569;">AT</span> Akdi Tatil (Cmt)</div>
         <div class="legend-item"><span class="legend-box" style="background: #f3e8ff; color: #7e22ce;">UBGT</span> Resmi Tatil</div>
-        <div class="legend-item"><span class="legend-box" style="background: #ccfbf1; color: #0f766e;">Yİ</span> Yıllık İzin</div>
-        <div class="legend-item"><span class="legend-box" style="background: #e0f2fe; color: #0369a1;">EG</span> Eğitim İzni</div>
-        <div class="legend-item"><span class="legend-box" style="background: #d1fae5; color: #047857;">Mİ</span> Mazeret İzni</div>
-        <div class="legend-item"><span class="legend-box" style="background: #fef3c7; color: #b45309;">RP</span> SGK Raporu</div>
-        <div class="legend-item"><span class="legend-box" style="background: #ffedd5; color: #c2410c;">Üİ</span> Ücretsiz İzin</div>
-        <div class="legend-item"><span class="legend-box" style="background: #fee2e2; color: #b91c1c;">D</span> Devamsız</div>
+        <div class="legend-item"><span class="legend-box" style="background: #be123c; color: #ffffff;">Yİ</span> Yıllık İzin</div>
+        <div class="legend-item"><span class="legend-box" style="background: #92400e; color: #ffffff;">EV</span> Evlilik İzni</div>
+        <div class="legend-item"><span class="legend-box" style="background: #c2410c; color: #ffffff;">Mİ</span> Mazeret İzni</div>
+        <div class="legend-item"><span class="legend-box" style="background: #475569; color: #ffffff;">EG</span> Eğitim İzni</div>
+        <div class="legend-item"><span class="legend-box" style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a;">RP</span> SGK Raporu</div>
+        <div class="legend-item"><span class="legend-box" style="background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;">Üİ</span> Ücretsiz İzin</div>
+        <div class="legend-item"><span class="legend-box" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;">D</span> Devamsız</div>
         ${customLegendHtml}
       </div>`;
       })()}
@@ -437,9 +450,30 @@ export const exportPuantajExcel = (
     border: thinBorder,
   };
 
-  const izinStyle = {
-    font: { bold: true, color: { rgb: '0F766E' }, sz: 9 },
-    fill: { fgColor: { rgb: 'CCFBF1' } }, // Açık turkuaz
+  const yillikIzinStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 9 },
+    fill: { fgColor: { rgb: 'BE123C' } }, // Canlı Bordo
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const evlilikIzinStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 9 },
+    fill: { fgColor: { rgb: '92400E' } }, // Sıcak Karamel Çikolata
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const mazeretIzinStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 9 },
+    fill: { fgColor: { rgb: 'C2410C' } }, // Sıcak Kiremit / Terracotta
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: thinBorder,
+  };
+
+  const egitimIzinStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 9 },
+    fill: { fgColor: { rgb: '475569' } }, // Çelik Antrasit
     alignment: { horizontal: 'center', vertical: 'center' },
     border: thinBorder,
   };
@@ -505,8 +539,14 @@ export const exportPuantajExcel = (
               cell.s = akdiTatilStyle;
             } else if (val === 'UBGT') {
               cell.s = ubgtStyle;
-            } else if (val === 'Yİ' || val === 'Mİ' || val === 'YI' || val === 'MZ') {
-              cell.s = izinStyle;
+            } else if (val === 'Yİ' || val === 'YI') {
+              cell.s = yillikIzinStyle;
+            } else if (val === 'EV') {
+              cell.s = evlilikIzinStyle;
+            } else if (val === 'Mİ' || val === 'MZ') {
+              cell.s = mazeretIzinStyle;
+            } else if (val === 'EG') {
+              cell.s = egitimIzinStyle;
             } else if (val === 'R' || val === 'HA' || val === 'RP') {
               cell.s = raporStyle;
             } else if (val === 'Üİ' || val === 'UC') {
@@ -516,7 +556,7 @@ export const exportPuantajExcel = (
             } else if (val === '-') {
               cell.s = bosStyle;
             } else {
-              cell.s = izinStyle;
+              cell.s = mazeretIzinStyle;
             }
           } else if (C >= 4 + daysCount) {
             // Özet toplam sütunları (Ortalı ve belirgin)
@@ -692,7 +732,10 @@ export const printGunlukDetayliRaporPdf = (params: {
       if (item.kod === 'Ç') badgeStyle = 'background:#dcfce7; color:#15803d; font-weight:bold;';
       else if (item.kod === 'HT') badgeStyle = 'background:#dbeafe; color:#1d4ed8; font-weight:bold;';
       else if (item.kod === 'UBGT') badgeStyle = 'background:#f3e8ff; color:#7e22ce; font-weight:bold;';
-      else if (item.kod === 'Yİ' || item.kod === 'Mİ') badgeStyle = 'background:#ccfbf1; color:#0f766e; font-weight:bold;';
+      else if (item.kod === 'Yİ' || item.kod === 'YI') badgeStyle = 'background:#be123c; color:#ffffff; font-weight:bold;';
+      else if (item.kod === 'EV') badgeStyle = 'background:#92400e; color:#ffffff; font-weight:bold;';
+      else if (item.kod === 'Mİ' || item.kod === 'MZ') badgeStyle = 'background:#c2410c; color:#ffffff; font-weight:bold;';
+      else if (item.kod === 'EG') badgeStyle = 'background:#475569; color:#ffffff; font-weight:bold;';
       else if (item.kod === 'R') badgeStyle = 'background:#fef3c7; color:#b45309; font-weight:bold;';
       else if (item.kod === 'D') badgeStyle = 'background:#fee2e2; color:#b91c1c; font-weight:bold;';
 

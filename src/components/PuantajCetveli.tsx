@@ -977,8 +977,17 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 font-bold text-[11px]">
             UBGT : Resmi Tatil
           </span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-100 text-teal-800 font-bold text-[11px]">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-rose-700 text-white font-extrabold text-[11px] shadow-2xs" title="Yıllık Ücretli İzin">
             Yİ : Yıllık İzin
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-amber-800 text-white font-extrabold text-[11px] shadow-2xs" title="Evlilik İzni">
+            EV : Evlilik İzni
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-orange-700 text-white font-extrabold text-[11px] shadow-2xs" title="Mazeret İzni">
+            Mİ : Mazeret İzni
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-600 text-white font-extrabold text-[11px] shadow-2xs" title="Eğitim İzni">
+            EG : Eğitim İzni
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[11px]">
             RP / R : SGK Raporu
@@ -990,11 +999,11 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
             D : Devamsız
           </span>
           {leaveTypes
-            .filter((lt) => !['yillik', 'mazeret', 'hastalik', 'ucretsiz'].includes(lt.id) && lt.kod !== 'YI' && lt.kod !== 'MZ' && lt.kod !== 'HA' && lt.kod !== 'UC')
+            .filter((lt) => !['yillik', 'mazeret', 'hastalik', 'ucretsiz', 'evlilik'].includes(lt.id) && lt.kod !== 'YI' && lt.kod !== 'MZ' && lt.kod !== 'HA' && lt.kod !== 'UC' && lt.kod !== 'EV')
             .map((lt) => (
               <span
                 key={lt.id}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-100 text-cyan-800 font-bold text-[11px] border border-cyan-200"
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-600 text-white font-bold text-[11px] shadow-2xs"
                 title={lt.aciklama || lt.ad}
               >
                 {lt.kod} : {lt.ad}
@@ -1086,13 +1095,13 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   </th>
                   <th
                     onClick={() => handleMatrixSort('yillik')}
-                    className="px-2 py-3 text-center border-r border-gray-200 bg-teal-50 text-teal-800 font-bold min-w-[48px] cursor-pointer hover:bg-teal-100 transition-colors select-none"
+                    className="px-2 py-3 text-center border-r border-gray-200 bg-rose-50 text-rose-900 font-extrabold min-w-[48px] cursor-pointer hover:bg-rose-100 transition-colors select-none"
                     title="Yıllık Ücretli İzin Gün Sayısı Sırala"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Yıllık İzin</span>
                       {matrixSortField === 'yillik' ? (
-                        <span className="text-teal-700 font-bold text-[10px]">{matrixSortOrder === 'asc' ? '▲' : '▼'}</span>
+                        <span className="text-rose-700 font-bold text-[10px]">{matrixSortOrder === 'asc' ? '▲' : '▼'}</span>
                       ) : (
                         <span className="text-gray-300 text-[10px]">↕</span>
                       )}
@@ -1191,37 +1200,45 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                       {/* Günlük Hücreler */}
                       {p.gunler.map((g) => {
                         let cellBg = 'bg-white';
-                        let badgeStyle = 'bg-gray-100 text-gray-600';
+                        let badgeStyle = 'bg-gray-100 text-gray-600 border border-gray-200';
                         let displayVal = g.kod;
 
                         if (g.kod === 'Ç') {
-                          badgeStyle = 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200';
+                          badgeStyle = 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-200 font-bold';
                           const hours = getCalismaSaati(g, p.shift);
                           displayVal = `${hours}s`;
                         } else if (g.kod === 'HT') {
-                          badgeStyle = 'bg-blue-100 text-blue-800 hover:bg-blue-200';
+                          badgeStyle = 'bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-200 font-bold';
                         } else if (g.kod === 'AT') {
-                          badgeStyle = 'bg-slate-100 text-slate-600 hover:bg-slate-200';
+                          badgeStyle = 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 font-bold';
                         } else if (g.kod === 'UBGT') {
-                          badgeStyle = 'bg-purple-100 text-purple-800 hover:bg-purple-200';
+                          badgeStyle = 'bg-purple-100 text-purple-800 hover:bg-purple-200 border border-purple-200 font-bold';
                         } else if (g.kod === 'Yİ' || g.kod === 'YI') {
-                          badgeStyle = 'bg-teal-100 text-teal-800 hover:bg-teal-200 font-bold';
+                          badgeStyle = 'bg-rose-700 text-white hover:bg-rose-600 border border-rose-800 font-extrabold shadow-2xs';
+                        } else if (g.kod === 'EV') {
+                          badgeStyle = 'bg-amber-800 text-white hover:bg-amber-700 border border-amber-900 font-extrabold shadow-2xs';
                         } else if (g.kod === 'Mİ' || g.kod === 'MZ') {
-                          badgeStyle = 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200';
+                          badgeStyle = 'bg-orange-700 text-white hover:bg-orange-600 border border-orange-800 font-extrabold shadow-2xs';
                         } else if (g.kod === 'EG') {
-                          badgeStyle = 'bg-sky-100 text-sky-800 hover:bg-sky-200 font-bold';
+                          badgeStyle = 'bg-slate-600 text-white hover:bg-slate-500 border border-slate-700 font-extrabold shadow-2xs';
+                        } else if (g.kod === 'DO') {
+                          badgeStyle = 'bg-pink-700 text-white hover:bg-pink-600 border border-pink-800 font-extrabold shadow-2xs';
+                        } else if (g.kod === 'OL') {
+                          badgeStyle = 'bg-stone-600 text-white hover:bg-stone-500 border border-stone-700 font-extrabold shadow-2xs';
+                        } else if (g.kod === 'BA') {
+                          badgeStyle = 'bg-amber-600 text-white hover:bg-amber-500 border border-amber-700 font-bold';
                         } else if (g.kod === 'R' || g.kod === 'HA' || g.kod === 'RP') {
-                          badgeStyle = 'bg-amber-100 text-amber-800 hover:bg-amber-200 font-bold';
+                          badgeStyle = 'bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 font-bold';
                         } else if (g.kod === 'Üİ' || g.kod === 'UC') {
-                          badgeStyle = 'bg-orange-100 text-orange-800 hover:bg-orange-200';
+                          badgeStyle = 'bg-orange-100 text-orange-900 hover:bg-orange-200 border border-orange-300 font-bold';
                         } else if (g.kod === 'D') {
-                          badgeStyle = 'bg-red-100 text-red-800 hover:bg-red-200';
+                          badgeStyle = 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-200 font-bold';
                         } else if (g.kod === '-') {
                           badgeStyle = 'bg-transparent text-gray-300 hover:bg-gray-100 font-normal';
                           displayVal = '-';
                         } else {
-                          // Dinamik / özel izin kodu (Örn: BA, EV, OL vb.)
-                          badgeStyle = 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 font-extrabold';
+                          // Dinamik / özel izin kodu
+                          badgeStyle = 'bg-slate-600 text-white hover:bg-slate-500 border border-slate-700 font-extrabold';
                         }
 
                         if (g.isPazar) cellBg = 'bg-red-50/20';
@@ -1255,7 +1272,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                       <td className="px-2 py-2 text-center border-r border-gray-200 font-semibold text-blue-700 bg-blue-50/30">
                         {ozet.haftaTatiliGun}
                       </td>
-                      <td className="px-2 py-2 text-center border-r border-gray-200 font-bold text-teal-700 bg-teal-50/30" title="Yıllık İzin">
+                      <td className="px-2 py-2 text-center border-r border-gray-200 font-bold text-rose-800 bg-rose-50/50" title="Yıllık İzin">
                         {ozet.yillikIzinGun > 0 ? ozet.yillikIzinGun : '-'}
                       </td>
                       <td className="px-2 py-2 text-center border-r border-gray-200 font-semibold text-orange-700 bg-orange-50/30" title="Ücretsiz İzin">
@@ -1430,9 +1447,9 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                       {selectedPuantajRecord.ozet?.bordroGun || 0} gün
                     </div>
                   </div>
-                  <div className="bg-white border border-teal-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
-                    <div className="text-[10px] text-teal-600 font-bold uppercase">Yıllık İzin</div>
-                    <div className="text-sm font-extrabold text-teal-700">
+                  <div className="bg-white border border-rose-300 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
+                    <div className="text-[10px] text-rose-700 font-extrabold uppercase">Yıllık İzin</div>
+                    <div className="text-sm font-extrabold text-rose-800">
                       {selectedPuantajRecord.ozet?.yillikIzinGun || 0} gün
                     </div>
                   </div>
@@ -1609,19 +1626,23 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                     const record = filteredPuantaj.find(p => p.employee?.name === item.employeeName);
                     const dayObj = record?.gunler?.find(g => g.tarih === item.tarih);
 
-                    let badgeStyle = 'bg-gray-100 text-gray-600';
-                    if (item.kod === 'Ç') badgeStyle = 'bg-emerald-100 text-emerald-800';
-                    else if (item.kod === 'HT') badgeStyle = 'bg-blue-100 text-blue-800';
-                    else if (item.kod === 'AT') badgeStyle = 'bg-slate-100 text-slate-700';
-                    else if (item.kod === 'UBGT') badgeStyle = 'bg-purple-100 text-purple-800';
-                    else if (item.kod === 'Yİ' || item.kod === 'YI') badgeStyle = 'bg-teal-100 text-teal-800 font-bold';
-                    else if (item.kod === 'Mİ' || item.kod === 'MZ') badgeStyle = 'bg-emerald-100 text-emerald-700';
-                    else if (item.kod === 'EG') badgeStyle = 'bg-sky-100 text-sky-800 font-bold';
-                    else if (item.kod === 'R' || item.kod === 'HA' || item.kod === 'RP') badgeStyle = 'bg-amber-100 text-amber-800 font-bold';
-                    else if (item.kod === 'Üİ' || item.kod === 'UC') badgeStyle = 'bg-orange-100 text-orange-800';
-                    else if (item.kod === 'D') badgeStyle = 'bg-red-100 text-red-800';
+                    let badgeStyle = 'bg-gray-100 text-gray-600 border border-gray-200';
+                    if (item.kod === 'Ç') badgeStyle = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+                    else if (item.kod === 'HT') badgeStyle = 'bg-blue-100 text-blue-800 border border-blue-200';
+                    else if (item.kod === 'AT') badgeStyle = 'bg-slate-100 text-slate-700 border border-slate-200';
+                    else if (item.kod === 'UBGT') badgeStyle = 'bg-purple-100 text-purple-800 border border-purple-200';
+                    else if (item.kod === 'Yİ' || item.kod === 'YI') badgeStyle = 'bg-rose-700 text-white border border-rose-800 font-extrabold';
+                    else if (item.kod === 'EV') badgeStyle = 'bg-amber-800 text-white border border-amber-900 font-extrabold';
+                    else if (item.kod === 'Mİ' || item.kod === 'MZ') badgeStyle = 'bg-orange-700 text-white border border-orange-800 font-extrabold';
+                    else if (item.kod === 'EG') badgeStyle = 'bg-slate-600 text-white border border-slate-700 font-extrabold';
+                    else if (item.kod === 'DO') badgeStyle = 'bg-pink-700 text-white border border-pink-800 font-extrabold';
+                    else if (item.kod === 'OL') badgeStyle = 'bg-stone-600 text-white border border-stone-700 font-extrabold';
+                    else if (item.kod === 'BA') badgeStyle = 'bg-amber-600 text-white border border-amber-700 font-bold';
+                    else if (item.kod === 'R' || item.kod === 'HA' || item.kod === 'RP') badgeStyle = 'bg-amber-100 text-amber-900 border border-amber-300 font-bold';
+                    else if (item.kod === 'Üİ' || item.kod === 'UC') badgeStyle = 'bg-orange-100 text-orange-900 border border-orange-300 font-bold';
+                    else if (item.kod === 'D') badgeStyle = 'bg-red-100 text-red-800 border border-red-200 font-bold';
                     else if (item.kod === '-') badgeStyle = 'bg-gray-50 text-gray-400 font-normal';
-                    else badgeStyle = 'bg-cyan-100 text-cyan-800 font-bold';
+                    else badgeStyle = 'bg-slate-600 text-white border border-slate-700 font-bold';
 
                     return (
                       <tr key={`${item.employeeName}_${item.tarih}_${idx}`} className="hover:bg-blue-50/30 transition-colors">
@@ -1713,14 +1734,15 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   <option value="AT">AT : Akdi Tatil (Cumartesi)</option>
                   <option value="UBGT">UBGT : Resmi Tatil (Ulusal Bayram)</option>
                   <option value="Yİ">Yİ : Yıllık Ücretli İzin</option>
+                  <option value="EV">EV : Evlilik İzni (3 Gün Ücretli)</option>
+                  <option value="Mİ">Mİ : Mazeret İzni (Ölüm, Babalık vb.)</option>
                   <option value="EG">EG : Eğitim İzni (Toplam İzinde Toplanmaz)</option>
-                  <option value="Mİ">Mİ : Mazeret İzni (Evlilik, Ölüm vb.)</option>
                   <option value="RP">RP : SGK İstirahat Raporu</option>
                   <option value="R">R : SGK Raporu</option>
                   <option value="Üİ">Üİ : Ücretsiz İzin</option>
                   <option value="D">D : Devamsız (Giriş Yok)</option>
                   {leaveTypes
-                    .filter((lt) => !['yillik', 'mazeret', 'hastalik', 'ucretsiz'].includes(lt.id) && lt.kod !== 'YI' && lt.kod !== 'MZ' && lt.kod !== 'HA' && lt.kod !== 'UC')
+                    .filter((lt) => !['yillik', 'mazeret', 'hastalik', 'ucretsiz', 'evlilik'].includes(lt.id) && lt.kod !== 'YI' && lt.kod !== 'MZ' && lt.kod !== 'HA' && lt.kod !== 'UC' && lt.kod !== 'EV')
                     .map((lt) => (
                       <option key={lt.id} value={lt.kod}>
                         {lt.kod} : {lt.ad}
