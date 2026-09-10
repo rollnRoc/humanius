@@ -76,6 +76,41 @@
           cleanupFallback();
         }
       })();
+
+      // Vite dynamic chunk load error handler (yeni sürüm yayınlandığında otomatik taze sürüme geçirir)
+      window.addEventListener('vite:preloadError', function (event) {
+        event.preventDefault();
+        window.location.reload();
+      });
+
+      // Otomatik sürüm kontrolü ve tüm tarayıcılarda önbellek yenileme (Cache-Busting)
+      (function () {
+        function checkVersion() {
+          fetch('/version.json?_t=' + Date.now(), { cache: 'no-store' })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+              if (data && data.buildTime) {
+                var stored = localStorage.getItem('humanius_version_build');
+                if (stored && Number(stored) < Number(data.buildTime)) {
+                  localStorage.setItem('humanius_version_build', String(data.buildTime));
+                  if ('caches' in window) {
+                    caches.keys().then(function (keys) {
+                      keys.forEach(function (k) { caches.delete(k); });
+                    });
+                  }
+                  window.location.reload();
+                } else if (!stored) {
+                  localStorage.setItem('humanius_version_build', String(data.buildTime));
+                }
+              }
+            })
+            .catch(function () {});
+        }
+        checkVersion();
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') checkVersion();
+        });
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

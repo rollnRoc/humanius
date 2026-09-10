@@ -7,7 +7,6 @@ import {
   EtkinlikOncelik,
   EtkinlikDurum,
   YapilandirilmisEtkinlik,
-  ResmiTatil,
 } from '../types/takvim';
 
 // ─── Sabitler ────────────────────────────────────────────────────────────────

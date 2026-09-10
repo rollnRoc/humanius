@@ -1,1 +1,679 @@
-﻿硥潰瑲琠灹⁥獊湯㴠਍†⁼瑳楲杮਍†⁼畮扭牥਍†⁼潢汯慥൮ 簠渠汵൬ 簠笠嬠敫㩹猠牴湩嵧›獊湯簠甠摮晥湩摥素਍†⁼獊湯嵛਍਍硥潰瑲椠瑮牥慦散䐠瑡扡獡⁥ൻ 瀠扵楬㩣笠਍††慔汢獥›ൻ ††挠浯慰楮獥›ൻ †††删睯›ൻ ††††椠㩤猠牴湩൧ ††††渠浡㩥猠牴湩൧ ††††愠摤敲獳›瑳楲杮਍†††††慴彸畮扭牥›瑳楲杮਍†††††杳彫楳楣彬潮›瑳楲杮਍†††††桰湯㩥猠牴湩൧ ††††攠慭汩›瑳楲杮਍†††††楣祴›瑳楲杮਍†††††潬潧畟汲›瑳楲杮簠渠汵൬ ††††挠敲瑡摥慟㩴猠牴湩൧ ††††甠摰瑡摥慟㩴猠牴湩൧ †††素਍††††湉敳瑲›ൻ ††††椠㽤›瑳楲杮਍†††††慮敭›瑳楲杮਍†††††摡牤獥㽳›瑳楲杮਍†††††慴彸畮扭牥㨿猠牴湩൧ ††††猠歧獟捩汩湟㽯›瑳楲杮਍†††††桰湯㽥›瑳楲杮਍†††††浥楡㽬›瑳楲杮਍†††††楣祴㨿猠牴湩൧ ††††氠杯彯牵㽬›瑳楲杮簠渠汵൬ ††††挠敲瑡摥慟㽴›瑳楲杮਍†††††灵慤整彤瑡㨿猠牴湩൧ †††素਍††††灕慤整›ൻ ††††椠㽤›瑳楲杮਍†††††慮敭㨿猠牴湩൧ ††††愠摤敲獳㨿猠牴湩൧ ††††琠硡湟浵敢㽲›瑳楲杮਍†††††杳彫楳楣彬潮㨿猠牴湩൧ ††††瀠潨敮㨿猠牴湩൧ ††††攠慭汩㨿猠牴湩൧ ††††挠瑩㽹›瑳楲杮਍†††††潬潧畟汲㨿猠牴湩⁧⁼畮汬਍†††††牣慥整彤瑡㨿猠牴湩൧ ††††甠摰瑡摥慟㽴›瑳楲杮਍††††ൽ †††删汥瑡潩獮楨獰›嵛਍†††ൽ ††瀠潲楦敬㩳笠਍††††潒㩷笠਍†††††摩›瑳楲杮਍†††††浥楡㩬猠牴湩൧ ††††映汵彬慮敭›瑳楲杮਍†††††潣灭湡役摩›瑳楲杮簠渠汵൬ ††††爠汯㩥✠畳数慲浤湩‧⁼愧浤湩‧⁼洧湡条牥‧⁼攧灭潬敹❥簠✠牨‧⁼甧敳❲਍†††††癡瑡牡畟汲›瑳楲杮簠渠汵൬ ††††挠敲瑡摥慟㩴猠牴湩൧ ††††甠摰瑡摥慟㩴猠牴湩൧ †††素਍††††湉敳瑲›ൻ ††††椠㩤猠牴湩൧ ††††攠慭汩›瑳楲杮਍†††††畦汬湟浡㩥猠牴湩൧ ††††挠浯慰祮楟㽤›瑳楲杮簠渠汵൬ ††††爠汯㽥›猧灵牥摡業❮簠✠摡業❮簠✠慭慮敧❲簠✠浥汰祯敥‧⁼栧❲簠✠獵牥ധ ††††愠慶慴彲牵㽬›瑳楲杮簠渠汵൬ ††††挠敲瑡摥慟㽴›瑳楲杮਍†††††灵慤整彤瑡㨿猠牴湩൧ †††素਍††††灕慤整›ൻ ††††椠㽤›瑳楲杮਍†††††浥楡㽬›瑳楲杮਍†††††畦汬湟浡㽥›瑳楲杮਍†††††潣灭湡役摩㨿猠牴湩⁧⁼畮汬਍†††††潲敬㨿✠畳数慲浤湩‧⁼愧浤湩‧⁼洧湡条牥‧⁼攧灭潬敹❥簠✠牨‧⁼甧敳❲਍†††††癡瑡牡畟汲㨿猠牴湩⁧⁼畮汬਍†††††牣慥整彤瑡㨿猠牴湩൧ ††††甠摰瑡摥慟㽴›瑳楲杮਍††††ൽ †††删汥瑡潩獮楨獰›൛ ††††笠਍††††††潦敲杩䭮祥慎敭›瀢潲楦敬彳潣灭湡役摩晟敫≹਍††††††潣畬湭㩳嬠挢浯慰祮楟≤൝ †††††椠佳敮潔湏㩥映污敳਍††††††敲敦敲据摥敒慬楴湯›挢浯慰楮獥ഢ †††††爠晥牥湥散䍤汯浵獮›≛摩崢਍†††††ൽ †††崠਍†††ൽ ††攠灭潬敹獥›ൻ †††删睯›ൻ ††††椠㩤猠牴湩൧ ††††挠浯慰祮楟㩤猠牴湩൧ ††††渠浡㩥猠牴湩൧ ††††琠彣潮›瑳楲杮਍†††††楳楣彬潮›瑳楲杮਍†††††敤慰瑲敭瑮›瑳楲杮਍†††††潰楳楴湯›瑳楲杮਍†††††敬敶㩬✠畊楮牯‧⁼䴧摩‧⁼匧湥潩❲簠✠敌摡‧⁼䴧湡条牥ധ ††††猠污牡㩹渠浵敢൲ ††††猠慴畴㩳✠捡楴敶‧⁼漧䱮慥敶‧⁼椧慮瑣癩❥਍†††††桰湯㩥猠牴湩൧ ††††攠慭汩›瑳楲杮਍†††††潪湩摟瑡㩥猠牴湩൧ ††††愠摤敲獳›瑳楲杮਍†††††癡瑡牡畟汲›瑳楲杮簠渠汵൬ ††††猠楫汬㩳猠牴湩孧൝ ††††洠摥湥彩畤畲㩭✠敢慫❲簠✠癥楬ധ ††††挠捯歵獟祡獩㩩渠浵敢൲ ††††攠杮汥楬摟牵浵㩵✠潹❫簠✠楢楲据❩簠✠歩湩楣‧⁼甧畣据❵਍†††††浥汰祯敥瑟灹㩥✠潮浲污‧⁼攧敭汫❩਍†††††灡牰癯污灟獡捳摯㩥猠牴湩⁧⁼畮汬਍†††††灡牰癯污獟杩慮畴敲›瑳楲杮簠渠汵൬ ††††挠敲瑡摥慟㩴猠牴湩൧ ††††甠摰瑡摥慟㩴猠牴湩൧ †††素਍††††湉敳瑲›ൻ ††††椠㽤›瑳楲杮਍†††††潣灭湡役摩›瑳楲杮਍†††††慮敭›瑳楲杮਍†††††捴湟㽯›瑳楲杮਍†††††楳楣彬潮㨿猠牴湩൧ ††††搠灥牡浴湥㩴猠牴湩൧ ††††瀠獯瑩潩㩮猠牴湩൧ ††††氠癥汥㨿✠畊楮牯‧⁼䴧摩‧⁼匧湥潩❲簠✠敌摡‧⁼䴧湡条牥ധ ††††猠污牡㽹›畮扭牥਍†††††瑳瑡獵㨿✠捡楴敶‧⁼漧䱮慥敶‧⁼椧慮瑣癩❥਍†††††桰湯㽥›瑳楲杮਍†††††浥楡㽬›瑳楲杮਍†††††潪湩摟瑡㽥›瑳楲杮਍†††††摡牤獥㽳›瑳楲杮਍†††††癡瑡牡畟汲㨿猠牴湩⁧⁼畮汬਍†††††歳汩獬㨿猠牴湩孧൝ ††††洠摥湥彩畤畲㽭›戧步牡‧⁼攧汶❩਍†††††潣畣彫慳楹楳㨿渠浵敢൲ ††††攠杮汥楬摟牵浵㽵›礧歯‧⁼戧物湩楣‧⁼椧楫据❩簠✠捵湵畣ധ ††††攠灭潬敹彥祴数㨿✠潮浲污‧⁼攧敭汫❩਍†††††灡牰癯污灟獡捳摯㽥›瑳楲杮簠渠汵൬ ††††愠灰潲慶彬楳湧瑡牵㽥›瑳楲杮簠渠汵൬ ††††挠敲瑡摥慟㽴›瑳楲杮਍†††††灵慤整彤瑡㨿猠牴湩൧ †††素਍††††灕慤整›ൻ ††††椠㽤›瑳楲杮਍†††††潣灭湡役摩㨿猠牴湩൧ ††††渠浡㽥›瑳楲杮਍†††††捴湟㽯›瑳楲杮਍†††††楳楣彬潮㨿猠牴湩൧ ††††搠灥牡浴湥㽴›瑳楲杮਍†††††潰楳楴湯㨿猠牴湩൧ ††††氠癥汥㨿✠畊楮牯‧⁼䴧摩‧⁼匧湥潩❲簠✠敌摡‧⁼䴧湡条牥ധ ††††猠污牡㽹›畮扭牥਍†††††瑳瑡獵㨿✠捡楴敶‧⁼漧䱮慥敶‧⁼椧慮瑣癩❥਍†††††桰湯㽥›瑳楲杮਍†††††浥楡㽬›瑳楲杮਍†††††潪湩摟瑡㽥›瑳楲杮਍†††††摡牤獥㽳›瑳楲杮਍†††††癡瑡牡畟汲㨿猠牴湩⁧⁼畮汬਍†††††歳汩獬㨿猠牴湩孧൝ ††††洠摥湥彩畤畲㽭›戧步牡‧⁼攧汶❩਍†††††潣畣彫慳楹楳㨿渠浵敢൲ ††††攠杮汥楬摟牵浵㽵›礧歯‧⁼戧物湩楣‧⁼椧楫据❩簠✠捵湵畣ധ ††††攠灭潬敹彥祴数㨿✠潮浲污‧⁼攧敭汫❩਍†††††灡牰癯污灟獡捳摯㽥›瑳楲杮簠渠汵൬ ††††愠灰潲慶彬楳湧瑡牵㽥›瑳楲杮簠渠汵൬ ††††挠敲瑡摥慟㽴›瑳楲杮਍†††††灵慤整彤瑡㨿猠牴湩൧ †††素਍††††敒慬楴湯桳灩㩳嬠਍†††††ൻ †††††映牯楥湧敋乹浡㩥∠浥汰祯敥彳潣灭湡役摩晟敫≹਍††††††潣畬湭㩳嬠挢浯慰祮楟≤൝ †††††椠佳敮潔湏㩥映污敳਍††††††敲敦敲据摥敒慬楴湯›挢浯慰楮獥ഢ †††††爠晥牥湥散䍤汯浵獮›≛摩崢਍†††††ൽ †††崠਍†††ൽ ††椠楺彮慴敬汰牥㩩笠਍††††潒㩷笠਍†††††摩›瑳楲杮਍†††††潣灭湡役摩›瑳楲杮਍†††††浥汰祯敥楟㩤猠牴湩൧ ††††椠楺彮畴畲›礧汩楬❫簠✠慭敺敲❴簠✠慨瑳污歩‧⁼搧杯浵‧⁼戧扡污歩‧⁼攧汶汩歩‧⁼漧畬❭簠✠獡敫汲歩‧⁼甧牣瑥楳❺਍†††††慢汳湡楧彣慴楲楨›瑳楲杮਍†††††楢楴彳慴楲楨›瑳楲杮਍†††††畧彮慳楹楳›畮扭牥਍†††††捡歩慬慭›瑳楲杮਍†††††潹彬穩楮瑟污灥›潢汯慥൮ ††††礠汯楟湺彩畧㩮渠浵敢൲ ††††猠祥桡瑡祟牥㩩猠牴湩൧ ††††椠彬楤楳獟祥桡瑡›潢汯慥൮ ††††戠汥敧畟汲›瑳楲杮簠渠汵൬ ††††搠牵浵›戧步敬敭敤‧⁼漧慮汹湡楤‧⁼爧摥敤楤摬❩簠✠灩慴❬਍†††††湯祡慬慹彮摩›瑳楲杮簠渠汵൬ ††††漠慮役慴楲楨›瑳楲杮簠渠汵൬ ††††爠摥湟摥湥㩩猠牴湩⁧⁼畮汬਍†††††慴敬彰慴楲楨›瑳楲杮਍†††††牣慥整彤瑡›瑳楲杮਍†††††灵慤整彤瑡›瑳楲杮਍††††ൽ †††䤠獮牥㩴笠਍†††††摩㨿猠牴湩൧ ††††挠浯慰祮楟㩤猠牴湩൧ ††††攠灭潬敹彥摩›瑳楲杮਍†††††穩湩瑟牵㩵✠楹汬歩‧⁼洧穡牥瑥‧⁼栧獡慴楬❫簠✠潤畧❭簠✠慢慢楬❫簠✠癥楬楬❫簠✠汯浵‧⁼愧歳牥楬❫簠✠捵敲獴穩ധ ††††戠獡慬杮捩瑟牡桩㩩猠牴湩൧ ††††戠瑩獩瑟牡桩㩩猠牴湩൧ ††††朠湵獟祡獩㽩›畮扭牥਍†††††捡歩慬慭㨿猠牴湩൧ ††††礠汯楟湺彩慴敬㽰›潢汯慥൮ ††††礠汯楟湺彩畧㽮›畮扭牥਍†††††敳慹慨彴敹楲㨿猠牴湩൧ ††††椠彬楤楳獟祥桡瑡㨿戠潯敬湡਍†††††敢杬彥牵㽬›瑳楲杮簠渠汵൬ ††††搠牵浵㨿✠敢汫浥摥❥簠✠湯祡慬摮❩簠✠敲摤摥汩楤‧⁼椧瑰污ധ ††††漠慮汹祡湡楟㽤›瑳楲杮簠渠汵൬ ††††漠慮役慴楲楨㨿猠牴湩⁧⁼畮汬਍†††††敲彤敮敤楮㨿猠牴湩⁧⁼畮汬਍†††††慴敬彰慴楲楨㨿猠牴湩൧ ††††挠敲瑡摥慟㽴›瑳楲杮਍†††††灵慤整彤瑡㨿猠牴湩൧ †††素਍††††灕慤整›ൻ ††††椠㽤›瑳楲杮਍†††††潣灭湡役摩㨿猠牴湩൧ ††††攠灭潬敹彥摩㨿猠牴湩൧ ††††椠楺彮畴畲㨿✠楹汬歩‧⁼洧穡牥瑥‧⁼栧獡慴楬❫簠✠潤畧❭簠✠慢慢楬❫簠✠癥楬楬❫簠✠汯浵‧⁼愧歳牥楬❫簠✠捵敲獴穩ധ ††††戠獡慬杮捩瑟牡桩㽩›瑳楲杮਍†††††楢楴彳慴楲楨㨿猠牴湩൧ ††††朠湵獟祡獩㽩›畮扭牥਍†††††捡歩慬慭㨿猠牴湩൧ ††††礠汯楟湺彩慴敬㽰›潢汯慥൮ ††††礠汯楟湺彩畧㽮›畮扭牥਍†††††敳慹慨彴敹楲㨿猠牴湩൧ ††††椠彬楤楳獟祥桡瑡㨿戠潯敬湡਍†††††敢杬彥牵㽬›瑳楲杮簠渠汵൬ ††††搠牵浵㨿✠敢汫浥摥❥簠✠湯祡慬摮❩簠✠敲摤摥汩楤‧⁼椧瑰污ധ ††††漠慮汹祡湡楟㽤›瑳楲杮簠渠汵൬ ††††漠慮役慴楲楨㨿猠牴湩⁧⁼畮汬਍†††††敲彤敮敤楮㨿猠牴湩⁧⁼畮汬਍†††††慴敬彰慴楲楨㨿猠牴湩൧ ††††挠敲瑡摥慟㽴›瑳楲杮਍†††††灵慤整彤瑡㨿猠牴湩൧ †††素਍††††敒慬楴湯桳灩㩳嬠਍†††††ൻ †††††映牯楥湧敋乹浡㩥∠穩湩瑟污灥敬楲损浯慰祮楟彤武祥ഢ †††††挠汯浵獮›≛潣灭湡役摩崢਍††††††獩湏呥佯敮›慦獬൥ †††††爠晥牥湥散剤汥瑡潩㩮∠潣灭湡敩≳਍††††††敲敦敲据摥潃畬湭㩳嬠椢≤൝ ††††素ബ ††††笠਍††††††潦敲杩䭮祥慎敭›椢楺彮慴敬汰牥彩浥汰祯敥楟彤武祥ഢ †††††挠汯浵獮›≛浥汰祯敥楟≤൝ †††††椠佳敮潔湏㩥映污敳਍††††††敲敦敲据摥敒慬楴湯›攢灭潬敹獥ഢ †††††爠晥牥湥散䍤汯浵獮›≛摩崢਍†††††ൽ †††崠਍†††ൽ ††椠楺彮慨汫牡㩩笠਍††††潒㩷笠਍†††††摩›瑳楲杮਍†††††潣灭湡役摩›瑳楲杮਍†††††浥汰祯敥楟㩤猠牴湩൧ ††††礠汩›畮扭牥਍†††††潴汰浡桟歡›畮扭牥਍†††††畫汬湡汩湡楟楺㩮渠浵敢൲ ††††欠污湡楟楺㩮渠浵敢൲ ††††挠污獩慭祟汩㩩渠浵敢൲ ††††椠敳束物獩瑟牡桩㩩猠牴湩⁧⁼畮汬਍†††††敨慳汰浡彡慴楲楨›瑳楲杮਍†††††慭敺敲彴穩湩›畮扭牥਍†††††慨瑳污歩楟楺㩮渠浵敢൲ ††††挠敲瑡摥慟㩴猠牴湩൧ ††††甠摰瑡摥慟㩴猠牴湩൧ †††素਍††††湉敳瑲›ൻ ††††椠㽤›瑳楲杮਍†††††潣灭湡役摩›瑳楲杮਍†††††浥汰祯敥楟㩤猠牴湩൧ ††††礠汩›畮扭牥਍†††††潴汰浡桟歡㨿渠浵敢൲ ††††欠汵慬楮慬彮穩湩㨿渠浵敢൲ ††††欠污湡楟楺㽮›畮扭牥਍†††††慣楬浳彡楹楬㨿渠浵敢൲ ††††椠敳束物獩瑟牡桩㽩›瑳楲杮簠渠汵൬ ††††栠獥灡慬慭瑟牡桩㽩›瑳楲杮਍†††††慭敺敲彴穩湩㨿渠浵敢൲ ††††栠獡慴楬彫穩湩㨿渠浵敢൲ ††††挠敲瑡摥慟㽴›瑳楲杮਍†††††灵慤整彤瑡㨿猠牴湩൧ †††素਍††††灕慤整›ൻ ††††椠㽤›瑳楲杮਍†††††潣灭湡役摩㨿猠牴湩൧ ††††攠灭潬敹彥摩㨿猠牴湩൧ ††††礠汩㨿渠浵敢൲ ††††琠灯慬彭慨㽫›畮扭牥਍†††††畫汬湡汩湡楟楺㽮›畮扭牥਍†††††慫慬彮穩湩㨿渠浵敢൲ ††††挠污獩慭祟汩㽩›畮扭牥਍†††††獩彥楧楲彳慴楲楨㨿猠牴湩⁧⁼畮汬਍†††††敨慳汰浡彡慴楲楨㨿猠牴湩൧ ††††洠穡牥瑥楟楺㽮›畮扭牥਍†††††慨瑳污歩楟楺㽮›畮扭牥਍†††††牣慥整彤瑡㨿猠牴湩൧ ††††甠摰瑡摥慟㽴›瑳楲杮਍††††ൽ †††删汥瑡潩獮楨獰›൛ ††††笠਍††††††潦敲杩䭮祥慎敭›椢楺彮慨汫牡彩潣灭湡役摩晟敫≹਍††††††潣畬湭㩳嬠挢浯慰祮楟≤൝ †††††椠佳敮潔湏㩥映污敳਍††††††敲敦敲据摥敒慬楴湯›挢浯慰楮獥ഢ †††††爠晥牥湥散䍤汯浵獮›≛摩崢਍†††††ⱽ਍†††††ൻ †††††映牯楥湧敋乹浡㩥∠穩湩桟歡慬楲敟灭潬敹彥摩晟敫≹਍††††††潣畬湭㩳嬠攢灭潬敹彥摩崢਍††††††獩湏呥佯敮›慦獬൥ †††††爠晥牥湥散剤汥瑡潩㩮∠浥汰祯敥≳਍††††††敲敦敲据摥潃畬湭㩳嬠椢≤൝ ††††素਍††††൝ ††素਍†††潢摲潲楟整獭›ൻ †††删睯›ൻ ††††椠㩤猠牴湩൧ ††††挠浯慰祮楟㩤猠牴湩൧ ††††攠灭潬敹彥摩›瑳楲杮਍†††††数楲摯›瑳楲杮਍†††††楳楣彬潮›瑳楲杮਍†††††捴湟㩯猠牴湩൧ ††††戠畲彴慭獡›畮扭牥਍†††††敭敤楮摟牵浵›戧步牡‧⁼攧汶❩਍†††††潣畣彫慳楹楳›畮扭牥਍†††††湥敧汬彩畤畲畭›礧歯‧⁼戧物湩楣‧⁼椧楫据❩簠✠捵湵畣ധ ††††琠浥汥歟穡湡㩣渠浵敢൲ ††††礠汯灟牡獡㩩渠浵敢൲ ††††朠摩彡慹摲浩㩩渠浵敢൲ ††††挠捯歵祟牡楤業›畮扭牥਍†††††楤敧彲慫慺据慬㩲渠浵敢൲ ††††映穡慬浟獥楡›畮扭牥਍†††††慦決彡敭慳彩慳瑡㕟㨰渠浵敢൲ ††††映穡慬浟獥楡獟慡彴〱㨰渠浵敢൲ ††††映穡慬浟獥楡瑟瑵牡›畮扭牥਍†††††慨瑦污歩瑟瑡汩›畮扭牥਍†††††敧敮彬慴楴㩬渠浵敢൲ ††††礠汩楬彫穩湩畟牣瑥㩩渠浵敢൲ ††††椠牫浡祩㩥渠浵敢൲ ††††瀠楲㩭渠浵敢൲ ††††猠牥楶彳捵敲楴›畮扭牥਍†††††整獭汩敟楴敫㩴渠浵敢൲ ††††朠汥物癟牥楧楳›畮扭牥਍†††††慤杭彡敶杲獩㩩渠浵敢൲ ††††猠歧楟捳彩慰楹›畮扭牥਍†††††獩楳決歩獟杩牯慴楳›畮扭牥਍†††††敳摮歩彡楡慤㩴渠浵敢൲ ††††愠慶獮›畮扭牥਍†††††楤敧彲敫楳瑮汩牥›畮扭牥਍†††††湥敧汬彩湩楤楲業›畮扭牥਍†††††楫敤彭慴浺湩瑡㩩渠浵敢൲ ††††椠扨牡瑟穡業慮楴›畮扭牥਍†††††潴汰浡歟穡湡㩣渠浵敢൲ ††††琠灯慬彭敫楳瑮㩩渠浵敢൲ ††††渠瑥浟慡㩳渠浵敢൲ ††††欠浵汵瑡晩癟牥楧浟瑡慲楨›畮扭牥਍†††††獡慧楲畟牣瑥束汥物癟牥楧楳楟瑳獩慮楳›畮扭牥਍†††††獡慧楲畟牣瑥摟浡慧癟牥楧楳楟瑳獩慮楳›畮扭牥਍†††††杳彫獩敶敲彮慰楹›畮扭牥਍†††††獩楳決歩楟癳牥湥灟祡㩩渠浵敢൲ ††††猠歧楟癳牥湥楟摮物浩㩩渠浵敢൲ ††††猠歧楟癳牥湥楟摮物浩潟慲楮›畮扭牥਍†††††楹汬歩瑟灯慬彭慫慺据›畮扭牥਍†††††楹汬歩瑟灯慬彭敫楳瑮㩩渠浵敢൲ ††††礠汩楬彫潴汰浡湟瑥›畮扭牥਍†††††捡歩慬慭›瑳楲杮਍†††††牣慥整彤瑡›瑳楲杮਍†††††灵慤整彤瑡›瑳楲杮਍††††ൽ †††䤠獮牥㩴笠਍†††††摩㨿猠牴湩൧ ††††挠浯慰祮楟㩤猠牴湩൧ ††††攠灭潬敹彥摩›瑳楲杮਍†††††数楲摯›瑳楲杮਍†††††楳楣彬潮㨿猠牴湩൧ ††††琠彣潮㨿猠牴湩൧ ††††戠畲彴慭獡㨿渠浵敢൲ ††††洠摥湥彩畤畲㽭›戧步牡‧⁼攧汶❩਍†††††潣畣彫慳楹楳㨿渠浵敢൲ ††††攠杮汥楬摟牵浵㽵›礧歯‧⁼戧物湩楣‧⁼椧楫据❩簠✠捵湵畣ധ ††††琠浥汥歟穡湡㽣›畮扭牥਍†††††潹彬慰慲楳㨿渠浵敢൲ ††††朠摩彡慹摲浩㽩›畮扭牥਍†††††潣畣彫慹摲浩㽩›畮扭牥਍†††††楤敧彲慫慺据慬㽲›畮扭牥਍†††††慦決彡敭慳㽩›畮扭牥਍†††††慦決彡敭慳彩慳瑡㕟㼰›畮扭牥਍†††††慦決彡敭慳彩慳瑡ㅟ〰㨿渠浵敢൲ ††††映穡慬浟獥楡瑟瑵牡㨿渠浵敢൲ ††††栠晡慴楬彫慴楴㽬›畮扭牥਍†††††敧敮彬慴楴㽬›畮扭牥਍†††††楹汬歩楟楺彮捵敲楴㨿渠浵敢൲ ††††椠牫浡祩㽥›畮扭牥਍†††††牰浩㨿渠浵敢൲ ††††猠牥楶彳捵敲楴㨿渠浵敢൲ ††††琠浥楳彬瑥歩瑥㨿渠浵敢൲ ††††朠汥物癟牥楧楳㨿渠浵敢൲ ††††搠浡慧癟牥楧楳㨿渠浵敢൲ ††††猠歧楟捳彩慰楹㨿渠浵敢൲ ††††椠獳穩楬彫楳潧瑲獡㽩›畮扭牥਍†††††敳摮歩彡楡慤㽴›畮扭牥਍†††††癡湡㽳›畮扭牥਍†††††楤敧彲敫楳瑮汩牥㨿渠浵敢൲ ††††攠杮汥楬楟摮物浩㽩›畮扭牥਍†††††楫敤彭慴浺湩瑡㽩›畮扭牥਍†††††桩慢彲慴浺湩瑡㽩›畮扭牥਍†††††潴汰浡歟穡湡㽣›畮扭牥਍†††††潴汰浡歟獥湩楴㨿渠浵敢൲ ††††渠瑥浟慡㽳›畮扭牥਍†††††畫畭慬楴彦敶杲彩慭牴桡㽩›畮扭牥਍†††††獡慧楲畟牣瑥束汥物癟牥楧楳楟瑳獩慮楳㨿渠浵敢൲ ††††愠杳牡彩捵敲彴慤杭彡敶杲獩彩獩楴湳獡㽩›畮扭牥਍†††††杳彫獩敶敲彮慰楹㨿渠浵敢൲ ††††椠獳穩楬彫獩敶敲彮慰楹㨿渠浵敢൲ ††††猠歧楟癳牥湥楟摮物浩㽩›畮扭牥਍†††††杳彫獩敶敲彮湩楤楲彭牯湡㽩›畮扭牥਍†††††楹汬歩瑟灯慬彭慫慺据㨿渠浵敢൲ ††††礠汩楬彫潴汰浡歟獥湩楴㨿渠浵敢൲ ††††礠汩楬彫潴汰浡湟瑥㨿渠浵敢൲ ††††愠楣汫浡㽡›瑳楲杮਍†††††牣慥整彤瑡㨿猠牴湩൧ ††††甠摰瑡摥慟㽴›瑳楲杮਍††††ൽ †††唠摰瑡㩥笠਍†††††摩㨿猠牴湩൧ ††††挠浯慰祮楟㽤›瑳楲杮਍†††††浥汰祯敥楟㽤›瑳楲杮਍†††††数楲摯㨿猠牴湩൧ ††††猠捩汩湟㽯›瑳楲杮਍†††††捴湟㽯›瑳楲杮਍†††††牢瑵浟慡㽳›畮扭牥਍†††††敭敤楮摟牵浵㨿✠敢慫❲簠✠癥楬ധ ††††挠捯歵獟祡獩㽩›畮扭牥਍†††††湥敧汬彩畤畲畭㨿✠潹❫簠✠楢楲据❩簠✠歩湩楣‧⁼甧畣据❵਍†††††整敭彬慫慺据㨿渠浵敢൲ ††††礠汯灟牡獡㽩›畮扭牥਍†††††楧慤祟牡楤業㨿渠浵敢൲ ††††挠捯歵祟牡楤業㨿渠浵敢൲ ††††搠杩牥歟穡湡汣牡㨿渠浵敢൲ ††††映穡慬浟獥楡㨿渠浵敢൲ ††††映穡慬浟獥楡獟慡彴〵㨿渠浵敢൲ ††††映穡慬浟獥楡獟慡彴〱㼰›畮扭牥਍†††††慦決彡敭慳彩畴慴㽲›畮扭牥਍†††††慨瑦污歩瑟瑡汩㨿渠浵敢൲ ††††朠湥汥瑟瑡汩㨿渠浵敢൲ ††††礠汩楬彫穩湩畟牣瑥㽩›畮扭牥਍†††††歩慲業敹㨿渠浵敢൲ ††††瀠楲㽭›畮扭牥਍†††††敳癲獩畟牣瑥㽩›畮扭牥਍†††††整獭汩敟楴敫㽴›畮扭牥਍†††††敧楬彲敶杲獩㽩›畮扭牥਍†††††慤杭彡敶杲獩㽩›畮扭牥਍†††††杳彫獩楣灟祡㽩›畮扭牥਍†††††獩楳決歩獟杩牯慴楳㨿渠浵敢൲ ††††猠湥楤慫慟摩瑡㨿渠浵敢൲ ††††愠慶獮㨿渠浵敢൲ ††††搠杩牥歟獥湩楴敬㽲›畮扭牥਍†††††湥敧汬彩湩楤楲業㨿渠浵敢൲ ††††欠摩浥瑟穡業慮楴㨿渠浵敢൲ ††††椠扨牡瑟穡業慮楴㨿渠浵敢൲ ††††琠灯慬彭慫慺据㨿渠浵敢൲ ††††琠灯慬彭敫楳瑮㽩›畮扭牥਍†††††敮彴慭獡㨿渠浵敢൲ ††††欠浵汵瑡晩癟牥楧浟瑡慲楨㨿渠浵敢൲ ††††愠杳牡彩捵敲彴敧楬彲敶杲獩彩獩楴湳獡㽩›畮扭牥਍†††††獡慧楲畟牣瑥摟浡慧癟牥楧楳楟瑳獩慮楳㨿渠浵敢൲ ††††猠歧楟癳牥湥灟祡㽩›畮扭牥਍†††††獩楳決歩楟癳牥湥灟祡㽩›畮扭牥਍†††††杳彫獩敶敲彮湩楤楲業㨿渠浵敢൲ ††††猠歧楟癳牥湥楟摮物浩潟慲楮㨿渠浵敢൲ ††††礠汩楬彫潴汰浡歟穡湡㽣›畮扭牥਍†††††楹汬歩瑟灯慬彭敫楳瑮㽩›畮扭牥਍†††††楹汬歩瑟灯慬彭敮㽴›畮扭牥਍†††††捡歩慬慭㨿猠牴湩൧ ††††挠敲瑡摥慟㽴›瑳楲杮਍†††††灵慤整彤瑡㨿猠牴湩൧ †††素਍††††敒慬楴湯桳灩㩳嬠਍†††††ൻ †††††映牯楥湧敋乹浡㩥∠潢摲潲楟整獭损浯慰祮楟彤武祥ഢ †††††挠汯浵獮›≛潣灭湡役摩崢਍††††††獩湏呥佯敮›慦獬൥ †††††爠晥牥湥散剤汥瑡潩㩮∠潣灭湡敩≳਍††††††敲敦敲据摥潃畬湭㩳嬠椢≤൝ ††††素ബ ††††笠਍††††††潦敲杩䭮祥慎敭›戢牯牤彯瑩浥彳浥汰祯敥楟彤武祥ഢ †††††挠汯浵獮›≛浥汰祯敥楟≤൝ †††††椠佳敮潔湏㩥映污敳਍††††††敲敦敲据摥敒慬楴湯›攢灭潬敹獥ഢ †††††爠晥牥湥散䍤汯浵獮›≛摩崢਍†††††ൽ †††崠਍†††ൽ ††琠歡楶彭畧汮牥㩩笠਍††††潒㩷笠਍†††††摩›瑳楲杮਍†††††潣灭湡役摩›瑳楲杮簠渠汵൬ ††††琠牡桩›瑳楲杮਍†††††摡›瑳楲杮਍†††††畴㩲✠敲浳彩慴楴❬簠✠楤楮扟祡慲❭簠✠穯汥束湵‧⁼昧物慭潟敺❬਍†††††捡歩慬慭›瑳楲杮਍†††††慣楬浳彡畧畮浟㩵戠潯敬湡਍†††††楹㩬渠浵敢൲ ††††挠敲瑡摥慟㩴猠牴湩൧ ††††甠摰瑡摥慟㩴猠牴湩൧ †††素਍††††湉敳瑲›ൻ ††††椠㽤›瑳楲杮਍†††††潣灭湡役摩㨿猠牴湩⁧⁼畮汬਍†††††慴楲㩨猠牴湩൧ ††††愠㩤猠牴湩൧ ††††琠牵㨿✠敲浳彩慴楴❬簠✠楤楮扟祡慲❭簠✠穯汥束湵‧⁼昧物慭潟敺❬਍†††††捡歩慬慭㨿猠牴湩൧ ††††挠污獩慭束湵彵畭㨿戠潯敬湡਍†††††楹㩬渠浵敢൲ ††††挠敲瑡摥慟㽴›瑳楲杮਍†††††灵慤整彤瑡㨿猠牴湩൧ †††素਍††††灕慤整›ൻ ††††椠㽤›瑳楲杮਍†††††潣灭湡役摩㨿猠牴湩⁧⁼畮汬਍†††††慴楲㽨›瑳楲杮਍†††††摡㨿猠牴湩൧ ††††琠牵㨿✠敲浳彩慴楴❬簠✠楤楮扟祡慲❭簠✠穯汥束湵‧⁼昧物慭潟敺❬਍†††††捡歩慬慭㨿猠牴湩൧ ††††挠污獩慭束湵彵畭㨿戠潯敬湡਍†††††楹㽬›畮扭牥਍†††††牣慥整彤瑡㨿猠牴湩൧ ††††甠摰瑡摥慟㽴›瑳楲杮਍††††ൽ †††删汥瑡潩獮楨獰›嵛਍†††ൽ ††戠汩楤楲汭牥›ൻ †††删睯›ൻ ††††椠㩤猠牴湩൧ ††††挠浯慰祮楟㩤猠牴湩൧ ††††甠敳彲摩›瑳楲杮簠渠汵൬ ††††戠獡楬㩫猠牴湩൧ ††††洠獥橡›瑳楲杮਍†††††畴㩲✠楢杬❩簠✠祵牡❩簠✠慨慴‧⁼戧獡牡❩簠✠穩湩‧⁼戧牯牤❯簠✠楳瑳浥ധ ††††漠据汥歩›搧獵歵‧⁼渧牯慭❬簠✠畹獫步‧⁼愧楣❬਍†††††歯湵畤浟㩵戠潯敬湡਍†††††歯湵慭瑟牡桩㩩猠牴湩⁧⁼畮汬਍†††††楬歮›瑳楲杮簠渠汵൬ ††††洠瑥摡瑡㩡䨠潳൮ ††††挠敲瑡摥慟㩴猠牴湩൧ ††††甠摰瑡摥慟㩴猠牴湩൧ †††素਍††††湉敳瑲›ൻ ††††椠㽤›瑳楲杮਍†††††潣灭湡役摩›瑳楲杮਍†††††獵牥楟㽤›瑳楲杮簠渠汵൬ ††††戠獡楬㩫猠牴湩൧ ††††洠獥橡›瑳楲杮਍†††††畴㽲›戧汩楧‧⁼甧慹楲‧⁼栧瑡❡簠✠慢慳楲‧⁼椧楺❮簠✠潢摲潲‧⁼猧獩整❭਍†††††湯散楬㽫›搧獵歵‧⁼渧牯慭❬簠✠畹獫步‧⁼愧楣❬਍†††††歯湵畤浟㽵›潢汯慥൮ ††††漠畫浮彡慴楲楨㨿猠牴湩⁧⁼畮汬਍†††††楬歮㨿猠牴湩⁧⁼畮汬਍†††††敭慴慤慴㨿䨠潳൮ ††††挠敲瑡摥慟㽴›瑳楲杮਍†††††灵慤整彤瑡㨿猠牴湩൧ †††素਍††††灕慤整›ൻ ††††椠㽤›瑳楲杮਍†††††潣灭湡役摩㨿猠牴湩൧ ††††甠敳彲摩㨿猠牴湩⁧⁼畮汬਍†††††慢汳歩㨿猠牴湩൧ ††††洠獥橡㨿猠牴湩൧ ††††琠牵㨿✠楢杬❩簠✠祵牡❩簠✠慨慴‧⁼戧獡牡❩簠✠穩湩‧⁼戧牯牤❯簠✠楳瑳浥ധ ††††漠据汥歩㨿✠畤畳❫簠✠潮浲污‧⁼礧歵敳❫簠✠捡汩ധ ††††漠畫摮彵畭㨿戠潯敬湡਍†††††歯湵慭瑟牡桩㽩›瑳楲杮簠渠汵൬ ††††氠湩㽫›瑳楲杮簠渠汵൬ ††††洠瑥摡瑡㽡›獊湯਍†††††牣慥整彤瑡㨿猠牴湩൧ ††††甠摰瑡摥慟㽴›瑳楲杮਍††††ൽ †††删汥瑡潩獮楨獰›嵛਍†††ൽ ††漠決歵摟獯慹慬楲›ൻ †††删睯›ൻ ††††椠㩤猠牴湩൧ ††††攠灭潬敹彥摩›瑳楲杮਍†††††潣灭湡役摩›瑳楲杮਍†††††慫整潧楲›瑳楲杮਍†††††潤祳彡摡㩩猠牴湩⁧⁼畮汬਍†††††潤祳彡潹畬›瑳楲杮簠渠汵൬ ††††渠瑯慬㩲猠牴湩⁧⁼畮汬਍†††††牣慥整彤瑡›瑳楲杮਍††††ൽ †††䤠獮牥㩴笠਍†††††摩㨿猠牴湩൧ ††††攠灭潬敹彥摩›瑳楲杮਍†††††潣灭湡役摩›瑳楲杮਍†††††慫整潧楲›瑳楲杮਍†††††潤祳彡摡㽩›瑳楲杮簠渠汵൬ ††††搠獯慹祟汯㽵›瑳楲杮簠渠汵൬ ††††渠瑯慬㽲›瑳楲杮簠渠汵൬ ††††挠敲瑡摥慟㽴›瑳楲杮਍††††ൽ †††唠摰瑡㩥笠਍†††††摩㨿猠牴湩൧ ††††攠灭潬敹彥摩㨿猠牴湩൧ ††††挠浯慰祮楟㽤›瑳楲杮਍†††††慫整潧楲㨿猠牴湩൧ ††††搠獯慹慟楤㨿猠牴湩⁧⁼畮汬਍†††††潤祳彡潹畬㨿猠牴湩⁧⁼畮汬਍†††††潮汴牡㨿猠牴湩⁧⁼畮汬਍†††††牣慥整彤瑡㨿猠牴湩൧ †††素਍††††敒慬楴湯桳灩㩳嬠਍†††††ൻ †††††映牯楥湧敋乹浡㩥∠穯畬彫潤祳污牡彩潣灭湡役摩晟敫≹਍††††††潣畬湭㩳嬠挢浯慰祮楟≤൝ †††††椠佳敮潔湏㩥映污敳਍††††††敲敦敲据摥敒慬楴湯›挢浯慰楮獥ഢ †††††爠晥牥湥散䍤汯浵獮›≛摩崢਍†††††ⱽ਍†††††ൻ †††††映牯楥湧敋乹浡㩥∠穯畬彫潤祳污牡彩浥汰祯敥楟彤武祥ഢ †††††挠汯浵獮›≛浥汰祯敥楟≤൝ †††††椠佳敮潔湏㩥映污敳਍††††††敲敦敲据摥敒慬楴湯›攢灭潬敹獥ഢ †††††爠晥牥湥散䍤汯浵獮›≛摩崢਍†††††ൽ †††崠਍†††ൽ †素਍††楖睥㩳笠਍†††浥汰祯敥彳異汢捩›ൻ †††删睯›ൻ ††††椠㩤猠牴湩൧ ††††挠浯慰祮楟㩤猠牴湩൧ ††††渠浡㩥猠牴湩൧ ††††猠捩汩湟㩯猠牴湩൧ ††††搠灥牡浴湥㩴猠牴湩൧ ††††瀠獯瑩潩㩮猠牴湩൧ ††††氠癥汥›䨧湵潩❲簠✠楍❤簠✠敓楮牯‧⁼䰧慥❤簠✠慍慮敧❲਍†††††瑳瑡獵›愧瑣癩❥簠✠湯敌癡❥簠✠湩捡楴敶ധ ††††攠慭汩›瑳楲杮਍†††††潪湩摟瑡㩥猠牴湩൧ ††††愠慶慴彲牵㩬猠牴湩⁧⁼畮汬਍†††††歳汩獬›瑳楲杮嵛਍†††††浥汰祯敥瑟灹㩥✠潮浲污‧⁼攧敭汫❩਍†††††牣慥整彤瑡›瑳楲杮਍†††††灵慤整彤瑡›瑳楲杮਍††††ൽ †††删汥瑡潩獮楨獰›嵛਍†††ൽ †素਍††畆据楴湯㩳笠਍†††彛椠⁮敮敶嵲›敮敶൲ †素਍††湅浵㩳笠਍†††彛椠⁮敮敶嵲›敮敶൲ †素਍†ൽ紊
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export interface Database {
+  public: {
+    Tables: {
+      companies: {
+        Row: {
+          id: string
+          name: string
+          address: string
+          tax_number: string
+          sgk_sicil_no: string
+          phone: string
+          email: string
+          city: string
+          logo_url: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          address?: string
+          tax_number?: string
+          sgk_sicil_no?: string
+          phone?: string
+          email?: string
+          city?: string
+          logo_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          address?: string
+          tax_number?: string
+          sgk_sicil_no?: string
+          phone?: string
+          email?: string
+          city?: string
+          logo_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          id: string
+          email: string
+          full_name: string
+          company_id: string | null
+          role: 'superadmin' | 'admin' | 'manager' | 'employee' | 'hr' | 'user'
+          avatar_url: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          email: string
+          full_name: string
+          company_id?: string | null
+          role?: 'superadmin' | 'admin' | 'manager' | 'employee' | 'hr' | 'user'
+          avatar_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          full_name?: string
+          company_id?: string | null
+          role?: 'superadmin' | 'admin' | 'manager' | 'employee' | 'hr' | 'user'
+          avatar_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      employees: {
+        Row: {
+          id: string
+          company_id: string
+          name: string
+          tc_no: string
+          sicil_no: string
+          department: string
+          position: string
+          level: 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'Manager'
+          salary: number
+          status: 'active' | 'onLeave' | 'inactive'
+          phone: string
+          email: string
+          join_date: string
+          address: string
+          avatar_url: string | null
+          skills: string[]
+          medeni_durum: 'bekar' | 'evli'
+          cocuk_sayisi: number
+          engelli_durumu: 'yok' | 'birinci' | 'ikinci' | 'ucuncu'
+          employee_type: 'normal' | 'emekli'
+          approval_passcode: string | null
+          approval_signature: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          name: string
+          tc_no?: string
+          sicil_no?: string
+          department: string
+          position: string
+          level?: 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'Manager'
+          salary?: number
+          status?: 'active' | 'onLeave' | 'inactive'
+          phone?: string
+          email?: string
+          join_date?: string
+          address?: string
+          avatar_url?: string | null
+          skills?: string[]
+          medeni_durum?: 'bekar' | 'evli'
+          cocuk_sayisi?: number
+          engelli_durumu?: 'yok' | 'birinci' | 'ikinci' | 'ucuncu'
+          employee_type?: 'normal' | 'emekli'
+          approval_passcode?: string | null
+          approval_signature?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          name?: string
+          tc_no?: string
+          sicil_no?: string
+          department?: string
+          position?: string
+          level?: 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'Manager'
+          salary?: number
+          status?: 'active' | 'onLeave' | 'inactive'
+          phone?: string
+          email?: string
+          join_date?: string
+          address?: string
+          avatar_url?: string | null
+          skills?: string[]
+          medeni_durum?: 'bekar' | 'evli'
+          cocuk_sayisi?: number
+          engelli_durumu?: 'yok' | 'birinci' | 'ikinci' | 'ucuncu'
+          employee_type?: 'normal' | 'emekli'
+          approval_passcode?: string | null
+          approval_signature?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      izin_talepleri: {
+        Row: {
+          id: string
+          company_id: string
+          employee_id: string
+          izin_turu: 'yillik' | 'mazeret' | 'hastalik' | 'dogum' | 'babalik' | 'evlilik' | 'olum' | 'askerlik' | 'ucretsiz'
+          baslangic_tarihi: string
+          bitis_tarihi: string
+          gun_sayisi: number
+          aciklama: string
+          yol_izni_talep: boolean
+          yol_izni_gun: number
+          seyahat_yeri: string
+          il_disi_seyahat: boolean
+          belge_url: string | null
+          durum: 'beklemede' | 'onaylandi' | 'reddedildi' | 'iptal'
+          onaylayan_id: string | null
+          onay_tarihi: string | null
+          red_nedeni: string | null
+          talep_tarihi: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          employee_id: string
+          izin_turu: 'yillik' | 'mazeret' | 'hastalik' | 'dogum' | 'babalik' | 'evlilik' | 'olum' | 'askerlik' | 'ucretsiz'
+          baslangic_tarihi: string
+          bitis_tarihi: string
+          gun_sayisi?: number
+          aciklama?: string
+          yol_izni_talep?: boolean
+          yol_izni_gun?: number
+          seyahat_yeri?: string
+          il_disi_seyahat?: boolean
+          belge_url?: string | null
+          durum?: 'beklemede' | 'onaylandi' | 'reddedildi' | 'iptal'
+          onaylayan_id?: string | null
+          onay_tarihi?: string | null
+          red_nedeni?: string | null
+          talep_tarihi?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          employee_id?: string
+          izin_turu?: 'yillik' | 'mazeret' | 'hastalik' | 'dogum' | 'babalik' | 'evlilik' | 'olum' | 'askerlik' | 'ucretsiz'
+          baslangic_tarihi?: string
+          bitis_tarihi?: string
+          gun_sayisi?: number
+          aciklama?: string
+          yol_izni_talep?: boolean
+          yol_izni_gun?: number
+          seyahat_yeri?: string
+          il_disi_seyahat?: boolean
+          belge_url?: string | null
+          durum?: 'beklemede' | 'onaylandi' | 'reddedildi' | 'iptal'
+          onaylayan_id?: string | null
+          onay_tarihi?: string | null
+          red_nedeni?: string | null
+          talep_tarihi?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "izin_talepleri_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "izin_talepleri_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      izin_haklari: {
+        Row: {
+          id: string
+          company_id: string
+          employee_id: string
+          yil: number
+          toplam_hak: number
+          kullanilan_izin: number
+          kalan_izin: number
+          calisma_yili: number
+          ise_giris_tarihi: string | null
+          hesaplama_tarihi: string
+          mazeret_izin: number
+          hastalik_izin: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          employee_id: string
+          yil: number
+          toplam_hak?: number
+          kullanilan_izin?: number
+          kalan_izin?: number
+          calisma_yili?: number
+          ise_giris_tarihi?: string | null
+          hesaplama_tarihi?: string
+          mazeret_izin?: number
+          hastalik_izin?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          employee_id?: string
+          yil?: number
+          toplam_hak?: number
+          kullanilan_izin?: number
+          kalan_izin?: number
+          calisma_yili?: number
+          ise_giris_tarihi?: string | null
+          hesaplama_tarihi?: string
+          mazeret_izin?: number
+          hastalik_izin?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "izin_haklari_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "izin_haklari_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      bordro_items: {
+        Row: {
+          id: string
+          company_id: string
+          employee_id: string
+          period: string
+          sicil_no: string
+          tc_no: string
+          brut_maas: number
+          medeni_durum: 'bekar' | 'evli'
+          cocuk_sayisi: number
+          engelli_durumu: 'yok' | 'birinci' | 'ikinci' | 'ucuncu'
+          temel_kazanc: number
+          yol_parasi: number
+          gida_yardimi: number
+          cocuk_yardimi: number
+          diger_kazanclar: number
+          fazla_mesai: number
+          fazla_mesai_saat_50: number
+          fazla_mesai_saat_100: number
+          fazla_mesai_tutar: number
+          haftalik_tatil: number
+          genel_tatil: number
+          yillik_izin_ucreti: number
+          ikramiye: number
+          prim: number
+          servis_ucreti: number
+          temsil_etiket: number
+          gelir_vergisi: number
+          damga_vergisi: number
+          sgk_isci_payi: number
+          issizlik_sigortasi: number
+          sendika_aidat: number
+          avans: number
+          diger_kesintiler: number
+          engelli_indirimi: number
+          kidem_tazminati: number
+          ihbar_tazminati: number
+          toplam_kazanc: number
+          toplam_kesinti: number
+          net_maas: number
+          kumulatif_vergi_matrahi: number
+          asgari_ucret_gelir_vergisi_istisnasi: number
+          asgari_ucret_damga_vergisi_istisnasi: number
+          sgk_isveren_payi: number
+          issizlik_isveren_payi: number
+          sgk_isveren_indirimi: number
+          sgk_isveren_indirim_orani: number
+          yillik_toplam_kazanc: number
+          yillik_toplam_kesinti: number
+          yillik_toplam_net: number
+          aciklama: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          employee_id: string
+          period: string
+          sicil_no?: string
+          tc_no?: string
+          brut_maas?: number
+          medeni_durum?: 'bekar' | 'evli'
+          cocuk_sayisi?: number
+          engelli_durumu?: 'yok' | 'birinci' | 'ikinci' | 'ucuncu'
+          temel_kazanc?: number
+          yol_parasi?: number
+          gida_yardimi?: number
+          cocuk_yardimi?: number
+          diger_kazanclar?: number
+          fazla_mesai?: number
+          fazla_mesai_saat_50?: number
+          fazla_mesai_saat_100?: number
+          fazla_mesai_tutar?: number
+          haftalik_tatil?: number
+          genel_tatil?: number
+          yillik_izin_ucreti?: number
+          ikramiye?: number
+          prim?: number
+          servis_ucreti?: number
+          temsil_etiket?: number
+          gelir_vergisi?: number
+          damga_vergisi?: number
+          sgk_isci_payi?: number
+          issizlik_sigortasi?: number
+          sendika_aidat?: number
+          avans?: number
+          diger_kesintiler?: number
+          engelli_indirimi?: number
+          kidem_tazminati?: number
+          ihbar_tazminati?: number
+          toplam_kazanc?: number
+          toplam_kesinti?: number
+          net_maas?: number
+          kumulatif_vergi_matrahi?: number
+          asgari_ucret_gelir_vergisi_istisnasi?: number
+          asgari_ucret_damga_vergisi_istisnasi?: number
+          sgk_isveren_payi?: number
+          issizlik_isveren_payi?: number
+          sgk_isveren_indirimi?: number
+          sgk_isveren_indirim_orani?: number
+          yillik_toplam_kazanc?: number
+          yillik_toplam_kesinti?: number
+          yillik_toplam_net?: number
+          aciklama?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          employee_id?: string
+          period?: string
+          sicil_no?: string
+          tc_no?: string
+          brut_maas?: number
+          medeni_durum?: 'bekar' | 'evli'
+          cocuk_sayisi?: number
+          engelli_durumu?: 'yok' | 'birinci' | 'ikinci' | 'ucuncu'
+          temel_kazanc?: number
+          yol_parasi?: number
+          gida_yardimi?: number
+          cocuk_yardimi?: number
+          diger_kazanclar?: number
+          fazla_mesai?: number
+          fazla_mesai_saat_50?: number
+          fazla_mesai_saat_100?: number
+          fazla_mesai_tutar?: number
+          haftalik_tatil?: number
+          genel_tatil?: number
+          yillik_izin_ucreti?: number
+          ikramiye?: number
+          prim?: number
+          servis_ucreti?: number
+          temsil_etiket?: number
+          gelir_vergisi?: number
+          damga_vergisi?: number
+          sgk_isci_payi?: number
+          issizlik_sigortasi?: number
+          sendika_aidat?: number
+          avans?: number
+          diger_kesintiler?: number
+          engelli_indirimi?: number
+          kidem_tazminati?: number
+          ihbar_tazminati?: number
+          toplam_kazanc?: number
+          toplam_kesinti?: number
+          net_maas?: number
+          kumulatif_vergi_matrahi?: number
+          asgari_ucret_gelir_vergisi_istisnasi?: number
+          asgari_ucret_damga_vergisi_istisnasi?: number
+          sgk_isveren_payi?: number
+          issizlik_isveren_payi?: number
+          sgk_isveren_indirimi?: number
+          sgk_isveren_indirim_orani?: number
+          yillik_toplam_kazanc?: number
+          yillik_toplam_kesinti?: number
+          yillik_toplam_net?: number
+          aciklama?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bordro_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bordro_items_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      takvim_gunleri: {
+        Row: {
+          id: string
+          company_id: string | null
+          tarih: string
+          ad: string
+          tur: 'resmi_tatil' | 'dini_bayram' | 'ozel_gun' | 'firma_ozel'
+          aciklama: string
+          calisma_gunu_mu: boolean
+          yil: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id?: string | null
+          tarih: string
+          ad: string
+          tur?: 'resmi_tatil' | 'dini_bayram' | 'ozel_gun' | 'firma_ozel'
+          aciklama?: string
+          calisma_gunu_mu?: boolean
+          yil: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string | null
+          tarih?: string
+          ad?: string
+          tur?: 'resmi_tatil' | 'dini_bayram' | 'ozel_gun' | 'firma_ozel'
+          aciklama?: string
+          calisma_gunu_mu?: boolean
+          yil?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bildirimler: {
+        Row: {
+          id: string
+          company_id: string
+          user_id: string | null
+          baslik: string
+          mesaj: string
+          tur: 'bilgi' | 'uyari' | 'hata' | 'basari' | 'izin' | 'bordro' | 'sistem'
+          oncelik: 'dusuk' | 'normal' | 'yuksek' | 'acil'
+          okundu_mu: boolean
+          okunma_tarihi: string | null
+          link: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          user_id?: string | null
+          baslik: string
+          mesaj: string
+          tur?: 'bilgi' | 'uyari' | 'hata' | 'basari' | 'izin' | 'bordro' | 'sistem'
+          oncelik?: 'dusuk' | 'normal' | 'yuksek' | 'acil'
+          okundu_mu?: boolean
+          okunma_tarihi?: string | null
+          link?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          user_id?: string | null
+          baslik?: string
+          mesaj?: string
+          tur?: 'bilgi' | 'uyari' | 'hata' | 'basari' | 'izin' | 'bordro' | 'sistem'
+          oncelik?: 'dusuk' | 'normal' | 'yuksek' | 'acil'
+          okundu_mu?: boolean
+          okunma_tarihi?: string | null
+          link?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ozluk_dosyalari: {
+        Row: {
+          id: string
+          employee_id: string
+          company_id: string
+          kategori: string
+          dosya_adi: string | null
+          dosya_yolu: string | null
+          notlar: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          company_id: string
+          kategori: string
+          dosya_adi?: string | null
+          dosya_yolu?: string | null
+          notlar?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          company_id?: string
+          kategori?: string
+          dosya_adi?: string | null
+          dosya_yolu?: string | null
+          notlar?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ozluk_dosyalari_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ozluk_dosyalari_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+    }
+    Views: {
+      employees_public: {
+        Row: {
+          id: string
+          company_id: string
+          name: string
+          sicil_no: string
+          department: string
+          position: string
+          level: 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'Manager'
+          status: 'active' | 'onLeave' | 'inactive'
+          email: string
+          join_date: string
+          avatar_url: string | null
+          skills: string[]
+          employee_type: 'normal' | 'emekli'
+          created_at: string
+          updated_at: string
+        }
+        Relationships: []
+      }
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+  }
+}

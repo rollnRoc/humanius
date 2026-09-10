@@ -111,10 +111,10 @@ export const printPuantajCetveliPdf = (params: {
         <tr style="page-break-inside: avoid;">
           <td style="padding: 4px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1;">${index + 1}</td>
           <td style="padding: 4px 6px; font-size: 9px; font-weight: bold; border: 1px solid #cbd5e1; white-space: nowrap;">
-            ${emp.name}
-            <div style="font-size: 7px; color: #64748b; font-weight: normal;">TC: ${emp.tcNo || '-'}</div>
+            ${emp?.name || 'İsimsiz'}
+            <div style="font-size: 7px; color: #64748b; font-weight: normal;">TC: ${emp?.tc_no || (emp as any)?.tcNo || '-'}</div>
           </td>
-          <td style="padding: 4px 6px; font-size: 8px; border: 1px solid #cbd5e1; white-space: nowrap;">${emp.department || 'Genel'}</td>
+          <td style="padding: 4px 6px; font-size: 8px; border: 1px solid #cbd5e1; white-space: nowrap;">${emp?.department || 'Genel'}</td>
           ${dayCellsHtml}
           <td style="padding: 4px 2px; text-align: center; font-size: 8px; font-weight: bold; border: 1px solid #cbd5e1; background: #ecfdf5; color: #047857;">${ozet.fiiliCalismaGun}g / ${ozet.fiiliCalismaSaat}s</td>
           <td style="padding: 4px 2px; text-align: center; font-size: 8px; border: 1px solid #cbd5e1;">${ozet.haftaTatiliGun}</td>
@@ -360,9 +360,9 @@ export const exportPuantajExcel = (
 
     return [
       i + 1,
-      emp.name,
-      emp.tcNo || '',
-      emp.department || 'Genel',
+      emp?.name || '-',
+      emp?.tc_no || (emp as any)?.tcNo || '',
+      emp?.department || 'Genel',
       ...dayCells,
       ozet.fiiliCalismaGun,
       ozet.fiiliCalismaSaat,
@@ -633,7 +633,7 @@ export const exportPuantajCsv = (
           return g.kod;
         })
         .join(';');
-      return `${i + 1};"${emp.name}";"${emp.tcNo || ''}";"${emp.department || ''}";${dayValues};${ozet.fiiliCalismaGun};${ozet.fiiliCalismaSaat};${ozet.haftaTatiliGun};${ozet.yillikIzinGun};${ozet.ucretsizIzinGun};${ozet.raporluGun};${ozet.devamsizGun};${ozet.bordroGun};${ozet.toplamFazlaMesaiSaat}`;
+      return `${i + 1};"${emp?.name || ''}";"${emp?.tc_no || (emp as any)?.tcNo || ''}";"${emp?.department || ''}";${dayValues};${ozet?.fiiliCalismaGun || 0};${ozet?.fiiliCalismaSaat || 0};${ozet?.haftaTatiliGun || 0};${ozet?.yillikIzinGun || 0};${ozet?.ucretsizIzinGun || 0};${ozet?.raporluGun || 0};${ozet?.devamsizGun || 0};${ozet?.bordroGun || 0};${ozet?.toplamFazlaMesaiSaat || 0}`;
     })
     .join('\n');
 

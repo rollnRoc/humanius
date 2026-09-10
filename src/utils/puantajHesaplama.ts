@@ -240,8 +240,8 @@ export function hesaplaPersonelAylikPuantaj(params: {
     const resmiTatilInfo = checkIsResmiTatil(tarih);
 
     // Vardiya parametreleri (Cumartesi çalışma aktifse Cumartesiye özel saatler kullanılır)
-    let activeStartTime = activeShift.start_time;
-    let activeEndTime = activeShift.end_time;
+    let activeStartTime = activeShift?.start_time || '08:30';
+    let activeEndTime = activeShift?.end_time || '18:00';
     let activeMolaDk = shiftMolaDk;
     let activeTolerance = shiftTolerance;
 
@@ -253,19 +253,26 @@ export function hesaplaPersonelAylikPuantaj(params: {
     }
 
     // 0. Öncelik: Manuel İK Düzeltmesi (Override)
-    const overrideKey = `${employee.id}_${tarih}`;
+    const empId = employee?.id || '';
+    const overrideKey = `${empId}_${tarih}`;
     const overrideData = adminOverrides[overrideKey];
 
     // 1. Öncelik: İzin Talebi
     const approvedLeave = (izinTalepleri || []).find((t) => {
-      if (t.employeeId !== employee.id || t.durum !== 'onaylandi') return false;
-      const s = (t.baslangicTarihi || '').split('T')[0];
-      const e = (t.bitisTarihi || '').split('T')[0];
+      const tEmpId = t.employeeId || t.employee_id;
+      if (!tEmpId || tEmpId !== empId) return false;
+      const tDurum = String(t.durum || '').toLowerCase();
+      if (tDurum !== 'onaylandi' && tDurum !== 'onaylandı') return false;
+      const s = (t.baslangicTarihi || t.baslangic_tarihi || '').split('T')[0];
+      const e = (t.bitisTarihi || t.bitis_tarihi || '').split('T')[0];
       return Boolean(s && e && tarih >= s && tarih <= e);
     });
 
     // 2. Öncelik: Gerçek PDKS Giriş-Çıkış Kaydı
-    const realShift = (vardiyaKayitlari || []).find((v) => v.employee_id === employee.id && v.tarih === tarih);
+    const realShift = (vardiyaKayitlari || []).find((v) => {
+      const vEmpId = v.employee_id || (v as any).employeeId;
+      return vEmpId === empId && v.tarih === tarih;
+    });
 
     let girisSaati: string | null = overrideData?.giris !== undefined ? overrideData.giris : realShift?.giris_saati || null;
     let cikisSaati: string | null = overrideData?.cikis !== undefined ? overrideData.cikis : realShift?.cikis_saati || null;
@@ -588,7 +595,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
 
   return {
     employee,
-    shift,
+    shift: activeShift,
     gunler,
     ozet: {
       fiiliCalismaGun,

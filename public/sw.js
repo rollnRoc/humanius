@@ -1,5 +1,4 @@
-// Humanius HRMS Service Worker for Web Push Notifications
-
+// Humanius HRMS Service Worker v1.0.3 - 2026-09-10
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });

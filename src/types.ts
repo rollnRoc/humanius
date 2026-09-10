@@ -46,7 +46,9 @@ export interface Employee {
   company_id?: string;
   name: string;
   tc_no?: string;
+  tcNo?: string;
   sicil_no?: string;
+  sicilNo?: string;
   company: string;
   department: string;
   position: string;

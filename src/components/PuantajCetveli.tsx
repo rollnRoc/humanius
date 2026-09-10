@@ -81,6 +81,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [selectedDayFilter, setSelectedDayFilter] = useState<number | 'all'>('all');
+  const [selectedDailyEmployeeId, setSelectedDailyEmployeeId] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   type PuantajSortField = 'name' | 'department' | 'fiili' | 'ht' | 'yillik' | 'ucretsiz' | 'rapor' | 'devamsiz' | 'bordro' | 'fm';
   const [matrixSortField, setMatrixSortField] = useState<PuantajSortField>('name');
@@ -318,15 +319,21 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     const term = searchTerm.trim().toLowerCase();
     return allCalculatedPuantaj
       .filter((p) => {
-        const emp = p.employee;
+        const emp = p?.employee;
+        if (!emp) return false;
+        const empName = (emp.name || '').toLowerCase();
+        const empTc = String(emp.tc_no || (emp as any).tcNo || '');
+        const empDept = (emp.department || '').toLowerCase();
+        const empPos = (emp.position || '').toLowerCase();
+
         const matchesSearch =
           !term ||
-          emp.name.toLowerCase().includes(term) ||
-          (emp.tcNo && emp.tcNo.includes(term)) ||
-          (emp.department && emp.department.toLowerCase().includes(term)) ||
-          (emp.position && emp.position.toLowerCase().includes(term));
+          empName.includes(term) ||
+          empTc.includes(term) ||
+          empDept.includes(term) ||
+          empPos.includes(term);
 
-        const matchesDept = selectedDepartment === 'all' || emp.department === selectedDepartment;
+        const matchesDept = selectedDepartment === 'all' || (emp.department || '') === selectedDepartment;
 
         return matchesSearch && matchesDept;
       })
@@ -334,37 +341,37 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         let cmp = 0;
         switch (matrixSortField) {
           case 'name':
-            cmp = (a.employee.name || '').localeCompare(b.employee.name || '', 'tr');
+            cmp = (a.employee?.name || '').localeCompare(b.employee?.name || '', 'tr');
             break;
           case 'department':
-            cmp = (a.employee.department || 'Genel').localeCompare(b.employee.department || 'Genel', 'tr');
+            cmp = (a.employee?.department || 'Genel').localeCompare(b.employee?.department || 'Genel', 'tr');
             break;
           case 'fiili':
-            cmp = a.ozet.fiiliCalismaSaat - b.ozet.fiiliCalismaSaat;
+            cmp = (a.ozet?.fiiliCalismaSaat || 0) - (b.ozet?.fiiliCalismaSaat || 0);
             break;
           case 'ht':
-            cmp = a.ozet.haftaTatiliGun - b.ozet.haftaTatiliGun;
+            cmp = (a.ozet?.haftaTatiliGun || 0) - (b.ozet?.haftaTatiliGun || 0);
             break;
           case 'yillik':
-            cmp = a.ozet.yillikIzinGun - b.ozet.yillikIzinGun;
+            cmp = (a.ozet?.yillikIzinGun || 0) - (b.ozet?.yillikIzinGun || 0);
             break;
           case 'ucretsiz':
-            cmp = a.ozet.ucretsizIzinGun - b.ozet.ucretsizIzinGun;
+            cmp = (a.ozet?.ucretsizIzinGun || 0) - (b.ozet?.ucretsizIzinGun || 0);
             break;
           case 'rapor':
-            cmp = a.ozet.raporluGun - b.ozet.raporluGun;
+            cmp = (a.ozet?.raporluGun || 0) - (b.ozet?.raporluGun || 0);
             break;
           case 'devamsiz':
-            cmp = a.ozet.devamsizGun - b.ozet.devamsizGun;
+            cmp = (a.ozet?.devamsizGun || 0) - (b.ozet?.devamsizGun || 0);
             break;
           case 'bordro':
-            cmp = a.ozet.bordroGun - b.ozet.bordroGun;
+            cmp = (a.ozet?.bordroGun || 0) - (b.ozet?.bordroGun || 0);
             break;
           case 'fm':
-            cmp = a.ozet.toplamFazlaMesaiSaat - b.ozet.toplamFazlaMesaiSaat;
+            cmp = (a.ozet?.toplamFazlaMesaiSaat || 0) - (b.ozet?.toplamFazlaMesaiSaat || 0);
             break;
           default:
-            cmp = (a.employee.name || '').localeCompare(b.employee.name || '', 'tr');
+            cmp = (a.employee?.name || '').localeCompare(b.employee?.name || '', 'tr');
         }
         return matrixSortOrder === 'asc' ? cmp : -cmp;
       });
@@ -517,28 +524,28 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
   // Seçili Personel (Günlük Detay Görünümü İçin)
   const activeDailyEmployeeId = useMemo(() => {
-    if (selectedDailyEmployeeId && (selectedDailyEmployeeId === 'all' || filteredPuantaj.some(p => p.employee.id === selectedDailyEmployeeId))) {
+    if (selectedDailyEmployeeId && (selectedDailyEmployeeId === 'all' || filteredPuantaj.some(p => p.employee?.id === selectedDailyEmployeeId))) {
       return selectedDailyEmployeeId;
     }
-    return filteredPuantaj[0]?.employee.id || '';
+    return filteredPuantaj[0]?.employee?.id || '';
   }, [filteredPuantaj, selectedDailyEmployeeId]);
 
   const selectedPuantajRecord = useMemo(() => {
-    return filteredPuantaj.find((p) => p.employee.id === activeDailyEmployeeId) || filteredPuantaj[0];
+    return filteredPuantaj.find((p) => p.employee?.id === activeDailyEmployeeId) || filteredPuantaj[0];
   }, [filteredPuantaj, activeDailyEmployeeId]);
 
   const currentDailyEmpIndex = useMemo(() => {
-    return filteredPuantaj.findIndex((p) => p.employee.id === activeDailyEmployeeId);
+    return filteredPuantaj.findIndex((p) => p.employee?.id === activeDailyEmployeeId);
   }, [filteredPuantaj, activeDailyEmployeeId]);
 
   const handlePrevEmployee = () => {
-    if (currentDailyEmpIndex > 0) {
+    if (currentDailyEmpIndex > 0 && filteredPuantaj[currentDailyEmpIndex - 1]?.employee?.id) {
       setSelectedDailyEmployeeId(filteredPuantaj[currentDailyEmpIndex - 1].employee.id);
     }
   };
 
   const handleNextEmployee = () => {
-    if (currentDailyEmpIndex < filteredPuantaj.length - 1 && currentDailyEmpIndex !== -1) {
+    if (currentDailyEmpIndex < filteredPuantaj.length - 1 && currentDailyEmpIndex !== -1 && filteredPuantaj[currentDailyEmpIndex + 1]?.employee?.id) {
       setSelectedDailyEmployeeId(filteredPuantaj[currentDailyEmpIndex + 1].employee.id);
     }
   };
@@ -552,26 +559,32 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         ? [selectedPuantajRecord]
         : [];
 
-    return list.flatMap((p) =>
-      p.gunler
+    return list.flatMap((p) => {
+      if (!p || !p.gunler) return [];
+      const emp = p.employee || ({} as any);
+      const shiftStart = p.shift?.start_time || '08:30';
+      const shiftEnd = p.shift?.end_time || '18:00';
+      const shiftHours = `${shiftStart} - ${shiftEnd}`;
+
+      return p.gunler
         .filter((g) => selectedDayFilter === 'all' || g.gunNo === selectedDayFilter)
         .map((g) => ({
-          employeeName: p.employee.name,
-          tcNo: p.employee.tcNo,
-          department: p.employee.department || 'Genel',
+          employeeName: emp.name || 'İsimsiz Personel',
+          tcNo: emp.tc_no || emp.tcNo || '',
+          department: emp.department || 'Genel',
           tarih: g.tarih,
           gunAdi: g.gunAdi,
-          shiftHours: `${p.shift.start_time} - ${p.shift.end_time}`,
+          shiftHours,
           girisSaati: g.girisSaati,
           cikisSaati: g.cikisSaati,
-          molaDk: g.molaDk,
-          netSureSaat: g.netSureSaat,
-          fazlaMesaiSaat: g.fazlaMesaiSaat,
-          gecikmeDk: g.gecikmeDk,
+          molaDk: g.molaDk || 0,
+          netSureSaat: g.netSureSaat || 0,
+          fazlaMesaiSaat: g.fazlaMesaiSaat || 0,
+          gecikmeDk: g.gecikmeDk || 0,
           kod: g.kod,
-          kodAciklama: g.kodAciklama,
-        }))
-    ).sort((a, b) => {
+          kodAciklama: g.kodAciklama || '',
+        }));
+    }).sort((a, b) => {
       let cmp = 0;
       switch (dailySortField) {
         case 'employeeName':
@@ -620,7 +633,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     const filterTitle =
       activeDailyEmployeeId === 'all'
         ? (selectedDepartment === 'all' ? 'Tüm Departmanlar' : selectedDepartment)
-        : `${selectedPuantajRecord?.employee.name} (${selectedPuantajRecord?.employee.department || 'Genel'})`;
+        : `${selectedPuantajRecord?.employee?.name || 'Personel'} (${selectedPuantajRecord?.employee?.department || 'Genel'})`;
 
     printGunlukDetayliRaporPdf({
       companyName: profile?.company_name || 'Humanius HRMS',
@@ -640,7 +653,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     const prefix =
       activeDailyEmployeeId === 'all'
         ? 'Toplu_Gunluk'
-        : `${selectedPuantajRecord?.employee.name.replace(/\s+/g, '_') || 'Personel'}_Gunluk`;
+        : `${(selectedPuantajRecord?.employee?.name || 'Personel').replace(/\s+/g, '_')}_Gunluk`;
 
     exportGunlukDetayliCsv(
       profile?.company_name || 'Humanius',
@@ -658,7 +671,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     const prefix =
       activeDailyEmployeeId === 'all'
         ? 'Toplu_Gunluk'
-        : `${selectedPuantajRecord?.employee.name.replace(/\s+/g, '_') || 'Personel'}_Gunluk`;
+        : `${(selectedPuantajRecord?.employee?.name || 'Personel').replace(/\s+/g, '_')}_Gunluk`;
 
     exportGunlukDetayliExcel(
       profile?.company_name || 'Humanius',
@@ -1118,18 +1131,19 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredPuantaj.map((p) => {
-                  const emp = p.employee;
-                  const ozet = p.ozet;
+                  const emp = p?.employee;
+                  const ozet = p?.ozet || ({} as any);
+                  const empId = emp?.id || `emp-${Math.random()}`;
 
                   return (
-                    <tr key={emp.id} className="hover:bg-blue-50/40 transition-colors">
+                    <tr key={empId} className="hover:bg-blue-50/40 transition-colors">
                       {/* Sticky Personel Adı */}
                       <td className="px-3 py-2.5 border-r border-gray-200 bg-white sticky left-0 z-10 font-medium">
-                        <div className="font-bold text-gray-900 leading-tight">{emp.name}</div>
+                        <div className="font-bold text-gray-900 leading-tight">{emp?.name || 'İsimsiz'}</div>
                         <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1.5">
-                          <span>{emp.department || 'Genel'}</span>
+                          <span>{emp?.department || 'Genel'}</span>
                           <span>•</span>
-                          <span>{emp.position || '-'}</span>
+                          <span>{emp?.position || '-'}</span>
                         </div>
                       </td>
 
@@ -1257,8 +1271,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                     className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold outline-none bg-gray-50 focus:ring-2 focus:ring-blue-100 min-w-[240px]"
                   >
                     {filteredPuantaj.map((p) => (
-                      <option key={p.employee.id} value={p.employee.id}>
-                        {p.employee.name} ({p.employee.department || 'Genel'})
+                      <option key={p.employee?.id} value={p.employee?.id}>
+                        {p.employee?.name || 'İsimsiz'} ({p.employee?.department || 'Genel'})
                       </option>
                     ))}
                     <option value="all">👥 Tüm Personelleri Göster (Toplu Liste)</option>
@@ -1333,25 +1347,25 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-3.5">
                   <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shadow-sm">
-                    {selectedPuantajRecord.employee.name.charAt(0)}
+                    {(selectedPuantajRecord.employee?.name || '?').charAt(0)}
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                      {selectedPuantajRecord.employee.name}
+                      {selectedPuantajRecord.employee?.name || 'İsimsiz Personel'}
                       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                        {selectedPuantajRecord.employee.department || 'Genel'}
+                        {selectedPuantajRecord.employee?.department || 'Genel'}
                       </span>
                     </h3>
                     <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
-                      <span>{selectedPuantajRecord.employee.position || 'Personel'}</span>
-                      {selectedPuantajRecord.employee.tcNo && (
+                      <span>{selectedPuantajRecord.employee?.position || 'Personel'}</span>
+                      {(selectedPuantajRecord.employee?.tc_no || selectedPuantajRecord.employee?.tcNo) && (
                         <>
                           <span>•</span>
-                          <span>TC: {selectedPuantajRecord.employee.tcNo}</span>
+                          <span>TC: {selectedPuantajRecord.employee?.tc_no || selectedPuantajRecord.employee?.tcNo}</span>
                         </>
                       )}
                       <span>•</span>
-                      <span className="font-mono text-gray-600">Vardiya: {selectedPuantajRecord.shift.start_time} - {selectedPuantajRecord.shift.end_time}</span>
+                      <span className="font-mono text-gray-600">Vardiya: {selectedPuantajRecord.shift?.start_time || '08:30'} - {selectedPuantajRecord.shift?.end_time || '18:00'}</span>
                     </div>
                   </div>
                 </div>
@@ -1360,37 +1374,37 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   <div className="bg-white border border-emerald-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
                     <div className="text-[10px] text-emerald-600 font-bold uppercase">Fiili Çalışma</div>
                     <div className="text-sm font-extrabold text-emerald-700">
-                      {selectedPuantajRecord.ozet.fiiliCalismaGun}g <span className="text-xs font-normal">({selectedPuantajRecord.ozet.fiiliCalismaSaat}s)</span>
+                      {selectedPuantajRecord.ozet?.fiiliCalismaGun || 0}g <span className="text-xs font-normal">({selectedPuantajRecord.ozet?.fiiliCalismaSaat || 0}s)</span>
                     </div>
                   </div>
                   <div className="bg-white border border-amber-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
                     <div className="text-[10px] text-amber-600 font-bold uppercase">Fazla Mesai</div>
                     <div className="text-sm font-extrabold text-amber-700">
-                      +{selectedPuantajRecord.ozet.toplamFazlaMesaiSaat}s
+                      +{(selectedPuantajRecord.ozet?.toplamFazlaMesaiSaat || 0)}s
                     </div>
                   </div>
                   <div className="bg-white border border-blue-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
                     <div className="text-[10px] text-blue-600 font-bold uppercase">Bordro Gün (30G)</div>
                     <div className="text-sm font-extrabold text-blue-700">
-                      {selectedPuantajRecord.ozet.bordroGun} gün
+                      {selectedPuantajRecord.ozet?.bordroGun || 0} gün
                     </div>
                   </div>
                   <div className="bg-white border border-teal-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
                     <div className="text-[10px] text-teal-600 font-bold uppercase">Yıllık İzin</div>
                     <div className="text-sm font-extrabold text-teal-700">
-                      {selectedPuantajRecord.ozet.yillikIzinGun} gün
+                      {selectedPuantajRecord.ozet?.yillikIzinGun || 0} gün
                     </div>
                   </div>
                   <div className="bg-white border border-orange-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
                     <div className="text-[10px] text-orange-600 font-bold uppercase">Ücretsiz İzin</div>
                     <div className="text-sm font-extrabold text-orange-700">
-                      {selectedPuantajRecord.ozet.ucretsizIzinGun} gün
+                      {selectedPuantajRecord.ozet?.ucretsizIzinGun || 0} gün
                     </div>
                   </div>
                   <div className="bg-white border border-gray-200 px-3.5 py-1.5 rounded-xl text-center shadow-xs">
                     <div className="text-[10px] text-gray-500 font-bold uppercase">Rapor / Mazeret</div>
                     <div className="text-sm font-extrabold text-gray-700">
-                      {selectedPuantajRecord.ozet.ucretliIzinGun + selectedPuantajRecord.ozet.raporluGun} gün
+                      {(selectedPuantajRecord.ozet?.ucretliIzinGun || 0) + (selectedPuantajRecord.ozet?.raporluGun || 0)} gün
                     </div>
                   </div>
                 </div>
@@ -1551,8 +1565,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {dailyFilteredItems.map((item, idx) => {
-                    const record = filteredPuantaj.find(p => p.employee.name === item.employeeName);
-                    const dayObj = record?.gunler.find(g => g.tarih === item.tarih);
+                    const record = filteredPuantaj.find(p => p.employee?.name === item.employeeName);
+                    const dayObj = record?.gunler?.find(g => g.tarih === item.tarih);
 
                     let badgeStyle = 'bg-gray-100 text-gray-600';
                     if (item.kod === 'Ç') badgeStyle = 'bg-emerald-100 text-emerald-800';
