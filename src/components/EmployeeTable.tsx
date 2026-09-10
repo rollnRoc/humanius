@@ -13,6 +13,8 @@ interface EmployeeTableProps {
   onToggleSort?: () => void;
 }
 
+export type EmployeeSortField = 'name' | 'company' | 'department' | 'position' | 'role' | 'employeeType' | 'status' | 'phone';
+
 const EmployeeTable: React.FC<EmployeeTableProps> = ({
   employees,
   onEmployeeClick,
@@ -23,9 +25,25 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
 }) => {
   const { t } = useLanguage();
   const { appRole } = useAuth();
+  const [sortField, setSortField] = useState<EmployeeSortField>('name');
   const [internalSortOrder, setInternalSortOrder] = useState<'asc' | 'desc'>('asc');
   const currentSortOrder = sortOrder || internalSortOrder;
   const toggleSort = onToggleSort || (() => setInternalSortOrder(prev => prev === 'asc' ? 'desc' : 'asc'));
+
+  const handleSort = (field: EmployeeSortField) => {
+    if (sortField === field) {
+      if (onToggleSort) {
+        onToggleSort();
+      }
+      setInternalSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setInternalSortOrder('asc');
+      if (currentSortOrder === 'desc' && onToggleSort) {
+        onToggleSort();
+      }
+    }
+  };
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -35,10 +53,44 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
 
   const sortedEmployees = React.useMemo(() => {
     return [...employees].sort((a, b) => {
-      const cmp = (a.name || '').localeCompare(b.name || '', 'tr');
+      let cmp = 0;
+      switch (sortField) {
+        case 'name':
+          cmp = (a.name || '').localeCompare(b.name || '', 'tr');
+          break;
+        case 'company':
+          cmp = (a.company || '').localeCompare(b.company || '', 'tr');
+          break;
+        case 'department':
+          cmp = (a.department || '').localeCompare(b.department || '', 'tr');
+          break;
+        case 'position':
+          cmp = (a.position || '').localeCompare(b.position || '', 'tr');
+          break;
+        case 'role': {
+          const roleA = a.role || '';
+          const roleB = b.role || '';
+          cmp = roleA.localeCompare(roleB, 'tr');
+          break;
+        }
+        case 'employeeType': {
+          const typeA = a.employeeType || (a as any).employee_type || '';
+          const typeB = b.employeeType || (b as any).employee_type || '';
+          cmp = typeA.localeCompare(typeB, 'tr');
+          break;
+        }
+        case 'status':
+          cmp = (a.status || '').localeCompare(b.status || '', 'tr');
+          break;
+        case 'phone':
+          cmp = (a.phone || '').localeCompare(b.phone || '', 'tr');
+          break;
+        default:
+          cmp = (a.name || '').localeCompare(b.name || '', 'tr');
+      }
       return currentSortOrder === 'asc' ? cmp : -cmp;
     });
-  }, [employees, currentSortOrder]);
+  }, [employees, sortField, currentSortOrder]);
 
   useEffect(() => {
     setCurrentPage(1);
