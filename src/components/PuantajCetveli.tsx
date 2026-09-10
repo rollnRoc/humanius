@@ -186,6 +186,41 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const loadPuantajData = async () => {
     setIsLoading(true);
     try {
+      // Admin Overrides (humanius_puantaj_overrides) ve PDKS Overrides (humanius_pdks_override_*) senkronizasyonu
+      let loadedOverrides: Record<string, any> = {};
+      try {
+        const s = localStorage.getItem('humanius_puantaj_overrides');
+        if (s) loadedOverrides = JSON.parse(s);
+      } catch {}
+
+      // PDKS devam kontrolünden girilen güncel giriş/çıkış kayıtlarını da puantaj ile eşitle
+      const todayStr = new Date().toISOString().split('T')[0];
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('humanius_pdks_override_')) {
+            const empId = key.replace('humanius_pdks_override_', '');
+            const rawVal = localStorage.getItem(key);
+            if (rawVal) {
+              const parsed = JSON.parse(rawVal);
+              if (parsed && parsed.giris && parsed.giris !== '-') {
+                const puantajKey = `${empId}_${todayStr}`;
+                if (!loadedOverrides[puantajKey] || loadedOverrides[puantajKey].kod === 'Ç') {
+                  loadedOverrides[puantajKey] = {
+                    kod: 'Ç',
+                    giris: parsed.giris,
+                    cikis: parsed.cikis !== '-' ? parsed.cikis : '18:00',
+                    kodAciklama: `Fiili Çalışma (${parsed.giris}-${parsed.cikis !== '-' ? parsed.cikis : '18:00'})`,
+                    notlar: parsed.officeName || 'Merkez Ofis'
+                  };
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+      setAdminOverrides(loadedOverrides);
+
       const targetCompanyId = profile?.company_id || employees[0]?.company_id || undefined;
       const [fetchedVardiyalar, fetchedShifts, fetchedAssignments, fetchedSaturday, fetchedLeaveTypes] = await Promise.all([
         pdksService.getVardiyalar(),
@@ -213,6 +248,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
     const handleUpdate = () => loadPuantajData();
     window.addEventListener('humanius_shifts_updated', handleUpdate);
+    window.addEventListener('humanius_puantaj_updated', handleUpdate);
     window.addEventListener('humanius_saturday_updated', handleUpdate);
     window.addEventListener('humanius_izin_turleri_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
@@ -224,6 +260,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
     return () => {
       window.removeEventListener('humanius_shifts_updated', handleUpdate);
+      window.removeEventListener('humanius_puantaj_updated', handleUpdate);
       window.removeEventListener('humanius_saturday_updated', handleUpdate);
       window.removeEventListener('humanius_izin_turleri_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
@@ -477,6 +514,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     }
 
     setEditModalOpen(false);
+    window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+    window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
   };
 
   // Manuel Düzeltmeyi Kaldır (Otomatik Hesaplamaya Dön)
@@ -489,6 +528,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     setAdminOverrides(nextOverrides);
     localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(nextOverrides));
     setEditModalOpen(false);
+    window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+    window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
   };
 
   // Çıktı Fonksiyonları

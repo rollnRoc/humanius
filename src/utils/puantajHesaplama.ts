@@ -281,6 +281,19 @@ export function hesaplaPersonelAylikPuantaj(params: {
     if (girisSaati === '-') girisSaati = null;
     if (cikisSaati === '-') cikisSaati = null;
 
+    if (girisSaati && girisSaati.length > 5) {
+      girisSaati = girisSaati.substring(0, 5);
+    }
+    if (cikisSaati && cikisSaati.length > 5) {
+      cikisSaati = cikisSaati.substring(0, 5);
+    }
+
+    // Tarih zaman durumu
+    const todayYMD = new Date().toISOString().split('T')[0];
+    const isFuture = tarih > todayYMD;
+    const isToday = tarih === todayYMD;
+    const isPast = tarih < todayYMD;
+
     // Süre hesaplama
     let brutSureSaat = 0;
     let netSureSaat = 0;
@@ -322,13 +335,20 @@ export function hesaplaPersonelAylikPuantaj(params: {
           }
         }
       }
+    } else if (girisSaati && !cikisSaati && isToday) {
+      // Mesai devam ediyor (bugün) - planlanan bitiş saatine göre tahmini net çalışma saati
+      const [gH, gM] = girisSaati.split(':').map(Number);
+      const [eH, eM] = activeEndTime.split(':').map(Number);
+      if (!isNaN(gH) && !isNaN(gM) && !isNaN(eH) && !isNaN(eM)) {
+        let diffMins = (eH * 60 + eM) - (gH * 60 + gM);
+        if (diffMins < 0) diffMins += 24 * 60;
+        const grossHours = diffMins / 60;
+        const yasalMola = hesaplaYasalAraDinlenme(grossHours, activeMolaDk);
+        netSureSaat = parseFloat((Math.max(0, diffMins - yasalMola) / 60).toFixed(1));
+      } else {
+        netSureSaat = 8.5;
+      }
     }
-
-    // Tarih zaman durumu
-    const todayYMD = new Date().toISOString().split('T')[0];
-    const isFuture = tarih > todayYMD;
-    const isToday = tarih === todayYMD;
-    const isPast = tarih < todayYMD;
 
     // Kod Tespiti
     let kod: PuantajKodu = '-';
@@ -351,13 +371,16 @@ export function hesaplaPersonelAylikPuantaj(params: {
         // Yıllık izin doğrudan toplam yıllık izin ve toplam izin kısmına yansır, günün gelmesini beklemez
         yillikIzinGun += 1;
         toplamIzinGun += 1;
-      } else if (kod === 'Üİ' || kod === 'UC') {
-        ucretsizIzinGun += 1;
-      } else if (kod === 'EG') {
-        // Eğitim izni izinler toplamında toplanmaz
-        egitimGun += 1;
       } else if (kod === 'R' || kod === 'HA' || kod === 'RP') {
         raporluGun += 1;
+      } else if (kod === 'Üİ' || kod === 'UC') {
+        const descLower = (kodAciklama || overrideData?.notlar || '').toLowerCase();
+        if (descLower.includes('rapor') || descLower.includes('istirahat') || descLower.includes('hastalik') || descLower.includes('hastalık')) {
+          kod = 'RP';
+          raporluGun += 1;
+        } else {
+          ucretsizIzinGun += 1;
+        }
       } else if (kod === 'Mİ' || kod === 'MZ') {
         ucretliIzinGun += 1;
         toplamIzinGun += 1;
@@ -426,12 +449,56 @@ export function hesaplaPersonelAylikPuantaj(params: {
         );
       });
 
-      const isEgitim = turLower.includes('egitim') || turLower.includes('eğitim') || matched?.id === 'egitim' || matched?.kod?.toUpperCase() === 'EG';
-      const isYillik = turLower.includes('yillik') || turLower.includes('yıllık') || matched?.id === 'yillik' || matched?.kod?.toUpperCase() === 'YI' || matched?.kod?.toUpperCase() === 'Yİ';
-      const isUnpaid = matched?.ucretli === false || turLower.includes('ucret') || turLower.includes('ücret') || matched?.id === 'ucretsiz' || matched?.kod?.toUpperCase() === 'UC' || matched?.kod?.toUpperCase() === 'Üİ';
-      const isRapor = matched?.id === 'hastalik' || matched?.id === 'rapor' || matched?.kod?.toUpperCase() === 'HA' || matched?.kod?.toUpperCase() === 'R' || matched?.kod?.toUpperCase() === 'RP' || turLower.includes('rapor') || turLower.includes('hastalik') || turLower.includes('istirahat') || turLower === 'r' || turLower === 'rp' || turLower === '-r';
+      const isRapor =
+        matched?.id === 'hastalik' ||
+        matched?.id === 'rapor' ||
+        matched?.id === 'istirahat' ||
+        matched?.kod?.toUpperCase() === 'HA' ||
+        matched?.kod?.toUpperCase() === 'R' ||
+        matched?.kod?.toUpperCase() === 'RP' ||
+        turLower.includes('rapor') ||
+        turLower.includes('hastalik') ||
+        turLower.includes('hastalık') ||
+        turLower.includes('istirahat') ||
+        turLower === 'r' ||
+        turLower === 'rp' ||
+        turLower === '-r' ||
+        turLower === 'ha';
 
-      if (isEgitim) {
+      const isEgitim =
+        !isRapor &&
+        (turLower.includes('egitim') ||
+         turLower.includes('eğitim') ||
+         matched?.id === 'egitim' ||
+         matched?.kod?.toUpperCase() === 'EG');
+
+      const isYillik =
+        !isRapor &&
+        (turLower.includes('yillik') ||
+         turLower.includes('yıllık') ||
+         matched?.id === 'yillik' ||
+         matched?.kod?.toUpperCase() === 'YI' ||
+         matched?.kod?.toUpperCase() === 'Yİ');
+
+      const isUnpaid =
+        !isRapor &&
+        !isEgitim &&
+        !isYillik &&
+        (turLower.includes('ucretsiz') ||
+         turLower.includes('ücretsiz') ||
+         matched?.id === 'ucretsiz' ||
+         matched?.kod?.toUpperCase() === 'UC' ||
+         matched?.kod?.toUpperCase() === 'Üİ' ||
+         (matched?.ucretli === false && !turLower.includes('rapor') && !turLower.includes('hastalik') && !turLower.includes('hastalık') && !turLower.includes('istirahat')));
+
+      if (isRapor) {
+        // İstirahat / SGK Raporu (RP veya R)
+        let shortCode = matched?.kod ? String(matched.kod).toUpperCase() : 'RP';
+        if (shortCode !== 'R' && shortCode !== 'RP' && shortCode !== 'HA') shortCode = 'RP';
+        kod = shortCode as PuantajKodu;
+        kodAciklama = matched?.ad || 'İstirahat (SGK Raporu)';
+        raporluGun += 1;
+      } else if (isEgitim) {
         // Eğitim İzni: Toplam izin kısmında toplanmaz, bordro tam hak ediş olarak korunur
         kod = 'EG';
         kodAciklama = matched?.ad || 'Eğitim İzni';
@@ -447,13 +514,6 @@ export function hesaplaPersonelAylikPuantaj(params: {
         kod = 'Üİ';
         kodAciklama = matched?.ad || 'Ücretsiz İzin';
         ucretsizIzinGun += 1;
-      } else if (isRapor) {
-        // İstirahat / SGK Raporu (RP veya R)
-        let shortCode = matched?.kod ? String(matched.kod).toUpperCase() : 'RP';
-        if (shortCode !== 'R' && shortCode !== 'RP') shortCode = 'RP';
-        kod = shortCode as PuantajKodu;
-        kodAciklama = matched?.ad || 'İstirahat (SGK Raporu)';
-        raporluGun += 1;
       } else if (turLower.includes('mazeret') || turLower.includes('evlilik') || turLower.includes('olum') || turLower.includes('ölüm') || turLower.includes('babalik') || turLower.includes('dogum')) {
         // Ücretli mazeret izinleri
         kod = matched?.kod ? String(matched.kod).toUpperCase() : 'Mİ';
@@ -465,18 +525,21 @@ export function hesaplaPersonelAylikPuantaj(params: {
         let shortCode = matched.kod ? String(matched.kod).toUpperCase() : 'İ';
         if (shortCode === 'YI') shortCode = 'Yİ';
         if (shortCode === 'MZ') shortCode = 'Mİ';
-        if (shortCode === 'HA' || shortCode === 'RP') shortCode = 'RP';
-        if (shortCode === 'UC') shortCode = 'Üİ';
-        if (shortCode === 'EG') shortCode = 'EG';
-
-        kod = shortCode;
-        kodAciklama = matched.ad || 'İzin';
-
-        if (kod === 'EG') {
-          egitimGun += 1;
-        } else if (kod === 'RP' || kod === 'R') {
+        if (shortCode === 'HA' || shortCode === 'RP' || shortCode === 'R') {
+          kod = shortCode === 'R' ? 'R' : 'RP';
+          kodAciklama = matched.ad || 'İstirahat (SGK Raporu)';
           raporluGun += 1;
+        } else if (shortCode === 'UC' || shortCode === 'Üİ' || matched.ucretli === false) {
+          kod = 'Üİ';
+          kodAciklama = matched.ad || 'Ücretsiz İzin';
+          ucretsizIzinGun += 1;
+        } else if (shortCode === 'EG') {
+          kod = 'EG';
+          kodAciklama = matched.ad || 'Eğitim İzni';
+          egitimGun += 1;
         } else {
+          kod = shortCode;
+          kodAciklama = matched.ad || 'İzin';
           ucretliIzinGun += 1;
           toplamIzinGun += 1;
         }
@@ -484,10 +547,14 @@ export function hesaplaPersonelAylikPuantaj(params: {
         // Tanımsız özel izin metni durumunda
         const title = formatIzinTuru(rawTur, employee.company_id);
         const titleLower = title.toLowerCase();
-        if (titleLower.includes('rapor') || titleLower.includes('istirahat')) {
+        if (titleLower.includes('rapor') || titleLower.includes('istirahat') || titleLower.includes('hastalik') || titleLower.includes('hastalık')) {
           kod = 'RP';
           kodAciklama = title;
           raporluGun += 1;
+        } else if (titleLower.includes('ucret') || titleLower.includes('ücret') || titleLower.includes('ucretsiz') || titleLower.includes('ücretsiz')) {
+          kod = 'Üİ';
+          kodAciklama = title;
+          ucretsizIzinGun += 1;
         } else {
           const words = title.split(/\s+/).filter(Boolean);
           let derivedKod = words.length >= 2

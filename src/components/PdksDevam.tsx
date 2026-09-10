@@ -133,6 +133,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   onDepartmentChange,
 }) => {
   const { profile, appRole } = useAuth();
+  const isSuperAdmin = appRole === 'superadmin' || profile?.role === 'superadmin';
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
   const isHrOrAdmin = ['superadmin', 'admin', 'hr'].includes(appRole);
 
@@ -1223,16 +1224,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const filteredData = mockPdksData
     .filter((d) => {
       // Multi-tenant company isolation
-      if (selectedCompany && selectedCompany !== 'all') {
+      if (!isSuperAdmin) {
+        if (resolvedCompanyId) {
+          const empCompId = (d.employee.company_id || '').trim();
+          if (empCompId && empCompId !== resolvedCompanyId) {
+            return false;
+          }
+        }
+      } else if (selectedCompany && selectedCompany !== 'all') {
         const target = selectedCompany.toLowerCase().trim();
         const empCompName = (d.employee.company || '').toLowerCase().trim();
         const empCompId = (d.employee.company_id || '').toLowerCase().trim();
         const isMatch = empCompName === target || empCompId === target || empCompId === resolvedCompanyId;
         if (!isMatch) return false;
-      } else if (!isHrOrAdmin && resolvedCompanyId) {
-        if (d.employee.company_id && d.employee.company_id !== resolvedCompanyId) {
-          return false;
-        }
       }
 
       const term = searchTerm.trim().toLowerCase();
@@ -1887,8 +1891,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               </div>
             </div>
 
-            {/* Şirket Seçici (Çoklu Şirket Yönetimi) */}
-            {companies && companies.length > 0 && onCompanyChange && (
+            {/* Şirket Seçici (Çoklu Şirket Yönetimi) - Yalnızca Süper Yöneticilere Gösterilir */}
+            {isSuperAdmin && companies && companies.length > 0 && onCompanyChange && (
               <div className="flex items-center gap-2 pt-2.5 border-t border-gray-100 flex-wrap">
                 <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 shadow-xs">
                   <Building2 className="w-3.5 h-3.5 text-blue-600" />
@@ -2309,6 +2313,22 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
                   setAdminOverrides((prev) => ({ ...prev, [editEmpModal.employee.id]: overrideObj }));
 
+                  // Puantaj Cetveli Manuel Düzeltmelerine (humanius_puantaj_overrides) Doğrudan Senkronize Et
+                  try {
+                    const rawPuantajOverrides = localStorage.getItem('humanius_puantaj_overrides');
+                    const pOverrides = rawPuantajOverrides ? JSON.parse(rawPuantajOverrides) : {};
+                    pOverrides[`${editEmpModal.employee.id}_${todayStr}`] = {
+                      kod: 'Ç',
+                      giris: editGiris,
+                      cikis: editCikis,
+                      notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`,
+                      kodAciklama: `Fiili Çalışma (${editGiris}-${editCikis})`
+                    };
+                    localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(pOverrides));
+                  } catch (e) {
+                    console.error('Puantaj override senkronizasyon hatası:', e);
+                  }
+
                   const targetCompanyId = editEmpModal.employee.company_id || resolvedCompanyId || '';
                   const newRecord = {
                     id: `v-edit-${Date.now()}`,
@@ -2336,6 +2356,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
                     }).catch(console.error);
                   }
+
+                  // Puantaj cetveli ve diğer bileşenlerin anında güncellenmesi için custom event fırlat
+                  window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+                  window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
 
                   setEditEmpModal(null);
                 }}
