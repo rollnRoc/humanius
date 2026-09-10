@@ -84,7 +84,7 @@ export const printPuantajCetveliPdf = (params: {
           } else if (g.kod === 'EG') {
             badgeBg = '#e0f2fe';
             badgeColor = '#0369a1';
-          } else if (g.kod === 'R' || g.kod === 'HA') {
+          } else if (g.kod === 'R' || g.kod === 'HA' || g.kod === 'RP') {
             badgeBg = '#fef3c7';
             badgeColor = '#b45309';
           } else if (g.kod === 'Üİ' || g.kod === 'UC') {
@@ -278,7 +278,7 @@ export const printPuantajCetveliPdf = (params: {
         <div class="legend-item"><span class="legend-box" style="background: #ccfbf1; color: #0f766e;">Yİ</span> Yıllık İzin</div>
         <div class="legend-item"><span class="legend-box" style="background: #e0f2fe; color: #0369a1;">EG</span> Eğitim İzni</div>
         <div class="legend-item"><span class="legend-box" style="background: #d1fae5; color: #047857;">Mİ</span> Mazeret İzni</div>
-        <div class="legend-item"><span class="legend-box" style="background: #fef3c7; color: #b45309;">R</span> SGK Raporu</div>
+        <div class="legend-item"><span class="legend-box" style="background: #fef3c7; color: #b45309;">RP</span> SGK Raporu</div>
         <div class="legend-item"><span class="legend-box" style="background: #ffedd5; color: #c2410c;">Üİ</span> Ücretsiz İzin</div>
         <div class="legend-item"><span class="legend-box" style="background: #fee2e2; color: #b91c1c;">D</span> Devamsız</div>
         ${customLegendHtml}
@@ -507,7 +507,7 @@ export const exportPuantajExcel = (
               cell.s = ubgtStyle;
             } else if (val === 'Yİ' || val === 'Mİ' || val === 'YI' || val === 'MZ') {
               cell.s = izinStyle;
-            } else if (val === 'R' || val === 'HA') {
+            } else if (val === 'R' || val === 'HA' || val === 'RP') {
               cell.s = raporStyle;
             } else if (val === 'Üİ' || val === 'UC') {
               cell.s = ucretsizIzinStyle;
@@ -573,7 +573,7 @@ export const exportPuantajExcel = (
     ['UBGT', 'Ulusal Bayram ve Genel Tatil'],
     ['Yİ', 'Yıllık Ücretli İzin'],
     ['Mİ', 'Mazeret İzni (Evlilik, Vefat, Babalık vb.)'],
-    ['R', 'SGK İstirahat Raporu'],
+    ['RP / R', 'SGK İstirahat Raporu'],
     ['Üİ', 'Ücretsiz İzin'],
     ['D', 'Devamsız (Mazeretsiz İşe Gelmeme)'],
     ...dynamicCustomCodes,

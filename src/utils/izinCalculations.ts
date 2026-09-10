@@ -208,7 +208,7 @@ export function getDevamKontroluIzinLabel(tur: string | undefined | null, compan
   } catch {}
 
   // 2. Özel durum kontrolleri
-  if (lower.includes('rapor') || lower.includes('hastalik') || lower === 'r' || lower === '-r' || lower === 'ha') {
+  if (lower.includes('rapor') || lower.includes('hastalik') || lower === 'r' || lower === 'rp' || lower === '-r' || lower === 'ha') {
     return 'Raporlu';
   }
   if (lower.includes('yillik') || lower.includes('yıllık') || lower === 'yi' || lower === 'yillik') {
@@ -437,8 +437,8 @@ export function calculateWorkingDays(
   const current = new Date(start);
   while (current <= end) {
     const dayOfWeek = current.getDay();
-    // Pazar (0) her zaman tatildir. Cumartesi (6) ise 6 günlük çalışma düzeni aktifse iş günüdür.
-    if (dayOfWeek !== 0 && (satWork || dayOfWeek !== 6)) {
+    // Pazar (0) günleri izne dahil edilir. Cumartesi (6) ise 6 günlük çalışma düzeni aktifse dahil edilir.
+    if (dayOfWeek !== 6 || satWork) {
       count++;
     }
     current.setDate(current.getDate() + 1);

@@ -14,6 +14,7 @@ export type PuantajKodu =
   | 'Mİ'   // Mazeret İzni (Evlilik, Ölüm, Babalık vb. - Ücretli)
   | 'EG'   // Eğitim İzni (Toplam izinde toplanmaz)
   | 'R'    // İstirahat / SGK Raporu (Eksik gün)
+  | 'RP'   // Raporlu (SGK Raporu)
   | 'Üİ'   // Ücretsiz İzin (Eksik gün)
   | 'D'    // Devamsız (Mazeretsiz işe gelmeme - Eksik gün)
   | '-'    // Henüz Gelmemiş / Kayıt Yok
@@ -355,7 +356,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
       } else if (kod === 'EG') {
         // Eğitim izni izinler toplamında toplanmaz
         egitimGun += 1;
-      } else if (kod === 'R' || kod === 'HA') {
+      } else if (kod === 'R' || kod === 'HA' || kod === 'RP') {
         raporluGun += 1;
       } else if (kod === 'Mİ' || kod === 'MZ') {
         ucretliIzinGun += 1;
@@ -366,6 +367,8 @@ export function hesaplaPersonelAylikPuantaj(params: {
         const customLower = (kodAciklama || '').toLowerCase();
         if (customLower.includes('egitim') || customLower.includes('eğitim')) {
           egitimGun += 1;
+        } else if (customLower.includes('rapor') || customLower.includes('istirahat') || (kod || '').toUpperCase() === 'RP') {
+          raporluGun += 1;
         } else {
           ucretliIzinGun += 1;
           toplamIzinGun += 1;
@@ -385,20 +388,6 @@ export function hesaplaPersonelAylikPuantaj(params: {
         kodAciklama = resmiTatilInfo.ad || 'Resmi Tatil';
         if (!isFuture) ubgtGun += 1;
       }
-    } else if (isPazar) {
-      // Pazar günü: İş Kanunu Madde 46 uyarınca Hafta Tatilidir (HT).
-      // İzin aralığına denk gelse dahi izinler toplamına yazılmaz ve izin sayılmaz.
-      if (girisSaati && cikisSaati && netSureSaat > 0) {
-        kod = 'Ç';
-        kodAciklama = 'Pazar Hafta Tatili Çalışması (Fazla Mesai)';
-        fiiliCalismaGun += 1;
-        fiiliCalismaSaat += netSureSaat;
-        toplamFazlaMesaiSaat += netSureSaat; // Pazar mesaisi doğrudan FM sayılır
-      } else {
-        kod = 'HT';
-        kodAciklama = 'Hafta Tatili (İş Kanunu Madde 46)';
-        if (!isFuture) haftaTatiliGun += 1;
-      }
     } else if (isCumartesi && !isCumartesiCalisma) {
       // 5 Günlük Çalışma Düzeni: Cumartesi günü Akdi Tatildir (AT).
       // İzin aralığına denk gelse dahi izinler toplamına yazılmaz ve izin sayılmaz.
@@ -414,6 +403,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
         if (!isFuture) akdiTatilGun += 1;
       }
     } else if (approvedLeave) {
+      // İzin Talebi: Eğer izin Pazar gününe denk geliyorsa Pazar günü de izne dahil edilir
       const rawTur = approvedLeave.izinTuru || approvedLeave.izin_turu || '';
       const turLower = String(rawTur).trim().toLowerCase();
 
@@ -439,7 +429,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
       const isEgitim = turLower.includes('egitim') || turLower.includes('eğitim') || matched?.id === 'egitim' || matched?.kod?.toUpperCase() === 'EG';
       const isYillik = turLower.includes('yillik') || turLower.includes('yıllık') || matched?.id === 'yillik' || matched?.kod?.toUpperCase() === 'YI' || matched?.kod?.toUpperCase() === 'Yİ';
       const isUnpaid = matched?.ucretli === false || turLower.includes('ucret') || turLower.includes('ücret') || matched?.id === 'ucretsiz' || matched?.kod?.toUpperCase() === 'UC' || matched?.kod?.toUpperCase() === 'Üİ';
-      const isRapor = matched?.id === 'hastalik' || matched?.kod?.toUpperCase() === 'HA' || matched?.kod?.toUpperCase() === 'R' || turLower.includes('rapor') || turLower.includes('hastalik') || turLower === 'r' || turLower === '-r';
+      const isRapor = matched?.id === 'hastalik' || matched?.id === 'rapor' || matched?.kod?.toUpperCase() === 'HA' || matched?.kod?.toUpperCase() === 'R' || matched?.kod?.toUpperCase() === 'RP' || turLower.includes('rapor') || turLower.includes('hastalik') || turLower.includes('istirahat') || turLower === 'r' || turLower === 'rp' || turLower === '-r';
 
       if (isEgitim) {
         // Eğitim İzni: Toplam izin kısmında toplanmaz, bordro tam hak ediş olarak korunur
@@ -458,24 +448,24 @@ export function hesaplaPersonelAylikPuantaj(params: {
         kodAciklama = matched?.ad || 'Ücretsiz İzin';
         ucretsizIzinGun += 1;
       } else if (isRapor) {
-        // İstirahat / SGK Raporu
-        kod = 'R';
+        // İstirahat / SGK Raporu (RP veya R)
+        let shortCode = matched?.kod ? String(matched.kod).toUpperCase() : 'RP';
+        if (shortCode !== 'R' && shortCode !== 'RP') shortCode = 'RP';
+        kod = shortCode as PuantajKodu;
         kodAciklama = matched?.ad || 'İstirahat (SGK Raporu)';
-        if (!isFuture) raporluGun += 1;
+        raporluGun += 1;
       } else if (turLower.includes('mazeret') || turLower.includes('evlilik') || turLower.includes('olum') || turLower.includes('ölüm') || turLower.includes('babalik') || turLower.includes('dogum')) {
         // Ücretli mazeret izinleri
         kod = matched?.kod ? String(matched.kod).toUpperCase() : 'Mİ';
         if (kod === 'MZ') kod = 'Mİ';
         kodAciklama = matched?.ad || 'Ücretli Mazeret İzni';
-        if (!isFuture) {
-          ucretliIzinGun += 1;
-          toplamIzinGun += 1;
-        }
+        ucretliIzinGun += 1;
+        toplamIzinGun += 1;
       } else if (matched) {
         let shortCode = matched.kod ? String(matched.kod).toUpperCase() : 'İ';
         if (shortCode === 'YI') shortCode = 'Yİ';
         if (shortCode === 'MZ') shortCode = 'Mİ';
-        if (shortCode === 'HA') shortCode = 'R';
+        if (shortCode === 'HA' || shortCode === 'RP') shortCode = 'RP';
         if (shortCode === 'UC') shortCode = 'Üİ';
         if (shortCode === 'EG') shortCode = 'EG';
 
@@ -484,23 +474,43 @@ export function hesaplaPersonelAylikPuantaj(params: {
 
         if (kod === 'EG') {
           egitimGun += 1;
-        } else if (!isFuture) {
+        } else if (kod === 'RP' || kod === 'R') {
+          raporluGun += 1;
+        } else {
           ucretliIzinGun += 1;
           toplamIzinGun += 1;
         }
       } else {
-        // Tanımsız özel izin metni durumunda baş harflerden kısa kod üret
+        // Tanımsız özel izin metni durumunda
         const title = formatIzinTuru(rawTur, employee.company_id);
-        const words = title.split(/\s+/).filter(Boolean);
-        let derivedKod = words.length >= 2
-          ? (words[0][0] + words[1][0]).toUpperCase()
-          : title.substring(0, 2).toUpperCase();
-        kod = derivedKod || 'İ';
-        kodAciklama = title;
-        if (!isFuture) {
+        const titleLower = title.toLowerCase();
+        if (titleLower.includes('rapor') || titleLower.includes('istirahat')) {
+          kod = 'RP';
+          kodAciklama = title;
+          raporluGun += 1;
+        } else {
+          const words = title.split(/\s+/).filter(Boolean);
+          let derivedKod = words.length >= 2
+            ? (words[0][0] + words[1][0]).toUpperCase()
+            : title.substring(0, 2).toUpperCase();
+          kod = derivedKod || 'İ';
+          kodAciklama = title;
           ucretliIzinGun += 1;
           toplamIzinGun += 1;
         }
+      }
+    } else if (isPazar) {
+      // Pazar günü (İzinli değilse): Hafta Tatilidir (HT).
+      if (girisSaati && cikisSaati && netSureSaat > 0) {
+        kod = 'Ç';
+        kodAciklama = 'Pazar Hafta Tatili Çalışması (Fazla Mesai)';
+        fiiliCalismaGun += 1;
+        fiiliCalismaSaat += netSureSaat;
+        toplamFazlaMesaiSaat += netSureSaat; // Pazar mesaisi doğrudan FM sayılır
+      } else {
+        kod = 'HT';
+        kodAciklama = 'Hafta Tatili (İş Kanunu Madde 46)';
+        if (!isFuture) haftaTatiliGun += 1;
       }
     } else if (isCumartesi && isCumartesiCalisma) {
       // 6 Günlük Çalışma Düzeni (Cumartesi normal çalışma günü)

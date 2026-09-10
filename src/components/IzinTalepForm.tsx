@@ -538,23 +538,23 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
                   </div>
                   <div className="text-xs text-gray-500 font-medium">
                     {isSaturdayWork
-                      ? '(6 günlük çalışma düzeni: Cumartesi iş günüdür, sadece Pazar tatildir)'
-                      : '(5 günlük çalışma düzeni: Cumartesi ve Pazar günleri izin süresinden düşülmez)'}
+                      ? '(6 günlük çalışma düzeni: Cumartesi ve Pazar günleri izne dahildir)'
+                      : '(5 günlük çalışma düzeni: Pazar izne dahildir, Cumartesi tatildir)'}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Hafta tatili bilgilendirmesi (sadece tatil günleri seçildiğinde, örn. 5 günlükte Cts/Paz, 6 günlükte sadece Pazar) */}
+            {/* Hafta tatili bilgilendirmesi (sadece 5 günlükte Cumartesi günü seçildiğinde) */}
             {formData.baslangicTarihi && formData.bitisTarihi && gunSayisi === 0 && !formData.yolIzniTalep && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm">
                   <div className="font-semibold text-amber-900">
-                    {isSaturdayWork ? 'Hafta Tatili Bilgilendirmesi (Pazar)' : 'Hafta Sonu Bilgilendirmesi (0 İş Günü)'}
+                    Hafta Sonu Bilgilendirmesi (0 İş Günü)
                   </div>
                   <div className="text-amber-800 mt-1">
-                    Seçtiğiniz tarihler ({formatDate(formData.baslangicTarihi)} - {formatDate(formData.bitisTarihi)}) {isSaturdayWork ? 'hafta tatiline (Pazar günü)' : 'hafta sonuna (Cumartesi / Pazar)'} denk gelmektedir. {isSaturdayWork ? 'Şirketinizde 6 günlük çalışma düzeni geçerli olup Cumartesi günleri normal iş günü, Pazar günleri ise tatildir.' : 'Şirket çalışma takvimine göre hafta sonları tatil olduğundan'} düşülecek izin süresi <strong>0 iş günü</strong> olarak hesaplanmıştır.
+                    Seçtiğiniz tarihler ({formatDate(formData.baslangicTarihi)} - {formatDate(formData.bitisTarihi)}) 5 günlük çalışma düzenindeki Akdi Tatil (Cumartesi) gününe denk gelmektedir.
                   </div>
                 </div>
               </div>

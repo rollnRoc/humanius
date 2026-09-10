@@ -439,7 +439,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
           ? 'Eğitim İzni'
           : editKod === 'Mİ' || editKod === 'MZ'
           ? 'Mazeret İzni'
-          : editKod === 'R' || editKod === 'HA'
+          : editKod === 'R' || editKod === 'HA' || editKod === 'RP'
           ? 'İstirahat (SGK Raporu)'
           : editKod === 'Üİ' || editKod === 'UC'
           ? 'Ücretsiz İzin'
@@ -940,7 +940,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
             Yİ : Yıllık İzin
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[11px]">
-            R : SGK Raporu
+            RP / R : SGK Raporu
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 font-bold text-[11px]">
             Üİ : Ücretsiz İzin
@@ -1169,8 +1169,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                           badgeStyle = 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200';
                         } else if (g.kod === 'EG') {
                           badgeStyle = 'bg-sky-100 text-sky-800 hover:bg-sky-200 font-bold';
-                        } else if (g.kod === 'R' || g.kod === 'HA') {
-                          badgeStyle = 'bg-amber-100 text-amber-800 hover:bg-amber-200';
+                        } else if (g.kod === 'R' || g.kod === 'HA' || g.kod === 'RP') {
+                          badgeStyle = 'bg-amber-100 text-amber-800 hover:bg-amber-200 font-bold';
                         } else if (g.kod === 'Üİ' || g.kod === 'UC') {
                           badgeStyle = 'bg-orange-100 text-orange-800 hover:bg-orange-200';
                         } else if (g.kod === 'D') {
@@ -1576,7 +1576,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                     else if (item.kod === 'Yİ' || item.kod === 'YI') badgeStyle = 'bg-teal-100 text-teal-800 font-bold';
                     else if (item.kod === 'Mİ' || item.kod === 'MZ') badgeStyle = 'bg-emerald-100 text-emerald-700';
                     else if (item.kod === 'EG') badgeStyle = 'bg-sky-100 text-sky-800 font-bold';
-                    else if (item.kod === 'R' || item.kod === 'HA') badgeStyle = 'bg-amber-100 text-amber-800';
+                    else if (item.kod === 'R' || item.kod === 'HA' || item.kod === 'RP') badgeStyle = 'bg-amber-100 text-amber-800 font-bold';
                     else if (item.kod === 'Üİ' || item.kod === 'UC') badgeStyle = 'bg-orange-100 text-orange-800';
                     else if (item.kod === 'D') badgeStyle = 'bg-red-100 text-red-800';
                     else if (item.kod === '-') badgeStyle = 'bg-gray-50 text-gray-400 font-normal';
@@ -1674,7 +1674,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   <option value="Yİ">Yİ : Yıllık Ücretli İzin</option>
                   <option value="EG">EG : Eğitim İzni (Toplam İzinde Toplanmaz)</option>
                   <option value="Mİ">Mİ : Mazeret İzni (Evlilik, Ölüm vb.)</option>
-                  <option value="R">R : SGK İstirahat Raporu</option>
+                  <option value="RP">RP : SGK İstirahat Raporu</option>
+                  <option value="R">R : SGK Raporu</option>
                   <option value="Üİ">Üİ : Ücretsiz İzin</option>
                   <option value="D">D : Devamsız (Giriş Yok)</option>
                   {leaveTypes
