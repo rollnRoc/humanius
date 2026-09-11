@@ -1500,23 +1500,27 @@ Deno.serve(async (req: Request) => {
         }
 
         if (!existingEmp && tcNo) {
-          const { data: tcMatch } = await adminClient
-            .from('employees')
-            .select('id')
-            .eq('company_id', companyId)
-            .eq('tc_no', tcNo)
-            .maybeSingle();
-          existingEmp = tcMatch;
+          let tcQ = adminClient.from('employees').select('id').eq('tc_no', tcNo);
+          if (companyId) tcQ = tcQ.eq('company_id', companyId);
+          const { data: tcMatch } = await tcQ.maybeSingle();
+          if (tcMatch) {
+            existingEmp = tcMatch;
+          } else {
+            const { data: tcGlobal } = await adminClient.from('employees').select('id').eq('tc_no', tcNo).maybeSingle();
+            existingEmp = tcGlobal;
+          }
         }
 
-        if (!existingEmp) {
-          const { data: emailMatch } = await adminClient
-            .from('employees')
-            .select('id')
-            .eq('company_id', companyId)
-            .eq('email', email)
-            .maybeSingle();
-          existingEmp = emailMatch;
+        if (!existingEmp && email) {
+          let emQ = adminClient.from('employees').select('id').eq('email', email);
+          if (companyId) emQ = emQ.eq('company_id', companyId);
+          const { data: emailMatch } = await emQ.maybeSingle();
+          if (emailMatch) {
+            existingEmp = emailMatch;
+          } else {
+            const { data: emailGlobal } = await adminClient.from('employees').select('id').eq('email', email).maybeSingle();
+            existingEmp = emailGlobal;
+          }
         }
 
         const joinDate = payload.join_date || payload.joinDate || null;

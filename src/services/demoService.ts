@@ -836,6 +836,24 @@ export const demoService = {
       rawEmail = rawEmail.replace(/@demo\.com/g, '@humanius.net');
     }
 
+    const normEmail = rawEmail.trim().toLowerCase();
+    const normTc = data.tc_no ? String(data.tc_no).trim() : '';
+    const existingIndex = list.findIndex(e =>
+      (normEmail && e.email && e.email.trim().toLowerCase() === normEmail) ||
+      (normTc && e.tc_no && e.tc_no.trim() === normTc)
+    );
+
+    if (existingIndex !== -1) {
+      list[existingIndex] = {
+        ...list[existingIndex],
+        ...data,
+        email: rawEmail || list[existingIndex].email,
+        updated_at: new Date().toISOString()
+      };
+      this.saveEmployees(list);
+      return list[existingIndex];
+    }
+
     const newEmp: DemoEmployee = {
       id: 'emp-' + Math.random().toString(36).substr(2, 9),
       company_id: 'demo-company-id-9999',

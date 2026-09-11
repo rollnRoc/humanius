@@ -156,12 +156,52 @@ export const employeeService = {
       employee_type: rawPayload.employee_type || rawPayload.employeeType || employeeType || 'normal',
     });
 
-    const { data, error } = await supabase
-      .from('employees')
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
+    // Mükerrer personel kaydını engelle: Aynı e-posta veya TC Kimlik no mevcut mu kontrol et
+    const targetEmail = payload.email ? String(payload.email).trim().toLowerCase() : null;
+    const targetTc = payload.tc_no && String(payload.tc_no).trim() !== '' ? String(payload.tc_no).trim() : null;
+
+    let existingEmpId: string | null = null;
+    if (targetEmail || targetTc) {
+      try {
+        let query = supabase.from('employees').select('id, email, tc_no, company_id');
+        if (payload.company_id) {
+          query = query.eq('company_id', payload.company_id);
+        }
+        const { data: existingRows } = await query;
+        if (existingRows && existingRows.length > 0) {
+          const match = existingRows.find(
+            (r: any) =>
+              (targetEmail && r.email && String(r.email).trim().toLowerCase() === targetEmail) ||
+              (targetTc && r.tc_no && String(r.tc_no).trim() === targetTc)
+          );
+          if (match) {
+            existingEmpId = match.id;
+          }
+        }
+      } catch (checkErr) {
+        console.warn('Mükerrer personel kontrolü hatası:', checkErr);
+      }
+    }
+
+    let data: any = null;
+    if (existingEmpId) {
+      const { data: updated, error: upErr } = await supabase
+        .from('employees')
+        .update(payload)
+        .eq('id', existingEmpId)
+        .select()
+        .single();
+      if (upErr) throw upErr;
+      data = updated;
+    } else {
+      const { data: inserted, error: inErr } = await supabase
+        .from('employees')
+        .insert(payload)
+        .select()
+        .single();
+      if (inErr) throw inErr;
+      data = inserted;
+    }
 
     if (data?.id) {
       if (il || ilce) {
@@ -182,7 +222,8 @@ export const employeeService = {
           salary: data.salary,
           tc_no: data.tc_no ?? '',
           employeeId: data.id,
-        });
+          birth_date: cleanBirthDate,
+        } as any);
       } catch (userErr) {
         console.warn('Otomatik kullanıcı hesabı oluşturma uyarısı:', userErr);
       }

@@ -388,13 +388,34 @@ const AppInner: React.FC = () => {
         };
       });
 
-      let filteredMapped = mapped;
+      // Tekil personel listesi: Mükerrer kayıtları ID, (şirket + e-posta) ve (şirket + TC) bazında temizle
+      const seenEmpIds = new Set<string>();
+      const seenEmpKeys = new Set<string>();
+      const uniqueMapped: Employee[] = [];
+
+      for (const item of mapped) {
+        if (!item.id || seenEmpIds.has(item.id)) continue;
+        const normEmail = item.email ? item.email.trim().toLowerCase() : '';
+        const normTc = item.tc_no ? String(item.tc_no).trim() : '';
+        const emailKey = normEmail ? `${item.company_id || ''}::email::${normEmail}` : null;
+        const tcKey = normTc ? `${item.company_id || ''}::tc::${normTc}` : null;
+
+        if (emailKey && seenEmpKeys.has(emailKey)) continue;
+        if (tcKey && seenEmpKeys.has(tcKey)) continue;
+
+        seenEmpIds.add(item.id);
+        if (emailKey) seenEmpKeys.add(emailKey);
+        if (tcKey) seenEmpKeys.add(tcKey);
+        uniqueMapped.push(item);
+      }
+
+      let filteredMapped = uniqueMapped;
       let currentUserEmpId: string | null = null;
       const isManagerRole = effectiveAppRole === 'manager' || profile?.role === 'manager';
       const isEmployeeRole = !isManagementRole && (profile?.role === 'employee' || profile?.role === 'user');
 
       // Find current user's employee record
-      const currentUserEmp = mapped.find((emp) => {
+      const currentUserEmp = uniqueMapped.find((emp) => {
         const profileEmail = String(profile?.email ?? '').toLowerCase();
         const empEmail = String(emp.email ?? '').toLowerCase();
         if (profileEmail && empEmail && profileEmail === empEmail) return true;
@@ -867,29 +888,10 @@ const AppInner: React.FC = () => {
         }
       }
 
-      if (isNewEmployee && targetEmail) {
-        try {
-          await userManagementService.createCompanyUser({
-            companyId: targetCompanyId,
-            fullName: emp.name,
-            email: targetEmail,
-            password: '987654',
-            role: (emp.role as any) || 'employee',
-            department: emp.department,
-            position: emp.position,
-            employeeType: emp.employeeType,
-            salary: emp.salary,
-            tc_no: emp.tc_no ?? '',
-            birth_date: cleanBirthDate,
-          } as any);
-        } catch (authErr) {
-          console.warn('Oturum kaydı uyarısı:', authErr);
-        }
-      }
-
       const oldEmail = selectedEmployee?.email || (emp as any).oldEmail || emp.email;
 
-      if (targetEmail || emp.id) {
+      // Yalnızca mevcut personel güncellenirken kullanıcı detaylarını güncelle
+      if (!isNewEmployee && (targetEmail || emp.id)) {
         try {
           await userManagementService.updateEmployeeDetails({
             email: targetEmail || emp.email,
@@ -936,6 +938,7 @@ const AppInner: React.FC = () => {
           sicil_no: emp.sicil_no ?? '',
           join_date: cleanJoinDate,
           birth_date: cleanBirthDate,
+          role: emp.role || 'employee',
         };
 
         if (isNewEmployee) {
@@ -958,26 +961,37 @@ const AppInner: React.FC = () => {
             }
           } catch {}
         }
-        saveEmployeeLocationMeta(emp.id, targetEmail || emp.email, emp.il, emp.ilce);
+        if (emp.id) {
+          saveEmployeeLocationMeta(emp.id, targetEmail || emp.email, emp.il, emp.ilce);
+        }
       } catch (clientEmpErr) {
         console.warn('İstemci personel güncelleme uyarısı:', clientEmpErr);
       }
 
-      // Ekranda değişikliklerin anında görünmesi için local state'i güncelle
+      // Ekranda değişikliklerin anında görünmesi için local state'i güvenli şekilde güncelle (mükerrer kayıt oluşmasını engelle)
       setEmployees(prev => {
-        const fullEmp = {
+        const fullEmp: Employee = {
           ...emp,
+          id: emp.id,
+          company: matchedCompName || emp.company || 'Şirket',
           email: targetEmail || emp.email,
           il: emp.il || '',
           ilce: emp.ilce || '',
           joinDate: cleanJoinDate || emp.joinDate,
           join_date: cleanJoinDate || emp.join_date,
         };
-        if (isNewEmployee) return [fullEmp, ...prev];
-        return prev.map(item => item.id === emp.id ? {
-          ...item,
-          ...fullEmp,
-        } : item);
+        const exists = prev.some(
+          item => (fullEmp.id && item.id === fullEmp.id) ||
+                  (item.email && fullEmp.email && item.email.toLowerCase().trim() === fullEmp.email.toLowerCase().trim())
+        );
+        if (exists) {
+          return prev.map(item =>
+            ((fullEmp.id && item.id === fullEmp.id) || (item.email && fullEmp.email && item.email.toLowerCase().trim() === fullEmp.email.toLowerCase().trim()))
+              ? { ...item, ...fullEmp }
+              : item
+          );
+        }
+        return [fullEmp, ...prev];
       });
 
       setDrawerOpen(false);
