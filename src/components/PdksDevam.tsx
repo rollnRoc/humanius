@@ -2338,73 +2338,173 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Çıkış Saati</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-gray-700">Çıkış Saati</label>
+                    {editCikis && (
+                      <button
+                        type="button"
+                        onClick={() => setEditCikis('')}
+                        className="text-[10px] text-red-500 hover:text-red-700 font-semibold cursor-pointer"
+                        title="Çıkış saatini kaldırır ve personelin mesaisini açık/devam ediyor yapar"
+                      >
+                        Çıkışı Sıfırla
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="time"
                     value={editCikis}
                     onChange={(e) => setEditCikis(e.target.value)}
+                    placeholder="--:--"
                     className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setEditEmpModal(null)}
-                className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
-              >
-                İptal
-              </button>
+            <div className="flex flex-col gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={async () => {
                   if (!editEmpModal) return;
                   const cleanGiris = editGiris ? editGiris.substring(0, 5) : '08:30';
-                  const cleanCikis = editCikis ? editCikis.substring(0, 5) : '18:00';
-
-                  // Calculate new status
-                  const [gH, gM] = cleanGiris.split(':').map(Number);
-                  const [cH, cM] = cleanCikis.split(':').map(Number);
-                  const empShift = editEmpModal.shift || activeUserShift;
-                  const [sGh, sGm] = (empShift.start_time || '08:30').split(':').map(Number);
-                  
-                  const actualMin = gH * 60 + gM;
-                  const shiftMin = sGh * 60 + sGm;
-                  const lateDiff = actualMin - shiftMin;
-                  const tolerance = empShift.tolerance_minutes ?? 15;
-                  
-                  const newDurum = lateDiff > tolerance ? 'Geç Kaldı' : 'Zamanında';
-                  const diffHours = parseFloat((((cH * 60 + cM) - actualMin) / 60).toFixed(1));
-
                   const todayStr = getTodayYYYYMMDD();
+                  const targetCompanyId = normalizeCompanyId(editEmpModal.employee.company_id || resolvedCompanyId);
+
                   const overrideObj = {
                     giris: cleanGiris,
-                    cikis: cleanCikis,
-                    durum: newDurum,
-                    mesai: diffHours > 0 ? diffHours : 0,
+                    cikis: null,
+                    durum: 'Mesai Devam Ediyor',
+                    mesai: 0,
                     officeName: editOfficeName || 'Merkez Ofis',
                   };
 
                   localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
                   setAdminOverrides((prev) => ({ ...prev, [editEmpModal.employee.id]: overrideObj }));
 
-                  // Puantaj Cetveli Manuel Düzeltmelerine (humanius_puantaj_overrides) Doğrudan Senkronize Et
                   try {
                     const rawPuantajOverrides = localStorage.getItem('humanius_puantaj_overrides');
                     const pOverrides = rawPuantajOverrides ? JSON.parse(rawPuantajOverrides) : {};
-                    pOverrides[`${editEmpModal.employee.id}_${todayStr}`] = {
-                      kod: 'Ç',
+                    delete pOverrides[`${editEmpModal.employee.id}_${todayStr}`];
+                    localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(pOverrides));
+                  } catch (e) {}
+
+                  let savedDbRecord: any = null;
+                  if (targetCompanyId && editEmpModal.employee.id) {
+                    try {
+                      savedDbRecord = await pdksService.createVardiya({
+                        company_id: targetCompanyId,
+                        employee_id: editEmpModal.employee.id,
+                        tarih: todayStr,
+                        giris_saati: cleanGiris,
+                        cikis_saati: null,
+                        vardiya_tipi: 'tam-gun',
+                        durum: 'zamaninda',
+                        notlar: `Yönetici Girişi (Mesai Açık): ${editOfficeName || 'Merkez Ofis'}`
+                      });
+                    } catch (e) {
+                      console.error("Vardiya veritabanı çıkış sıfırlama hatası:", e);
+                    }
+                  }
+
+                  const newRecord = savedDbRecord || {
+                    id: `v-edit-${Date.now()}`,
+                    company_id: targetCompanyId,
+                    employee_id: editEmpModal.employee.id,
+                    tarih: todayStr,
+                    giris_saati: cleanGiris,
+                    cikis_saati: null,
+                    vardiya_tipi: 'tam-gun',
+                    durum: 'zamaninda',
+                    notlar: `Yönetici Girişi (Mesai Açık): ${editOfficeName || 'Merkez Ofis'}`
+                  };
+
+                  setAllShiftRecords(prev => {
+                    const idx = prev.findIndex(r => r.employee_id === editEmpModal.employee.id && r.tarih === todayStr);
+                    if (idx >= 0) {
+                      const next = [...prev];
+                      next[idx] = newRecord;
+                      return next;
+                    }
+                    return [newRecord, ...prev];
+                  });
+
+                  setEditEmpModal(null);
+                  setEditGiris('08:30');
+                  setEditCikis('');
+                  window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+                  window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
+                }}
+                className="w-full py-2.5 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+                title="Çıkış saatini tamamen kaldırarak (NULL) personeli mesai devam ediyor durumuna getirir"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Çıkış Saatini Sıfırla (Mesaiye Döndür / NULL Yap)
+              </button>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditEmpModal(null)}
+                  className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  İptal
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!editEmpModal) return;
+                    const cleanGiris = editGiris ? editGiris.substring(0, 5) : '08:30';
+                    const cleanCikis = (editCikis && editCikis.trim() !== '') ? editCikis.substring(0, 5) : null;
+
+                    // Calculate new status
+                    const [gH, gM] = cleanGiris.split(':').map(Number);
+                    const empShift = editEmpModal.shift || activeUserShift;
+                    const [sGh, sGm] = (empShift.start_time || '08:30').split(':').map(Number);
+                    
+                    const actualMin = gH * 60 + gM;
+                    const shiftMin = sGh * 60 + sGm;
+                    const lateDiff = actualMin - shiftMin;
+                    const tolerance = empShift.tolerance_minutes ?? 15;
+                    
+                    const newDurum = lateDiff > tolerance ? 'Geç Kaldı' : 'Zamanında';
+                    let diffHours = 0;
+                    if (cleanCikis) {
+                      const [cH, cM] = cleanCikis.split(':').map(Number);
+                      diffHours = parseFloat((((cH * 60 + cM) - actualMin) / 60).toFixed(1));
+                    }
+
+                    const todayStr = getTodayYYYYMMDD();
+                    const overrideObj = {
                       giris: cleanGiris,
                       cikis: cleanCikis,
-                      notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`,
-                      kodAciklama: `Fiili Çalışma (${cleanGiris}-${cleanCikis})`
+                      durum: cleanCikis ? newDurum : 'Mesai Devam Ediyor',
+                      mesai: diffHours > 0 ? diffHours : 0,
+                      officeName: editOfficeName || 'Merkez Ofis',
                     };
-                    localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(pOverrides));
-                  } catch (e) {
-                    console.error('Puantaj override senkronizasyon hatası:', e);
-                  }
+
+                    localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
+                    setAdminOverrides((prev) => ({ ...prev, [editEmpModal.employee.id]: overrideObj }));
+
+                    // Puantaj Cetveli Manuel Düzeltmelerine (humanius_puantaj_overrides) Doğrudan Senkronize Et
+                    try {
+                      const rawPuantajOverrides = localStorage.getItem('humanius_puantaj_overrides');
+                      const pOverrides = rawPuantajOverrides ? JSON.parse(rawPuantajOverrides) : {};
+                      if (cleanCikis) {
+                        pOverrides[`${editEmpModal.employee.id}_${todayStr}`] = {
+                          kod: 'Ç',
+                          giris: cleanGiris,
+                          cikis: cleanCikis,
+                          notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`,
+                          kodAciklama: `Fiili Çalışma (${cleanGiris}-${cleanCikis})`
+                        };
+                      } else {
+                        delete pOverrides[`${editEmpModal.employee.id}_${todayStr}`];
+                      }
+                      localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(pOverrides));
+                    } catch (e) {
+                      console.error('Puantaj override senkronizasyon hatası:', e);
+                    }
 
                   const targetCompanyId = normalizeCompanyId(editEmpModal.employee.company_id || resolvedCompanyId);
 
@@ -2453,7 +2553,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
             </div>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* Multi-Shift & Employee Assignment Management Modal */}
       <VardiyaYonetimiModal

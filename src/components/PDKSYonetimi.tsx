@@ -577,6 +577,42 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
     }
   }
 
+  async function cikisSifirla() {
+    if (!duzeltmeModal) return;
+    try {
+      const rawGiris = duzeltmeGirisSaati !== '' ? duzeltmeGirisSaati : duzeltmeModal.girisZamani || '';
+      const updatedGiris = rawGiris ? rawGiris.substring(0, 5) : '';
+
+      await pdksService.updateVardiya(duzeltmeModal.id, {
+        giris_saati: updatedGiris ? updatedGiris + ':00' : undefined,
+        cikis_saati: null
+      });
+
+      // Update local state record dynamically: set cikisZamani to null
+      setAllKayitlar(prev => prev.map(item => {
+        if (item.id === duzeltmeModal.id) {
+          const hesap = hesaplaKayit(updatedGiris, null, DEMO_VARDIYALAR[0]);
+          return {
+            ...item,
+            girisZamani: updatedGiris,
+            cikisZamani: null,
+            duzeltmeTalebi: true,
+            ...hesap
+          };
+        }
+        return item;
+      }));
+
+      window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+      await loadData();
+    } catch(err) {
+      console.error('Çıkış sıfırlama hatası:', err);
+    }
+    setDuzeltmeModal(null);
+    setDuzeltmeGirisSaati('');
+    setDuzeltmeSaati('');
+  }
+
   async function duzeltmeKaydet() {
     if (!duzeltmeModal) return;
     try {
@@ -1260,17 +1296,29 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                 />
               </div>
             </div>
-            <div className="flex gap-3">
-              <button onClick={() => setDuzeltmeModal(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600">
-                İptal
-              </button>
+            <div className="flex flex-col gap-2.5 pt-1">
               <button
-                onClick={duzeltmeKaydet}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-1.5"
+                type="button"
+                onClick={cikisSifirla}
+                className="w-full py-2.5 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+                title="Çıkış saatini tamamen silerek (NULL yaparak) personelin mesaisini açık ve devam ediyor durumuna getirir"
               >
-                <Save className="w-4 h-4" />
-                Kaydet
+                <RefreshCw className="w-3.5 h-3.5" />
+                Çıkış Saatini Sıfırla (Mesaiye Döndür / NULL Yap)
               </button>
+
+              <div className="flex gap-3">
+                <button onClick={() => setDuzeltmeModal(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                  İptal
+                </button>
+                <button
+                  onClick={duzeltmeKaydet}
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Save className="w-4 h-4" />
+                  Kaydet
+                </button>
+              </div>
             </div>
           </div>
         </div>
