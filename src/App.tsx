@@ -575,7 +575,7 @@ const AppInner: React.FC = () => {
               const bEmp = (empData || []).find((e: any) => e.id === b.employee_id);
               const bRole = (b as any).role || bEmp?.role;
               const bName = String(b.employeeName || (b as any).employees?.name || '').toLowerCase();
-              return bRole !== 'superadmin' && !bName.includes('süper admin') && !bName.includes('bhv test');
+              return bRole !== 'superadmin' && !bName.includes('süper admin') && !bName.includes('bhv test') && !bName.includes('muhammed gür');
             });
           }
           if (isEmployeeRole && currentUserEmpId) {

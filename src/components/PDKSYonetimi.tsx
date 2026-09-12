@@ -344,7 +344,11 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       const mesailerDb = await pdksService.getFazlaMesailer();
       
       const mapped: PDKSKaydi[] = vardiyalarDb.map(v => {
-        const emp = employees.find(e => e.id === v.employee_id);
+        const emp = employees.find(e => 
+          e.id === v.employee_id || 
+          (e as any).user_id === v.employee_id || 
+          (e.email && v.employee_id && e.email.toLowerCase() === v.employee_id.toLowerCase())
+        );
         const vardiyaTanimi = DEMO_VARDIYALAR[0];
         
         let girisSaati = v.giris_saati ? v.giris_saati.substring(0, 5) : null;
@@ -390,6 +394,17 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
 
   useEffect(() => {
     loadData();
+
+    const handleSync = () => {
+      loadData();
+    };
+    window.addEventListener('humanius_shifts_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    return () => {
+      window.removeEventListener('humanius_shifts_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, [employees, user]);
 
   const [fazlaMesaiKayitlar, setFazlaMesaiKayitlar] = useState<PDKSKaydi[]>([]);
@@ -564,8 +579,10 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
   async function duzeltmeKaydet() {
     if (!duzeltmeModal) return;
     try {
-      const updatedGiris = duzeltmeGirisSaati || duzeltmeModal.girisZamani;
-      const updatedCikis = duzeltmeSaati || duzeltmeModal.cikisZamani;
+      const rawGiris = duzeltmeGirisSaati || duzeltmeModal.girisZamani || '';
+      const rawCikis = duzeltmeSaati || duzeltmeModal.cikisZamani || '';
+      const updatedGiris = rawGiris ? rawGiris.substring(0, 5) : '';
+      const updatedCikis = rawCikis ? rawCikis.substring(0, 5) : '';
       
       await pdksService.updateVardiya(duzeltmeModal.id, {
         giris_saati: updatedGiris ? updatedGiris + ':00' : undefined,
@@ -580,15 +597,17 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
             ...item,
             girisZamani: updatedGiris,
             cikisZamani: updatedCikis,
+            duzeltmeTalebi: false,
             ...hesap
           };
         }
         return item;
       }));
 
+      window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
       await loadData();
     } catch(err) {
-      console.error(err);
+      console.error('PDKS düzeltme kaydı güncellenirken hata:', err);
     }
     setDuzeltmeModal(null);
     setDuzeltmeGirisSaati('');
@@ -626,9 +645,10 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       for (const rec of ongoingRecords) {
         const empShiftId = companyShiftAssignments[rec.employeeId];
         const empShift = companyShifts.find(s => s.id === empShiftId) || companyShifts[0];
-        const cikisSaati = (isSaturday && satConfig?.isSaturdayWork) 
+        const rawCikis = (isSaturday && satConfig?.isSaturdayWork) 
           ? (satConfig.endTime || '16:00') 
           : (empShift?.end_time || '18:00');
+        const cikisSaati = rawCikis.substring(0, 5);
 
         await pdksService.updateVardiya(rec.id, {
           cikis_saati: cikisSaati + ':00'
@@ -639,9 +659,10 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
         if (item.girisZamani && !item.cikisZamani && item.tarih === secilenTarih) {
           const empShiftId = companyShiftAssignments[item.employeeId];
           const empShift = companyShifts.find(s => s.id === empShiftId) || companyShifts[0];
-          const cikisSaati = (isSaturday && satConfig?.isSaturdayWork) 
+          const rawCikis = (isSaturday && satConfig?.isSaturdayWork) 
             ? (satConfig.endTime || '16:00') 
             : (empShift?.end_time || '18:00');
+          const cikisSaati = rawCikis.substring(0, 5);
 
           const vardiyaKullanim = {
             ...DEMO_VARDIYALAR[0],
@@ -658,6 +679,8 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
         return item;
       }));
 
+      window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+      await loadData();
       alert(`İşlem Başarılı: ${ongoingRecords.length} personelin devam eden mesaisi vardiya bitiş saatinde (${targetCikisDisplay}) otomatik olarak sonlandırıldı.`);
     } catch (err) {
       console.error(err);
@@ -920,8 +943,8 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                           <button
                             onClick={() => {
                               setDuzeltmeModal(k);
-                              setDuzeltmeGirisSaati(k.girisZamani || '');
-                              setDuzeltmeSaati(k.cikisZamani || '');
+                              setDuzeltmeGirisSaati(k.girisZamani ? k.girisZamani.substring(0, 5) : '');
+                              setDuzeltmeSaati(k.cikisZamani ? k.cikisZamani.substring(0, 5) : '');
                             }}
                             className="text-xs text-blue-600 hover:underline font-semibold flex items-center gap-1"
                           >
@@ -1148,10 +1171,11 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                 if(!user) return;
                 const suan = new Date();
                 const tarih = suan.toISOString().split('T')[0];
-                const saat = suan.toTimeString().split(' ')[0];
+                const saat = suan.toTimeString().split(' ')[0].substring(0, 8);
+                const targetCompanyId = profile?.company_id || user.user_metadata?.company_id || employees[0]?.company_id || '00000000-0000-0000-0000-000000000000';
                 try {
                    await pdksService.createVardiya({
-                     company_id: user.user_metadata.company_id,
+                     company_id: targetCompanyId,
                      employee_id: user.id, // Veya seçilen kisi
                      tarih: tarih,
                      vardiya_tipi: 'sabah',
@@ -1160,6 +1184,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                      durum: 'zamaninda',
                      notlar: 'Manuel giris'
                    });
+                   window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
                    await loadData();
                 } catch(e) {
                    console.log(e);
@@ -1167,6 +1192,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                    const existing = allKayitlar.find(k => k.employeeId === user.id && k.tarih === tarih);
                    if (existing) {
                       await pdksService.updateVardiya(existing.id, { cikis_saati: saat });
+                      window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
                       await loadData();
                    }
                 }

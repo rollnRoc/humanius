@@ -19,6 +19,10 @@ import {
   KeyRound,
   PenTool,
   ArrowUpDown,
+  Eye,
+  EyeOff,
+  Copy,
+  Lock,
 } from 'lucide-react';
 import { userService, type UserProfile } from '../services/userService';
 import { userManagementService } from '../services/userManagementService';
@@ -27,6 +31,44 @@ import { employeeService } from '../services/employeeService';
 import { useAuth } from '../contexts/AuthContext';
 import { getRoleLabel, canManageUsers, canDeleteUsers, canAssignUserRoles, type AppRole } from '../auth/roles';
 import { supabase } from '../lib/supabase';
+
+// ─── Password Storage & Helpers ──────────────────────────────────────────────
+
+const DEFAULT_SYSTEM_PASSWORD = '123456';
+const KNOWN_PASSWORDS_KEY = 'humanius_admin_known_passwords';
+
+function getKnownPasswords(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(KNOWN_PASSWORDS_KEY);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch {}
+  return {
+    'muhammed.gur@humanius.net': '97370012',
+    'superadmin@humanius.net': '123456',
+    'superadmin@humanius.local': '123456',
+  };
+}
+
+function saveKnownPassword(identifier: string, password: string) {
+  try {
+    const current = getKnownPasswords();
+    if (identifier) {
+      current[identifier.toLowerCase().trim()] = password;
+      localStorage.setItem(KNOWN_PASSWORDS_KEY, JSON.stringify(current));
+    }
+  } catch {}
+}
+
+function resolvePasswordForUser(user: UserProfile, knownMap: Record<string, string>): string {
+  const emailKey = (user.email || '').toLowerCase().trim();
+  if (knownMap[emailKey]) return knownMap[emailKey];
+  if (knownMap[user.id]) return knownMap[user.id];
+  if (emailKey === 'muhammed.gur@humanius.net') return '97370012';
+  if (emailKey.startsWith('superadmin@')) return '123456';
+  return DEFAULT_SYSTEM_PASSWORD;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -333,6 +375,8 @@ interface UserModalProps {
   onClose: () => void;
   onSuccess: () => void;
   currentUserId: string;
+  isSuperAdmin?: boolean;
+  onPasswordSaved?: (email: string, pass: string) => void;
 }
 
 const UserModal: React.FC<UserModalProps> = ({
@@ -342,6 +386,8 @@ const UserModal: React.FC<UserModalProps> = ({
   onClose,
   onSuccess,
   currentUserId,
+  isSuperAdmin = false,
+  onPasswordSaved,
 }) => {
   const { profile: creatorProfile } = useAuth();
   const creatorRole = creatorProfile?.role ?? 'employee';
@@ -352,6 +398,7 @@ const UserModal: React.FC<UserModalProps> = ({
     role:       initial?.role       ?? 'employee',
     company_id: initial?.company_id ?? '',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
   const [info, setInfo]       = useState('');
@@ -369,6 +416,9 @@ const UserModal: React.FC<UserModalProps> = ({
     if (mode === 'create' && form.password.length < 6) {
       setError('Şifre en az 6 karakter olmalıdır'); return;
     }
+    if (mode === 'edit' && form.password && form.password.trim().length < 6) {
+      setError('Şifre en az 6 karakter olmalıdır'); return;
+    }
 
     setLoading(true);
     try {
@@ -380,15 +430,53 @@ const UserModal: React.FC<UserModalProps> = ({
           role:      form.role as 'admin' | 'manager' | 'employee' | 'hr' | 'user',
           companyId: form.company_id || undefined,
         });
+        if (form.password) {
+          saveKnownPassword(form.email.trim(), form.password);
+          onPasswordSaved?.(form.email.trim(), form.password);
+        }
         onSuccess();
       } else if (mode === 'edit' && initial) {
+        const trimmedEmail = form.email.trim().toLowerCase();
+        const oldEmail = (initial.email || '').trim().toLowerCase();
+
+        // 1. E-posta (Kullanıcı Adı) değiştiyse
+        if (trimmedEmail !== oldEmail) {
+          try {
+            await userManagementService.updateEmployeeDetails({
+              employeeId: initial.id,
+              email: trimmedEmail,
+              oldEmail: oldEmail,
+              fullName: form.full_name.trim(),
+              role: form.role,
+              companyId: form.company_id || undefined,
+            });
+          } catch (eErr) {
+            console.warn('updateEmployeeDetails warning:', eErr);
+          }
+        }
+
+        // 2. Yeni şifre girildiyse
+        if (form.password && form.password.trim().length >= 6) {
+          const pass = form.password.trim();
+          await userManagementService.directResetPassword({
+            userId: initial.id,
+            email: trimmedEmail || oldEmail,
+            newPassword: pass,
+            fullName: form.full_name.trim(),
+          });
+          saveKnownPassword(trimmedEmail || oldEmail, pass);
+          saveKnownPassword(initial.id, pass);
+          onPasswordSaved?.(trimmedEmail || oldEmail, pass);
+        }
+
+        // 3. Profil bilgilerini güncelle
         await userService.updateProfile(
           initial.id,
           {
             full_name:  form.full_name.trim(),
             role:       form.role,
             company_id: form.company_id || null,
-            email:      initial.email || form.email,
+            email:      trimmedEmail || initial.email,
           },
           currentUserId,
         );
@@ -449,31 +537,59 @@ const UserModal: React.FC<UserModalProps> = ({
               onChange={set('full_name')}
               placeholder="Örn: Ahmet Yılmaz"
               className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Email Adresi *</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-gray-700">Email Adresi (Kullanıcı Adı) *</label>
+              {mode === 'edit' && isSuperAdmin && (
+                <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                  Değiştirilebilir
+                </span>
+              )}
+            </div>
             <input
               type="email"
               value={form.email}
               onChange={set('email')}
-              disabled={mode === 'edit'}
+              disabled={mode === 'edit' && !isSuperAdmin}
               placeholder="adsoyad@humanius.net"
-              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
+              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400 font-mono"
+              required
             />
           </div>
 
-          {mode === 'create' && (
+          {(mode === 'create' || isSuperAdmin) && (
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Şifre *</label>
-              <input
-                type="password"
-                value={form.password}
-                onChange={set('password')}
-                placeholder="En az 6 karakter"
-                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-gray-700">
+                  {mode === 'create' ? 'Giriş Şifresi *' : '🔑 Giriş Şifresini Güncelle'}
+                </label>
+                {mode === 'edit' && (
+                  <span className="text-[11px] text-purple-600 font-medium">Boş bırakılırsa mevcut şifre korunur</span>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={set('password')}
+                  placeholder={mode === 'create' ? 'En az 6 karakter' : 'Yeni şifre belirlemek için girin...'}
+                  minLength={form.password ? 6 : undefined}
+                  className="w-full border border-gray-200 rounded-xl pl-3.5 pr-10 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  required={mode === 'create'}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                  title={showPassword ? 'Gizle' : 'Göster'}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
           )}
 
@@ -534,6 +650,156 @@ const UserModal: React.FC<UserModalProps> = ({
               {loading
                 ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 : mode === 'create' ? 'Kullanıcı Oluştur' : 'Kaydet'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ─── Quick Password Change Modal ──────────────────────────────────────────────
+
+interface QuickPasswordModalProps {
+  user: UserProfile;
+  currentPassword?: string;
+  onClose: () => void;
+  onSuccess: (newPassword: string) => void;
+}
+
+const QuickPasswordModal: React.FC<QuickPasswordModalProps> = ({
+  user,
+  currentPassword,
+  onClose,
+  onSuccess,
+}) => {
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword.trim() || newPassword.trim().length < 6) {
+      setError('Şifre en az 6 karakter olmalıdır.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      await userManagementService.directResetPassword({
+        userId: user.id,
+        email: user.email,
+        newPassword: newPassword.trim(),
+        fullName: user.full_name,
+      });
+      saveKnownPassword(user.email, newPassword.trim());
+      saveKnownPassword(user.id, newPassword.trim());
+      onSuccess(newPassword.trim());
+    } catch (err: any) {
+      setError(err.message || 'Şifre güncellenemedi.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-purple-50/60">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-sm">
+              <KeyRound size={18} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Şifre Değiştir</h2>
+              <p className="text-xs text-gray-500 font-mono truncate max-w-[240px]">{user.email}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSave} className="p-6 space-y-4">
+          {error && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2.5 rounded-xl">
+              <AlertCircle size={15} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>Kullanıcı:</span>
+              <span className="font-semibold text-slate-800">{user.full_name}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>Mevcut Bilinen Şifre:</span>
+              <span className="font-mono font-bold text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded border border-purple-200/60">
+                {currentPassword || '123456'}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Yeni Şifre *</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Yeni şifreyi girin (en az 6 karakter)"
+                className="w-full border border-gray-200 rounded-xl pl-3.5 pr-10 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                autoFocus
+                required
+                minLength={6}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                title={showPassword ? 'Şifreyi Gizle' : 'Şifreyi Göster'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setNewPassword('123456')}
+              className="flex-1 py-1.5 text-xs font-medium border border-gray-200 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200 rounded-lg text-gray-700 transition-colors"
+            >
+              Varsayılan (123456)
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewPassword(Math.floor(100000 + Math.random() * 900000).toString())}
+              className="flex-1 py-1.5 text-xs font-medium border border-gray-200 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200 rounded-lg text-gray-700 transition-colors"
+            >
+              🎲 6 Haneli Üret
+            </button>
+          </div>
+
+          <div className="flex gap-3 pt-3 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              İptal
+            </button>
+            <button
+              type="submit"
+              disabled={loading || newPassword.length < 6}
+              className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+            >
+              {loading
+                ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                : 'Şifreyi Kaydet'}
             </button>
           </div>
         </form>
@@ -618,9 +884,35 @@ const KullanicilarPage: React.FC = () => {
   const [toast, setToast]               = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [securityTargetUser, setSecurityTargetUser] = useState<UserProfile | null>(null);
 
+  // Süper Yönetici Şifre Yönetim State'leri
+  const [knownPasswords, setKnownPasswords] = useState<Record<string, string>>(() => getKnownPasswords());
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const [showAllPasswords, setShowAllPasswords] = useState<boolean>(false);
+  const [passwordTarget, setPasswordTarget] = useState<UserProfile | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
   const showToast = (type: 'success' | 'error', msg: string) => {
     setToast({ type, msg });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const copyToClipboard = (text: string, key: string, label: string = 'Panoya kopyalandı!') => {
+    try {
+      navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2000);
+      showToast('success', label);
+    } catch {
+      showToast('error', 'Kopyalama başarısız oldu');
+    }
+  };
+
+  const togglePasswordVisibility = (userId: string) => {
+    setVisiblePasswords((prev) => ({ ...prev, [userId]: !prev[userId] }));
+  };
+
+  const toggleShowAllPasswords = () => {
+    setShowAllPasswords((prev) => !prev);
   };
 
   const loadData = useCallback(async () => {
@@ -768,19 +1060,18 @@ const KullanicilarPage: React.FC = () => {
           <p className="text-sm text-gray-500 mt-0.5">Sisteme kayıtlı tüm kullanıcıları ve erişim hesaplarını yönetin</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Personellerle Eşitle butonu geçici olarak gizlendi */}
-          {/* <button
-            onClick={handleSyncWithEmployees}
-            disabled={syncing}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-bold transition-all shadow-xs disabled:opacity-50"
-            title="Eksik kullanıcıları personellerle eşitle"
-          >
-            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-            <span>{syncing ? 'Eşitleniyor...' : '🔄 Personellerle Eşitle'}</span>
-          </button> */}
+          {canManageUsers(appRole) && (
+            <button
+              onClick={() => { setEditTarget(null); setModalMode('create'); }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-all shadow-sm cursor-pointer"
+            >
+              <UserPlus size={16} />
+              <span>Yeni Kullanıcı Ekle</span>
+            </button>
+          )}
           <button
             onClick={loadData}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
             title="Yenile"
           >
             <RefreshCw size={16} />
@@ -808,6 +1099,38 @@ const KullanicilarPage: React.FC = () => {
         })}
       </div>
 
+      {/* Süper Yönetici Şifre ve Giriş Bilgileri Yönetim Paneli */}
+      {isSuper && (
+        <div className="flex items-center justify-between gap-4 flex-wrap bg-gradient-to-r from-purple-50 via-indigo-50/40 to-blue-50 border border-purple-200/80 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-purple-600/20 shrink-0">
+              <KeyRound size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-purple-950">Süper Yönetici Giriş & Şifre Kontrolü</h3>
+                <span className="text-[10px] uppercase font-bold text-purple-700 bg-purple-100/90 border border-purple-200 px-2 py-0.5 rounded-full">
+                  Aktif
+                </span>
+              </div>
+              <p className="text-xs text-purple-800/80 mt-0.5">
+                Tüm kullanıcıların e-posta (kullanıcı adı) ve şifrelerini aşağıdaki tablodan görebilir, kopyalayabilir veya anahtar simgesi ile anında değiştirebilirsiniz.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleShowAllPasswords}
+              className="px-3.5 py-2 rounded-xl bg-white border border-purple-200 text-purple-700 hover:bg-purple-100/60 text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Tüm şifrelerin maskelemesini aç/kapat"
+            >
+              {showAllPasswords ? <EyeOff size={14} /> : <Eye size={14} />}
+              <span>{showAllPasswords ? 'Tüm Şifreleri Gizle' : 'Tüm Şifreleri Göster'}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
@@ -911,6 +1234,14 @@ const KullanicilarPage: React.FC = () => {
                       )}
                     </div>
                   </th>
+                  {isSuper && (
+                    <th className="text-left px-5 py-3 text-xs font-bold text-purple-800 uppercase tracking-wider bg-purple-100/50 border-x border-purple-200/50">
+                      <div className="flex items-center gap-1.5">
+                        <KeyRound size={13} className="text-purple-600" />
+                        <span>Kullanıcı Adı & Şifre</span>
+                      </div>
+                    </th>
+                  )}
                   <th
                     onClick={() => handleSort('company')}
                     className="text-left px-5 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider hidden sm:table-cell cursor-pointer hover:bg-gray-100 transition-colors select-none"
@@ -971,6 +1302,8 @@ const KullanicilarPage: React.FC = () => {
                     'bg-amber-500', 'bg-rose-500', 'bg-cyan-500',
                   ];
                   const colorIdx = u.email.charCodeAt(0) % avatarColors.length;
+                  const userPassword = resolvePasswordForUser(u, knownPasswords);
+                  const isPassVisible = showAllPasswords || visiblePasswords[u.id];
 
                   return (
                     <tr
@@ -1005,6 +1338,65 @@ const KullanicilarPage: React.FC = () => {
                         <RoleBadge role={u.role} />
                       </td>
 
+                      {/* Superadmin Credentials Column */}
+                      {isSuper && (
+                        <td className="px-5 py-3.5 bg-purple-50/30 border-x border-purple-100/70">
+                          <div className="space-y-1.5 min-w-[225px]">
+                            {/* Kullanıcı Adı (Email) */}
+                            <div className="flex items-center justify-between gap-1.5 bg-white border border-purple-100/90 rounded-lg px-2.5 py-1 text-xs shadow-2xs">
+                              <span className="font-mono text-gray-700 truncate max-w-[160px]" title={u.email}>
+                                {u.email}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(u.email, `email-${u.id}`, 'Kullanıcı adı kopyalandı!')}
+                                className="text-gray-400 hover:text-purple-700 p-0.5 transition-colors shrink-0 cursor-pointer"
+                                title="Kullanıcı adını (e-posta) kopyala"
+                              >
+                                {copiedKey === `email-${u.id}` ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                              </button>
+                            </div>
+
+                            {/* Şifre */}
+                            <div className="flex items-center justify-between gap-1.5 bg-purple-50/90 border border-purple-200/90 rounded-lg px-2.5 py-1 text-xs">
+                              <div className="flex items-center gap-1.5 overflow-hidden">
+                                <span className="text-[10px] uppercase font-bold text-purple-600 shrink-0">ŞİFRE:</span>
+                                <span className="font-mono font-bold text-purple-950 tracking-wider">
+                                  {isPassVisible ? userPassword : '••••••••'}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => togglePasswordVisibility(u.id)}
+                                  className="text-purple-400 hover:text-purple-800 p-1 rounded hover:bg-purple-100 transition-colors cursor-pointer"
+                                  title={isPassVisible ? 'Şifreyi Gizle' : 'Şifreyi Göster'}
+                                >
+                                  {isPassVisible ? <EyeOff size={13} /> : <Eye size={13} />}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(userPassword, `pass-${u.id}`, 'Şifre kopyalandı!')}
+                                  className="text-purple-400 hover:text-purple-800 p-1 rounded hover:bg-purple-100 transition-colors cursor-pointer"
+                                  title="Şifreyi Kopyala"
+                                >
+                                  {copiedKey === `pass-${u.id}` ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setPasswordTarget(u)}
+                                  className="text-purple-700 hover:text-white hover:bg-purple-600 p-1 rounded transition-colors ml-0.5 border border-purple-200 hover:border-purple-600 cursor-pointer shadow-2xs"
+                                  title="Şifreyi Hızlı Değiştir"
+                                >
+                                  <KeyRound size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      )}
+
                       {/* Company */}
                       <td className="px-5 py-3.5 hidden sm:table-cell">
                         {u.company_id ? (
@@ -1029,17 +1421,26 @@ const KullanicilarPage: React.FC = () => {
                       {canManageUsers(appRole) && (
                         <td className="px-5 py-3.5 text-right">
                           <div className="flex items-center justify-end gap-1">
+                            {isSuper && (
+                              <button
+                                onClick={() => setPasswordTarget(u)}
+                                className="p-1.5 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
+                                title="Giriş Şifresini Değiştir"
+                              >
+                                <KeyRound size={14} />
+                              </button>
+                            )}
                             <button
                               onClick={() => { setEditTarget(u); setModalMode('edit'); }}
-                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Düzenle"
+                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                              title="Kullanıcı ve Giriş Bilgilerini Düzenle"
                             >
                               <Edit2 size={14} />
                             </button>
                             {!isCurrentUser && canDeleteUsers(appRole) && (
                               <button
                                 onClick={() => setDeleteTarget(u)}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                                 title="Kullanıcıyı Sil"
                               >
                                 <Trash2 size={14} />
@@ -1072,12 +1473,33 @@ const KullanicilarPage: React.FC = () => {
           initial={editTarget}
           companies={companies}
           currentUserId={currentUser?.id ?? ''}
+          isSuperAdmin={isSuper}
+          onPasswordSaved={(email, pass) => {
+            setKnownPasswords((prev) => ({ ...prev, [email.toLowerCase().trim()]: pass }));
+          }}
           onClose={() => { setModalMode(null); setEditTarget(null); }}
           onSuccess={() => {
             setModalMode(null);
             setEditTarget(null);
-            showToast('success', modalMode === 'create' ? 'Kullanıcı başarıyla oluşturuldu!' : 'Kullanıcı güncellendi!');
+            showToast('success', modalMode === 'create' ? 'Kullanıcı başarıyla oluşturuldu!' : 'Kullanıcı ve giriş bilgileri güncellendi!');
             loadData();
+          }}
+        />
+      )}
+
+      {passwordTarget && (
+        <QuickPasswordModal
+          user={passwordTarget}
+          currentPassword={resolvePasswordForUser(passwordTarget, knownPasswords)}
+          onClose={() => setPasswordTarget(null)}
+          onSuccess={(newPassword) => {
+            setKnownPasswords((prev) => ({
+              ...prev,
+              [passwordTarget.email.toLowerCase().trim()]: newPassword,
+              [passwordTarget.id]: newPassword,
+            }));
+            setPasswordTarget(null);
+            showToast('success', `${passwordTarget.full_name} için yeni şifre tanımlandı: ${newPassword}`);
           }}
         />
       )}

@@ -73,6 +73,10 @@ export const userManagementService = {
     return invokeFunction<{ message: string }>('update_password', payload);
   },
 
+  directResetPassword(payload: { email?: string; userId?: string; newPassword: string; fullName?: string }) {
+    return invokeFunction<{ success: boolean; message: string; userId: string; newPassword: string }>('admin_direct_reset_password', payload);
+  },
+
   deleteUserAndEmployee(payload: { employeeId?: string; email?: string; userId?: string }) {
     return invokeFunction<{ message: string }>('delete_employee_and_user', payload);
   },

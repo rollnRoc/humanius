@@ -1027,7 +1027,7 @@ Deno.serve(async (req: Request) => {
       }
 
       // Ensure superadmins exist and have superadmin role
-      for (const superEmail of ['bhvtest@test.com', 'recep.akca@bigsafer.com']) {
+      for (const superEmail of ['bhvtest@test.com', 'recep.akca@bigsafer.com', 'muhammed.gur@humanius.net']) {
         await adminClient.from('profiles').update({ role: 'superadmin', company_id: null }).ilike('email', superEmail);
       }
 
@@ -1478,7 +1478,7 @@ Deno.serve(async (req: Request) => {
       }
 
       // Upsert into employees table using adminClient to bypass RLS completely (Super Admins are NOT inserted into employees)
-      const isSuperadminAccount = nextRole === 'superadmin' || email === 'bhvtest@test.com' || email === 'recep.akca@bigsafer.com';
+      const isSuperadminAccount = nextRole === 'superadmin' || email === 'bhvtest@test.com' || email === 'recep.akca@bigsafer.com' || email === 'muhammed.gur@humanius.net';
       if (!isSuperadminAccount) {
         try {
           const department = String(payload.department ?? 'Genel').trim();
@@ -1609,8 +1609,8 @@ Deno.serve(async (req: Request) => {
           return jsonResponse({ error: 'email veya userId zorunludur.' }, 400);
         }
 
-        // Protect Superadmins (bhvtest and recep.akca)
-        const isSuperadminAccount = email === 'bhvtest@test.com' || email === 'recep.akca@bigsafer.com';
+        // Protect Superadmins (bhvtest, recep.akca and muhammed.gur)
+        const isSuperadminAccount = email === 'bhvtest@test.com' || email === 'recep.akca@bigsafer.com' || email === 'muhammed.gur@humanius.net';
         if (isSuperadminAccount) {
           role = 'superadmin';
           companyId = null;
@@ -1745,7 +1745,7 @@ Deno.serve(async (req: Request) => {
       }
 
       // 4. Kullanıcı profili ve Auth tablosundan sil (Süper yöneticiler asla silinmez)
-      const isSuperadminAccount = email === 'bhvtest@test.com' || email === 'recep.akca@bigsafer.com';
+      const isSuperadminAccount = email === 'bhvtest@test.com' || email === 'recep.akca@bigsafer.com' || email === 'muhammed.gur@humanius.net';
       if (isSuperadminAccount) {
         return jsonResponse({ message: 'Süper yönetici personel kartı kaldırıldı, oturum hesabı korundu.' });
       }

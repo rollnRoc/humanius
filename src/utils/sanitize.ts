@@ -73,3 +73,88 @@ export const secureStorage = {
     localStorage.removeItem(key);
   }
 };
+
+/**
+ * Turkish lowercase normalization helper that handles İ/i, I/ı, Ğ/ğ, Ü/ü, Ş/ş, Ö/ö, Ç/ç
+ */
+export function normalizeTurkish(str: string | null | undefined): string {
+  if (!str) return '';
+  return String(str)
+    .toLocaleLowerCase('tr-TR')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ı/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .trim();
+}
+
+/**
+ * Robust matching between logged-in Auth User/Profile and Employee list
+ */
+export function matchEmployeeToUser<T extends { id: string; name?: string; email?: string }>(
+  employees: T[],
+  profile: any,
+  user?: any
+): T | null {
+  if (!employees || employees.length === 0) return null;
+
+  const candidateEmails = [
+    profile?.email,
+    user?.email,
+    user?.user_metadata?.email,
+  ]
+    .filter(Boolean)
+    .map((e) => String(e).trim().toLowerCase());
+
+  const profileFullName = String(
+    profile?.full_name || user?.user_metadata?.full_name || profile?.name || ''
+  ).trim();
+  const normProfileName = normalizeTurkish(profileFullName).replace(/[\s-]/g, '');
+
+  // 1. Direct ID match if profile.id is in employee
+  if (profile?.id) {
+    const idMatch = employees.find(
+      (e) =>
+        e.id === profile.id ||
+        (e as any).user_id === profile.id ||
+        (e as any).profile_id === profile.id
+    );
+    if (idMatch) return idMatch;
+  }
+
+  // 2. Email match (case-insensitive & trimmed, checking email, contact_email, personal_email)
+  if (candidateEmails.length > 0) {
+    const emailMatch = employees.find((e) => {
+      const empEmails = [
+        e.email,
+        (e as any).contact_email,
+        (e as any).personal_email,
+        (e as any).work_email,
+      ]
+        .filter(Boolean)
+        .map((x) => String(x).trim().toLowerCase());
+
+      return candidateEmails.some((ce) => empEmails.includes(ce));
+    });
+    if (emailMatch) return emailMatch;
+  }
+
+  // 3. Name match with Turkish normalization
+  if (normProfileName.length > 1) {
+    const nameMatch = employees.find((e) => {
+      const empName = String(e.name || '').trim();
+      const normEmpName = normalizeTurkish(empName).replace(/[\s-]/g, '');
+      return (
+        normEmpName.length > 1 &&
+        (normEmpName === normProfileName ||
+          normEmpName.includes(normProfileName) ||
+          normProfileName.includes(normEmpName))
+      );
+    });
+    if (nameMatch) return nameMatch;
+  }
+
+  return null;
+}

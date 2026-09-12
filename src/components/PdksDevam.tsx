@@ -16,6 +16,7 @@ import {
 import type { Employee, CompanyOfficeLocation } from '../types';
 import { getDevamKontroluIzinLabel } from '../utils/izinCalculations';
 import iller, { type IlIlceItem } from '../lib/illce';
+import { matchEmployeeToUser, getTodayYYYYMMDD } from '../utils/sanitize';
 
 
 interface PdksDevamProps {
@@ -132,7 +133,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   selectedDepartment: propSelectedDepartment,
   onDepartmentChange,
 }) => {
-  const { profile, appRole } = useAuth();
+  const { profile, appRole, user } = useAuth();
   const isSuperAdmin = appRole === 'superadmin' || profile?.role === 'superadmin';
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
   const isHrOrAdmin = ['superadmin', 'admin', 'hr'].includes(appRole);
@@ -163,11 +164,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     return Array.from(new Set(employees.map((e) => e.department).filter(Boolean))) as string[];
   }, [departments, employees]);
 
-  const currentEmployee = (
-    employees.find((emp) => emp.email?.toLowerCase() === profile?.email?.toLowerCase()) || 
-    employees.find((emp) => emp.name?.toLowerCase() === profile?.full_name?.toLowerCase()) ||
-    employees[0]
-  );
+  const currentEmployee = useMemo(() => {
+    const matched = matchEmployeeToUser(employees, profile, user);
+    if (matched) return matched;
+    if (employees && employees.length === 1) return employees[0];
+    if (isManagement && employees && employees.length > 0) return employees[0];
+    return employees?.[0] || null;
+  }, [employees, profile, user, isManagement]);
 
   const resolvedCompanyId = React.useMemo(() => {
     // 1. If superadmin selected a specific company in the dropdown:
@@ -523,62 +526,91 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     loadOfficeLocations();
   }, [loadOfficeLocations]);
 
-  // Load shift history from database when currentEmployee is found
-  useEffect(() => {
-    const loadShiftHistory = async () => {
-      if (currentEmployee?.id) {
-        try {
-          const allVardiyalar = await pdksService.getVardiyalar();
-          setAllShiftRecords(allVardiyalar || []);
-          // Filter to only include records for the current employee
-          const myVardiyalar = allVardiyalar.filter(v => v.employee_id === currentEmployee.id);
-          // Map to localHistory format
-          const mappedHistory = myVardiyalar.map(v => {
-            const dateObj = new Date(v.tarih);
-            const girisStr = v.giris_saati || '-';
-            const cikisStr = v.cikis_saati || '-';
-            
-            let totalHoursStr = '0 Saat';
-            if (v.giris_saati && v.cikis_saati) {
-              const [gH, gM] = v.giris_saati.split(':').map(Number);
-              const [cH, cM] = v.cikis_saati.split(':').map(Number);
-              const gMinutes = gH * 60 + gM;
-              const cMinutes = cH * 60 + cM;
-              const diffMin = cMinutes - gMinutes;
-              if (diffMin > 0) {
-                totalHoursStr = `${parseFloat((diffMin / 60).toFixed(2))} Saat`;
-              }
-            }
+  // Load shift history from database when currentEmployee is found and sync shift status
+  const loadShiftHistory = React.useCallback(async () => {
+    if (currentEmployee?.id) {
+      try {
+        const allVardiyalar = await pdksService.getVardiyalar();
+        setAllShiftRecords(allVardiyalar || []);
+        // Filter to only include records for the current employee
+        const myVardiyalar = (allVardiyalar || []).filter(v => v.employee_id === currentEmployee.id);
 
-            return {
-              id: v.id,
-              tarih: dateObj.toLocaleDateString('tr-TR'),
-              giris: girisStr,
-              cikis: cikisStr,
-              sure: totalHoursStr,
-              durum: v.durum === 'zamaninda' ? 'Zamanında' : v.durum === 'gec-kaldi' ? 'Geç Kaldı' : 'Otomatik Çıkış',
-              notlar: v.notlar || ''
-            };
-          });
-          setLocalHistory(mappedHistory);
-        } catch (error) {
-          console.error("Failed to load shift history from database:", error);
-          // Fallback to local storage
-          const savedHistory = localStorage.getItem('pdks_personal_history');
-          if (savedHistory) {
-            setLocalHistory(JSON.parse(savedHistory));
-          }
+        // Check today's shift status in DB to synchronize with personal screen
+        const todayStr = getTodayYYYYMMDD();
+        const todayRec = myVardiyalar.find(v => v.tarih === todayStr);
+
+        if (todayRec && todayRec.cikis_saati) {
+          // Exit was completed (either by employee or by manager/HR)
+          localStorage.removeItem('pdks_active_shift_id');
+          localStorage.removeItem('pdks_active_shift_start');
+          setIsShiftActive(false);
+          setShiftStartTime(null);
+          setActiveShiftRecordId(null);
+        } else if (todayRec && todayRec.giris_saati && !todayRec.cikis_saati) {
+          // Shift is still active in DB
+          setActiveShiftRecordId(todayRec.id);
+          localStorage.setItem('pdks_active_shift_id', todayRec.id);
+          const startIso = todayRec.created_at || `${todayRec.tarih}T${todayRec.giris_saati}`;
+          setShiftStartTime(startIso);
+          localStorage.setItem('pdks_active_shift_start', startIso);
+          setIsShiftActive(true);
         }
-      } else {
-        // Fallback to local storage if no currentEmployee yet
+
+        // Map to localHistory format
+        const mappedHistory = myVardiyalar.map(v => {
+          const dateObj = new Date(v.tarih);
+          const girisClean = v.giris_saati ? v.giris_saati.substring(0, 5) : '-';
+          const cikisClean = v.cikis_saati ? v.cikis_saati.substring(0, 5) : '-';
+          
+          let totalHoursStr = '0 Saat';
+          if (v.giris_saati && v.cikis_saati) {
+            const [gH, gM] = v.giris_saati.split(':').map(Number);
+            const [cH, cM] = v.cikis_saati.split(':').map(Number);
+            const gMinutes = gH * 60 + gM;
+            const cMinutes = cH * 60 + cM;
+            const diffMin = cMinutes - gMinutes;
+            if (diffMin > 0) {
+              totalHoursStr = `${parseFloat((diffMin / 60).toFixed(2))} Saat`;
+            }
+          }
+
+          return {
+            id: v.id,
+            tarih: dateObj.toLocaleDateString('tr-TR'),
+            giris: girisClean,
+            cikis: cikisClean,
+            sure: totalHoursStr,
+            durum: v.durum === 'zamaninda' ? 'Zamanında' : v.durum === 'gec-kaldi' ? 'Geç Kaldı' : 'Otomatik Çıkış',
+            notlar: v.notlar || ''
+          };
+        });
+        setLocalHistory(mappedHistory);
+      } catch (error) {
+        console.error("Failed to load shift history from database:", error);
+        // Fallback to local storage
         const savedHistory = localStorage.getItem('pdks_personal_history');
         if (savedHistory) {
           setLocalHistory(JSON.parse(savedHistory));
         }
       }
-    };
-    loadShiftHistory();
+    } else {
+      // Fallback to local storage if no currentEmployee yet
+      const savedHistory = localStorage.getItem('pdks_personal_history');
+      if (savedHistory) {
+        setLocalHistory(JSON.parse(savedHistory));
+      }
+    }
   }, [currentEmployee?.id]);
+
+  useEffect(() => {
+    loadShiftHistory();
+    window.addEventListener('humanius_shifts_updated', loadShiftHistory);
+    window.addEventListener('storage', loadShiftHistory);
+    return () => {
+      window.removeEventListener('humanius_shifts_updated', loadShiftHistory);
+      window.removeEventListener('storage', loadShiftHistory);
+    };
+  }, [loadShiftHistory]);
 
   // Update timer ticks while shift is active
   useEffect(() => {
@@ -1423,6 +1455,48 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   )}
                 </div>
 
+                {/* Today's Completed Shift Summary (if shift is completed) */}
+                {(() => {
+                  const todayStr = getTodayYYYYMMDD();
+                  const todayRec = (allShiftRecords || []).find(
+                    (r) => r.employee_id === currentEmployee?.id && r.tarih === todayStr
+                  );
+                  if (!isShiftActive && todayRec?.giris_saati && todayRec?.cikis_saati) {
+                    const [gH, gM] = todayRec.giris_saati.split(':').map(Number);
+                    const [cH, cM] = todayRec.cikis_saati.split(':').map(Number);
+                    const diffMin = (cH * 60 + cM) - (gH * 60 + gM);
+                    const durationStr = diffMin > 0 ? `${parseFloat((diffMin / 60).toFixed(1))} saat` : '-';
+                    return (
+                      <div className="w-full max-w-sm bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-2xl p-4 text-left shadow-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span className="text-xs font-bold text-emerald-950">Bugünkü Mesainiz Tamamlandı</span>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Çıkış Yapıldı
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-xs text-gray-700 bg-white/90 p-2.5 rounded-xl border border-emerald-100 text-center">
+                          <div>
+                            <span className="text-[10px] text-gray-400 block font-medium">Giriş</span>
+                            <span className="font-mono font-bold text-gray-800">{todayRec.giris_saati.substring(0, 5)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-emerald-600 block font-medium">Çıkış</span>
+                            <span className="font-mono font-bold text-emerald-700">{todayRec.cikis_saati.substring(0, 5)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-gray-400 block font-medium">Süre</span>
+                            <span className="font-bold text-gray-800">{durationStr}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 {/* Personalized Active Shift Card & Selector */}
                 <div className="w-full max-w-sm bg-gradient-to-r from-indigo-50/90 to-blue-50/90 border border-indigo-200/80 rounded-2xl p-4 text-left shadow-xs space-y-2.5">
                   <div className="flex items-center justify-between">
@@ -2197,8 +2271,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         <button
                           onClick={() => {
                             setEditEmpModal(d);
-                            setEditGiris(d.giris === '-' ? (d.shift?.start_time || '08:30') : d.giris);
-                            setEditCikis(d.cikis === '-' ? (d.shift?.end_time || '18:00') : d.cikis);
+                            setEditGiris(d.giris === '-' ? (d.shift?.start_time || '08:30').substring(0, 5) : d.giris.substring(0, 5));
+                            setEditCikis(d.cikis === '-' ? (d.shift?.end_time || '18:00').substring(0, 5) : d.cikis.substring(0, 5));
                             setEditOfficeName(d.officeName !== '-' ? d.officeName : (officeLocations.find(l => l.is_default)?.name || officeLocations[0]?.name || 'Merkez Ofis'));
                           }}
                           className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
@@ -2285,11 +2359,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   if (!editEmpModal) return;
+                  const cleanGiris = editGiris ? editGiris.substring(0, 5) : '08:30';
+                  const cleanCikis = editCikis ? editCikis.substring(0, 5) : '18:00';
+
                   // Calculate new status
-                  const [gH, gM] = editGiris.split(':').map(Number);
-                  const [cH, cM] = editCikis.split(':').map(Number);
+                  const [gH, gM] = cleanGiris.split(':').map(Number);
+                  const [cH, cM] = cleanCikis.split(':').map(Number);
                   const empShift = editEmpModal.shift || activeUserShift;
                   const [sGh, sGm] = (empShift.start_time || '08:30').split(':').map(Number);
                   
@@ -2301,10 +2378,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   const newDurum = lateDiff > tolerance ? 'Geç Kaldı' : 'Zamanında';
                   const diffHours = parseFloat((((cH * 60 + cM) - actualMin) / 60).toFixed(1));
 
-                  const todayStr = new Date().toISOString().split('T')[0];
+                  const todayStr = getTodayYYYYMMDD();
                   const overrideObj = {
-                    giris: editGiris,
-                    cikis: editCikis,
+                    giris: cleanGiris,
+                    cikis: cleanCikis,
                     durum: newDurum,
                     mesai: diffHours > 0 ? diffHours : 0,
                     officeName: editOfficeName || 'Merkez Ofis',
@@ -2319,43 +2396,49 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     const pOverrides = rawPuantajOverrides ? JSON.parse(rawPuantajOverrides) : {};
                     pOverrides[`${editEmpModal.employee.id}_${todayStr}`] = {
                       kod: 'Ç',
-                      giris: editGiris,
-                      cikis: editCikis,
+                      giris: cleanGiris,
+                      cikis: cleanCikis,
                       notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`,
-                      kodAciklama: `Fiili Çalışma (${editGiris}-${editCikis})`
+                      kodAciklama: `Fiili Çalışma (${cleanGiris}-${cleanCikis})`
                     };
                     localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(pOverrides));
                   } catch (e) {
                     console.error('Puantaj override senkronizasyon hatası:', e);
                   }
 
-                  const targetCompanyId = editEmpModal.employee.company_id || resolvedCompanyId || '';
-                  const newRecord = {
+                  const targetCompanyId = normalizeCompanyId(editEmpModal.employee.company_id || resolvedCompanyId);
+
+                  // Always record shift to pdksService and Supabase
+                  let savedDbRecord: any = null;
+                  if (targetCompanyId && editEmpModal.employee.id) {
+                    try {
+                      savedDbRecord = await pdksService.createVardiya({
+                        company_id: targetCompanyId,
+                        employee_id: editEmpModal.employee.id,
+                        tarih: todayStr,
+                        giris_saati: cleanGiris,
+                        cikis_saati: cleanCikis,
+                        vardiya_tipi: 'tam-gun',
+                        durum: newDurum === 'Zamanında' ? 'zamaninda' : 'gec-kaldi',
+                        notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
+                      });
+                    } catch (e) {
+                      console.error("Vardiya veritabanı kayıt hatası:", e);
+                    }
+                  }
+
+                  const newRecord = savedDbRecord || {
                     id: `v-edit-${Date.now()}`,
                     company_id: targetCompanyId,
                     employee_id: editEmpModal.employee.id,
                     tarih: todayStr,
-                    giris_saati: editGiris + ':00',
-                    cikis_saati: editCikis + ':00',
+                    giris_saati: cleanGiris,
+                    cikis_saati: cleanCikis,
                     vardiya_tipi: 'tam-gun',
                     durum: newDurum === 'Zamanında' ? 'zamaninda' : 'gec-kaldi',
                     notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
                   };
                   setAllShiftRecords((prev) => [newRecord, ...prev.filter(r => !(r.employee_id === editEmpModal.employee.id && r.tarih === todayStr))]);
-
-                  // Also record shift to pdksService if possible
-                  if (targetCompanyId && editEmpModal.employee.id) {
-                    pdksService.createVardiya({
-                      company_id: targetCompanyId,
-                      employee_id: editEmpModal.employee.id,
-                      tarih: todayStr,
-                      giris_saati: editGiris + ':00',
-                      cikis_saati: editCikis + ':00',
-                      vardiya_tipi: 'tam-gun',
-                      durum: newDurum === 'Zamanında' ? 'zamaninda' : 'gec-kaldi',
-                      notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
-                    }).catch(console.error);
-                  }
 
                   // Puantaj cetveli ve diğer bileşenlerin anında güncellenmesi için custom event fırlat
                   window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
