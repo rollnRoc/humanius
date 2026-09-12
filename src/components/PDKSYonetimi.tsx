@@ -482,6 +482,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
   }
 
   function effectiveDurum(k: PDKSKaydi): PDKSDurum {
+    if (k.girisZamani && (!k.cikisZamani || k.cikisZamani === '00:00')) return 'eksik-cikis';
     if (k.girisZamani || k.cikisZamani) return k.durum;
     return hasApprovedLeave(k.employeeId, k.tarih) ? 'izinli' : 'devamsiz';
   }
@@ -498,7 +499,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       else if (durumEff === 'devamsiz') durumStr = 'Devamsız';
       else if (durumEff === 'izinli') durumStr = 'İzinli';
       else if (durumEff === 'erken-cikis') durumStr = 'Erken Çıkış';
-      else if (!k.cikisZamani && k.girisZamani) durumStr = 'Mesai Devam Ediyor';
+      else if ((!k.cikisZamani || k.cikisZamani === '00:00') && k.girisZamani) durumStr = 'Mesai Devam Ediyor';
       else if (!k.girisZamani) durumStr = 'Giriş Yapılmadı';
 
       return {
@@ -579,14 +580,14 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
   async function duzeltmeKaydet() {
     if (!duzeltmeModal) return;
     try {
-      const rawGiris = duzeltmeGirisSaati || duzeltmeModal.girisZamani || '';
-      const rawCikis = duzeltmeSaati || duzeltmeModal.cikisZamani || '';
+      const rawGiris = duzeltmeGirisSaati !== '' ? duzeltmeGirisSaati : duzeltmeModal.girisZamani || '';
+      const rawCikis = duzeltmeSaati ? duzeltmeSaati.trim() : '';
       const updatedGiris = rawGiris ? rawGiris.substring(0, 5) : '';
-      const updatedCikis = rawCikis ? rawCikis.substring(0, 5) : '';
+      const updatedCikis = rawCikis ? rawCikis.substring(0, 5) : null;
       
       await pdksService.updateVardiya(duzeltmeModal.id, {
         giris_saati: updatedGiris ? updatedGiris + ':00' : undefined,
-        cikis_saati: updatedCikis ? updatedCikis + ':00' : undefined
+        cikis_saati: updatedCikis ? updatedCikis + ':00' : null
       });
 
       // Update local state record dynamically
@@ -597,7 +598,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
             ...item,
             girisZamani: updatedGiris,
             cikisZamani: updatedCikis,
-            duzeltmeTalebi: false,
+            duzeltmeTalebi: updatedCikis === null,
             ...hesap
           };
         }
@@ -615,7 +616,9 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
   }
 
   async function otomatikMesaiSonlandir() {
-    const ongoingRecords = gunlukKayitlar.filter(k => k.girisZamani && !k.cikisZamani);
+    const ongoingRecords = gunlukKayitlar.filter(
+      k => k.girisZamani && (!k.cikisZamani || k.cikisZamani === '00:00' || k.cikisZamani === '00:00:00')
+    );
     if (ongoingRecords.length === 0) {
       alert('Seçili günde mesai bitiş saati gelip çıkış yapmamış aktif personel bulunmamaktadır.');
       return;
@@ -636,7 +639,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       console.warn('Failed to load saturday config in PDKSYonetimi:', e);
     }
 
-    if (!confirm(`Seçili tarihteki (${secilenTarih} - ${isSaturday ? 'Cumartesi' : 'Hafta İçi'}) çıkış yapmamış ${ongoingRecords.length} personelin mesaisi vardiya bitiş saati (${targetCikisDisplay}) itibarıyla otomatik sonlandırılsın mı?`)) {
+    if (!confirm(`Seçili tarihteki (${secilenTarih} - ${isSaturday ? 'Cumartesi' : 'Hafta İçi'}) çıkış yapmamış / sıfırlanmış ${ongoingRecords.length} personelin mesaisi vardiya bitiş saati (${targetCikisDisplay}) itibarıyla otomatik sonlandırılsın mı?`)) {
       return;
     }
 
@@ -656,7 +659,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       }
 
       setAllKayitlar(prev => prev.map(item => {
-        if (item.girisZamani && !item.cikisZamani && item.tarih === secilenTarih) {
+        if (item.girisZamani && (!item.cikisZamani || item.cikisZamani === '00:00' || item.cikisZamani === '00:00:00') && item.tarih === secilenTarih) {
           const empShiftId = companyShiftAssignments[item.employeeId];
           const empShift = companyShifts.find(s => s.id === empShiftId) || companyShifts[0];
           const rawCikis = (isSaturday && satConfig?.isSaturdayWork) 
@@ -887,7 +890,15 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                           <span className="ml-1 text-[9px] bg-green-100 text-green-700 px-1 rounded">tolerans</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 font-mono text-gray-700 text-xs">{k.cikisZamani ?? '- Eksik'}</td>
+                      <td className="px-4 py-3 font-mono text-gray-700 text-xs">
+                        {(!k.cikisZamani || k.cikisZamani === '00:00') ? (
+                          <span className="inline-flex items-center gap-1 text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                            ⚡ {k.cikisZamani === '00:00' ? '00:00 (Mesai Açık)' : '- Eksik'}
+                          </span>
+                        ) : (
+                          k.cikisZamani
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right text-gray-500 text-xs">{formatDuration(k.brutCalismaDk)}</td>
                       <td className="px-4 py-3 text-right text-orange-500 text-xs">{k.molaDusumuDk ? `-${k.molaDusumuDk}dk` : '-'}</td>
                       <td className="px-4 py-3 text-right font-medium text-gray-700 text-xs">{formatDuration(k.netCalismaDk)}</td>
@@ -1228,7 +1239,19 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Çıkış Saati</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-gray-700">Çıkış Saati</label>
+                  {duzeltmeSaati && (
+                    <button
+                      type="button"
+                      onClick={() => setDuzeltmeSaati('')}
+                      className="text-[10px] text-red-500 hover:text-red-700 font-medium cursor-pointer"
+                      title="Çıkış saatini kaldırarak personeli mesaisi devam ediyor durumuna getirir"
+                    >
+                      Çıkışı Sıfırla
+                    </button>
+                  )}
+                </div>
                 <input
                   type="time"
                   value={duzeltmeSaati}
@@ -1239,12 +1262,11 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
             </div>
             <div className="flex gap-3">
               <button onClick={() => setDuzeltmeModal(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600">
-                Iptal
+                İptal
               </button>
               <button
                 onClick={duzeltmeKaydet}
-                disabled={!duzeltmeSaati}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-1.5"
               >
                 <Save className="w-4 h-4" />
                 Kaydet

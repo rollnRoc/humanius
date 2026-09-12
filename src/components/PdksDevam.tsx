@@ -539,14 +539,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         const todayStr = getTodayYYYYMMDD();
         const todayRec = myVardiyalar.find(v => v.tarih === todayStr);
 
-        if (todayRec && todayRec.cikis_saati) {
+        if (todayRec && todayRec.cikis_saati && todayRec.cikis_saati !== '00:00:00' && todayRec.cikis_saati !== '00:00') {
           // Exit was completed (either by employee or by manager/HR)
           localStorage.removeItem('pdks_active_shift_id');
           localStorage.removeItem('pdks_active_shift_start');
           setIsShiftActive(false);
           setShiftStartTime(null);
           setActiveShiftRecordId(null);
-        } else if (todayRec && todayRec.giris_saati && !todayRec.cikis_saati) {
+        } else if (todayRec && todayRec.giris_saati && (!todayRec.cikis_saati || todayRec.cikis_saati === '00:00:00' || todayRec.cikis_saati === '00:00')) {
           // Shift is still active in DB
           setActiveShiftRecordId(todayRec.id);
           localStorage.setItem('pdks_active_shift_id', todayRec.id);
