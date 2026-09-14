@@ -357,6 +357,57 @@ Deno.serve(async (req: Request) => {
       if (!id) return jsonResponse({ error: 'id zorunludur' }, 400);
       const { error } = await adminClient.from('company_locations').delete().eq('id', id);
       if (error) return jsonResponse({ error: error.message }, 400);
+    if (operation === 'get_system_parameter') {
+      const companyId = payload.companyId || payload.company_id;
+      const kategori = payload.kategori || 'sistem_kurallari';
+      const ad = payload.ad;
+      if (!companyId || !ad) {
+        return jsonResponse({ error: 'companyId ve ad zorunludur' }, 400);
+      }
+      const { data, error } = await adminClient
+        .from('sistem_parametreleri')
+        .select('deger')
+        .eq('company_id', companyId)
+        .eq('kategori', kategori)
+        .eq('ad', ad)
+        .maybeSingle();
+
+      if (error) {
+        return jsonResponse({ error: error.message }, 400);
+      }
+      return jsonResponse({ deger: data?.deger ?? null });
+    }
+
+    if (operation === 'save_system_parameter') {
+      const companyId = payload.companyId || payload.company_id;
+      const kategori = payload.kategori || 'sistem_kurallari';
+      const ad = payload.ad;
+      const deger = payload.deger;
+      const aciklama = payload.aciklama || 'Kullanıcı Verisi';
+
+      if (!companyId || !ad) {
+        return jsonResponse({ error: 'companyId ve ad zorunludur' }, 400);
+      }
+
+      const nowIso = new Date().toISOString();
+      const { error } = await adminClient.from('sistem_parametreleri').upsert(
+        {
+          company_id: companyId,
+          kategori,
+          ad,
+          deger: typeof deger === 'string' ? deger : JSON.stringify(deger),
+          aciklama,
+          zorunlu: false,
+          degistirilebilir: true,
+          son_guncelleme: nowIso,
+          updated_at: nowIso,
+        },
+        { onConflict: 'company_id,kategori,ad' }
+      );
+
+      if (error) {
+        return jsonResponse({ error: error.message }, 400);
+      }
       return jsonResponse({ success: true });
     }
 
@@ -669,12 +720,12 @@ Deno.serve(async (req: Request) => {
 
     if (operation === 'save_company_shift') {
       const companyId = payload.companyId || payload.company_id;
-      const { id, name, start_time, end_time, break_minutes, tolerance_minutes, color, is_default } = payload;
+      const { id, name, start_time, end_time, break_minutes, tolerance_minutes, color, is_default, saturday_start_time, saturday_end_time, saturday_break_minutes } = payload;
       if (!companyId || !name || !start_time || !end_time) {
         return jsonResponse({ error: 'company_id, name, start_time ve end_time alanları zorunludur' }, 400);
       }
       const shiftId = id || ('shift-' + Date.now());
-      const shiftData = {
+      const shiftData: Record<string, any> = {
         id: shiftId,
         company_id: companyId,
         name: String(name).trim(),
@@ -684,6 +735,9 @@ Deno.serve(async (req: Request) => {
         tolerance_minutes: Number(tolerance_minutes != null ? tolerance_minutes : 15),
         color: String(color || '#3b82f6'),
         is_default: Boolean(is_default),
+        saturday_start_time: saturday_start_time ? String(saturday_start_time).trim() : null,
+        saturday_end_time: saturday_end_time ? String(saturday_end_time).trim() : null,
+        saturday_break_minutes: saturday_break_minutes != null ? Number(saturday_break_minutes) : 30,
         updated_at: new Date().toISOString(),
       };
 
@@ -1312,6 +1366,9 @@ Deno.serve(async (req: Request) => {
             created_at TIMESTAMPTZ DEFAULT now(),
             updated_at TIMESTAMPTZ DEFAULT now()
           );
+          ALTER TABLE public.company_shifts ADD COLUMN IF NOT EXISTS saturday_start_time text;
+          ALTER TABLE public.company_shifts ADD COLUMN IF NOT EXISTS saturday_end_time text;
+          ALTER TABLE public.company_shifts ADD COLUMN IF NOT EXISTS saturday_break_minutes integer DEFAULT 30;
           GRANT ALL ON TABLE public.company_shifts TO anon, authenticated, service_role;
           ALTER TABLE public.company_shifts ENABLE ROW LEVEL SECURITY;
           DROP POLICY IF EXISTS "Public full access to company_shifts" ON public.company_shifts;

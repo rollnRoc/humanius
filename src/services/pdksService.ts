@@ -127,42 +127,9 @@ export const pdksService = {
       }
 
       const dbList = allRows;
-
-      // Merge with local vardiya cache if any exists
-      try {
-        const localCacheRaw = localStorage.getItem('humanius_local_vardiya_cache');
-        if (localCacheRaw) {
-          const localCache = JSON.parse(localCacheRaw) as VardiyaKaydi[];
-          if (Array.isArray(localCache) && localCache.length > 0) {
-            const merged = [...dbList];
-            for (const loc of localCache) {
-              const idx = merged.findIndex((m) => m.employee_id === loc.employee_id && m.tarih === loc.tarih);
-              if (idx >= 0) {
-                // Keep the most complete info: do NOT let null/empty cikis_saati from cache overwrite valid DB cikis_saati
-                merged[idx] = {
-                  ...loc,
-                  ...merged[idx],
-                  cikis_saati: merged[idx].cikis_saati || loc.cikis_saati || null,
-                  giris_saati: merged[idx].giris_saati || loc.giris_saati || null,
-                };
-              } else {
-                merged.unshift(loc);
-              }
-            }
-            return merged;
-          }
-        }
-      } catch {}
-
       return dbList;
     } catch (err) {
-      console.warn('Supabase vardiya yükleme hatası, yerel önbellek kullanılıyor:', err);
-      try {
-        const localCacheRaw = localStorage.getItem('humanius_local_vardiya_cache') || localStorage.getItem('humanius_demo_pdks_vardiya');
-        if (localCacheRaw) {
-          return JSON.parse(localCacheRaw);
-        }
-      } catch {}
+      console.warn('Supabase vardiya yükleme hatası:', err);
       return [];
     }
   },
@@ -181,28 +148,6 @@ export const pdksService = {
       cikis_saati: cleanCikis,
     };
 
-    // Always update local cache so any created/edited vardiya is guaranteed to be available locally
-    let cachedRec: VardiyaKaydi = {
-      ...cleanPayload,
-      id: 'v-loc-' + Math.random().toString(36).substr(2, 9),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    try {
-      const cacheRaw = localStorage.getItem('humanius_local_vardiya_cache');
-      const cacheList: VardiyaKaydi[] = cacheRaw ? JSON.parse(cacheRaw) : [];
-      const existingIdx = cacheList.findIndex((r) => r.employee_id === cleanPayload.employee_id && r.tarih === cleanPayload.tarih);
-      if (existingIdx >= 0) {
-        cachedRec = { ...cacheList[existingIdx], ...cleanPayload, updated_at: new Date().toISOString() };
-        cacheList[existingIdx] = cachedRec;
-      } else {
-        cacheList.unshift(cachedRec);
-      }
-      localStorage.setItem('humanius_local_vardiya_cache', JSON.stringify(cacheList));
-    } catch (e) {
-      console.warn('Yerel vardiya önbellek hatası:', e);
-    }
-
     if (demoService.isDemoActive()) {
       const list = await this.getVardiyalar();
       const existingIdx = list.findIndex(r => r.employee_id === cleanPayload.employee_id && r.tarih === cleanPayload.tarih);
@@ -211,39 +156,30 @@ export const pdksService = {
         localStorage.setItem('humanius_demo_pdks_vardiya', JSON.stringify(list));
         return list[existingIdx];
       }
-      list.push(cachedRec);
+      const newRec: VardiyaKaydi = {
+        ...cleanPayload,
+        id: 'v-demo-' + Math.random().toString(36).substr(2, 9),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      list.push(newRec);
       localStorage.setItem('humanius_demo_pdks_vardiya', JSON.stringify(list));
-      return cachedRec;
+      return newRec;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('pdks_vardiya_kayitlari')
-        .upsert(cleanPayload, { onConflict: 'employee_id,tarih' })
-        .select()
-        .single();
+    // Direct write to Supabase Database (authoritative single source of truth)
+    const { data, error } = await supabase
+      .from('pdks_vardiya_kayitlari')
+      .upsert(cleanPayload, { onConflict: 'employee_id,tarih' })
+      .select()
+      .single();
 
-      if (error) throw error;
-      const savedRec = data as VardiyaKaydi;
-
-      // Update local cache with real record from DB
-      try {
-        const cacheRaw = localStorage.getItem('humanius_local_vardiya_cache');
-        const cacheList: VardiyaKaydi[] = cacheRaw ? JSON.parse(cacheRaw) : [];
-        const existingIdx = cacheList.findIndex((r) => r.employee_id === savedRec.employee_id && r.tarih === savedRec.tarih);
-        if (existingIdx >= 0) {
-          cacheList[existingIdx] = savedRec;
-        } else {
-          cacheList.unshift(savedRec);
-        }
-        localStorage.setItem('humanius_local_vardiya_cache', JSON.stringify(cacheList));
-      } catch {}
-
-      return savedRec;
-    } catch (err) {
-      console.warn('Supabase vardiya kaydetme hatası, yerel önbellek kullanıldı:', err);
-      return cachedRec;
+    if (error) {
+      console.error('Supabase vardiya kaydetme hatası:', error);
+      throw error;
     }
+
+    return data as VardiyaKaydi;
   },
 
   async updateVardiya(id: string, updates: Partial<VardiyaInsert>): Promise<VardiyaKaydi> {
@@ -261,27 +197,15 @@ export const pdksService = {
       cleanUpdates.tarih = String(updates.tarih).split('T')[0];
     }
 
-    let cachedEmpId: string | undefined = cleanUpdates.employee_id;
-    let cachedTarih: string | undefined = cleanUpdates.tarih;
-
-    try {
-      const cacheRaw = localStorage.getItem('humanius_local_vardiya_cache');
-      const cacheList: VardiyaKaydi[] = cacheRaw ? JSON.parse(cacheRaw) : [];
-      const idx = cacheList.findIndex((r) => r.id === id);
-      if (idx >= 0) {
-        cachedEmpId = cachedEmpId || cacheList[idx].employee_id;
-        cachedTarih = cachedTarih || cacheList[idx].tarih;
-        cacheList[idx] = { ...cacheList[idx], ...cleanUpdates, updated_at: new Date().toISOString() };
-        localStorage.setItem('humanius_local_vardiya_cache', JSON.stringify(cacheList));
-      }
-    } catch {}
+    let targetEmpId = cleanUpdates.employee_id;
+    let targetTarih = cleanUpdates.tarih;
 
     if (demoService.isDemoActive()) {
       const list = await this.getVardiyalar();
       const idx = list.findIndex(r => r.id === id);
       if (idx === -1) {
-        if (cachedEmpId && cachedTarih) {
-          const byEmp = list.findIndex(r => r.employee_id === cachedEmpId && r.tarih === cachedTarih);
+        if (targetEmpId && targetTarih) {
+          const byEmp = list.findIndex(r => r.employee_id === targetEmpId && r.tarih === targetTarih);
           if (byEmp >= 0) {
             list[byEmp] = { ...list[byEmp], ...cleanUpdates, updated_at: new Date().toISOString() } as any;
             localStorage.setItem('humanius_demo_pdks_vardiya', JSON.stringify(list));
@@ -312,12 +236,12 @@ export const pdksService = {
       }
 
       // If id is not a UUID or eq('id', id) didn't match, update by employee_id + tarih
-      if (cachedEmpId && cachedTarih) {
+      if (targetEmpId && targetTarih) {
         const { data, error } = await supabase
           .from('pdks_vardiya_kayitlari')
           .update(cleanUpdates)
-          .eq('employee_id', cachedEmpId)
-          .eq('tarih', cachedTarih)
+          .eq('employee_id', targetEmpId)
+          .eq('tarih', targetTarih)
           .select()
           .maybeSingle();
 

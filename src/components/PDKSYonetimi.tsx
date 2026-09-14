@@ -379,15 +379,29 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
     const isSaturday = recDate.getDay() === 6;
 
     // "vardıyada ne yazıyosa ona göre cıkış yapılsın"
-    // Personelin tanımlı vardiyası (Tarsus 15:00 vb.) varsa vardiyadaki saatler esastır.
-    let rawCikis = empShift?.end_time;
-    const isSpecificShift = rawCikis && rawCikis !== '18:00' && rawCikis !== '00:00';
-    if (!rawCikis || rawCikis === '00:00' || (!isSpecificShift && isSaturday && customSat?.isSaturdayWork)) {
-      rawCikis = (isSaturday && customSat?.isSaturdayWork) ? (customSat.endTime || '16:00') : '18:00';
+    // Personelin tanımlı vardiyası varsa vardiyadaki saatler esastır.
+    let rawCikis = empShift?.end_time || '18:00';
+    let rawGiris = empShift?.start_time || '08:30';
+    let mola = empShift?.break_duration ?? empShift?.break_minutes ?? 60;
+
+    if (isSaturday && customSat?.isSaturdayWork) {
+      if (empShift?.saturday_end_time && empShift.saturday_end_time !== '00:00') {
+        rawCikis = empShift.saturday_end_time;
+      } else {
+        rawCikis = customSat?.endTime || '13:00';
+      }
+      if (empShift?.saturday_start_time && empShift.saturday_start_time !== '00:00') {
+        rawGiris = empShift.saturday_start_time;
+      }
+      if (empShift?.saturday_break_minutes != null) {
+        mola = empShift.saturday_break_minutes;
+      } else if (customSat?.breakMinutes != null) {
+        mola = customSat.breakMinutes;
+      }
     }
 
     const cleanCikis = rawCikis.substring(0, 5);
-    const cleanGiris = (empShift?.start_time || '08:30').substring(0, 5);
+    const cleanGiris = rawGiris.substring(0, 5);
 
     const vardiyaTanimi: VardiyaTanimi = {
       ad: empShift?.name || 'Genel Vardiya',
@@ -395,7 +409,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       cikis: cleanCikis,
       departman: emp?.department || 'Tümü',
       toleransDk: 15,
-      molaDk: empShift?.break_duration ?? 60,
+      molaDk: mola,
       haftaOtLimit: 45,
       esnek: false,
     };
@@ -565,7 +579,22 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
   }
 
   function effectiveDurum(k: PDKSKaydi): PDKSDurum {
-    if (k.girisZamani && (!k.cikisZamani || k.cikisZamani === '00:00')) return 'eksik-cikis';
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const isToday = k.tarih === todayStr;
+
+    if (k.girisZamani && (!k.cikisZamani || k.cikisZamani === '00:00')) {
+      if (isToday) {
+        const { cikisSaati: planliCikis } = resolveEmployeeShift(k.employeeId, k.tarih, companyShifts, companyShiftAssignments, null);
+        const [eH, eM] = (planliCikis || '18:00').split(':').map(Number);
+        const shiftEndMin = !isNaN(eH) && !isNaN(eM) ? eH * 60 + eM : 18 * 60;
+        if (currentMinutes < shiftEndMin) {
+          return k.durum || 'normal'; // Vardiyası devam ediyor
+        }
+      }
+      return 'eksik-cikis';
+    }
     if (k.girisZamani || k.cikisZamani) return k.durum;
     return hasApprovedLeave(k.employeeId, k.tarih) ? 'izinli' : 'devamsiz';
   }
@@ -582,7 +611,20 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       else if (durumEff === 'devamsiz') durumStr = 'Devamsız';
       else if (durumEff === 'izinli') durumStr = 'İzinli';
       else if (durumEff === 'erken-cikis') durumStr = 'Erken Çıkış';
-      else if ((!k.cikisZamani || k.cikisZamani === '00:00') && k.girisZamani) durumStr = 'Mesai Devam Ediyor';
+      else if ((!k.cikisZamani || k.cikisZamani === '00:00') && k.girisZamani) {
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const isToday = k.tarih === todayStr;
+        const { cikisSaati: planliCikis } = resolveEmployeeShift(k.employeeId, k.tarih, companyShifts, companyShiftAssignments, null);
+        const [eH, eM] = (planliCikis || '18:00').split(':').map(Number);
+        const shiftEndMin = !isNaN(eH) && !isNaN(eM) ? eH * 60 + eM : 18 * 60;
+        if (isToday && currentMinutes < shiftEndMin) {
+          durumStr = 'Vardiyası Devam Ediyor';
+        } else {
+          durumStr = 'Çıkış Bekleniyor';
+        }
+      }
       else if (!k.girisZamani) durumStr = 'Giriş Yapılmadı';
 
       return {
@@ -972,9 +1014,30 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                       </td>
                       <td className="px-4 py-3 font-mono text-gray-700 text-xs">
                         {(!k.cikisZamani || k.cikisZamani === '00:00') ? (
-                          <span className="inline-flex items-center gap-1 text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                            ⚡ {k.cikisZamani === '00:00' ? '00:00 (Mesai Açık)' : '- Eksik'}
-                          </span>
+                          (() => {
+                            const now = new Date();
+                            const todayStr = now.toISOString().split('T')[0];
+                            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                            const { cikisSaati: planliCikis } = resolveEmployeeShift(k.employeeId, k.tarih, companyShifts, companyShiftAssignments, null);
+                            const [eH, eM] = (planliCikis || '18:00').split(':').map(Number);
+                            const shiftEndMin = !isNaN(eH) && !isNaN(eM) ? eH * 60 + eM : 18 * 60;
+                            const isToday = k.tarih === todayStr;
+                            const isStillActive = isToday && currentMinutes < shiftEndMin;
+
+                            if (isStillActive) {
+                              return (
+                                <span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-[11px]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  Vardiyası Devam Ediyor
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="inline-flex items-center gap-1 text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                ⚡ {k.cikisZamani === '00:00' ? '00:00 (Mesai Açık)' : (isToday ? `${planliCikis || '18:00'} (Bitti)` : '- Eksik')}
+                              </span>
+                            );
+                          })()
                         ) : (
                           k.cikisZamani
                         )}

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import type { Employee } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { systemDataService } from '../services/systemDataService';
 
 export type DegerlendiriciTuru = 'yonetici' | 'oz' | 'akran' | 'ast';
 
@@ -131,16 +132,21 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
     durum: 'tamamlandi' as 'taslak' | 'tamamlandi',
   });
 
-  // LocalStorage'dan veri yükleme
+  // Veritabanından (Supabase) veri yükleme
   useEffect(() => {
-    const storedDeg = localStorage.getItem(`humanius_performances_${companyId}`);
-    if (storedDeg) {
-      try {
-        setDegerlendirmeler(JSON.parse(storedDeg));
-      } catch {}
-    } else {
-      // Örnek başlangıç 360 verileri (boş olmaması için zengin demo)
-      if (employees.length > 0) {
+    let isMounted = true;
+    const loadEvaluations = async () => {
+      const data = await systemDataService.getCompanyData<PerformansDegerlendirme[]>(
+        companyId,
+        'performans_degerlendirmeleri',
+        []
+      );
+      if (!isMounted) return;
+
+      if (Array.isArray(data) && data.length > 0) {
+        setDegerlendirmeler(data);
+      } else if (employees.length > 0) {
+        // Örnek başlangıç 360 verileri (boş olmaması için zengin başlangıç)
         const seedData: PerformansDegerlendirme[] = employees.slice(0, 4).map((emp, idx) => ({
           id: `seed-deg-${idx}`,
           employeeId: emp.id,
@@ -162,9 +168,28 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
           tarih: new Date().toISOString().split('T')[0],
         }));
         setDegerlendirmeler(seedData);
-        localStorage.setItem(`humanius_performances_${companyId}`, JSON.stringify(seedData));
+        await systemDataService.saveCompanyData(
+          companyId,
+          'performans_degerlendirmeleri',
+          seedData,
+          'Performans Değerlendirmeleri'
+        );
       }
-    }
+    };
+
+    loadEvaluations();
+
+    const handleUpdate = (e: any) => {
+      if (e.detail?.companyId === companyId && e.detail?.key === 'performans_degerlendirmeleri') {
+        setDegerlendirmeler(e.detail.value || []);
+      }
+    };
+    window.addEventListener('humanius_system_data_updated', handleUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('humanius_system_data_updated', handleUpdate);
+    };
   }, [companyId, employees, guncelDonem]);
 
   // Departman listesi
@@ -228,7 +253,7 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
   const ozDegerlendirmeCount = goruntulenenDegerlendirmeler.filter((d) => d.degerlendiriciTuru === 'oz').length;
 
   // Yeni Değerlendirme Kaydet
-  const handleSaveEvaluation = (e: React.FormEvent) => {
+  const handleSaveEvaluation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!yeniDeg.employeeId) {
       alert('Lütfen değerlendirilecek personeli seçin.');
@@ -277,7 +302,12 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
 
     const updated = [newEvaluation, ...degerlendirmeler];
     setDegerlendirmeler(updated);
-    localStorage.setItem(`humanius_performances_${companyId}`, JSON.stringify(updated));
+    await systemDataService.saveCompanyData(
+      companyId,
+      'performans_degerlendirmeleri',
+      updated,
+      'Performans Değerlendirmeleri'
+    );
     setShowNewForm(false);
 
     // Formu sıfırla
@@ -298,12 +328,17 @@ const PerformansYonetimi: React.FC<PerformansYonetimiProps> = ({ employees, user
   };
 
   // Silme
-  const handleDeleteEvaluation = (id: string, e: React.MouseEvent) => {
+  const handleDeleteEvaluation = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm('Bu performans değerlendirmesini silmek istediğinize emin misiniz?')) {
       const updated = degerlendirmeler.filter((d) => d.id !== id);
       setDegerlendirmeler(updated);
-      localStorage.setItem(`humanius_performances_${companyId}`, JSON.stringify(updated));
+      await systemDataService.saveCompanyData(
+        companyId,
+        'performans_degerlendirmeleri',
+        updated,
+        'Performans Değerlendirmeleri'
+      );
       if (secilenDegerlendirmeId === id) {
         setSecilenDegerlendirmeId(null);
       }

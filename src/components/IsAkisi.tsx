@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, FileText, CheckCircle, Clock, Plus, Trash2, Play, Check, X, ArrowLeftRight } from 'lucide-react';
+import { systemDataService } from '../services/systemDataService';
 
 interface WorkflowTask {
   id: string;
@@ -14,22 +15,46 @@ interface IsAkisiProps {
 }
 
 const IsAkisi: React.FC<IsAkisiProps> = ({ companyId = 'default' }) => {
-  const [tasks, setTasks] = useState<WorkflowTask[]>(() => {
-    const saved = localStorage.getItem(`humanius_workflow_tasks_${companyId}`);
-    return saved ? JSON.parse(saved) : []; // Empty by default (no mock data)
-  });
+  const [tasks, setTasks] = useState<WorkflowTask[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newDate, setNewDate] = useState(() => new Date().toISOString().split('T')[0]);
 
-  // Sync to localStorage
+  // Load from Supabase Database
   useEffect(() => {
-    localStorage.setItem(`humanius_workflow_tasks_${companyId}`, JSON.stringify(tasks));
-  }, [tasks, companyId]);
+    let isMounted = true;
+    const loadTasks = async () => {
+      setLoading(true);
+      const data = await systemDataService.getCompanyData<WorkflowTask[]>(companyId, 'workflow_tasks', []);
+      if (isMounted) {
+        setTasks(Array.isArray(data) ? data : []);
+        setLoading(false);
+      }
+    };
+    loadTasks();
 
-  const addTask = (e: React.FormEvent) => {
+    const handleDataUpdate = (e: any) => {
+      if (e.detail?.companyId === companyId && e.detail?.key === 'workflow_tasks') {
+        setTasks(e.detail.value || []);
+      }
+    };
+    window.addEventListener('humanius_system_data_updated', handleDataUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('humanius_system_data_updated', handleDataUpdate);
+    };
+  }, [companyId]);
+
+  const saveTasksToDb = async (updatedTasks: WorkflowTask[]) => {
+    setTasks(updatedTasks);
+    await systemDataService.saveCompanyData(companyId, 'workflow_tasks', updatedTasks, 'İş Akışı Görevleri');
+  };
+
+  const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
@@ -41,20 +66,23 @@ const IsAkisi: React.FC<IsAkisiProps> = ({ companyId = 'default' }) => {
       date: newDate
     };
 
-    setTasks([...tasks, newTask]);
+    const updated = [...tasks, newTask];
+    await saveTasksToDb(updated);
     setNewTitle('');
     setNewDesc('');
     setNewDate(new Date().toISOString().split('T')[0]);
     setShowAddForm(false);
   };
 
-  const updateStatus = (id: string, newStatus: WorkflowTask['status']) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, status: newStatus } : t));
+  const updateStatus = async (id: string, newStatus: WorkflowTask['status']) => {
+    const updated = tasks.map(t => t.id === id ? { ...t, status: newStatus } : t);
+    await saveTasksToDb(updated);
   };
 
-  const deleteTask = (id: string) => {
+  const deleteTask = async (id: string) => {
     if (window.confirm('Bu görevi silmek istediğinize emin misiniz?')) {
-      setTasks(tasks.filter(t => t.id !== id));
+      const updated = tasks.filter(t => t.id !== id);
+      await saveTasksToDb(updated);
     }
   };
 

@@ -241,6 +241,50 @@ export function getDevamKontroluIzinLabel(tur: string | undefined | null, compan
   return formatted || 'İzinli';
 }
 
+/**
+ * Devam Kontrolü ve Puantaj senkronizasyonunda izin/tatil türünün standart kısaltmasını üretir.
+ * Giriş ve çıkış saati hanelerine yazılmak üzere kullanılır.
+ * Örn: 'HT', 'AT', 'Yİ', 'RP', 'Üİ', 'Mİ', 'EG', 'DĞ', 'BB', 'EVL', 'ÖLM', 'UBGT'
+ */
+export function getDevamKontroluIzinKisaltma(tur: string | undefined | null, companyId?: string): string {
+  if (!tur) return 'İZİN';
+  const clean = String(tur).trim();
+  const lower = clean.toLowerCase();
+
+  // Şirket dinamik izin tanımları kontrolü
+  try {
+    const companyTurler = getCompanyIzinTurleri(companyId);
+    const found = companyTurler.find(
+      (t) =>
+        t.id === clean ||
+        t.id.toLowerCase() === lower ||
+        (t.kod && t.kod.toLowerCase() === lower) ||
+        (t.ad && t.ad.toLowerCase() === lower) ||
+        lower.startsWith(t.id.toLowerCase())
+    );
+    if (found && found.kod) {
+      return found.kod.toUpperCase();
+    }
+  } catch {}
+
+  if (lower.includes('hafta') || lower === 'ht') return 'HT';
+  if (lower.includes('akdi') || lower === 'at') return 'AT';
+  if (lower.includes('rapor') || lower.includes('hastalik') || lower === 'r' || lower === 'rp' || lower === '-r' || lower === 'ha') return 'RP';
+  if (lower.includes('yillik') || lower.includes('yıllık') || lower === 'yi' || lower === 'yillik') return 'Yİ';
+  if (lower.includes('ucret') || lower.includes('ücret') || lower === 'ui' || lower === 'üi') return 'Üİ';
+  if (lower.includes('mazeret') || lower === 'mi') return 'Mİ';
+  if (lower.includes('egitim') || lower.includes('eğitim') || lower === 'eg') return 'EG';
+  if (lower.includes('dogum') || lower.includes('doğum') || lower === 'dgm') return 'DĞ';
+  if (lower.includes('babalik') || lower.includes('babalık')) return 'BB';
+  if (lower.includes('evlilik')) return 'EVL';
+  if (lower.includes('olum') || lower.includes('ölüm')) return 'ÖLM';
+  if (lower.includes('asker')) return 'ASK';
+  if (lower.includes('ubgt') || lower.includes('bayram') || lower.includes('resmi tatil')) return 'UBGT';
+
+  if (clean.length <= 4) return clean.toUpperCase();
+  return 'İZİN';
+}
+
 type MaxIzinInfo = {
   max: number;
   label: string;

@@ -186,40 +186,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const loadPuantajData = async () => {
     setIsLoading(true);
     try {
-      // Admin Overrides (humanius_puantaj_overrides) ve PDKS Overrides (humanius_pdks_override_*) senkronizasyonu
-      let loadedOverrides: Record<string, any> = {};
-      try {
-        const s = localStorage.getItem('humanius_puantaj_overrides');
-        if (s) loadedOverrides = JSON.parse(s);
-      } catch {}
-
-      // PDKS devam kontrolünden girilen güncel giriş/çıkış kayıtlarını da puantaj ile eşitle
-      const todayStr = new Date().toISOString().split('T')[0];
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('humanius_pdks_override_')) {
-            const empId = key.replace('humanius_pdks_override_', '');
-            const rawVal = localStorage.getItem(key);
-            if (rawVal) {
-              const parsed = JSON.parse(rawVal);
-              if (parsed && parsed.giris && parsed.giris !== '-') {
-                const puantajKey = `${empId}_${todayStr}`;
-                if (!loadedOverrides[puantajKey] || loadedOverrides[puantajKey].kod === 'Ç') {
-                  loadedOverrides[puantajKey] = {
-                    kod: 'Ç',
-                    giris: parsed.giris,
-                    cikis: parsed.cikis !== '-' ? parsed.cikis : '18:00',
-                    kodAciklama: `Fiili Çalışma (${parsed.giris}-${parsed.cikis !== '-' ? parsed.cikis : '18:00'})`,
-                    notlar: parsed.officeName || 'Merkez Ofis'
-                  };
-                }
-              }
-            }
-          }
-        }
-      } catch {}
-      setAdminOverrides(loadedOverrides);
+      // Canlı veritabanı (pdks_vardiya_kayitlari) temel alındığından adminOverrides temiz başlatılır
+      setAdminOverrides({});
 
       const targetCompanyId = profile?.company_id || employees[0]?.company_id || undefined;
       const [fetchedVardiyalar, fetchedShifts, fetchedAssignments, fetchedSaturday, fetchedLeaveTypes] = await Promise.all([
@@ -284,10 +252,10 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     const targetCompanyId = profile?.company_id || employees[0]?.company_id || 'default';
     const newConfig: SaturdayWorkConfig = {
       isSaturdayWork: modalIsSatWork,
-      startTime: modalSatStart,
-      endTime: modalSatEnd,
-      breakMinutes: Number(modalSatBreak || 0),
-      toleranceMinutes: Number(modalSatTolerance || 15),
+      startTime: saturdayConfig.startTime || '08:30',
+      endTime: saturdayConfig.endTime || '16:00',
+      breakMinutes: Number(saturdayConfig.breakMinutes ?? 30),
+      toleranceMinutes: Number(saturdayConfig.toleranceMinutes ?? 15),
     };
 
     try {
@@ -449,7 +417,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     setEditTarget({ employee: rec.employee, gun });
     setEditKod(gun.kod);
     setEditGiris(gun.girisSaati || '08:30');
-    setEditCikis(gun.cikisSaati || '18:00');
+    setEditCikis(gun.cikisSaati || '');
     setEditNotlar(gun.notlar || '');
     setEditModalOpen(true);
   };
@@ -461,15 +429,16 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     const overrideKey = `${employee.id}_${gun.tarih}`;
     const matchedCustom = leaveTypes.find((lt) => lt.kod === editKod || lt.id === editKod);
     const customDesc = matchedCustom?.ad;
+    const cleanCikis = editCikis && editCikis.trim() !== '-' ? editCikis.trim() : null;
 
     const newOverride = {
       kod: editKod,
       giris: editKod === 'Ç' ? editGiris : '-',
-      cikis: editKod === 'Ç' ? editCikis : '-',
+      cikis: editKod === 'Ç' ? (cleanCikis || '-') : '-',
       notlar: editNotlar || undefined,
       kodAciklama:
         editKod === 'Ç'
-          ? `Fiili Çalışma (${editGiris}-${editCikis})`
+          ? (cleanCikis ? `Fiili Çalışma (${editGiris}-${cleanCikis})` : `Vardiyası Devam Ediyor (Giriş: ${editGiris})`)
           : editKod === 'Yİ' || editKod === 'YI'
           ? 'Yıllık Ücretli İzin'
           : editKod === 'EG'
@@ -493,22 +462,25 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
     const nextOverrides = { ...adminOverrides, [overrideKey]: newOverride };
     setAdminOverrides(nextOverrides);
-    localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(nextOverrides));
 
-    // Veritabanına da güncelleyelim (arka planda)
+    // Canlı veritabanına anında yaz (Tüm durumlar: Ç, HT, AT, Yİ, RP, D, UBGT vb.)
     try {
-      if (editKod === 'Ç') {
-        await pdksService.createVardiya({
-          company_id: employee.company_id || profile?.company_id || 'default',
-          employee_id: employee.id,
-          tarih: gun.tarih,
-          vardiya_tipi: 'sabah',
-          giris_saati: editGiris,
-          cikis_saati: editCikis,
-          durum: 'zamaninda',
-          notlar: editNotlar || 'Puantaj ekranından manuel düzenlendi',
-        });
-      }
+      const targetCompId = normalizeCompanyId(employee.company_id || profile?.company_id || 'default');
+      const notlarText = `[PUANTAJ:${editKod}] ${newOverride.kodAciklama || ''} ${editNotlar ? '- ' + editNotlar : ''}`.trim();
+      const girisVal = editKod === 'Ç' ? (editGiris || '08:30') : null;
+      const cikisVal = editKod === 'Ç' ? cleanCikis : null;
+      const durumVal = editKod === 'Ç' ? 'zamaninda' : (editKod === 'D' ? 'gelmedi' : 'izinli');
+
+      await pdksService.createVardiya({
+        company_id: targetCompId,
+        employee_id: employee.id,
+        tarih: gun.tarih,
+        vardiya_tipi: 'tam-gun',
+        giris_saati: girisVal,
+        cikis_saati: cikisVal,
+        durum: durumVal,
+        notlar: notlarText,
+      });
     } catch (err) {
       console.warn('Veritabanı puantaj güncelleme uyarısı:', err);
     }
@@ -516,20 +488,32 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     setEditModalOpen(false);
     window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
     window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
+    await loadPuantajData();
   };
 
   // Manuel Düzeltmeyi Kaldır (Otomatik Hesaplamaya Dön)
-  const handleClearCellEdit = () => {
+  const handleClearCellEdit = async () => {
     if (!editTarget) return;
     const { employee, gun } = editTarget;
     const overrideKey = `${employee.id}_${gun.tarih}`;
     const nextOverrides = { ...adminOverrides };
     delete nextOverrides[overrideKey];
     setAdminOverrides(nextOverrides);
-    localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(nextOverrides));
+
+    // Veritabanındaki puantaj kaydını sil
+    try {
+      const existing = vardiyaKayitlari.find(v => (v.employee_id === employee.id || (v as any).employeeId === employee.id) && v.tarih === gun.tarih);
+      if (existing) {
+        await pdksService.deleteVardiya(existing.id);
+      }
+    } catch (e) {
+      console.warn('Puantaj hücre kaydı silinirken hata:', e);
+    }
+
     setEditModalOpen(false);
     window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
     window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
+    await loadPuantajData();
   };
 
   // Çıktı Fonksiyonları
@@ -624,6 +608,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
           gecikmeDk: g.gecikmeDk || 0,
           kod: g.kod,
           kodAciklama: g.kodAciklama || '',
+          isOngoing: g.isOngoing,
         }));
     }).sort((a, b) => {
       let cmp = 0;
@@ -756,8 +741,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
               <span className="block text-[9px] text-gray-400 font-semibold uppercase tracking-wider">Cumartesi</span>
               <span>
                 {saturdayConfig.isSaturdayWork
-                  ? `Çalışma Var (${saturdayConfig.startTime} - ${saturdayConfig.endTime})`
-                  : 'Tatil (5 Günlük Düzen)'}
+                  ? '6 Günlük Düzen (Vardiya Bazlı)'
+                  : '5 Günlük Düzen (Cumartesi Tatil)'}
               </span>
             </div>
             {isManagement && (
@@ -1056,7 +1041,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                       <th
                         key={g.tarih}
                         className={`px-1 py-2 text-center border-r border-gray-200 min-w-[34px] ${bg}`}
-                        title={`${g.tarih} ${g.gunAdi}${g.resmiTatilAdi ? ' - ' + g.resmiTatilAdi : ''}${g.isCumartesi && saturdayConfig.isSaturdayWork ? ' (Cumartesi Çalışması: ' + saturdayConfig.startTime + ' - ' + saturdayConfig.endTime + ')' : ''}`}
+                        title={`${g.tarih} ${g.gunAdi}${g.resmiTatilAdi ? ' - ' + g.resmiTatilAdi : ''}${g.isCumartesi && saturdayConfig.isSaturdayWork ? ' (6 Günlük Düzen: Cumartesi Çalışması)' : ''}`}
                       >
                         <div className="font-extrabold text-[11px]">{g.gunNo}</div>
                         <div className="text-[9px] font-normal opacity-80">{g.gunAdi}</div>
@@ -1204,9 +1189,14 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                         let displayVal = g.kod;
 
                         if (g.kod === 'Ç') {
-                          badgeStyle = 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-200 font-bold';
-                          const hours = getCalismaSaati(g, p.shift);
-                          displayVal = `${hours}s`;
+                          if (g.isOngoing) {
+                            badgeStyle = 'bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-300 font-bold';
+                            displayVal = 'Devam';
+                          } else {
+                            badgeStyle = 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-200 font-bold';
+                            const hours = getCalismaSaati(g, p.shift);
+                            displayVal = `${hours}s`;
+                          }
                         } else if (g.kod === 'HT') {
                           badgeStyle = 'bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-200 font-bold';
                         } else if (g.kod === 'AT') {
@@ -1249,12 +1239,13 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                             key={g.tarih}
                             onClick={() => handleOpenEditCell(p, g)}
                             className={`px-0.5 py-1 text-center border-r border-gray-100 ${cellBg} cursor-pointer transition-all hover:ring-1 hover:ring-blue-400`}
-                            title={`${emp.name} - ${g.tarih} (${g.gunAdi})\nDurum: ${g.kodAciklama}\nGiriş: ${g.girisSaati || '-'}\nÇıkış: ${g.cikisSaati || '-'}\nNet Süre: ${g.netSureSaat} saat\n(Düzenlemek için tıklayın)`}
+                            title={`${emp.name} - ${g.tarih} (${g.gunAdi})\nDurum: ${g.kodAciklama}\nGiriş: ${g.girisSaati || '-'}\nÇıkış: ${g.cikisSaati || (g.isOngoing ? 'Vardiyası Devam Ediyor' : '-')}\nNet Süre: ${g.netSureSaat} saat\n(Düzenlemek için tıklayın)`}
                           >
                             <div className="flex flex-col items-center justify-center">
                               <span
-                                className={`inline-block w-full py-0.5 rounded text-[10px] font-bold tracking-tight ${badgeStyle}`}
+                                className={`inline-flex items-center justify-center gap-0.5 w-full py-0.5 rounded text-[10px] font-bold tracking-tight ${badgeStyle}`}
                               >
+                                {g.isOngoing && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
                                 {displayVal}
                               </span>
                               {g.yasalUyari11Saat && (
@@ -1662,7 +1653,16 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                           {item.girisSaati || '-'}
                         </td>
                         <td className="px-4 py-2.5 text-center font-bold text-blue-700">
-                          {item.cikisSaati || '-'}
+                          {item.cikisSaati ? (
+                            item.cikisSaati
+                          ) : item.isOngoing ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Vardiyası Devam Ediyor
+                            </span>
+                          ) : (
+                            '-'
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-center text-gray-500">
                           {item.molaDk} dk
@@ -1677,7 +1677,13 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                           {item.gecikmeDk > 0 ? `${item.gecikmeDk} dk` : '-'}
                         </td>
                         <td className="px-4 py-2.5 text-center">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${badgeStyle}`}>
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                              item.isOngoing
+                                ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                                : badgeStyle
+                            }`}
+                          >
                             {item.kod} - {item.kodAciklama}
                           </span>
                         </td>
@@ -1763,13 +1769,18 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="font-bold text-gray-700 block mb-1">Çıkış Saati:</label>
+                    <label className="font-bold text-gray-700 block mb-1">
+                      Çıkış Saati {editTarget?.gun?.isOngoing && <span className="text-[10px] text-emerald-600 font-normal">(Mesai Devam Ediyor)</span>}:
+                    </label>
                     <input
                       type="time"
                       value={editCikis}
                       onChange={(e) => setEditCikis(e.target.value)}
                       className="w-full border border-gray-200 rounded-lg p-2 font-mono font-bold bg-white"
                     />
+                    {editTarget?.gun?.isOngoing && !editCikis && (
+                      <p className="text-[10px] text-gray-400 mt-0.5">Boş bırakılırsa mesai devam ediyor olarak korunur.</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -1871,13 +1882,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
                 {/* 6 Günlük Seçenek */}
                 <div
-                  onClick={() => {
-                    setModalIsSatWork(true);
-                    if (modalSatEnd === '13:00' || !modalSatEnd) {
-                      setModalSatEnd('16:00');
-                      setModalSatBreak(30);
-                    }
-                  }}
+                  onClick={() => setModalIsSatWork(true)}
                   className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
                     modalIsSatWork
                       ? 'border-amber-500 bg-amber-50/50 shadow-xs'
@@ -1897,116 +1902,22 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
               </div>
             </div>
 
-            {/* Cumartesi Çalışma Varsa Saat Ayarları */}
+            {/* 6 Günlük Çalışma Düzeni Seçiliyken Bilgilendirme Kartı */}
             {modalIsSatWork && (
-              <div className="space-y-4 p-4 rounded-xl bg-amber-50/40 border border-amber-200/70">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Hızlı Çalışma Şablonları:</span>
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => applySaturdayPreset('standard16')}
-                      className={`p-2 rounded-lg text-[11px] font-bold border transition-all cursor-pointer text-center ${
-                        modalSatStart === '08:30' && modalSatEnd === '16:00'
-                          ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
-                          : 'bg-white hover:bg-amber-100 text-gray-700 border-gray-200'
-                      }`}
-                    >
-                      <div>08:30 - 16:00</div>
-                      <div className="text-[10px] font-normal opacity-90">6 Günlük (16:00 Bitiş)</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applySaturdayPreset('half1')}
-                      className={`p-2 rounded-lg text-[11px] font-bold border transition-all cursor-pointer text-center ${
-                        modalSatStart === '08:30' && modalSatEnd === '13:00'
-                          ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
-                          : 'bg-white hover:bg-amber-100 text-gray-700 border-gray-200'
-                      }`}
-                    >
-                      <div>08:30 - 13:00</div>
-                      <div className="text-[10px] font-normal opacity-90">Yarım Gün (4.5s)</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applySaturdayPreset('half2')}
-                      className={`p-2 rounded-lg text-[11px] font-bold border transition-all cursor-pointer text-center ${
-                        modalSatStart === '09:00' && modalSatEnd === '14:00'
-                          ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
-                          : 'bg-white hover:bg-amber-100 text-gray-700 border-gray-200'
-                      }`}
-                    >
-                      <div>09:00 - 14:00</div>
-                      <div className="text-[10px] font-normal opacity-90">Yarım Gün (5.0s)</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applySaturdayPreset('full')}
-                      className={`p-2 rounded-lg text-[11px] font-bold border transition-all cursor-pointer text-center ${
-                        modalSatStart === '08:30' && modalSatEnd === '18:00'
-                          ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
-                          : 'bg-white hover:bg-amber-100 text-gray-700 border-gray-200'
-                      }`}
-                    >
-                      <div>08:30 - 18:00</div>
-                      <div className="text-[10px] font-normal opacity-90">Tam Gün (60dk Mola)</div>
-                    </button>
-                  </div>
+              <div className="space-y-3 p-4 rounded-xl bg-amber-50/70 border border-amber-200/80 text-left">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span className="text-xs font-bold text-amber-950">
+                    Cumartesi Mesai Saatleri Vardiyalardan Alınır
+                  </span>
                 </div>
-
-                {/* Detaylı Saat Girişleri */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-amber-200/50">
-                  <div>
-                    <label className="text-[11px] font-bold text-gray-700 block mb-1">Başlama:</label>
-                    <input
-                      type="time"
-                      value={modalSatStart}
-                      onChange={(e) => setModalSatStart(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg p-2 font-mono font-bold bg-white text-xs outline-none focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-gray-700 block mb-1">Bitiş:</label>
-                    <input
-                      type="time"
-                      value={modalSatEnd}
-                      onChange={(e) => setModalSatEnd(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg p-2 font-mono font-bold bg-white text-xs outline-none focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-gray-700 block mb-1">Mola (Dk):</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="5"
-                      value={modalSatBreak}
-                      onChange={(e) => setModalSatBreak(Number(e.target.value) || 0)}
-                      className="w-full border border-gray-200 rounded-lg p-2 font-mono font-bold bg-white text-xs outline-none focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-gray-700 block mb-1">Tolerans (Dk):</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="5"
-                      value={modalSatTolerance}
-                      onChange={(e) => setModalSatTolerance(Number(e.target.value) || 0)}
-                      className="w-full border border-gray-200 rounded-lg p-2 font-mono font-bold bg-white text-xs outline-none focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 text-[11px] text-amber-900 bg-amber-100/70 p-2.5 rounded-lg border border-amber-200/80">
-                  <Info className="w-4 h-4 shrink-0 text-amber-600" />
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  6 Günlük Çalışma Düzeninde personellerin Cumartesi günü çalışma başlangıç, bitiş ve mola saatleri personelin <strong>bağlı olduğu Vardiyasından</strong> otomatik olarak belirlenir.
+                </p>
+                <div className="flex items-start gap-2 text-[11px] text-amber-800/90 bg-white/90 p-3 rounded-lg border border-amber-200/60">
+                  <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <span>
-                    6 Günlük Çalışma Düzeninde Cumartesi mesaisi saat <strong>{modalSatEnd || '16:00'}</strong> itibarıyla sona erer. Bu saatten sonraki çalışmalar otomatik olarak <strong>Fazla Mesai (FM)</strong> sütununa eklenir. Hafta içi (Pazartesi - Cuma) mesaileri bu ayardan kesinlikle etkilenmez (normal 18:00 vardiyası devam eder).
+                    Her şube, ofis veya personel grubunun Cumartesi çalışma saatini (örneğin yarım gün 13:00 veya 16:00) <strong>Vardiya Yönetimi</strong> ekranından her vardiya için ayrı ayrı düzenleyebilirsiniz.
                   </span>
                 </div>
               </div>

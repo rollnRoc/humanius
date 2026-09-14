@@ -4,6 +4,7 @@ import { Employee } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { userService } from '../services/userService';
 import { companyService } from '../services/companyService';
+import { systemDataService } from '../services/systemDataService';
 
 interface VeriKategori {
   id: string;
@@ -209,46 +210,78 @@ const KVKKUyumluluk: React.FC<KVKKUyumlulukProps> = ({ employees = [] }) => {
   }, [profile?.company_id]);
 
   useEffect(() => {
-    // 1. Kontrolleri yükle
-    const stored = localStorage.getItem(`humanius_kvkk_controls_${companyId}`);
-    if (stored) {
-      try {
-        setKontroller(JSON.parse(stored));
-      } catch {
-        initializeControls();
-      }
-    } else {
-      initializeControls();
-    }
+    let isMounted = true;
+    const loadKvkkData = async () => {
+      // 1. Kontrolleri veritabanından yükle
+      const controlsData = await systemDataService.getCompanyData<any[]>(
+        companyId,
+        'kvkk_controls',
+        []
+      );
+      if (!isMounted) return;
 
-    // 2. İmzalanan dökümanları yükle
-    const storedSigned = localStorage.getItem(`humanius_signed_docs_${userId}`);
-    if (storedSigned) {
-      try {
-        setSignedDocs(JSON.parse(storedSigned));
-      } catch {}
-    }
+      if (Array.isArray(controlsData) && controlsData.length > 0) {
+        setKontroller(controlsData);
+      } else {
+        const initial = KONTROL_LISTESI_TEMPLATES.map(t => ({
+          ...t,
+          durum: false
+        }));
+        setKontroller(initial);
+        if (companyId && companyId !== 'default') {
+          await systemDataService.saveCompanyData(companyId, 'kvkk_controls', initial, 'KVKK Kontrol Listesi');
+        }
+      }
+
+      // 2. İmzalanan dökümanları veritabanından yükle
+      const signedData = await systemDataService.getCompanyData<Record<string, any>>(
+        companyId,
+        `kvkk_signed_docs_${userId}`,
+        {}
+      );
+      if (isMounted && signedData && typeof signedData === 'object') {
+        setSignedDocs(signedData);
+      }
+    };
+
+    loadKvkkData();
+
+    const handleUpdate = (e: any) => {
+      if (e.detail?.companyId === companyId) {
+        if (e.detail?.key === 'kvkk_controls') {
+          setKontroller(e.detail.value || []);
+        } else if (e.detail?.key === `kvkk_signed_docs_${userId}`) {
+          setSignedDocs(e.detail.value || {});
+        }
+      }
+    };
+    window.addEventListener('humanius_system_data_updated', handleUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('humanius_system_data_updated', handleUpdate);
+    };
   }, [companyId, userId]);
 
-  const initializeControls = () => {
+  const initializeControls = async () => {
     const initial = KONTROL_LISTESI_TEMPLATES.map(t => ({
       ...t,
       durum: false // Tamamen sıfırlanmış olarak başlasın
     }));
     setKontroller(initial);
-    localStorage.setItem(`humanius_kvkk_controls_${companyId}`, JSON.stringify(initial));
+    await systemDataService.saveCompanyData(companyId, 'kvkk_controls', initial, 'KVKK Kontrol Listesi');
   };
 
-  const handleToggleControl = (index: number) => {
+  const handleToggleControl = async (index: number) => {
     const updated = [...kontroller];
     updated[index].durum = !updated[index].durum;
     setKontroller(updated);
-    localStorage.setItem(`humanius_kvkk_controls_${companyId}`, JSON.stringify(updated));
+    await systemDataService.saveCompanyData(companyId, 'kvkk_controls', updated, 'KVKK Kontrol Listesi');
   };
 
-  const handleResetControls = () => {
+  const handleResetControls = async () => {
     if (window.confirm('Tüm uyumluluk kontrol listesini sıfırlamak istediğinize emin misiniz?')) {
-      initializeControls();
+      await initializeControls();
     }
   };
 
@@ -263,7 +296,7 @@ const KVKKUyumluluk: React.FC<KVKKUyumlulukProps> = ({ employees = [] }) => {
     setSigningMetinId(metinId);
   };
 
-  const handleConfirmSign = () => {
+  const handleConfirmSign = async () => {
     // İmzalama işlemi - Şifre girmeden doğrudan onaylama
     const newSigned = {
       ...signedDocs,
@@ -275,7 +308,7 @@ const KVKKUyumluluk: React.FC<KVKKUyumlulukProps> = ({ employees = [] }) => {
     };
 
     setSignedDocs(newSigned);
-    localStorage.setItem(`humanius_signed_docs_${userId}`, JSON.stringify(newSigned));
+    await systemDataService.saveCompanyData(companyId, `kvkk_signed_docs_${userId}`, newSigned, 'KVKK İmzalı Belgeler');
     setSigningMetinId(null);
   };
 

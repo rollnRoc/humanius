@@ -230,7 +230,7 @@ export const printPuantajCetveliPdf = (params: {
         <div>
           <div style="font-size: 13px; font-weight: bold; color: #1e3a8a;">${companyName}</div>
           <h1 class="title">AYLIK PERSONEL PUANTAJ VE ÇALIŞMA CETVELİ</h1>
-          <div class="subtitle">4857 Sayılı İş Kanunu ve İlgili Mevzuat Hükümlerine Uygundur • Birim: <strong>${departmentFilter}</strong> • Düzen: <strong>${saturdayConfig?.isSaturdayWork ? `6 Günlük (Cumartesi ${saturdayConfig.startTime || '08:30'} - ${saturdayConfig.endTime || '13:00'})` : '5 Günlük (Cumartesi Tatil)'}</strong></div>
+          <div class="subtitle">4857 Sayılı İş Kanunu ve İlgili Mevzuat Hükümlerine Uygundur • Birim: <strong>${departmentFilter}</strong> • Düzen: <strong>${saturdayConfig?.isSaturdayWork ? '6 Günlük (Vardiya Bazlı Cumartesi)' : '5 Günlük (Cumartesi Tatil)'}</strong></div>
         </div>
         <div style="text-align: right; font-size: 10px;">
           <div>Dönem: <strong style="font-size: 13px; color: #2563eb;">${monthName} ${year}</strong></div>
@@ -703,6 +703,7 @@ export interface GunlukDetayliRaporItem {
   gecikmeDk: number;
   kod: string;
   kodAciklama: string;
+  isOngoing?: boolean;
 }
 
 export const printGunlukDetayliRaporPdf = (params: {

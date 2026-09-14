@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, ChevronDown, ChevronRight, Target, TrendingUp, User, Edit2, Trash2, CheckCircle, X, Save } from 'lucide-react';
 import type { Employee } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { systemDataService } from '../services/systemDataService';
 
 type OKRDurum = 'aktif' | 'tamamlandi' | 'risk' | 'iptal';
 
@@ -307,8 +308,9 @@ interface OKRYonetimiProps {
 }
 
 const OKRYonetimi: React.FC<OKRYonetimiProps> = ({ employees }) => {
-  const { appRole } = useAuth();
+  const { appRole, profile } = useAuth();
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole || 'employee');
+  const companyId = profile?.company_id || employees[0]?.company_id || 'default';
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -356,15 +358,43 @@ const OKRYonetimi: React.FC<OKRYonetimiProps> = ({ employees }) => {
     },
   ];
 
-  // Goals state with localStorage persistence
-  const [hedefler, setHedefler] = useState<Hedef[]>(() => {
-    const saved = localStorage.getItem('humanius_okr_hedefler');
-    return saved ? JSON.parse(saved) : getDefaultDemoHedefler();
-  });
+  // Goals state with Database persistence
+  const [hedefler, setHedefler] = useState<Hedef[]>([]);
 
-  const saveHedefler = (updated: Hedef[]) => {
+  useEffect(() => {
+    let isMounted = true;
+    const loadHedefler = async () => {
+      const data = await systemDataService.getCompanyData<Hedef[]>(companyId, 'okr_hedefler', []);
+      if (!isMounted) return;
+
+      if (Array.isArray(data) && data.length > 0) {
+        setHedefler(data);
+      } else {
+        const defaults = getDefaultDemoHedefler();
+        setHedefler(defaults);
+        if (companyId && companyId !== 'default') {
+          await systemDataService.saveCompanyData(companyId, 'okr_hedefler', defaults, 'Hedefler ve OKR');
+        }
+      }
+    };
+    loadHedefler();
+
+    const handleUpdate = (e: any) => {
+      if (e.detail?.companyId === companyId && e.detail?.key === 'okr_hedefler') {
+        setHedefler(e.detail.value || []);
+      }
+    };
+    window.addEventListener('humanius_system_data_updated', handleUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('humanius_system_data_updated', handleUpdate);
+    };
+  }, [companyId]);
+
+  const saveHedefler = async (updated: Hedef[]) => {
     setHedefler(updated);
-    localStorage.setItem('humanius_okr_hedefler', JSON.stringify(updated));
+    await systemDataService.saveCompanyData(companyId, 'okr_hedefler', updated, 'Hedefler ve OKR');
   };
 
   const [secilenDonem, setSecilenDonem] = useState(currentPeriod);

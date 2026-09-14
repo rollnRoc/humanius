@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, Filter, ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle, XCircle, FileText, Users, Building } from 'lucide-react';
 import { Employee } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { systemDataService } from '../services/systemDataService';
 import { IzinTalebi } from '../types/izin';
 import { BordroItem } from '../types/bordro';
 import { TakvimEtkinlik, EtkinlikTuru, YapilandirilmisEtkinlik } from '../types/takvim';
@@ -41,8 +43,9 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
   izinTalepleri,
   bordrolar
 }) => {
-  const { appRole } = useAuth();
+  const { appRole, profile } = useAuth();
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole || 'employee');
+  const companyId = profile?.company_id || employees[0]?.company_id || 'default';
 
   const [etkinlikler, setEtkinlikler] = useState<TakvimEtkinlik[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -51,36 +54,62 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
   const [filtreEtkinlikTuru, setFiltreEtkinlikTuru] = useState<string>('all');
   const [filtreDepartman, setFiltreDepartman] = useState<string>('all');
   const [showNewEvent, setShowNewEvent] = useState(false);
-  const [customEtkinlikler, setCustomEtkinlikler] = useState<TakvimEtkinlik[]>(() => {
-    try {
-      const saved = localStorage.getItem('humanius_custom_events');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [customEtkinlikler, setCustomEtkinlikler] = useState<TakvimEtkinlik[]>([]);
   const [yeniEtkinlik, setYeniEtkinlik] = useState<{ baslik: string; aciklama: string; tarih: string; tur: EtkinlikTuru }>({ baslik: '', aciklama: '', tarih: '', tur: 'toplanti' });
 
-  // Keep state synced with localStorage and handle other tabs/components updating it
+  // Veritabanından (Supabase & takvim_gunleri) veri yükleme
   useEffect(() => {
-    const handleStorageChange = () => {
-      try {
-        const saved = localStorage.getItem('humanius_custom_events');
-        if (saved) {
-          setCustomEtkinlikler(JSON.parse(saved));
-        }
-      } catch {}
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+    let isMounted = true;
+    const loadCustomEvents = async () => {
+      const sysEvents = await systemDataService.getCompanyData<TakvimEtkinlik[]>(
+        companyId,
+        'custom_calendar_events',
+        []
+      );
 
-  // Save to localStorage when modified locally
-  useEffect(() => {
-    try {
-      localStorage.setItem('humanius_custom_events', JSON.stringify(customEtkinlikler));
-    } catch {}
-  }, [customEtkinlikler]);
+      let dbCustoms: TakvimEtkinlik[] = [];
+      if (companyId && companyId !== 'default') {
+        try {
+          const { data: tGunleri } = await supabase
+            .from('takvim_gunleri')
+            .select('*')
+            .eq('company_id', companyId)
+            .eq('tur', 'firma_ozel');
+          if (tGunleri && Array.isArray(tGunleri)) {
+            dbCustoms = tGunleri.map((tg: any) => ({
+              id: tg.id,
+              tarih: tg.tarih,
+              baslik: tg.ad,
+              aciklama: tg.aciklama || '',
+              tur: 'toplanti' as const,
+              durum: 'beklemede' as any,
+              oncelik: 'normal' as any,
+            }));
+          }
+        } catch {}
+      }
+
+      if (!isMounted) return;
+      const combinedMap = new Map<string, TakvimEtkinlik>();
+      (sysEvents || []).forEach(e => combinedMap.set(e.id, e));
+      dbCustoms.forEach(e => combinedMap.set(e.id, e));
+      setCustomEtkinlikler(Array.from(combinedMap.values()));
+    };
+
+    loadCustomEvents();
+
+    const handleUpdate = (e: any) => {
+      if (e.detail?.companyId === companyId && e.detail?.key === 'custom_calendar_events') {
+        setCustomEtkinlikler(e.detail.value || []);
+      }
+    };
+    window.addEventListener('humanius_system_data_updated', handleUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('humanius_system_data_updated', handleUpdate);
+    };
+  }, [companyId]);
 
   // Otomatik ve ozel etkinlikleri birlestir
   useEffect(() => {
@@ -688,7 +717,7 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                 );
               })()}
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (!yeniEtkinlik.baslik || !yeniEtkinlik.tarih) {
                     alert('Lütfen başlık ve tarih giriniz.');
                     return;
@@ -704,11 +733,30 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                   };
                   const updatedCustomEvents = [...customEtkinlikler, newEv];
                   setCustomEtkinlikler(updatedCustomEvents);
-                  try {
-                    localStorage.setItem('humanius_custom_events', JSON.stringify(updatedCustomEvents));
-                    localStorage.setItem('humanius_new_alert_notification', 'true');
-                  } catch {}
-                  window.dispatchEvent(new Event('storage'));
+
+                  await systemDataService.saveCompanyData(
+                    companyId,
+                    'custom_calendar_events',
+                    updatedCustomEvents,
+                    'Şirket Takvimi Özel Etkinlikleri'
+                  );
+
+                  if (companyId && companyId !== 'default') {
+                    try {
+                      await supabase.from('takvim_gunleri').insert({
+                        company_id: companyId,
+                        tarih: newEv.tarih,
+                        ad: newEv.baslik,
+                        tur: 'firma_ozel',
+                        aciklama: newEv.aciklama || '',
+                        calisma_gunu_mu: true,
+                        yil: parseInt(newEv.tarih.split('-')[0]) || new Date().getFullYear(),
+                      });
+                    } catch (err) {
+                      console.warn('takvim_gunleri insert warning:', err);
+                    }
+                  }
+
                   setYeniEtkinlik({ baslik: '', aciklama: '', tarih: '', tur: 'toplanti' });
                   setShowNewEvent(false);
                 }}

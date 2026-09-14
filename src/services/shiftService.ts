@@ -12,28 +12,78 @@ export interface CompanyShift {
   is_default: boolean;
   office_id?: string;
   office_name?: string;
+  saturday_start_time?: string;
+  saturday_end_time?: string;
+  saturday_break_minutes?: number;
 }
 
-export function parseShiftOffice(rawName: string): { cleanName: string; officeName: string } {
+export interface ParsedShiftMeta {
+  cleanName: string;
+  officeName: string;
+  saturday_start_time?: string;
+  saturday_end_time?: string;
+  saturday_break_minutes?: number;
+}
+
+export function parseShiftOffice(rawName: string): ParsedShiftMeta {
   if (!rawName) return { cleanName: '', officeName: '' };
-  const trimmed = String(rawName).trim();
-  const match = trimmed.match(/\[(?:Ofis|Office|Şube):\s*(.*?)\]/i);
-  if (match) {
-    const officeName = match[1].trim();
-    const cleanName = trimmed.replace(/\[(?:Ofis|Office|Şube):\s*.*?\]/i, '').trim();
-    return { cleanName, officeName };
+  let cleanName = String(rawName).trim();
+  let officeName = '';
+  let saturday_start_time: string | undefined = undefined;
+  let saturday_end_time: string | undefined = undefined;
+  let saturday_break_minutes: number | undefined = undefined;
+
+  const officeMatch = cleanName.match(/\[(?:Ofis|Office|Şube):\s*(.*?)\]/i);
+  if (officeMatch) {
+    officeName = officeMatch[1].trim();
+    cleanName = cleanName.replace(/\[(?:Ofis|Office|Şube):\s*.*?\]/i, '').trim();
   }
-  return { cleanName: trimmed, officeName: '' };
+
+  const satMatch = cleanName.match(/\[(?:Cmt|Cumartesi|Sat):\s*(\d{1,2}:\d{2})-(\d{1,2}:\d{2})(?:\/(\d+))?\]/i);
+  if (satMatch) {
+    saturday_start_time = satMatch[1].trim();
+    saturday_end_time = satMatch[2].trim();
+    if (satMatch[3]) {
+      saturday_break_minutes = Number(satMatch[3]);
+    }
+    cleanName = cleanName.replace(/\[(?:Cmt|Cumartesi|Sat):\s*.*?\]/i, '').trim();
+  }
+
+  return {
+    cleanName,
+    officeName,
+    saturday_start_time,
+    saturday_end_time,
+    saturday_break_minutes,
+  };
 }
 
-export function formatShiftNameWithOffice(cleanName: string, officeName?: string | null): string {
-  const trimmedName = (cleanName || '').replace(/\[(?:Ofis|Office|Şube):\s*.*?\]/i, '').trim();
+export function formatShiftNameWithOffice(
+  cleanName: string,
+  officeName?: string | null,
+  satHours?: { satStart?: string | null; satEnd?: string | null; satBreak?: number | null }
+): string {
+  let name = (cleanName || '')
+    .replace(/\[(?:Ofis|Office|Şube):\s*.*?\]/i, '')
+    .replace(/\[(?:Cmt|Cumartesi|Sat):\s*.*?\]/i, '')
+    .trim();
+
   const trimmedOffice = (officeName || '').trim();
-  if (!trimmedOffice || trimmedOffice === 'all') return trimmedName;
-  return `${trimmedName} [Ofis: ${trimmedOffice}]`;
+  if (trimmedOffice && trimmedOffice !== 'all') {
+    name = `${name} [Ofis: ${trimmedOffice}]`;
+  }
+
+  if (satHours?.satStart && satHours?.satEnd) {
+    const sStart = String(satHours.satStart).substring(0, 5);
+    const sEnd = String(satHours.satEnd).substring(0, 5);
+    const sBreak = satHours.satBreak != null ? Number(satHours.satBreak) : 30;
+    name = `${name} [Cmt: ${sStart}-${sEnd}/${sBreak}]`;
+  }
+
+  return name;
 }
 
-const normalizeTr = (str: string) =>
+export const normalizeTr = (str: string) =>
   (str || '')
     .toLocaleLowerCase('tr-TR')
     .replace(/[\u0300-\u036f]/g, '')
@@ -44,6 +94,85 @@ const normalizeTr = (str: string) =>
     .replace(/ş/g, 's')
     .replace(/ö/g, 'o')
     .replace(/ç/g, 'c');
+
+export function resolveOfficeForShift<T extends { id: string; name: string; il?: string; ilce?: string }>(
+  shift: { id?: string; name: string; office_id?: string; office_name?: string } | null | undefined,
+  offices: T[]
+): T | null {
+  if (!shift || !offices || offices.length === 0) return null;
+
+  // 1. Direct match by shift.office_id
+  if (shift.office_id) {
+    const found = offices.find((o) => o.id === shift.office_id);
+    if (found) return found;
+  }
+
+  // 2. Match by local meta office_id
+  if (shift.id) {
+    const meta = getShiftOfficeMeta(shift.id);
+    if (meta?.office_id) {
+      const found = offices.find((o) => o.id === meta.office_id);
+      if (found) return found;
+    }
+  }
+
+  // 3. Match by inferOfficeForShift
+  const inferred = inferOfficeForShift(shift, offices);
+  if (inferred?.office_id) {
+    const found = offices.find((o) => o.id === inferred.office_id);
+    if (found) return found;
+  }
+  if (inferred?.office_name) {
+    const normInferred = normalizeTr(inferred.office_name);
+    const found = offices.find((o) => {
+      const normO = normalizeTr(o.name);
+      return normO === normInferred || normO.includes(normInferred) || normInferred.includes(normO);
+    });
+    if (found) return found;
+  }
+
+  // 4. Match by shift.office_name
+  if (shift.office_name) {
+    const normName = normalizeTr(shift.office_name);
+    const found = offices.find((o) => {
+      const normO = normalizeTr(o.name);
+      return normO === normName || normO.includes(normName) || normName.includes(normO);
+    });
+    if (found) return found;
+  }
+
+  // 5. Match by shift name containing office name, district, or keyword
+  const normShiftName = normalizeTr(shift.name || '');
+  for (const o of offices) {
+    if (!o.name) continue;
+    const normO = normalizeTr(o.name);
+    if (normO && normShiftName.includes(normO)) {
+      return o;
+    }
+    // Match by office ilce or il
+    if (o.ilce) {
+      const normIlce = normalizeTr(o.ilce);
+      if (normIlce.length >= 3 && normShiftName.includes(normIlce)) {
+        return o;
+      }
+    }
+    if (o.il) {
+      const normIl = normalizeTr(o.il);
+      if (normIl.length >= 3 && normShiftName.includes(normIl)) {
+        return o;
+      }
+    }
+    // Match by office name keywords (min 3 chars, excluding generic words)
+    const parts = normO
+      .split(/[\s\/\-_]+/)
+      .filter((p) => p.length >= 3 && !['ofis', 'sube', 'merkez', 'hvl', 'genel', 'subesi', 'ofisi'].includes(p));
+    if (parts.some((p) => normShiftName.includes(p))) {
+      return o;
+    }
+  }
+
+  return null;
+}
 
 export function inferOfficeForShift(
   shift: { id?: string; name: string; office_id?: string; office_name?: string },
@@ -107,17 +236,34 @@ export function isShiftMatchingOffice(
   return includeGeneral;
 }
 
-export function saveShiftOfficeMeta(shiftId: string, officeId?: string | null, officeName?: string | null): void {
+export function saveShiftOfficeMeta(
+  shiftId: string,
+  officeId?: string | null,
+  officeName?: string | null,
+  satStart?: string | null,
+  satEnd?: string | null,
+  satBreak?: number | null
+): void {
   if (!shiftId) return;
   try {
+    const existing = getShiftOfficeMeta(shiftId);
     localStorage.setItem(`humanius_shift_loc_${shiftId}`, JSON.stringify({
-      office_id: officeId || '',
-      office_name: officeName || '',
+      office_id: officeId !== undefined ? (officeId || '') : existing.office_id,
+      office_name: officeName !== undefined ? (officeName || '') : existing.office_name,
+      saturday_start_time: satStart !== undefined ? (satStart || '') : existing.saturday_start_time,
+      saturday_end_time: satEnd !== undefined ? (satEnd || '') : existing.saturday_end_time,
+      saturday_break_minutes: satBreak !== undefined ? Number(satBreak ?? 30) : existing.saturday_break_minutes,
     }));
   } catch {}
 }
 
-export function getShiftOfficeMeta(shiftId: string): { office_id: string; office_name: string } {
+export function getShiftOfficeMeta(shiftId: string): {
+  office_id: string;
+  office_name: string;
+  saturday_start_time?: string;
+  saturday_end_time?: string;
+  saturday_break_minutes?: number;
+} {
   if (!shiftId) return { office_id: '', office_name: '' };
   try {
     const raw = localStorage.getItem(`humanius_shift_loc_${shiftId}`);
@@ -149,6 +295,22 @@ export function isNotSaturdayShift(s: any): boolean {
   return !idStr.includes('cumartesi') && !nameStr.includes('cumartesi');
 }
 
+export function getShiftSaturdayHours(
+  shift: CompanyShift | null | undefined,
+  satConfig?: SaturdayWorkConfig | null
+): { startTime: string; endTime: string; breakMinutes: number; toleranceMinutes: number } {
+  const satStart = shift?.saturday_start_time || satConfig?.startTime || '08:30';
+  const satEnd = shift?.saturday_end_time || satConfig?.endTime || '13:00';
+  const satBreak = shift?.saturday_break_minutes != null ? Number(shift.saturday_break_minutes) : Number(satConfig?.breakMinutes ?? 30);
+  const satTol = shift?.tolerance_minutes != null ? Number(shift.tolerance_minutes) : Number(satConfig?.toleranceMinutes ?? 15);
+  return {
+    startTime: satStart,
+    endTime: satEnd,
+    breakMinutes: satBreak,
+    toleranceMinutes: satTol,
+  };
+}
+
 export interface ShiftAssignment {
   id: string;
   company_id: string;
@@ -166,6 +328,9 @@ export const VARSAYILAN_VARDIYALAR: CompanyShift[] = [
     tolerance_minutes: 15,
     color: '#3b82f6',
     is_default: true,
+    saturday_start_time: '08:30',
+    saturday_end_time: '13:00',
+    saturday_break_minutes: 30,
   },
   {
     id: 'vardiya-sabah-2',
@@ -176,6 +341,9 @@ export const VARSAYILAN_VARDIYALAR: CompanyShift[] = [
     tolerance_minutes: 10,
     color: '#10b981',
     is_default: false,
+    saturday_start_time: '08:00',
+    saturday_end_time: '13:00',
+    saturday_break_minutes: 30,
   },
   {
     id: 'vardiya-aksam-3',
@@ -186,6 +354,9 @@ export const VARSAYILAN_VARDIYALAR: CompanyShift[] = [
     tolerance_minutes: 10,
     color: '#f59e0b',
     is_default: false,
+    saturday_start_time: '16:00',
+    saturday_end_time: '20:00',
+    saturday_break_minutes: 30,
   },
   {
     id: 'vardiya-gece-4',
@@ -196,6 +367,9 @@ export const VARSAYILAN_VARDIYALAR: CompanyShift[] = [
     tolerance_minutes: 10,
     color: '#8b5cf6',
     is_default: false,
+    saturday_start_time: '00:00',
+    saturday_end_time: '08:00',
+    saturday_break_minutes: 30,
   },
 ];
 
@@ -221,13 +395,21 @@ class ShiftService {
           const shiftRows = data.filter(isNotSaturdayShift);
           if (shiftRows.length > 0) {
             const formatted: CompanyShift[] = shiftRows.map((d: any) => {
-              const { cleanName, officeName } = parseShiftOffice(d.name);
+              const parsed = parseShiftOffice(d.name);
               const meta = getShiftOfficeMeta(d.id);
-              const resolvedOfficeName = d.office_name || officeName || meta.office_name || '';
+              const resolvedOfficeName = d.office_name || parsed.officeName || meta.office_name || '';
               const resolvedOfficeId = d.office_id || meta.office_id || '';
+              const satStart = d.saturday_start_time || parsed.saturday_start_time || meta.saturday_start_time || '08:30';
+              const satEnd = d.saturday_end_time || parsed.saturday_end_time || meta.saturday_end_time || '13:00';
+              const satBreak = d.saturday_break_minutes != null
+                ? Number(d.saturday_break_minutes)
+                : (parsed.saturday_break_minutes != null
+                    ? Number(parsed.saturday_break_minutes)
+                    : (meta.saturday_break_minutes != null ? Number(meta.saturday_break_minutes) : 30));
+
               return {
                 id: d.id,
-                name: cleanName || d.name,
+                name: parsed.cleanName || d.name,
                 start_time: d.start_time,
                 end_time: d.end_time,
                 break_minutes: Number(d.break_minutes || 60),
@@ -236,6 +418,9 @@ class ShiftService {
                 is_default: Boolean(d.is_default),
                 office_id: resolvedOfficeId,
                 office_name: resolvedOfficeName,
+                saturday_start_time: satStart,
+                saturday_end_time: satEnd,
+                saturday_break_minutes: satBreak,
               };
             });
 
@@ -259,6 +444,9 @@ class ShiftService {
               tolerance_minutes: 15,
               color: '#3b82f6',
               is_default: true,
+              saturday_start_time: '08:30',
+              saturday_end_time: '13:00',
+              saturday_break_minutes: 30,
             };
             try {
               await supabase.from('company_shifts').insert({
@@ -337,9 +525,20 @@ class ShiftService {
             .update({ is_default: false })
             .eq('company_id', effectiveCompanyId);
         }
-        saveShiftOfficeMeta(shift.id, shift.office_id, shift.office_name);
-        const dbName = formatShiftNameWithOffice(shift.name, shift.office_name);
-        const { error } = await supabase.from('company_shifts').upsert({
+        saveShiftOfficeMeta(
+          shift.id,
+          shift.office_id,
+          shift.office_name,
+          shift.saturday_start_time,
+          shift.saturday_end_time,
+          shift.saturday_break_minutes
+        );
+        const dbName = formatShiftNameWithOffice(shift.name, shift.office_name, {
+          satStart: shift.saturday_start_time,
+          satEnd: shift.saturday_end_time,
+          satBreak: shift.saturday_break_minutes,
+        });
+        const payload: any = {
           id: shift.id,
           company_id: effectiveCompanyId,
           name: dbName,
@@ -350,7 +549,9 @@ class ShiftService {
           color: shift.color,
           is_default: Boolean(shift.is_default),
           updated_at: new Date().toISOString(),
-        });
+        };
+
+        let { error } = await supabase.from('company_shifts').upsert(payload);
         if (!error) success = true;
         else console.error('Supabase saveShift error:', error);
       } catch (err) {
@@ -369,13 +570,21 @@ class ShiftService {
           const formatted: CompanyShift[] = data
             .filter(isNotSaturdayShift)
             .map((d: any) => {
-              const { cleanName, officeName } = parseShiftOffice(d.name);
+              const parsed = parseShiftOffice(d.name);
               const meta = getShiftOfficeMeta(d.id);
-              const resolvedOfficeName = d.office_name || officeName || meta.office_name || '';
+              const resolvedOfficeName = d.office_name || parsed.officeName || meta.office_name || '';
               const resolvedOfficeId = d.office_id || meta.office_id || '';
+              const satStart = d.saturday_start_time || parsed.saturday_start_time || meta.saturday_start_time || '08:30';
+              const satEnd = d.saturday_end_time || parsed.saturday_end_time || meta.saturday_end_time || '13:00';
+              const satBreak = d.saturday_break_minutes != null
+                ? Number(d.saturday_break_minutes)
+                : (parsed.saturday_break_minutes != null
+                    ? Number(parsed.saturday_break_minutes)
+                    : (meta.saturday_break_minutes != null ? Number(meta.saturday_break_minutes) : 30));
+
               return {
                 id: d.id,
-                name: cleanName || d.name,
+                name: parsed.cleanName || d.name,
                 start_time: d.start_time,
                 end_time: d.end_time,
                 break_minutes: Number(d.break_minutes || 60),
@@ -384,6 +593,9 @@ class ShiftService {
                 is_default: Boolean(d.is_default),
                 office_id: resolvedOfficeId,
                 office_name: resolvedOfficeName,
+                saturday_start_time: satStart,
+                saturday_end_time: satEnd,
+                saturday_break_minutes: satBreak,
               };
             });
 
@@ -462,16 +674,35 @@ class ShiftService {
         if (data && Array.isArray(data)) {
           const formatted: CompanyShift[] = data
             .filter(isNotSaturdayShift)
-            .map((d: any) => ({
-              id: d.id,
-              name: d.name,
-              start_time: d.start_time,
-              end_time: d.end_time,
-              break_minutes: Number(d.break_minutes || 60),
-              tolerance_minutes: Number(d.tolerance_minutes || 15),
-              color: d.color || '#3b82f6',
-              is_default: Boolean(d.is_default),
-            }));
+            .map((d: any) => {
+              const parsed = parseShiftOffice(d.name);
+              const meta = getShiftOfficeMeta(d.id);
+              const resolvedOfficeName = d.office_name || parsed.officeName || meta.office_name || '';
+              const resolvedOfficeId = d.office_id || meta.office_id || '';
+              const satStart = d.saturday_start_time || parsed.saturday_start_time || meta.saturday_start_time || '08:30';
+              const satEnd = d.saturday_end_time || parsed.saturday_end_time || meta.saturday_end_time || '13:00';
+              const satBreak = d.saturday_break_minutes != null
+                ? Number(d.saturday_break_minutes)
+                : (parsed.saturday_break_minutes != null
+                    ? Number(parsed.saturday_break_minutes)
+                    : (meta.saturday_break_minutes != null ? Number(meta.saturday_break_minutes) : 30));
+
+              return {
+                id: d.id,
+                name: parsed.cleanName || d.name,
+                start_time: d.start_time,
+                end_time: d.end_time,
+                break_minutes: Number(d.break_minutes || 60),
+                tolerance_minutes: Number(d.tolerance_minutes || 15),
+                color: d.color || '#3b82f6',
+                is_default: Boolean(d.is_default),
+                office_id: resolvedOfficeId,
+                office_name: resolvedOfficeName,
+                saturday_start_time: satStart,
+                saturday_end_time: satEnd,
+                saturday_break_minutes: satBreak,
+              };
+            });
 
           if (formatted.length > 0 && !formatted.some((s) => s.is_default)) {
             formatted[0].is_default = true;

@@ -6,6 +6,7 @@ import { notificationService } from '../services/notificationService';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, isNotSaturdayShift, inferOfficeForShift, isShiftMatchingOffice, resolveOfficeForShift, normalizeTr } from '../services/shiftService';
 import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
 import { printPdksDevamRaporuPdf, exportPdksToCsv, PdksReportRecord } from '../utils/pdksReportPdf';
+import { systemDataService } from '../services/systemDataService';
 import {
   Clock, LogIn, LogOut, Search, Filter, MapPin, Fingerprint,
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
@@ -224,21 +225,46 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     return BIGSAFER_COMPANY_ID;
   }, [selectedCompany, currentEmployee?.company_id, profile?.company_id, employees]);
 
-  const [overtimeAuthMap, setOvertimeAuthMap] = useState<Record<string, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem('humanius_pdks_overtime_auth');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  const effectiveCompanyId = resolvedCompanyId;
 
-  const toggleOvertimeAuth = (empId: string) => {
-    setOvertimeAuthMap((prev) => {
-      const next = { ...prev, [empId]: !prev[empId] };
-      localStorage.setItem('humanius_pdks_overtime_auth', JSON.stringify(next));
-      return next;
-    });
+  const [overtimeAuthMap, setOvertimeAuthMap] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadOvertimeAuth = async () => {
+      const data = await systemDataService.getCompanyData<Record<string, boolean>>(
+        effectiveCompanyId,
+        'pdks_overtime_auth',
+        {}
+      );
+      if (isMounted && data && typeof data === 'object') {
+        setOvertimeAuthMap(data);
+      }
+    };
+    loadOvertimeAuth();
+
+    const handleUpdate = (e: any) => {
+      if (e.detail?.companyId === effectiveCompanyId && e.detail?.key === 'pdks_overtime_auth') {
+        setOvertimeAuthMap(e.detail.value || {});
+      }
+    };
+    window.addEventListener('humanius_system_data_updated', handleUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('humanius_system_data_updated', handleUpdate);
+    };
+  }, [effectiveCompanyId]);
+
+  const toggleOvertimeAuth = async (empId: string) => {
+    const next = { ...overtimeAuthMap, [empId]: !overtimeAuthMap[empId] };
+    setOvertimeAuthMap(next);
+    await systemDataService.saveCompanyData(
+      effectiveCompanyId,
+      'pdks_overtime_auth',
+      next,
+      'PDKS Fazla Mesai Yetkileri'
+    );
   };
 
   // -------------------------------------------------------------
@@ -1451,158 +1477,123 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
             end_time: targetCikis,
           };
 
-      // 0. ÖNCELİK: Aylık Puantaj Cetvelinde Yapılan Manuel Düzeltmeler (HT, AT, İzinler vb.)
-      const puantajOverride = puantajOverrides[`${emp.id}_${targetDate}`];
-      if (puantajOverride) {
-        const pKod = (puantajOverride.kod || '').toUpperCase();
-        if (pKod === 'HT' || pKod === 'AT') {
-          return {
-            employee: emp,
-            giris: pKod,
-            cikis: pKod,
-            durum: pKod === 'AT' ? 'Akdi Tatil' : 'Haftalık Tatil',
-            isLeave: true,
-            mesai: 0,
-            officeName: '-',
-            shift: empShift,
-          };
-        }
-        if (pKod === 'Yİ' || pKod === 'YI') {
-          return {
-            employee: emp,
-            giris: 'Yİ',
-            cikis: 'Yİ',
-            durum: 'Yıllık İzin',
-            isLeave: true,
-            mesai: 0,
-            officeName: '-',
-            shift: empShift,
-          };
-        }
-        if (pKod === 'RP' || pKod === 'R' || pKod === 'HA') {
-          return {
-            employee: emp,
-            giris: 'RP',
-            cikis: 'RP',
-            durum: 'Raporlu',
-            isLeave: true,
-            mesai: 0,
-            officeName: '-',
-            shift: empShift,
-          };
-        }
-        if (pKod === 'Üİ' || pKod === 'UC') {
-          return {
-            employee: emp,
-            giris: 'Üİ',
-            cikis: 'Üİ',
-            durum: 'Ücretsiz İzin',
-            isLeave: true,
-            mesai: 0,
-            officeName: '-',
-            shift: empShift,
-          };
-        }
-        if (pKod === 'Mİ' || pKod === 'MZ') {
-          return {
-            employee: emp,
-            giris: 'Mİ',
-            cikis: 'Mİ',
-            durum: puantajOverride.kodAciklama || 'Mazeret İzni',
-            isLeave: true,
-            mesai: 0,
-            officeName: '-',
-            shift: empShift,
-          };
-        }
-        if (pKod === 'UBGT') {
-          return {
-            employee: emp,
-            giris: 'UBGT',
-            cikis: 'UBGT',
-            durum: puantajOverride.kodAciklama || 'Resmi Tatil',
-            isLeave: true,
-            mesai: 0,
-            officeName: '-',
-            shift: empShift,
-          };
-        }
-        if (pKod === 'EG') {
-          return {
-            employee: emp,
-            giris: 'EG',
-            cikis: 'EG',
-            durum: 'Eğitim İzni',
-            isLeave: true,
-            mesai: 0,
-            officeName: '-',
-            shift: empShift,
-          };
-        }
-        if (pKod === 'D') {
-          return {
-            employee: emp,
-            giris: 'D',
-            cikis: 'D',
-            durum: 'Devamsız',
-            isLeave: false,
-            mesai: 0,
-            officeName: '-',
-            shift: empShift,
-          };
-        }
-        if (pKod === 'Ç') {
-          return {
-            employee: emp,
-            giris: puantajOverride.giris || '08:30',
-            cikis: puantajOverride.cikis || '18:00',
-            durum: 'Zamanında',
-            isLeave: false,
-            mesai: 9,
-            officeName: puantajOverride.notlar || resolveEmployeeOfficeName(emp, empShift, null),
-            shift: empShift,
-          };
-        }
-        if (pKod && pKod !== '-') {
-          return {
-            employee: emp,
-            giris: pKod,
-            cikis: pKod,
-            durum: puantajOverride.kodAciklama || 'İzinli',
-            isLeave: true,
-            mesai: 0,
-            officeName: '-',
-            shift: empShift,
-          };
-        }
-      }
+      // 1. ÖNCELİK: Canlı Veritabanı PDKS ve Puantaj Kayıtları (allShiftRecords - Single Source of Truth)
+      const realRecord = allShiftRecords.find(r => r.employee_id === emp.id && r.tarih === targetDate);
 
-      // 1. ÖNCELİK: Eğer bugün seçiliyse ve PDKS tekil yönetici düzeltmesi varsa
-      if (targetDate === todayStr) {
-        const memOverride = adminOverrides[emp.id];
-        const savedOverride = memOverride || (() => {
-          try {
-            const s = localStorage.getItem(`humanius_pdks_override_${emp.id}`);
-            return s ? JSON.parse(s) : null;
-          } catch { return null; }
-        })();
+      if (realRecord) {
+        const notlar = realRecord.notlar || '';
+        const puantajMatch = notlar.match(/\[PUANTAJ:([A-ZÇĞİÖŞÜ]+)\]/i);
+        const isExplicitLeaveOrAbsence = puantajMatch || ((realRecord.durum === 'izinli' || realRecord.durum === 'gelmedi') && !realRecord.giris_saati && !realRecord.cikis_saati);
 
-        if (savedOverride) {
-          let calcGiris = savedOverride.giris || '-';
-          let calcCikis = savedOverride.cikis || '-';
-          if (savedOverride.isLeave || savedOverride.durum === 'Haftalık Tatil' || savedOverride.durum === 'Akdi Tatil') {
-            const code = getDevamKontroluIzinKisaltma(savedOverride.durum, resolvedCompanyId);
-            if (calcGiris === '-' || !calcGiris) calcGiris = code;
-            if (calcCikis === '-' || !calcCikis) calcCikis = code;
+        if (isExplicitLeaveOrAbsence) {
+          let pKod = puantajMatch ? puantajMatch[1].toUpperCase() : '';
+          if (!pKod) {
+            if (realRecord.durum === 'gelmedi' || notlar.includes('Devamsız')) pKod = 'D';
+            else if (notlar.includes('HT') || notlar.includes('Hafta Tatili')) pKod = 'HT';
+            else if (notlar.includes('AT') || notlar.includes('Akdi Tatil')) pKod = 'AT';
+            else if (notlar.includes('Yİ') || notlar.includes('YI') || notlar.includes('Yıllık')) pKod = 'Yİ';
+            else if (notlar.includes('RP') || notlar.includes('Rapor') || notlar.includes('İstirahat')) pKod = 'RP';
+            else pKod = 'İZİN';
           }
+
+          const leaveTitle = pKod === 'HT' ? 'Haftalık Tatil'
+            : pKod === 'AT' ? 'Akdi Tatil'
+            : pKod === 'D' ? 'Devamsız'
+            : pKod === 'Yİ' ? 'Yıllık İzin'
+            : pKod === 'RP' ? 'Raporlu'
+            : pKod === 'UBGT' ? 'Resmi Tatil'
+            : pKod === 'EG' ? 'Eğitim İzni'
+            : pKod === 'Üİ' ? 'Ücretsiz İzin'
+            : pKod === 'Mİ' ? 'Mazeret İzni'
+            : (notlar.replace(/\[PUANTAJ:[^\]]+\]/g, '').trim() || 'İzinli');
+
           return {
             employee: emp,
-            giris: calcGiris,
-            cikis: calcCikis,
-            durum: savedOverride.durum || 'Zamanında',
-            isLeave: savedOverride.isLeave || false,
-            mesai: savedOverride.mesai || 0,
-            officeName: savedOverride.officeName || (calcGiris !== '-' && !savedOverride.isLeave ? resolveEmployeeOfficeName(emp, empShift, null) : '-'),
+            giris: pKod,
+            cikis: pKod,
+            durum: leaveTitle,
+            isLeave: pKod !== 'D',
+            mesai: 0,
+            officeName: '-',
+            shift: empShift,
+          };
+        }
+
+        if (realRecord.giris_saati || realRecord.cikis_saati) {
+          const checkIn = realRecord.giris_saati ? realRecord.giris_saati.substring(0, 5) : null;
+          const checkOut = realRecord.cikis_saati ? realRecord.cikis_saati.substring(0, 5) : null;
+          const officeName = checkIn ? resolveEmployeeOfficeName(emp, empShift, realRecord.notlar) : '-';
+          const isTimeStr = (s?: string | null) => Boolean(s && /^\d{1,2}:\d{2}/.test(s));
+
+          let status = 'Zamanında';
+          let effectiveCheckOut = checkOut;
+
+          if (!checkOut && checkIn) {
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            let shiftEndMinutes = 18 * 60;
+            if (empShift.end_time) {
+              const [eH, eM] = empShift.end_time.split(':').map(Number);
+              if (!isNaN(eH) && !isNaN(eM)) shiftEndMinutes = eH * 60 + eM;
+            }
+
+            if (targetDate === todayStr) {
+              if (currentMinutes >= shiftEndMinutes) {
+                // Vardiya bitiş saati gelmiş/geçmiş (örn: saat 15:00 çıkışlı vardiya saat 15:00'te tamamlandı)
+                effectiveCheckOut = empShift.end_time;
+                status = 'Zamanında';
+              } else {
+                // Vardiyası devam eden personel (örn: 17:00, 17:45, 18:00, 22:00 vb.)
+                status = 'Mesai Devam Ediyor';
+              }
+            } else {
+              // Geçmiş bir günse ve çıkış basılmamışsa vardiya saatine göre tamamlanmış kabul edilir
+              effectiveCheckOut = empShift.end_time || '18:00';
+              status = 'Zamanında';
+            }
+          } else if (checkIn && checkOut) {
+            if (isTimeStr(checkIn)) {
+              const [hours, minutes] = checkIn.split(':').map(Number);
+              const [sH, sM] = (empShift.start_time || '08:30').split(':').map(Number);
+              const shiftStartTotal = sH * 60 + sM + (empShift.tolerance_minutes ?? 15);
+              if (hours * 60 + minutes > shiftStartTotal) {
+                status = 'Geç Kaldı';
+              } else {
+                status = 'Zamanında';
+              }
+            }
+          }
+
+          let mesai = 0;
+          if (checkIn && effectiveCheckOut && isTimeStr(checkIn) && isTimeStr(effectiveCheckOut)) {
+            const [gH, gM] = checkIn.split(':').map(Number);
+            const [cH, cM] = effectiveCheckOut.split(':').map(Number);
+            if (!isNaN(gH) && !isNaN(gM) && !isNaN(cH) && !isNaN(cM)) {
+              let diffMins = (cH * 60 + cM) - (gH * 60 + gM);
+              if (diffMins < 0) diffMins += 24 * 60;
+              mesai = parseFloat((diffMins / 60).toFixed(1));
+              if (mesai < 0) mesai = 0;
+            }
+          } else if (checkIn && isTimeStr(checkIn) && targetDate === todayStr) {
+            const [gH, gM] = checkIn.split(':').map(Number);
+            if (!isNaN(gH) && !isNaN(gM)) {
+              const now = new Date();
+              const curMin = now.getHours() * 60 + now.getMinutes();
+              const diff = curMin - (gH * 60 + gM);
+              if (diff > 0) {
+                mesai = parseFloat((diff / 60).toFixed(1));
+              }
+            }
+          }
+
+          return {
+            employee: emp,
+            giris: checkIn || '-',
+            cikis: effectiveCheckOut || '-',
+            durum: status,
+            isLeave: false,
+            mesai,
+            officeName,
             shift: empShift,
           };
         }
@@ -1634,62 +1625,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         };
       }
 
-      // 3. ÖNCELİK: Gerçek PDKS Giriş-Çıkış Kaydı (allShiftRecords)
-      const realRecord = allShiftRecords.find(r => r.employee_id === emp.id && r.tarih === targetDate);
-      
-      if (realRecord && (realRecord.giris_saati || realRecord.cikis_saati)) {
-        const checkIn = realRecord.giris_saati;
-        const checkOut = realRecord.cikis_saati;
-        const officeName = checkIn ? resolveEmployeeOfficeName(emp, empShift, realRecord.notlar) : '-';
-        const isTimeStr = (s?: string | null) => Boolean(s && /^\d{1,2}:\d{2}/.test(s));
-        
-        let status = 'Zamanında';
-        if (!checkOut && checkIn) {
-          status = 'Mesai Devam Ediyor';
-        } else if (checkIn && checkOut) {
-          if (isTimeStr(checkIn)) {
-            const [hours, minutes] = checkIn.split(':').map(Number);
-            const [sH, sM] = (empShift.start_time || '08:30').split(':').map(Number);
-            const shiftStartTotal = sH * 60 + sM + (empShift.tolerance_minutes ?? 15);
-            if (hours * 60 + minutes > shiftStartTotal) {
-              status = 'Geç Kaldı';
-            } else {
-              status = 'Zamanında';
-            }
-          }
-        }
-        
-        let mesai = 0;
-        if (checkIn && checkOut && isTimeStr(checkIn) && isTimeStr(checkOut)) {
-          const [gH, gM] = checkIn.split(':').map(Number);
-          const [cH, cM] = checkOut.split(':').map(Number);
-          if (!isNaN(gH) && !isNaN(gM) && !isNaN(cH) && !isNaN(cM)) {
-            mesai = parseFloat(((cH * 60 + cM - (gH * 60 + gM)) / 60).toFixed(1));
-            if (mesai < 0) mesai = 0;
-          }
-        } else if (checkIn && isTimeStr(checkIn) && targetDate === todayStr) {
-          const [gH, gM] = checkIn.split(':').map(Number);
-          if (!isNaN(gH) && !isNaN(gM)) {
-            const now = new Date();
-            const curMin = now.getHours() * 60 + now.getMinutes();
-            const diff = curMin - (gH * 60 + gM);
-            if (diff > 0) {
-              mesai = parseFloat((diff / 60).toFixed(1));
-            }
-          }
-        }
-        
-        return {
-          employee: emp,
-          giris: checkIn || '-',
-          cikis: checkOut || '-',
-          durum: status,
-          isLeave: false,
-          mesai,
-          officeName,
-          shift: empShift,
-        };
-      }
+
 
       // 4. ÖNCELİK: Kayıt Bulunmayan Durumlarda Günün Niteliği (Pazar / Cumartesi Hafta Tatili)
       // Pazar günleri yasal hafta tatilidir (Madde 46)
@@ -3189,26 +3125,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   const activeRecordDate = selectedDate || getTodayYYYYMMDD();
                   const targetCompanyId = normalizeCompanyId(editEmpModal.employee.company_id || resolvedCompanyId);
 
-                  const overrideObj = {
-                    giris: cleanGiris,
-                    cikis: null,
-                    durum: 'Mesai Devam Ediyor',
-                    mesai: 0,
-                    officeName: editOfficeName || 'Merkez Ofis',
-                  };
-
-                  if (activeRecordDate === getTodayYYYYMMDD()) {
-                    localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
-                    setAdminOverrides((prev) => ({ ...prev, [editEmpModal.employee.id]: overrideObj }));
-                  }
-
-                  try {
-                    const rawPuantajOverrides = localStorage.getItem('humanius_puantaj_overrides');
-                    const pOverrides = rawPuantajOverrides ? JSON.parse(rawPuantajOverrides) : {};
-                    delete pOverrides[`${editEmpModal.employee.id}_${activeRecordDate}`];
-                    localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(pOverrides));
-                  } catch (e) {}
-
                   let savedDbRecord: any = null;
                   if (targetCompanyId && editEmpModal.employee.id) {
                     try {
@@ -3240,13 +3156,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   };
 
                   setAllShiftRecords(prev => {
-                    const idx = prev.findIndex(r => r.employee_id === editEmpModal.employee.id && r.tarih === activeRecordDate);
-                    if (idx >= 0) {
-                      const next = [...prev];
-                      next[idx] = newRecord;
-                      return next;
-                    }
-                    return [newRecord, ...prev];
+                    const filtered = prev.filter(r => !(r.employee_id === editEmpModal.employee.id && r.tarih === activeRecordDate));
+                    return [newRecord, ...filtered];
                   });
 
                   setEditEmpModal(null);
@@ -3254,6 +3165,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   setEditCikis('');
                   window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
                   window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
+                  await loadShiftHistory();
                 }}
                 className="w-full py-2.5 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
                 title="Çıkış saatini tamamen kaldırarak (NULL) personeli mesai devam ediyor durumuna getirir"
@@ -3287,92 +3199,54 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     const lateDiff = actualMin - shiftMin;
                     const tolerance = empShift.tolerance_minutes ?? 15;
                     
-                    const newDurum = lateDiff > tolerance ? 'Geç Kaldı' : 'Zamanında';
-                    let diffHours = 0;
-                    if (cleanCikis) {
-                      const [cH, cM] = cleanCikis.split(':').map(Number);
-                      diffHours = parseFloat((((cH * 60 + cM) - actualMin) / 60).toFixed(1));
-                    }
-
+                    const newDurum = lateDiff > tolerance ? 'gec-kaldi' : 'zamaninda';
                     const activeRecordDate = selectedDate || getTodayYYYYMMDD();
-                    const overrideObj = {
-                      giris: cleanGiris,
-                      cikis: cleanCikis,
-                      durum: cleanCikis ? newDurum : 'Mesai Devam Ediyor',
-                      mesai: diffHours > 0 ? diffHours : 0,
-                      officeName: editOfficeName || 'Merkez Ofis',
-                    };
+                    const targetCompanyId = normalizeCompanyId(editEmpModal.employee.company_id || resolvedCompanyId);
 
-                    if (activeRecordDate === getTodayYYYYMMDD()) {
-                      localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
-                      setAdminOverrides((prev) => ({ ...prev, [editEmpModal.employee.id]: overrideObj }));
-                    }
-
-                    // Puantaj Cetveli Manuel Düzeltmelerine (humanius_puantaj_overrides) Doğrudan Senkronize Et
-                    try {
-                      const rawPuantajOverrides = localStorage.getItem('humanius_puantaj_overrides');
-                      const pOverrides = rawPuantajOverrides ? JSON.parse(rawPuantajOverrides) : {};
-                      if (cleanCikis) {
-                        pOverrides[`${editEmpModal.employee.id}_${activeRecordDate}`] = {
-                          kod: 'Ç',
-                          giris: cleanGiris,
-                          cikis: cleanCikis,
-                          notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`,
-                          kodAciklama: `Fiili Çalışma (${cleanGiris}-${cleanCikis})`
-                        };
-                      } else {
-                        delete pOverrides[`${editEmpModal.employee.id}_${activeRecordDate}`];
+                    // Always record shift to pdksService and Supabase
+                    let savedDbRecord: any = null;
+                    if (targetCompanyId && editEmpModal.employee.id) {
+                      try {
+                        savedDbRecord = await pdksService.createVardiya({
+                          company_id: targetCompanyId,
+                          employee_id: editEmpModal.employee.id,
+                          tarih: activeRecordDate,
+                          giris_saati: cleanGiris,
+                          cikis_saati: cleanCikis,
+                          vardiya_tipi: 'tam-gun',
+                          durum: newDurum,
+                          notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
+                        });
+                      } catch (e) {
+                        console.error("Vardiya veritabanı kayıt hatası:", e);
                       }
-                      localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(pOverrides));
-                    } catch (e) {
-                      console.error('Puantaj override senkronizasyon hatası:', e);
                     }
 
-                  const targetCompanyId = normalizeCompanyId(editEmpModal.employee.company_id || resolvedCompanyId);
+                    const newRecord = savedDbRecord || {
+                      id: `v-edit-${Date.now()}`,
+                      company_id: targetCompanyId,
+                      employee_id: editEmpModal.employee.id,
+                      tarih: activeRecordDate,
+                      giris_saati: cleanGiris,
+                      cikis_saati: cleanCikis,
+                      vardiya_tipi: 'tam-gun',
+                      durum: newDurum,
+                      notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
+                    };
+                    setAllShiftRecords((prev) => [newRecord, ...prev.filter(r => !(r.employee_id === editEmpModal.employee.id && r.tarih === activeRecordDate))]);
 
-                  // Always record shift to pdksService and Supabase
-                  let savedDbRecord: any = null;
-                  if (targetCompanyId && editEmpModal.employee.id) {
-                    try {
-                      savedDbRecord = await pdksService.createVardiya({
-                        company_id: targetCompanyId,
-                        employee_id: editEmpModal.employee.id,
-                        tarih: activeRecordDate,
-                        giris_saati: cleanGiris,
-                        cikis_saati: cleanCikis,
-                        vardiya_tipi: 'tam-gun',
-                        durum: newDurum === 'Zamanında' ? 'zamaninda' : 'gec-kaldi',
-                        notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
-                      });
-                    } catch (e) {
-                      console.error("Vardiya veritabanı kayıt hatası:", e);
-                    }
-                  }
+                    // Puantaj cetveli ve diğer bileşenlerin anında güncellenmesi için custom event fırlat
+                    window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+                    window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
 
-                  const newRecord = savedDbRecord || {
-                    id: `v-edit-${Date.now()}`,
-                    company_id: targetCompanyId,
-                    employee_id: editEmpModal.employee.id,
-                    tarih: activeRecordDate,
-                    giris_saati: cleanGiris,
-                    cikis_saati: cleanCikis,
-                    vardiya_tipi: 'tam-gun',
-                    durum: newDurum === 'Zamanında' ? 'zamaninda' : 'gec-kaldi',
-                    notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
-                  };
-                  setAllShiftRecords((prev) => [newRecord, ...prev.filter(r => !(r.employee_id === editEmpModal.employee.id && r.tarih === activeRecordDate))]);
-
-                  // Puantaj cetveli ve diğer bileşenlerin anında güncellenmesi için custom event fırlat
-                  window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
-                  window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
-
-                  setEditEmpModal(null);
-                }}
-                className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 shadow-sm"
-              >
-                Kaydet
-              </button>
-            </div>
+                    setEditEmpModal(null);
+                    await loadShiftHistory();
+                  }}
+                  className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 shadow-sm"
+                >
+                  Kaydet
+                </button>
+              </div>
           </div>
         </div>
       </div>

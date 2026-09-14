@@ -610,14 +610,7 @@ const AppInner: React.FC = () => {
               durum: 'beklemede',
             }));
             
-            const localSaved = localStorage.getItem('humanius_custom_events');
-            const localEvents = localSaved ? JSON.parse(localSaved) : [];
-            const dbEventIds = new Set(eventsFromDb.map((e: any) => e.id));
-            const uniqueLocalEvents = localEvents.filter((e: any) => !dbEventIds.has(e.id));
-            
-            const combinedEvents = [...eventsFromDb, ...uniqueLocalEvents];
-            localStorage.setItem('humanius_custom_events', JSON.stringify(combinedEvents));
-            window.dispatchEvent(new Event('storage'));
+            window.dispatchEvent(new CustomEvent('humanius_calendar_events_loaded', { detail: eventsFromDb }));
           }
         } catch (err) {
           console.error('Failed to load custom calendar events:', err);
@@ -2070,16 +2063,7 @@ const AppInner: React.FC = () => {
                     }
                   })();
 
-                  try {
-                    const saved = localStorage.getItem('humanius_custom_events');
-                    const existingList = saved ? JSON.parse(saved) : [];
-                    const updatedList = [...existingList, newEv];
-                    localStorage.setItem('humanius_custom_events', JSON.stringify(updatedList));
-                    localStorage.setItem('humanius_new_alert_notification', 'true');
-                    window.dispatchEvent(new Event('storage'));
-                  } catch (e) {
-                    console.error('Failed to save bulk alert:', e);
-                  }
+                  window.dispatchEvent(new CustomEvent('humanius_new_alert_notification', { detail: newEv }));
 
                   setShowTopluUyariModal(false);
                   setTopluUyariTitle('');

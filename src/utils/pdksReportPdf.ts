@@ -62,6 +62,7 @@ export const printPdksDevamRaporuPdf = (params: {
       if (r.durum === 'Zamanında') badgeStyle = 'background:#dcfce7; color:#166534; font-weight:bold;';
       else if (r.durum === 'Geç Kaldı') badgeStyle = 'background:#fef9c3; color:#854d0e; font-weight:bold;';
       else if (r.durum === 'Mesai Devam Ediyor') badgeStyle = 'background:#e0e7ff; color:#3730a3; font-weight:bold;';
+      else if (r.durum === 'Haftalık Tatil' || r.durum === 'Hafta Tatili' || r.durum === 'Akdi Tatil') badgeStyle = 'background:#f3e8ff; color:#6b21a8; font-weight:bold;';
       else if (r.durum === 'Giriş Yapılmadı' || r.durum === 'Devamsız') badgeStyle = 'background:#fee2e2; color:#991b1b; font-weight:bold;';
       else badgeStyle = 'background:#e0f2fe; color:#0369a1; font-weight:bold;'; // Yıllık İzin, Raporlu, Ücretsiz İzin, Eğitim İzni vb.
 
@@ -81,8 +82,20 @@ export const printPdksDevamRaporuPdf = (params: {
             <span style="font-size:10px; font-weight:600; color:#1e293b;">${r.shiftName || 'Standart'}</span>
             <div style="font-size:9px; color:#64748b; font-family:monospace;">${r.shiftHours || '-'}</div>
           </td>
-          <td style="text-align:center; font-family:monospace; font-weight:bold; color:#0f172a;">${r.checkIn || '-'}</td>
-          <td style="text-align:center; font-family:monospace; font-weight:bold; color:#0f172a;">${r.checkOut || '-'}</td>
+          <td style="text-align:center; font-family:monospace; font-weight:bold; color:#0f172a;">${
+            r.checkIn === 'HT' || r.checkIn === 'AT'
+              ? `<span style="background:#f3e8ff; color:#6b21a8; padding:1px 5px; border-radius:4px; font-size:9.5px;">${r.checkIn}</span>`
+              : (r.durum.includes('İzin') || r.durum.includes('Rapor')) && r.checkIn !== '-'
+              ? `<span style="background:#e0f2fe; color:#0369a1; padding:1px 5px; border-radius:4px; font-size:9.5px;">${r.checkIn}</span>`
+              : (r.checkIn || '-')
+          }</td>
+          <td style="text-align:center; font-family:monospace; font-weight:bold; color:#0f172a;">${
+            r.checkOut === 'HT' || r.checkOut === 'AT'
+              ? `<span style="background:#f3e8ff; color:#6b21a8; padding:1px 5px; border-radius:4px; font-size:9.5px;">${r.checkOut}</span>`
+              : (r.durum.includes('İzin') || r.durum.includes('Rapor')) && r.checkOut !== '-'
+              ? `<span style="background:#e0f2fe; color:#0369a1; padding:1px 5px; border-radius:4px; font-size:9.5px;">${r.checkOut}</span>`
+              : (r.checkOut || '-')
+          }</td>
           <td style="text-align:center; font-size:10px;">${r.officeName && r.officeName !== '-' ? r.officeName : 'Merkez'}</td>
           <td style="text-align:center; font-family:monospace; font-weight:bold; color:#2563eb;">${r.mesaiSaat > 0 ? `${r.mesaiSaat}s` : '-'}</td>
           <td style="text-align:center;">

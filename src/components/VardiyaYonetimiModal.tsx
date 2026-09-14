@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Clock, Plus, Trash2, Edit2, CheckCircle, Users, Sliders, Check, Search, Filter, AlertCircle, ShieldCheck, Building2, MapPin } from 'lucide-react';
+import { X, Clock, Plus, Trash2, Edit2, CheckCircle, Users, Sliders, Check, Search, Filter, AlertCircle, ShieldCheck, Building2, MapPin, Calendar } from 'lucide-react';
 import type { Employee, CompanyOfficeLocation } from '../types';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, inferOfficeForShift, isShiftMatchingOffice } from '../services/shiftService';
 import { companyService } from '../services/companyService';
@@ -37,6 +37,9 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
   const [formTolerance, setFormTolerance] = useState(15);
   const [formColor, setFormColor] = useState('#3b82f6');
   const [formIsDefault, setFormIsDefault] = useState(false);
+  const [formSatStart, setFormSatStart] = useState('08:30');
+  const [formSatEnd, setFormSatEnd] = useState('13:00');
+  const [formSatBreak, setFormSatBreak] = useState(30);
 
   // Bulk Assignment Form State
   const [searchEmp, setSearchEmp] = useState('');
@@ -122,6 +125,9 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
     setFormColor('#3b82f6');
     setFormIsDefault(shifts.length === 0);
     setFormOfficeId(filterOfficeId !== 'all' && filterOfficeId !== 'general' ? filterOfficeId : '');
+    setFormSatStart('08:30');
+    setFormSatEnd('13:00');
+    setFormSatBreak(30);
     setShowShiftForm(true);
   };
 
@@ -134,6 +140,9 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
     setFormTolerance(shift.tolerance_minutes);
     setFormColor(shift.color || '#3b82f6');
     setFormIsDefault(Boolean(shift.is_default));
+    setFormSatStart(shift.saturday_start_time || '08:30');
+    setFormSatEnd(shift.saturday_end_time || '13:00');
+    setFormSatBreak(shift.saturday_break_minutes != null ? shift.saturday_break_minutes : 30);
     const inferred = inferOfficeForShift(shift, offices);
     setFormOfficeId(inferred ? inferred.office_id : '');
     setShowShiftForm(true);
@@ -162,6 +171,9 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
         is_default: formIsDefault,
         office_id: officeId || undefined,
         office_name: officeName || undefined,
+        saturday_start_time: formSatStart || '08:30',
+        saturday_end_time: formSatEnd || '13:00',
+        saturday_break_minutes: Number(formSatBreak) || 30,
       };
 
       await shiftService.saveShift(effectiveCompanyId, shiftData);
@@ -465,6 +477,97 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                         <span className="text-[11px] font-mono text-gray-600">{formColor}</span>
                       </div>
                     </div>
+
+                    {/* Cumartesi Çalışma Saatleri Bölümü */}
+                    <div className="col-span-full bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-amber-600" />
+                          <span className="text-xs font-bold text-amber-950">
+                            Cumartesi Çalışma Saatleri (6 Günlük Düzen İçin)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormSatStart('08:30');
+                              setFormSatEnd('13:00');
+                              setFormSatBreak(30);
+                            }}
+                            className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg cursor-pointer transition-colors shadow-2xs"
+                          >
+                            08:30 - 13:00 (Yarım Gün)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormSatStart('08:30');
+                              setFormSatEnd('16:00');
+                              setFormSatBreak(30);
+                            }}
+                            className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg cursor-pointer transition-colors shadow-2xs"
+                          >
+                            08:30 - 16:00
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormSatStart(formStart);
+                              setFormSatEnd(formEnd);
+                              setFormSatBreak(formBreak);
+                            }}
+                            className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg cursor-pointer transition-colors shadow-2xs"
+                          >
+                            Hafta İçi İle Aynı
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                            Cumartesi Giriş Saati
+                          </label>
+                          <input
+                            type="time"
+                            value={formSatStart}
+                            onChange={(e) => setFormSatStart(e.target.value)}
+                            className="w-full bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-amber-500 font-mono font-bold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                            Cumartesi Çıkış Saati
+                          </label>
+                          <input
+                            type="time"
+                            value={formSatEnd}
+                            onChange={(e) => setFormSatEnd(e.target.value)}
+                            className="w-full bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-amber-500 font-mono font-bold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                            Cumartesi Mola (Dk)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="180"
+                            value={formSatBreak}
+                            onChange={(e) => setFormSatBreak(Number(e.target.value))}
+                            className="w-full bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-amber-500 font-mono font-bold"
+                          />
+                        </div>
+                      </div>
+
+                      <p className="text-[10px] text-amber-800/90 leading-normal">
+                        ℹ️ Şirketinizde 6 günlük çalışma düzeni seçildiğinde, bu vardiyaya bağlı personellerin Cumartesi günü mesai ve puantaj hesabı burada belirlenen saatlere göre yapılır.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-indigo-100 flex-wrap gap-2">
@@ -541,9 +644,16 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                                 </span>
                               )}
                             </div>
-                            <p className="text-xl font-mono font-black text-gray-800 mt-1">
-                              {shift.start_time} - {shift.end_time}
-                            </p>
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              <span className="flex items-center gap-1 font-mono font-bold text-xs text-gray-800 bg-gray-100/90 px-2 py-0.5 rounded-md">
+                                <Clock className="w-3 h-3 text-blue-600" />
+                                Hafta İçi: {shift.start_time} - {shift.end_time}
+                              </span>
+                              <span className="flex items-center gap-1 font-mono font-bold text-xs text-amber-900 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md">
+                                <Calendar className="w-3 h-3 text-amber-600" />
+                                Cmt: {shift.saturday_start_time || '08:30'} - {shift.saturday_end_time || '13:00'} ({shift.saturday_break_minutes ?? 30} dk mola)
+                              </span>
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-1 opacity-90 group-hover:opacity-100">
