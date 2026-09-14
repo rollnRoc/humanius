@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaInsert } from '../services/pdksService';
-import { companyService, BIGSAFER_COMPANY_ID, MICI_COMPANY_ID, normalizeCompanyId } from '../services/companyService';
+import { companyService, BIGSAFER_COMPANY_ID, MICI_COMPANY_ID, normalizeCompanyId, getDefaultOfficesForCompany } from '../services/companyService';
 import { notificationService } from '../services/notificationService';
-import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, isNotSaturdayShift, inferOfficeForShift, isShiftMatchingOffice } from '../services/shiftService';
+import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, isNotSaturdayShift, inferOfficeForShift, isShiftMatchingOffice, resolveOfficeForShift, normalizeTr } from '../services/shiftService';
 import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
 import { printPdksDevamRaporuPdf, exportPdksToCsv, PdksReportRecord } from '../utils/pdksReportPdf';
 import {
@@ -14,7 +14,7 @@ import {
   Printer, FileText, Download, CalendarCheck, ArrowUpDown
 } from 'lucide-react';
 import type { Employee, CompanyOfficeLocation } from '../types';
-import { getDevamKontroluIzinLabel } from '../utils/izinCalculations';
+import { getDevamKontroluIzinLabel, getDevamKontroluIzinKisaltma } from '../utils/izinCalculations';
 import iller, { type IlIlceItem } from '../lib/illce';
 import { matchEmployeeToUser, getTodayYYYYMMDD } from '../utils/sanitize';
 
@@ -126,18 +126,19 @@ function checkIsShiftExpired(
 // Personelin tanımlı vardiyası (Tarsus 15:00 vb.) varsa her zaman o vardiyanın çıkış saati esastır.
 // Sadece özel vardiyası olmayan genel personel için Cumartesi erken çıkış (16:00) uygulanır.
 function getTargetCikisTime(
-  activeShift: { end_time?: string; id?: string } | null | undefined,
+  activeShift: { end_time?: string; id?: string; saturday_end_time?: string } | null | undefined,
   defaultShiftId: string | undefined,
   isSaturday: boolean,
   satConfig: any
 ): string {
-  if (activeShift?.end_time && activeShift.end_time !== '00:00') {
-    if (activeShift.end_time !== '18:00' || (activeShift.id && defaultShiftId && activeShift.id !== defaultShiftId)) {
-      return activeShift.end_time;
-    }
-  }
   if (isSaturday && satConfig?.isSaturdayWork) {
-    return satConfig.endTime || '16:00';
+    if (activeShift?.saturday_end_time && activeShift.saturday_end_time !== '00:00') {
+      return activeShift.saturday_end_time;
+    }
+    return satConfig.endTime || '13:00';
+  }
+  if (activeShift?.end_time && activeShift.end_time !== '00:00') {
+    return activeShift.end_time;
   }
   return activeShift?.end_time || '18:00';
 }
@@ -260,9 +261,144 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
   // Multi-office locations state
   const [officeLocations, setOfficeLocations] = useState<CompanyOfficeLocation[]>([]);
+  const [allCompanyOfficesMap, setAllCompanyOfficesMap] = useState<Record<string, CompanyOfficeLocation[]>>({});
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>('');
   const [showLocationModal, setShowLocationModal] = useState<boolean>(false);
   const [editingLocation, setEditingLocation] = useState<CompanyOfficeLocation | null>(null);
+
+  // Company Work Hours & Multi-Shift States
+  const [showVardiyaModal, setShowVardiyaModal] = useState(false);
+  const [allCompanyShifts, setAllCompanyShifts] = useState<CompanyShift[]>(VARSAYILAN_VARDIYALAR);
+  const [allShiftAssignments, setAllShiftAssignments] = useState<Record<string, string>>({});
+  const [activeUserShift, setActiveUserShift] = useState<CompanyShift>(VARSAYILAN_VARDIYALAR[0]);
+  const [saturdayConfig, setSaturdayConfig] = useState<SaturdayWorkConfig>(DEFAULT_SATURDAY_CONFIG);
+
+  // 1. Personelin atanmış olduğu vardiya (Vardiyalar / Vardiya Atamaları sekmesinden)
+  const employeeAssignedShift = useMemo(() => {
+    const empId = currentEmployee?.id;
+    const empUserId = (currentEmployee as any)?.user_id;
+    const assignedId = (empId && allShiftAssignments[empId]) || (empUserId && allShiftAssignments[empUserId]);
+    if (assignedId) {
+      const found = allCompanyShifts.find((s) => s.id === assignedId);
+      if (found) return found;
+    }
+    // Personel lokasyonu veya departman eşleşmesi fallback
+    if (currentEmployee) {
+      const empLoc = currentEmployee.department || currentEmployee.ilce || currentEmployee.il || (currentEmployee as any).city || '';
+      if (empLoc) {
+        const matched = allCompanyShifts.find(
+          (s) =>
+            s.name.toLowerCase().includes(empLoc.toLowerCase()) ||
+            (s.office_name && s.office_name.toLowerCase().includes(empLoc.toLowerCase()))
+        );
+        if (matched) return matched;
+      }
+    }
+    return null;
+  }, [currentEmployee, allShiftAssignments, allCompanyShifts]);
+
+  // Helper to resolve the correct office for any employee across companies
+  const resolveEmployeeOfficeName = React.useCallback((
+    emp: any,
+    shift?: any,
+    notes?: string | null
+  ): string => {
+    const empCompId = normalizeCompanyId(emp?.company_id || (emp as any)?.company);
+    const compOffices = (allCompanyOfficesMap && allCompanyOfficesMap[empCompId] && allCompanyOfficesMap[empCompId].length > 0)
+      ? allCompanyOfficesMap[empCompId]
+      : (empCompId === resolvedCompanyId && officeLocations.length > 0)
+      ? officeLocations
+      : getDefaultOfficesForCompany(empCompId);
+
+    const defaultOffice = compOffices.find((o) => o.is_default) || compOffices[0];
+    const defaultOfficeName = defaultOffice?.name || (empCompId === MICI_COMPANY_ID ? 'TOYOTA/BYD/LX' : 'Merkez Ofis');
+
+    // 1. If real check-in / check-out note exists
+    if (notes) {
+      const normNote = normalizeTr(notes);
+      // A. Direct note contains known office name
+      for (const off of compOffices) {
+        if (normNote.includes(normalizeTr(off.name))) {
+          return off.name;
+        }
+      }
+      // B. Extract from pattern like "Tarayıcı GPS Doğrulandı: [Office] • ..."
+      const match = notes.match(/(?:Doğrulandı|Eşleşti|Girişi|sonlandırıldı \()(?::\s*|\s*)([^,\)\.\n•|]+)/i);
+      if (match && match[1]) {
+        const candidate = match[1].trim();
+        const normCand = normalizeTr(candidate);
+        // Filter out any garbage or foreign names like 'kutahya' for Mıçı
+        if (!['kutahya', 'kütahya'].includes(normCand) || empCompId !== MICI_COMPANY_ID) {
+          const found = compOffices.find(
+            (o) => normalizeTr(o.name) === normCand || normalizeTr(o.name).includes(normCand) || normCand.includes(normalizeTr(o.name))
+          );
+          if (found) return found.name;
+        }
+      }
+    }
+
+    // 2. From assigned shift
+    if (shift) {
+      const shiftOff = resolveOfficeForShift(shift, compOffices);
+      if (shiftOff) return shiftOff.name;
+    }
+
+    // 3. From employee department / branch / city / district
+    const dept = normalizeTr(emp?.department || '');
+    const city = normalizeTr(emp?.il || (emp as any)?.city || '');
+    const ilce = normalizeTr(emp?.ilce || '');
+    const branch = normalizeTr((emp as any)?.branch || '');
+    const fullText = `${dept} ${branch} ${city} ${ilce}`;
+
+    if (empCompId === MICI_COMPANY_ID) {
+      if (fullText.includes('kayseri')) return 'Kayseri Ofis';
+      if (fullText.includes('tarsus') || fullText.includes('mersin')) return 'Tarsus Ofis';
+      if (fullText.includes('suzik') || fullText.includes('suzuki') || fullText.includes('mg')) return 'Suzuki / Mg';
+      if (fullText.includes('sixt') && (fullText.includes('adana') || (!fullText.includes('kayseri') && !fullText.includes('tarsus')))) {
+        return 'Sixt Adana';
+      }
+      if (fullText.includes('toyota') || fullText.includes('byd') || fullText.includes('lexus') || fullText.includes('2.el') || fullText.includes('sigorta') || fullText.includes('adana')) {
+        return 'TOYOTA/BYD/LX';
+      }
+    }
+
+    if (empCompId === BIGSAFER_COMPANY_ID) {
+      if (fullText.includes('duzce')) return 'Düzce Ofisi';
+      if (fullText.includes('bolu')) return 'Bolu Şubesi';
+      if (fullText.includes('istanbul') || fullText.includes('maslak') || fullText.includes('sariyer')) return 'İstanbul Genel Merkez';
+    }
+
+    for (const off of compOffices) {
+      const offNorm = normalizeTr(off.name);
+      if (fullText.includes(offNorm)) return off.name;
+      if (off.il && fullText.includes(normalizeTr(off.il))) return off.name;
+      if (off.ilce && fullText.includes(normalizeTr(off.ilce))) return off.name;
+    }
+
+    return defaultOfficeName;
+  }, [allCompanyOfficesMap, officeLocations, resolvedCompanyId]);
+
+  // 2. Personelin atandığı vardiyanın bağlı olduğu ofis
+  const employeeAssignedOffice = useMemo<CompanyOfficeLocation | null>(() => {
+    if (officeLocations.length === 0) return null;
+    // 1. Önce atanmış vardiyadan ofisi çöz
+    if (employeeAssignedShift) {
+      const off = resolveOfficeForShift(employeeAssignedShift, officeLocations);
+      if (off) return off;
+    }
+    // 2. Eğer atanmış vardiya genel ise ama kullanıcının seçtiği aktif vardiya bir ofise bağlıysa
+    if (activeUserShift) {
+      const off = resolveOfficeForShift(activeUserShift, officeLocations);
+      if (off) return off;
+    }
+    // 3. Personelin departman veya il/ilçe bilgisine göre ofis eşleştir
+    if (currentEmployee) {
+      const offName = resolveEmployeeOfficeName(currentEmployee, activeUserShift, null);
+      const found = officeLocations.find((o) => normalizeTr(o.name) === normalizeTr(offName));
+      if (found) return found;
+    }
+    return officeLocations.find((o) => o.is_default) || officeLocations[0] || null;
+  }, [employeeAssignedShift, activeUserShift, officeLocations, currentEmployee, resolveEmployeeOfficeName]);
   
   // Location Modal Form state
   const [locName, setLocName] = useState('');
@@ -310,6 +446,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     if (isHrOrAdmin) {
       return officeLocations;
     }
+    // Personelin atandığı vardiyanın bağlı olduğu bir ofis varsa, personel doğrudan o ofise bağlıdır:
+    if (employeeAssignedOffice) {
+      return [employeeAssignedOffice];
+    }
     const userCity = currentEmployee?.il?.trim();
     if (!userCity) {
       return officeLocations;
@@ -327,10 +467,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       return cityOffices;
     }
     return officeLocations;
-  }, [isHrOrAdmin, officeLocations, currentEmployee?.il]);
+  }, [isHrOrAdmin, officeLocations, employeeAssignedOffice, currentEmployee?.il]);
 
-  // Visible office değiştiğinde (şehir filtresine göre) seçili ofisi güncelle
+  // Visible office veya atanmış ofis değiştiğinde seçili ofisi güncelle
   useEffect(() => {
+    if (employeeAssignedOffice) {
+      setSelectedOfficeId(employeeAssignedOffice.id);
+      return;
+    }
     if (visibleOfficeLocations && visibleOfficeLocations.length > 0) {
       setSelectedOfficeId((prev) => {
         if (prev && visibleOfficeLocations.some((l) => l.id === prev)) return prev;
@@ -338,7 +482,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         return def.id;
       });
     }
-  }, [visibleOfficeLocations]);
+  }, [employeeAssignedOffice, visibleOfficeLocations]);
   
   // Edit Employee PDKS Modal states
   const [editEmpModal, setEditEmpModal] = useState<any | null>(null);
@@ -347,12 +491,39 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const [editOfficeName, setEditOfficeName] = useState('');
   const [adminOverrides, setAdminOverrides] = useState<Record<string, any>>({});
 
-  // Company Work Hours & Multi-Shift States
-  const [showVardiyaModal, setShowVardiyaModal] = useState(false);
-  const [allCompanyShifts, setAllCompanyShifts] = useState<CompanyShift[]>(VARSAYILAN_VARDIYALAR);
-  const [allShiftAssignments, setAllShiftAssignments] = useState<Record<string, string>>({});
-  const [activeUserShift, setActiveUserShift] = useState<CompanyShift>(VARSAYILAN_VARDIYALAR[0]);
-  const [saturdayConfig, setSaturdayConfig] = useState<SaturdayWorkConfig>(DEFAULT_SATURDAY_CONFIG);
+  // Seçilen Tarih (Varsayılan: Bugün) - PDKS Devam ve Vardiya Denetimi
+  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayYYYYMMDD());
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
+
+  // Aylık Puantaj Cetveli Manuel Düzeltmeleri (HT, AT, İzinler vb.) Senkronizasyonu
+  const [puantajOverrides, setPuantajOverrides] = useState<Record<string, any>>(() => {
+    try {
+      const raw = localStorage.getItem('humanius_puantaj_overrides');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Puantaj veya vardiya güncellendiğinde puantajOverrides state'ini otomatik tazele
+  useEffect(() => {
+    const handleSyncPuantaj = () => {
+      try {
+        const raw = localStorage.getItem('humanius_puantaj_overrides');
+        setPuantajOverrides(raw ? JSON.parse(raw) : {});
+      } catch {}
+    };
+
+    window.addEventListener('humanius_puantaj_updated', handleSyncPuantaj);
+    window.addEventListener('humanius_shifts_updated', handleSyncPuantaj);
+    window.addEventListener('storage', handleSyncPuantaj);
+
+    return () => {
+      window.removeEventListener('humanius_puantaj_updated', handleSyncPuantaj);
+      window.removeEventListener('humanius_shifts_updated', handleSyncPuantaj);
+      window.removeEventListener('storage', handleSyncPuantaj);
+    };
+  }, []);
 
   // Load shifts and assignments from database & sync active shift
   useEffect(() => {
@@ -386,7 +557,16 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
             );
           }
         }
-        setActiveUserShift(userShift || defaultShift);
+        const effectiveShift = userShift || defaultShift;
+        setActiveUserShift(effectiveShift);
+
+        // Atanmış vardiyanın ofisini bulup seçili ofisi senkronize et
+        if (effectiveShift && officeLocations.length > 0) {
+          const shiftOff = resolveOfficeForShift(effectiveShift, officeLocations);
+          if (shiftOff?.id) {
+            setSelectedOfficeId(shiftOff.id);
+          }
+        }
       } catch (err) {
         console.warn('Error loading shifts:', err);
       }
@@ -427,45 +607,69 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       window.removeEventListener('storage', handleShiftsUpdated);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [resolvedCompanyId, currentEmployee?.id]);
+  }, [resolvedCompanyId, currentEmployee?.id, officeLocations]);
   
   // Ofise bağlı vardiya filtrelemesi:
   // - İK ve Şirket Yöneticisi (superadmin, admin, hr) şirketin tüm vardiyalarını görür.
   // - Normal personel için:
-  //   1. Personelin seçili/bulunduğu ofise ait vardiyalar varsa SADECE onlar gösterilir.
-  //   2. Eğer personelin ofisine özel hiçbir vardiya tanımlı değilse, şirket geneli vardiyalar gösterilir.
+  //   1. Personelin atandığı vardiyanın bağlı olduğu ofis (veya seçili ofis) belirlenir.
+  //   2. SADECE O OFİSİN vardiyaları listelenir ve personel o ofisin vardiyaları arasında seçim yapabilir.
+  //   3. Personelin atanmış olduğu vardiya da daima listede yer alır.
+  //   4. Eğer ofise özel başka hiçbir vardiya yoksa genel vardiyalar gösterilir.
   const visibleShiftsForEmployee = useMemo(() => {
     if (isHrOrAdmin) {
       return allCompanyShifts;
     }
 
-    if (selectedOfficeId) {
+    const targetOfficeId = employeeAssignedOffice?.id || selectedOfficeId;
+
+    if (targetOfficeId) {
       // 1. Önce bu ofise özel/eşleşen vardiyaları filtrele
-      const officeShifts = allCompanyShifts.filter((shift) =>
-        isShiftMatchingOffice(shift, selectedOfficeId, officeLocations, false)
-      );
+      const officeShifts = allCompanyShifts.filter((shift) => {
+        if (employeeAssignedShift && shift.id === employeeAssignedShift.id) return true;
+        const shiftOffice = resolveOfficeForShift(shift, officeLocations);
+        if (shiftOffice && shiftOffice.id === targetOfficeId) return true;
+        return isShiftMatchingOffice(shift, targetOfficeId, officeLocations, false);
+      });
       if (officeShifts.length > 0) {
         return officeShifts;
       }
     }
 
     // 2. Ofise özel vardiya yoksa genel (herhangi bir ofise ait olmayan) vardiyaları göster
-    const generalShifts = allCompanyShifts.filter(
-      (s) => !inferOfficeForShift(s, officeLocations)
-    );
-    return generalShifts.length > 0 ? generalShifts : allCompanyShifts;
-  }, [isHrOrAdmin, allCompanyShifts, selectedOfficeId, officeLocations]);
+    const generalShifts = allCompanyShifts.filter((s) => {
+      if (employeeAssignedShift && s.id === employeeAssignedShift.id) return true;
+      const off = resolveOfficeForShift(s, officeLocations);
+      return !off && !inferOfficeForShift(s, officeLocations);
+    });
+    if (generalShifts.length > 0) {
+      return generalShifts;
+    }
 
-  // Ofis veya vardiya listesi değiştiğinde aktif vardiya görünür listede yoksa varsayılana geç
+    return employeeAssignedShift ? [employeeAssignedShift] : allCompanyShifts;
+  }, [isHrOrAdmin, allCompanyShifts, employeeAssignedOffice, selectedOfficeId, officeLocations, employeeAssignedShift]);
+
+  // Ofis veya vardiya listesi değiştiğinde aktif vardiyayı personelin atanmış vardiyasına / ofis vardiyasına senkronize et
   useEffect(() => {
-    if (visibleShiftsForEmployee && visibleShiftsForEmployee.length > 0 && !isShiftActive) {
-      const exists = visibleShiftsForEmployee.some((s) => s.id === activeUserShift?.id);
-      if (!exists) {
-        const def = visibleShiftsForEmployee.find((s) => s.is_default) || visibleShiftsForEmployee[0];
-        setActiveUserShift(def);
+    if (isShiftActive) return;
+
+    if (employeeAssignedShift) {
+      if (activeUserShift?.id !== employeeAssignedShift.id) {
+        setActiveUserShift(employeeAssignedShift);
+        return;
       }
     }
-  }, [visibleShiftsForEmployee, isShiftActive]);
+
+    if (visibleShiftsForEmployee && visibleShiftsForEmployee.length > 0) {
+      const exists = visibleShiftsForEmployee.some((s) => s.id === activeUserShift?.id);
+      if (!exists) {
+        const def = (employeeAssignedShift && visibleShiftsForEmployee.some((s) => s.id === employeeAssignedShift.id))
+          ? employeeAssignedShift
+          : (visibleShiftsForEmployee.find((s) => s.is_default) || visibleShiftsForEmployee[0]);
+        if (def) setActiveUserShift(def);
+      }
+    }
+  }, [visibleShiftsForEmployee, isShiftActive, employeeAssignedShift]);
 
   // Geolocation watch ID ref
   const watchIdRef = useRef<number | null>(null);
@@ -530,13 +734,18 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     };
   }, [resolvedCompanyId, activeUserShift?.end_time]);
 
-  // Load office locations for the company
+  // Load office locations for the company & all companies
   const loadOfficeLocations = React.useCallback(async () => {
     try {
-      const locs = await companyService.getOfficeLocations(resolvedCompanyId);
+      const [locs, allMap] = await Promise.all([
+        companyService.getOfficeLocations(resolvedCompanyId),
+        companyService.getAllOfficeLocations()
+      ]);
       setOfficeLocations(locs);
+      setAllCompanyOfficesMap(allMap);
       if (locs && locs.length > 0) {
         setSelectedOfficeId((prev) => {
+          if (employeeAssignedOffice) return employeeAssignedOffice.id;
           if (prev && locs.some((l) => l.id === prev)) return prev;
           const def = locs.find((l) => l.is_default) || locs[0];
           return def.id;
@@ -545,18 +754,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     } catch (e) {
       console.error("Error loading office locations:", e);
     }
-  }, [resolvedCompanyId]);
+  }, [resolvedCompanyId, employeeAssignedOffice]);
 
   useEffect(() => {
     loadOfficeLocations();
   }, [loadOfficeLocations]);
 
-  // Load shift history from database when currentEmployee is found and sync shift status
+  // Load shift history from database and sync shift status
   const loadShiftHistory = React.useCallback(async () => {
-    if (currentEmployee?.id) {
-      try {
-        const allVardiyalar = await pdksService.getVardiyalar();
-        setAllShiftRecords(allVardiyalar || []);
+    try {
+      const allVardiyalar = await pdksService.getVardiyalar();
+      setAllShiftRecords(allVardiyalar || []);
+
+      if (currentEmployee?.id) {
         // Filter to only include records for the current employee
         const myVardiyalar = (allVardiyalar || []).filter(v => v.employee_id === currentEmployee.id);
 
@@ -628,29 +838,31 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           };
         });
         setLocalHistory(mappedHistory);
-      } catch (error) {
-        console.error("Failed to load shift history from database:", error);
-        // Fallback to local storage
+      } else {
+        // Fallback to local storage if no currentEmployee yet
         const savedHistory = localStorage.getItem('pdks_personal_history');
         if (savedHistory) {
           setLocalHistory(JSON.parse(savedHistory));
         }
       }
-    } else {
-      // Fallback to local storage if no currentEmployee yet
+    } catch (error) {
+      console.error("Failed to load shift history from database:", error);
+      // Fallback to local storage
       const savedHistory = localStorage.getItem('pdks_personal_history');
       if (savedHistory) {
         setLocalHistory(JSON.parse(savedHistory));
       }
     }
-  }, [currentEmployee?.id]);
+  }, [currentEmployee?.id, activeUserShift, overtimeAuthMap, saturdayConfig]);
 
   useEffect(() => {
     loadShiftHistory();
     window.addEventListener('humanius_shifts_updated', loadShiftHistory);
+    window.addEventListener('humanius_puantaj_updated', loadShiftHistory);
     window.addEventListener('storage', loadShiftHistory);
     return () => {
       window.removeEventListener('humanius_shifts_updated', loadShiftHistory);
+      window.removeEventListener('humanius_puantaj_updated', loadShiftHistory);
       window.removeEventListener('storage', loadShiftHistory);
     };
   }, [loadShiftHistory]);
@@ -709,13 +921,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       const now = new Date();
       const isTodaySaturday = now.getDay() === 6;
       const currentMin = now.getHours() * 60 + now.getMinutes();
-      const shiftStartStr = (activeUserShift?.start_time && activeUserShift.start_time !== '00:00')
-        ? activeUserShift.start_time
-        : (isTodaySaturday && saturdayConfig?.isSaturdayWork ? (saturdayConfig.startTime || '08:30') : '08:30');
+      const shiftStartStr = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
+        ? (activeUserShift?.saturday_start_time || activeUserShift?.start_time || '08:30')
+        : (activeUserShift?.start_time || '08:30');
       const shiftEndStr = getTargetCikisTime(activeUserShift, undefined, isTodaySaturday, saturdayConfig);
       const toleranceMin = (activeUserShift?.tolerance_minutes !== undefined && activeUserShift?.tolerance_minutes !== null)
         ? Math.max(0, Number(activeUserShift.tolerance_minutes))
-        : (isTodaySaturday && saturdayConfig?.isSaturdayWork ? Math.max(0, Number(saturdayConfig.toleranceMinutes ?? 15)) : 15);
+        : 15;
 
       // 1. Shift Start & Late Tolerance Alerts (If user has not started shift yet)
       if (!isShiftActive && shiftStartStr) {
@@ -813,6 +1025,9 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
   // Active selected office
   const activeOffice = React.useMemo<CompanyOfficeLocation>(() => {
+    if (employeeAssignedOffice) {
+      return employeeAssignedOffice;
+    }
     const listToUse = visibleOfficeLocations.length > 0 ? visibleOfficeLocations : officeLocations;
     if (listToUse.length > 0) {
       const found = listToUse.find((l) => l.id === selectedOfficeId);
@@ -829,7 +1044,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       address: companyDetails?.address || '',
       is_default: true,
     };
-  }, [visibleOfficeLocations, officeLocations, selectedOfficeId, companyDetails, companyCoords, geofenceRadius, resolvedCompanyId]);
+  }, [employeeAssignedOffice, visibleOfficeLocations, officeLocations, selectedOfficeId, companyDetails, companyCoords, geofenceRadius, resolvedCompanyId]);
 
   // Distance to selected active office
   const distanceToSelectedOffice = React.useMemo(() => {
@@ -1187,24 +1402,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   // -------------------------------------------------------------
   // TEAM MONITORING (MANAGER VIEW) DATA
   const mockPdksData = React.useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const defaultOfficeName = officeLocations.find(l => l.is_default)?.name || officeLocations[0]?.name || 'Merkez Ofis';
+    const todayStr = getTodayYYYYMMDD();
+    const targetDate = selectedDate || todayStr;
+
+    // Seçilen tarihin gününü hesapla (0 = Pazar, 6 = Cumartesi)
+    const [tYear, tMonth, tDay] = targetDate.split('-').map(Number);
+    const targetDateObj = new Date(tYear, tMonth - 1, tDay);
+    const targetDayOfWeek = targetDateObj.getDay();
+    const isTargetSunday = targetDayOfWeek === 0;
+    const isTargetSaturday = targetDayOfWeek === 6;
     
     return employees.map(emp => {
-      const extractOfficeName = (notes?: string | null) => {
-        if (!notes) return defaultOfficeName;
-        const match = notes.match(/(?:Doğrulandı|Eşleşti|Girişi|sonlandırıldı \()(?::\s*|\s*)([^,\)\.\n]+)/i);
-        if (match && match[1]) {
-          return match[1].trim();
-        }
-        if (notes.includes('Tarayıcı GPS') || notes.includes('GPS')) {
-          return defaultOfficeName;
-        }
-        return notes;
-      };
 
       // Resolve employee assigned shift (strictly isolate Saturday vs Weekday)
-      const isTodaySaturday = new Date().getDay() === 6;
       const assignedShiftId = allShiftAssignments[emp.id] || ((emp as any).user_id && allShiftAssignments[(emp as any).user_id]);
       const cleanShifts = allCompanyShifts.filter(isNotSaturdayShift);
       const defaultShift = cleanShifts.find((s) => s.is_default) || cleanShifts[0] || VARSAYILAN_VARDIYALAR[0];
@@ -1225,80 +1435,247 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
 
       // "vardıyada ne yazıyosa ona göre cıkış yapılsın"
-      const targetCikis = getTargetCikisTime(baseShift, defaultShift?.id, isTodaySaturday, saturdayConfig);
-      const isSaturdayOverride = isTodaySaturday && saturdayConfig?.isSaturdayWork && targetCikis === (saturdayConfig.endTime || '16:00');
+      const targetCikis = getTargetCikisTime(baseShift, defaultShift?.id, isTargetSaturday, saturdayConfig);
+      const isSaturdayActive = isTargetSaturday && saturdayConfig?.isSaturdayWork;
 
-      const empShift = isSaturdayOverride
+      const empShift = isSaturdayActive
         ? {
             ...baseShift,
-            name: 'Cumartesi Mesaisi',
-            start_time: saturdayConfig.startTime || '08:30',
+            start_time: baseShift.saturday_start_time || baseShift.start_time || '08:30',
             end_time: targetCikis,
-            break_minutes: Number(saturdayConfig.breakMinutes ?? 30),
-            tolerance_minutes: Number(saturdayConfig.toleranceMinutes ?? 15),
-            color: '#f59e0b',
+            break_minutes: baseShift.saturday_break_minutes != null ? Number(baseShift.saturday_break_minutes) : Number(saturdayConfig.breakMinutes ?? 30),
+            tolerance_minutes: Number(baseShift.tolerance_minutes ?? 15),
           }
         : {
             ...baseShift,
             end_time: targetCikis,
           };
 
-      // 0. Check admin override first (in memory or localStorage)
-      const memOverride = adminOverrides[emp.id];
-      const savedOverride = memOverride || (() => {
-        try {
-          const s = localStorage.getItem(`humanius_pdks_override_${emp.id}`);
-          return s ? JSON.parse(s) : null;
-        } catch { return null; }
-      })();
+      // 0. ÖNCELİK: Aylık Puantaj Cetvelinde Yapılan Manuel Düzeltmeler (HT, AT, İzinler vb.)
+      const puantajOverride = puantajOverrides[`${emp.id}_${targetDate}`];
+      if (puantajOverride) {
+        const pKod = (puantajOverride.kod || '').toUpperCase();
+        if (pKod === 'HT' || pKod === 'AT') {
+          return {
+            employee: emp,
+            giris: pKod,
+            cikis: pKod,
+            durum: pKod === 'AT' ? 'Akdi Tatil' : 'Haftalık Tatil',
+            isLeave: true,
+            mesai: 0,
+            officeName: '-',
+            shift: empShift,
+          };
+        }
+        if (pKod === 'Yİ' || pKod === 'YI') {
+          return {
+            employee: emp,
+            giris: 'Yİ',
+            cikis: 'Yİ',
+            durum: 'Yıllık İzin',
+            isLeave: true,
+            mesai: 0,
+            officeName: '-',
+            shift: empShift,
+          };
+        }
+        if (pKod === 'RP' || pKod === 'R' || pKod === 'HA') {
+          return {
+            employee: emp,
+            giris: 'RP',
+            cikis: 'RP',
+            durum: 'Raporlu',
+            isLeave: true,
+            mesai: 0,
+            officeName: '-',
+            shift: empShift,
+          };
+        }
+        if (pKod === 'Üİ' || pKod === 'UC') {
+          return {
+            employee: emp,
+            giris: 'Üİ',
+            cikis: 'Üİ',
+            durum: 'Ücretsiz İzin',
+            isLeave: true,
+            mesai: 0,
+            officeName: '-',
+            shift: empShift,
+          };
+        }
+        if (pKod === 'Mİ' || pKod === 'MZ') {
+          return {
+            employee: emp,
+            giris: 'Mİ',
+            cikis: 'Mİ',
+            durum: puantajOverride.kodAciklama || 'Mazeret İzni',
+            isLeave: true,
+            mesai: 0,
+            officeName: '-',
+            shift: empShift,
+          };
+        }
+        if (pKod === 'UBGT') {
+          return {
+            employee: emp,
+            giris: 'UBGT',
+            cikis: 'UBGT',
+            durum: puantajOverride.kodAciklama || 'Resmi Tatil',
+            isLeave: true,
+            mesai: 0,
+            officeName: '-',
+            shift: empShift,
+          };
+        }
+        if (pKod === 'EG') {
+          return {
+            employee: emp,
+            giris: 'EG',
+            cikis: 'EG',
+            durum: 'Eğitim İzni',
+            isLeave: true,
+            mesai: 0,
+            officeName: '-',
+            shift: empShift,
+          };
+        }
+        if (pKod === 'D') {
+          return {
+            employee: emp,
+            giris: 'D',
+            cikis: 'D',
+            durum: 'Devamsız',
+            isLeave: false,
+            mesai: 0,
+            officeName: '-',
+            shift: empShift,
+          };
+        }
+        if (pKod === 'Ç') {
+          return {
+            employee: emp,
+            giris: puantajOverride.giris || '08:30',
+            cikis: puantajOverride.cikis || '18:00',
+            durum: 'Zamanında',
+            isLeave: false,
+            mesai: 9,
+            officeName: puantajOverride.notlar || resolveEmployeeOfficeName(emp, empShift, null),
+            shift: empShift,
+          };
+        }
+        if (pKod && pKod !== '-') {
+          return {
+            employee: emp,
+            giris: pKod,
+            cikis: pKod,
+            durum: puantajOverride.kodAciklama || 'İzinli',
+            isLeave: true,
+            mesai: 0,
+            officeName: '-',
+            shift: empShift,
+          };
+        }
+      }
 
-      if (savedOverride) {
+      // 1. ÖNCELİK: Eğer bugün seçiliyse ve PDKS tekil yönetici düzeltmesi varsa
+      if (targetDate === todayStr) {
+        const memOverride = adminOverrides[emp.id];
+        const savedOverride = memOverride || (() => {
+          try {
+            const s = localStorage.getItem(`humanius_pdks_override_${emp.id}`);
+            return s ? JSON.parse(s) : null;
+          } catch { return null; }
+        })();
+
+        if (savedOverride) {
+          let calcGiris = savedOverride.giris || '-';
+          let calcCikis = savedOverride.cikis || '-';
+          if (savedOverride.isLeave || savedOverride.durum === 'Haftalık Tatil' || savedOverride.durum === 'Akdi Tatil') {
+            const code = getDevamKontroluIzinKisaltma(savedOverride.durum, resolvedCompanyId);
+            if (calcGiris === '-' || !calcGiris) calcGiris = code;
+            if (calcCikis === '-' || !calcCikis) calcCikis = code;
+          }
+          return {
+            employee: emp,
+            giris: calcGiris,
+            cikis: calcCikis,
+            durum: savedOverride.durum || 'Zamanında',
+            isLeave: savedOverride.isLeave || false,
+            mesai: savedOverride.mesai || 0,
+            officeName: savedOverride.officeName || (calcGiris !== '-' && !savedOverride.isLeave ? resolveEmployeeOfficeName(emp, empShift, null) : '-'),
+            shift: empShift,
+          };
+        }
+      }
+
+      // 2. ÖNCELİK: Onaylanmış İzin Talebi Kontrolü (izinTalepleri)
+      const activeLeave = (izinTalepleri || []).find((t: any) => {
+        const tEmpId = t.employeeId || t.employee_id;
+        if (!tEmpId || tEmpId !== emp.id) return false;
+        const tDurum = String(t.durum || '').toLowerCase();
+        if (tDurum !== 'onaylandi' && tDurum !== 'onaylandı') return false;
+        const startStr = (t.baslangicTarihi || t.baslangic_tarihi || '').split('T')[0];
+        const endStr = (t.bitisTarihi || t.bitis_tarihi || '').split('T')[0];
+        return Boolean(startStr && endStr && targetDate >= startStr && targetDate <= endStr);
+      });
+
+      if (activeLeave) {
+        const leaveTitle = getDevamKontroluIzinLabel(activeLeave.izinTuru || activeLeave.izin_turu, resolvedCompanyId);
+        const leaveCode = getDevamKontroluIzinKisaltma(activeLeave.izinTuru || activeLeave.izin_turu, resolvedCompanyId);
         return {
           employee: emp,
-          giris: savedOverride.giris || '-',
-          cikis: savedOverride.cikis || '-',
-          durum: savedOverride.durum || 'Zamanında',
-          mesai: savedOverride.mesai || 0,
-          officeName: savedOverride.officeName || (savedOverride.giris !== '-' ? defaultOfficeName : '-'),
+          giris: leaveCode,
+          cikis: leaveCode,
+          durum: leaveTitle,
+          isLeave: true,
+          mesai: 0,
+          officeName: '-',
           shift: empShift,
         };
       }
 
-      // 1. Try to find a real record in allShiftRecords for today
-      const realRecord = allShiftRecords.find(r => r.employee_id === emp.id && r.tarih === todayStr);
+      // 3. ÖNCELİK: Gerçek PDKS Giriş-Çıkış Kaydı (allShiftRecords)
+      const realRecord = allShiftRecords.find(r => r.employee_id === emp.id && r.tarih === targetDate);
       
-      if (realRecord) {
+      if (realRecord && (realRecord.giris_saati || realRecord.cikis_saati)) {
         const checkIn = realRecord.giris_saati;
         const checkOut = realRecord.cikis_saati;
-        const officeName = checkIn ? extractOfficeName(realRecord.notlar) : '-';
+        const officeName = checkIn ? resolveEmployeeOfficeName(emp, empShift, realRecord.notlar) : '-';
+        const isTimeStr = (s?: string | null) => Boolean(s && /^\d{1,2}:\d{2}/.test(s));
         
         let status = 'Zamanında';
         if (!checkOut && checkIn) {
           status = 'Mesai Devam Ediyor';
         } else if (checkIn && checkOut) {
-          const [hours, minutes] = checkIn.split(':').map(Number);
-          const [sH, sM] = empShift.start_time.split(':').map(Number);
-          const shiftStartTotal = sH * 60 + sM + empShift.tolerance_minutes;
-          if (hours * 60 + minutes > shiftStartTotal) {
-            status = 'Geç Kaldı';
-          } else {
-            status = 'Zamanında';
+          if (isTimeStr(checkIn)) {
+            const [hours, minutes] = checkIn.split(':').map(Number);
+            const [sH, sM] = (empShift.start_time || '08:30').split(':').map(Number);
+            const shiftStartTotal = sH * 60 + sM + (empShift.tolerance_minutes ?? 15);
+            if (hours * 60 + minutes > shiftStartTotal) {
+              status = 'Geç Kaldı';
+            } else {
+              status = 'Zamanında';
+            }
           }
         }
         
         let mesai = 0;
-        if (checkIn && checkOut) {
+        if (checkIn && checkOut && isTimeStr(checkIn) && isTimeStr(checkOut)) {
           const [gH, gM] = checkIn.split(':').map(Number);
           const [cH, cM] = checkOut.split(':').map(Number);
-          mesai = parseFloat(((cH * 60 + cM - (gH * 60 + gM)) / 60).toFixed(1));
-          if (mesai < 0) mesai = 0;
-        } else if (checkIn) {
+          if (!isNaN(gH) && !isNaN(gM) && !isNaN(cH) && !isNaN(cM)) {
+            mesai = parseFloat(((cH * 60 + cM - (gH * 60 + gM)) / 60).toFixed(1));
+            if (mesai < 0) mesai = 0;
+          }
+        } else if (checkIn && isTimeStr(checkIn) && targetDate === todayStr) {
           const [gH, gM] = checkIn.split(':').map(Number);
-          const now = new Date();
-          const curMin = now.getHours() * 60 + now.getMinutes();
-          const diff = curMin - (gH * 60 + gM);
-          if (diff > 0) {
-            mesai = parseFloat((diff / 60).toFixed(1));
+          if (!isNaN(gH) && !isNaN(gM)) {
+            const now = new Date();
+            const curMin = now.getHours() * 60 + now.getMinutes();
+            const diff = curMin - (gH * 60 + gM);
+            if (diff > 0) {
+              mesai = parseFloat((diff / 60).toFixed(1));
+            }
           }
         }
         
@@ -1307,49 +1684,146 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           giris: checkIn || '-',
           cikis: checkOut || '-',
           durum: status,
+          isLeave: false,
           mesai,
           officeName,
           shift: empShift,
         };
       }
-      
-      // 2. Try to find if they are on approved leave today
-      const activeLeave = (izinTalepleri || []).find((t: any) => {
-        if (t.employeeId !== emp.id || t.durum !== 'onaylandi') return false;
-        const startStr = t.baslangicTarihi ? t.baslangicTarihi.split('T')[0] : '';
-        const endStr = t.bitisTarihi ? t.bitisTarihi.split('T')[0] : '';
-        return Boolean(startStr && endStr && todayStr >= startStr && todayStr <= endStr);
-      });
 
-      if (activeLeave) {
-        const leaveTitle = getDevamKontroluIzinLabel(activeLeave.izinTuru || activeLeave.izin_turu, resolvedCompanyId);
+      // 4. ÖNCELİK: Kayıt Bulunmayan Durumlarda Günün Niteliği (Pazar / Cumartesi Hafta Tatili)
+      // Pazar günleri yasal hafta tatilidir (Madde 46)
+      if (isTargetSunday) {
         return {
           employee: emp,
-          giris: '-',
-          cikis: '-',
-          durum: leaveTitle,
+          giris: 'HT',
+          cikis: 'HT',
+          durum: 'Haftalık Tatil',
           isLeave: true,
           mesai: 0,
           officeName: '-',
           shift: empShift,
         };
       }
-      
-      // 3. For employees without today entry: display real empty values '-'
+
+      // Cumartesi günleri (Cumartesi çalışma düzeni aktif değilse)
+      if (isTargetSaturday) {
+        const hasSatWork = Boolean(saturdayConfig?.isSaturdayWork);
+        if (!hasSatWork) {
+          return {
+            employee: emp,
+            giris: 'HT',
+            cikis: 'HT',
+            durum: 'Haftalık Tatil',
+            isLeave: true,
+            mesai: 0,
+            officeName: '-',
+            shift: empShift,
+          };
+        }
+      }
+
+      // 5. Normal hafta içi gün olup fiili giriş yapılmamışsa
       return {
         employee: emp,
         giris: '-',
         cikis: '-',
         durum: 'Giriş Yapılmadı',
+        isLeave: false,
         mesai: 0,
         officeName: '-',
         shift: empShift,
       };
     });
-  }, [employees, allShiftRecords, izinTalepleri, officeLocations, allCompanyShifts, allShiftAssignments, adminOverrides, saturdayConfig]);
+  }, [employees, allShiftRecords, izinTalepleri, officeLocations, allCompanyOfficesMap, resolveEmployeeOfficeName, allCompanyShifts, allShiftAssignments, adminOverrides, puantajOverrides, saturdayConfig, selectedDate]);
+
+  // Durum Özet İstatistikleri (Seçili Gün ve Filtrelere Göre)
+  const teamStats = useMemo(() => {
+    const scopedList = mockPdksData.filter((d) => {
+      if (!isSuperAdmin) {
+        if (resolvedCompanyId) {
+          const empCompId = (d.employee.company_id || '').trim();
+          if (empCompId && empCompId !== resolvedCompanyId) return false;
+        }
+      } else if (selectedCompany && selectedCompany !== 'all') {
+        const target = selectedCompany.toLowerCase().trim();
+        const empCompName = (d.employee.company || '').toLowerCase().trim();
+        const empCompId = (d.employee.company_id || '').toLowerCase().trim();
+        const isMatch = empCompName === target || empCompId === target || empCompId === resolvedCompanyId;
+        if (!isMatch) return false;
+      }
+      return selectedDepartment === 'all' || d.employee.department === selectedDepartment;
+    });
+
+    const total = scopedList.length;
+    const calisan = scopedList.filter(d => d.durum === 'Zamanında' || d.durum === 'Geç Kaldı').length;
+    const mesaiDevam = scopedList.filter(d => d.durum === 'Mesai Devam Ediyor').length;
+    const haftalikTatil = scopedList.filter(d => d.durum === 'Haftalık Tatil' || d.durum === 'Hafta Tatili' || d.durum === 'Akdi Tatil').length;
+    const izinli = scopedList.filter(d => d.isLeave && !(d.durum === 'Haftalık Tatil' || d.durum === 'Hafta Tatili' || d.durum === 'Akdi Tatil')).length;
+    const girisYok = scopedList.filter(d => d.durum === 'Giriş Yapılmadı' || d.durum === 'Devamsız').length;
+
+    return { total, calisan, mesaiDevam, haftalikTatil, izinli, girisYok };
+  }, [mockPdksData, isSuperAdmin, resolvedCompanyId, selectedCompany, selectedDepartment]);
+
+  // Tarih İşlem Fonksiyonları
+  const handlePrevDay = () => {
+    const [y, m, d] = (selectedDate || getTodayYYYYMMDD()).split('-').map(Number);
+    const dt = new Date(y, m - 1, d - 1);
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    setSelectedDate(`${yyyy}-${mm}-${dd}`);
+  };
+
+  const handleNextDay = () => {
+    const [y, m, d] = (selectedDate || getTodayYYYYMMDD()).split('-').map(Number);
+    const dt = new Date(y, m - 1, d + 1);
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    setSelectedDate(`${yyyy}-${mm}-${dd}`);
+  };
+
+  const handleSetToday = () => {
+    setSelectedDate(getTodayYYYYMMDD());
+  };
+
+  const formattedSelectedDateText = useMemo(() => {
+    try {
+      const [y, m, d] = (selectedDate || getTodayYYYYMMDD()).split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      return dt.toLocaleDateString('tr-TR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        weekday: 'long',
+      });
+    } catch {
+      return selectedDate;
+    }
+  }, [selectedDate]);
 
   const filteredData = mockPdksData
     .filter((d) => {
+      // Hızlı Durum Filtresi
+      if (selectedStatusFilter !== 'all') {
+        if (selectedStatusFilter === 'calisan' && !(d.durum === 'Zamanında' || d.durum === 'Geç Kaldı')) {
+          return false;
+        }
+        if (selectedStatusFilter === 'mesai-devam' && d.durum !== 'Mesai Devam Ediyor') {
+          return false;
+        }
+        if (selectedStatusFilter === 'haftalik-tatil' && !(d.durum === 'Haftalık Tatil' || d.durum === 'Hafta Tatili' || d.durum === 'Akdi Tatil')) {
+          return false;
+        }
+        if (selectedStatusFilter === 'izinli' && (!d.isLeave || (d.durum === 'Haftalık Tatil' || d.durum === 'Hafta Tatili' || d.durum === 'Akdi Tatil'))) {
+          return false;
+        }
+        if (selectedStatusFilter === 'giris-yapilmadi' && !(d.durum === 'Giriş Yapılmadı' || d.durum === 'Devamsız')) {
+          return false;
+        }
+      }
+
       // Multi-tenant company isolation
       if (!isSuperAdmin) {
         if (resolvedCompanyId) {
@@ -1440,8 +1914,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     const companyName = companyDetails?.name || profile?.company_name || 'Humanius HRMS';
     printPdksDevamRaporuPdf({
       companyName,
-      reportTitle: 'GÜNLÜK PERSONEL PDKS DEVAM VE VARDİYA ÇİZELGESİ',
-      dateStr: new Date().toLocaleDateString('tr-TR'),
+      reportTitle: `GÜNLÜK PERSONEL PDKS DEVAM VE VARDİYA ÇİZELGESİ (${formattedSelectedDateText})`,
+      dateStr: formattedSelectedDateText,
       records,
     });
   };
@@ -1462,7 +1936,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     }));
 
     const companyName = companyDetails?.name || profile?.company_name || 'Humanius';
-    exportPdksToCsv(companyName, new Date().toLocaleDateString('tr-TR'), records);
+    exportPdksToCsv(companyName, selectedDate || new Date().toLocaleDateString('tr-TR'), records);
   };
 
   return (
@@ -1556,7 +2030,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   const todayRec = (allShiftRecords || []).find(
                     (r) => r.employee_id === currentEmployee?.id && r.tarih === todayStr
                   );
-                  if (!isShiftActive && todayRec?.giris_saati && todayRec?.cikis_saati) {
+                  const isTimeStr = (s?: string) => Boolean(s && /^\d{1,2}:\d{2}/.test(s));
+                  if (!isShiftActive && todayRec?.giris_saati && todayRec?.cikis_saati && isTimeStr(todayRec.giris_saati) && isTimeStr(todayRec.cikis_saati)) {
                     const [gH, gM] = todayRec.giris_saati.split(':').map(Number);
                     const [cH, cM] = todayRec.cikis_saati.split(':').map(Number);
                     const diffMin = (cH * 60 + cM) - (gH * 60 + gM);
@@ -1656,61 +2131,60 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                             })()}
                           </p>
                           <p className="text-[11px] font-mono text-indigo-700 font-medium">
-                            {activeUserShift.start_time} - {activeUserShift.end_time}
+                            {new Date().getDay() === 6 && saturdayConfig?.isSaturdayWork
+                              ? `${activeUserShift.saturday_start_time || '08:30'} - ${activeUserShift.saturday_end_time || '13:00'} (Cumartesi)`
+                              : `${activeUserShift.start_time} - ${activeUserShift.end_time}`}
                           </p>
                         </div>
                       </div>
                       <div className="text-[10px] text-indigo-800 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                        {activeUserShift.break_minutes} dk mola
+                        {new Date().getDay() === 6 && saturdayConfig?.isSaturdayWork
+                          ? (activeUserShift.saturday_break_minutes ?? 30)
+                          : activeUserShift.break_minutes} dk mola
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Office Location Selector */}
-                <div className="w-full max-w-sm bg-indigo-50/60 border border-indigo-100 rounded-2xl p-4 text-left space-y-2">
+                {/* Bulunduğunuz Ofis / Şube Bilgi Kartı (Seçim inputu gizli, sadece bilgi olarak gösterilir) */}
+                <div className="w-full max-w-sm bg-indigo-50/60 border border-indigo-100 rounded-2xl p-4 text-left space-y-2.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
                       <Building2 className="w-4 h-4 text-indigo-600" />
                       Bulunduğunuz Ofis / Şube:
                     </label>
-                    {!isHrOrAdmin && currentEmployee?.il ? (
-                      <span className="text-[11px] bg-white text-indigo-700 font-semibold px-2 py-0.5 rounded-md border border-indigo-200 shadow-xs flex items-center gap-1">
-                        {hasCityOffices
-                          ? `📍 ${currentEmployee.il} (${visibleOfficeLocations.length} Ofis)`
-                          : `📍 ${currentEmployee.il} (Şehirde Ofis Yok • Tüm Ofisler)`}
-                      </span>
-                    ) : isHrOrAdmin && isManagement ? (
-                      <button
-                        onClick={handleOpenNewOffice}
-                        className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-indigo-200 shadow-xs"
-                      >
-                        <Plus className="w-3 h-3" /> Yeni Ofis Ekle
-                      </button>
-                    ) : null}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white text-indigo-700 border border-indigo-200 shadow-2xs flex items-center gap-1">
+                      {activeOffice?.is_default ? '🏢 Merkez Ofis' : '📍 Şube Ofisi'}
+                    </span>
                   </div>
-                  <select
-                    value={selectedOfficeId}
-                    onChange={(e) => setSelectedOfficeId(e.target.value)}
-                    className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none shadow-xs"
-                  >
-                    {visibleOfficeLocations.map((loc) => {
-                      const dist = userCoords ? Math.round(getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng)) : null;
-                      const distStr = dist !== null ? (dist < 1000 ? `${dist}m` : `${(dist / 1000).toFixed(1)}km`) : '';
-                      const inRange = dist !== null && dist <= loc.radius_meters;
-                      const locInfo = loc.il ? `[${loc.il}${loc.ilce ? ` / ${loc.ilce}` : ''}] ` : '';
-                      return (
-                        <option key={loc.id} value={loc.id}>
-                          🏢 {loc.name} {locInfo}{distStr ? `(${distStr} • ${inRange ? '✅ Ofis İçi' : '❌ Alan Dışı'})` : ''}
-                        </option>
-                      );
-                    })}
-                    {visibleOfficeLocations.length === 0 && (
-                      <option value="default">
-                        🏢 {currentEmployee?.il ? `${currentEmployee.il} Bölgesi Ofisi Bulunamadı` : `${companyDetails?.name || 'Şirket'} Ana Ofisi`}
-                      </option>
+
+                  {/* Salt Okunur Ofis Bilgisi Görünümü */}
+                  <div className="w-full bg-white border border-indigo-200/80 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                        <Building2 className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-gray-900 leading-tight truncate">
+                          {activeOffice?.name || companyDetails?.name || 'Merkez Ofis'}
+                        </p>
+                        <p className="text-[10px] text-gray-500 font-medium mt-0.5 truncate">
+                          {activeOffice?.il ? `📍 ${activeOffice.il}${activeOffice.ilce ? ` / ${activeOffice.ilce}` : ''}` : 'Ana Şirket Yerleşkesi'}
+                          {activeOffice?.address ? ` • ${activeOffice.address.substring(0, 30)}` : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    {distanceToSelectedOffice !== null && (
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border shrink-0 ${
+                        isWithinGeofence
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}>
+                        {isWithinGeofence ? '✅ Ofis İçi' : `${distanceToSelectedOffice}m`}
+                      </span>
                     )}
-                  </select>
+                  </div>
                 </div>
 
                 {/* Status Indicator */}
@@ -1732,7 +2206,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       {isWithinGeofence 
                         ? `GPS Doğrulaması Başarılı • ${activeOffice.name}${activeOffice.il ? ` (${activeOffice.il}${activeOffice.ilce ? ` / ${activeOffice.ilce}` : ''})` : ''} (Uzaklık: ${distanceToSelectedOffice}m • Sınır: ${activeOffice.radius_meters}m)`
                         : distanceToSelectedOffice !== null 
-                          ? `"${activeOffice.name}${activeOffice.il ? ` (${activeOffice.il}${activeOffice.ilce ? ` / ${activeOffice.ilce}` : ''})` : ''}" konumuna uzaklığınız ${distanceToSelectedOffice >= 1000 ? `${(distanceToSelectedOffice / 1000).toFixed(1)} km` : `${distanceToSelectedOffice} metre`} (İzin verilen sınır: ${activeOffice.radius_meters}m). Farklı bir ofisteyseniz lütfen yukarıdan ofisinizi seçiniz.`
+                          ? `"${activeOffice.name}${activeOffice.il ? ` (${activeOffice.il}${activeOffice.ilce ? ` / ${activeOffice.ilce}` : ''})` : ''}" konumuna uzaklığınız ${distanceToSelectedOffice >= 1000 ? `${(distanceToSelectedOffice / 1000).toFixed(1)} km` : `${distanceToSelectedOffice} metre`} (İzin verilen sınır: ${activeOffice.radius_meters}m). Lütfen kayıtlı ofis sınırları içerisindeyken mesai başlatınız.`
                           : "Konum doğrulanıyor, lütfen tarayıcınızdan konum izni veriniz..."
                       }
                     </p>
@@ -2009,32 +2483,88 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
             )}
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex-1 min-w-[240px] relative">
-                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Personel ara (Ad, Soyad, TC, Departman, Pozisyon)..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none text-sm"
-                />
+          {/* Tarih Seçimi ve Denetim Kontrol Çubuğu */}
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs space-y-3.5">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="flex items-center gap-2 bg-indigo-50/80 border border-indigo-200/80 text-indigo-950 px-3.5 py-1.5 rounded-xl">
+                  <CalendarCheck className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span className="text-xs font-bold font-sans">
+                    {formattedSelectedDateText}
+                  </span>
+                  {selectedDate === getTodayYYYYMMDD() && (
+                    <span className="text-[10px] font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded-md ml-1 shadow-2xs">
+                      Bugün
+                    </span>
+                  )}
+                  {(() => {
+                    const [y, m, d] = (selectedDate || getTodayYYYYMMDD()).split('-').map(Number);
+                    const dt = new Date(y, m - 1, d);
+                    if (dt.getDay() === 0) {
+                      return (
+                        <span className="text-[10px] font-extrabold bg-purple-600 text-white px-2 py-0.5 rounded-md ml-1 shadow-2xs">
+                          Pazar (Hafta Tatili)
+                        </span>
+                      );
+                    }
+                    if (dt.getDay() === 6) {
+                      return (
+                        <span className="text-[10px] font-extrabold bg-amber-500 text-white px-2 py-0.5 rounded-md ml-1 shadow-2xs">
+                          Cumartesi
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
+                <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl p-1">
+                  <button
+                    type="button"
+                    onClick={handlePrevDay}
+                    className="px-2.5 py-1 text-xs font-bold text-gray-700 hover:bg-white hover:shadow-2xs rounded-lg transition-all cursor-pointer"
+                    title="Önceki Gün"
+                  >
+                    ◀ Önceki
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSetToday}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      selectedDate === getTodayYYYYMMDD()
+                        ? 'bg-blue-600 text-white shadow-2xs'
+                        : 'text-gray-700 hover:bg-white hover:shadow-2xs'
+                    }`}
+                  >
+                    Bugün
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextDay}
+                    className="px-2.5 py-1 text-xs font-bold text-gray-700 hover:bg-white hover:shadow-2xs rounded-lg transition-all cursor-pointer"
+                    title="Sonraki Gün"
+                  >
+                    Sonraki ▶
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="border border-gray-200 bg-gray-50 hover:bg-white rounded-xl px-2.5 py-1 text-xs font-semibold text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
+                    title="Farklı Bir Tarih Seç"
+                  />
+                </div>
               </div>
+
+              {/* Hızlı Kısayollar ve Çıktı Butonları */}
               <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-                  className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-                  title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
-                >
-                  <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
-                  <span>{sortOrder === 'asc' ? 'A → Z Sırala' : 'Z → A Sırala'}</span>
-                </button>
                 {onNavigateToPuantaj && (
                   <button
                     onClick={onNavigateToPuantaj}
-                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
                     title="Aylık Personel Puantaj ve Çalışma Cetveline Git"
                   >
                     <CalendarCheck className="w-3.5 h-3.5 text-blue-200" />
@@ -2044,10 +2574,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 <button
                   onClick={handlePrintPdf}
                   className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                  title="Tüm Personellerin Günlük PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
+                  title="Seçili Günün PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
                 >
                   <Printer className="w-3.5 h-3.5 text-blue-400" />
-                  PDKS Çıktısı Al (PDF)
+                  PDF Çıktısı Al
                 </button>
                 <button
                   onClick={handleExportCsv}
@@ -2060,9 +2590,142 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               </div>
             </div>
 
+            {/* Durum KPI Hızlı Filtre Sayaçları (Haftalık Tatil & İzin Vurgulu) */}
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              <button
+                type="button"
+                onClick={() => setSelectedStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedStatusFilter === 'all'
+                    ? 'bg-slate-800 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <span>Tüm Personeller</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded-md ${
+                  selectedStatusFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-white text-slate-800'
+                }`}>
+                  {teamStats.total}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedStatusFilter('calisan')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedStatusFilter === 'calisan'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                }`}
+              >
+                <span>🟢 Zamanında / Gelen</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded-md ${
+                  selectedStatusFilter === 'calisan' ? 'bg-emerald-700 text-white' : 'bg-white text-emerald-800'
+                }`}>
+                  {teamStats.calisan}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedStatusFilter('mesai-devam')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedStatusFilter === 'mesai-devam'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100'
+                }`}
+              >
+                <span>⚡ Mesai Devam Eden</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded-md ${
+                  selectedStatusFilter === 'mesai-devam' ? 'bg-indigo-700 text-white' : 'bg-white text-indigo-800'
+                }`}>
+                  {teamStats.mesaiDevam}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedStatusFilter('haftalik-tatil')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedStatusFilter === 'haftalik-tatil'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100'
+                }`}
+                title="Hafta Tatili (HT) ve Akdi Tatil olan personeller"
+              >
+                <span>🏖️ Haftalık Tatil</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded-md ${
+                  selectedStatusFilter === 'haftalik-tatil' ? 'bg-purple-700 text-white' : 'bg-white text-purple-800'
+                }`}>
+                  {teamStats.haftalikTatil}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedStatusFilter('izinli')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedStatusFilter === 'izinli'
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'bg-sky-50 text-sky-800 border border-sky-200 hover:bg-sky-100'
+                }`}
+                title="Yıllık İzin, Raporlu ve Mazeret İzinli olan personeller"
+              >
+                <span>📋 İzinli / Raporlu</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded-md ${
+                  selectedStatusFilter === 'izinli' ? 'bg-sky-700 text-white' : 'bg-white text-sky-800'
+                }`}>
+                  {teamStats.izinli}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedStatusFilter('giris-yapilmadi')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedStatusFilter === 'giris-yapilmadi'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
+                }`}
+                title="Mesaiye gelmemiş veya giriş kaydı bulunmayan personeller"
+              >
+                <span>🔴 Giriş Yapılmadı</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded-md ${
+                  selectedStatusFilter === 'giris-yapilmadi' ? 'bg-rose-700 text-white' : 'bg-white text-rose-800'
+                }`}>
+                  {teamStats.girisYok}
+                </span>
+              </button>
+            </div>
+
+            {/* Arama Çubuğu ve Sıralama */}
+            <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t border-gray-100">
+              <div className="flex-1 min-w-[240px] relative">
+                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Personel ara (Ad, Soyad, TC, Departman, Pozisyon, Durum)..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  className="flex items-center gap-1.5 border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  title={sortOrder === 'asc' ? 'A → Z Sıralı (Tersine çevirmek için tıklayın: Z → A)' : 'Z → A Sıralı (Düz çevirmek için tıklayın: A → Z)'}
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
+                  <span>{sortOrder === 'asc' ? 'A → Z Sırala' : 'Z → A Sırala'}</span>
+                </button>
+              </div>
+            </div>
+
             {/* Şirket Seçici (Çoklu Şirket Yönetimi) - Yalnızca Süper Yöneticilere Gösterilir */}
             {isSuperAdmin && companies && companies.length > 0 && onCompanyChange && (
-              <div className="flex items-center gap-2 pt-2.5 border-t border-gray-100 flex-wrap">
+              <div className="flex items-center gap-2 pt-2 border-t border-gray-100 flex-wrap">
                 <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 shadow-xs">
                   <Building2 className="w-3.5 h-3.5 text-blue-600" />
                   <span className="text-xs text-gray-500 font-medium">Şirket:</span>
@@ -2087,7 +2750,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
             {/* Departman / Birim Filtre Butonları */}
             {deptList.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap pt-2.5 border-t border-gray-100">
+              <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setSelectedDepartment('all')}
@@ -2296,10 +2959,42 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         <span>{d.shift?.name} ({d.shift?.start_time}-{d.shift?.end_time})</span>
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">{d.giris}</td>
-                    <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">{d.cikis}</td>
+                    <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">
+                      {d.giris === 'HT' || d.giris === 'AT' ? (
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 shadow-2xs">
+                          {d.giris}
+                        </span>
+                      ) : d.isLeave && d.giris !== '-' ? (
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200 shadow-2xs">
+                          {d.giris}
+                        </span>
+                      ) : d.giris === 'D' ? (
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200 shadow-2xs">
+                          D
+                        </span>
+                      ) : (
+                        d.giris
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center font-mono font-medium text-gray-800">
+                      {d.cikis === 'HT' || d.cikis === 'AT' ? (
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 shadow-2xs">
+                          {d.cikis}
+                        </span>
+                      ) : d.isLeave && d.cikis !== '-' ? (
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200 shadow-2xs">
+                          {d.cikis}
+                        </span>
+                      ) : d.cikis === 'D' ? (
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200 shadow-2xs">
+                          D
+                        </span>
+                      ) : (
+                        d.cikis
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-center">
-                      {d.giris !== '-' && d.officeName && d.officeName !== '-' ? (
+                      {d.giris !== '-' && !d.isLeave && d.officeName && d.officeName !== '-' ? (
                         <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs">
                           <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                           <span>{d.officeName}</span>
@@ -2351,13 +3046,27 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       </td>
                     )}
                     <td className="px-6 py-4 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        d.durum === 'Zamanında' ? 'bg-green-100 text-green-700' :
-                        d.durum === 'Geç Kaldı' ? 'bg-yellow-100 text-yellow-700' :
-                        d.durum === 'Mesai Devam Ediyor' ? 'bg-indigo-100 text-indigo-700' :
-                        d.durum === 'Giriş Yapılmadı' || d.durum === 'Devamsız' ? 'bg-red-100 text-red-700' :
-                        'bg-blue-100 text-blue-700'
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs ${
+                        d.durum === 'Zamanında'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : d.durum === 'Geç Kaldı'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                          : d.durum === 'Mesai Devam Ediyor'
+                          ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                          : d.durum === 'Haftalık Tatil' || d.durum === 'Hafta Tatili' || d.durum === 'Akdi Tatil'
+                          ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                          : d.isLeave || d.durum.includes('İzin') || d.durum.includes('Rapor')
+                          ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                          : d.durum === 'Giriş Yapılmadı' || d.durum === 'Devamsız'
+                          ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                          : 'bg-blue-100 text-blue-700 border border-blue-200'
                       }`}>
+                        {(d.durum === 'Haftalık Tatil' || d.durum === 'Hafta Tatili' || d.durum === 'Akdi Tatil') && (
+                          <span className="text-xs">🏖️</span>
+                        )}
+                        {(d.isLeave || d.durum.includes('İzin') || d.durum.includes('Rapor')) && !(d.durum.includes('Tatil')) && (
+                          <span className="text-xs">📋</span>
+                        )}
                         {d.durum}
                       </span>
                     </td>
@@ -2365,10 +3074,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => {
+                            const isTimeStr = (s?: string) => Boolean(s && /^\d{1,2}:\d{2}/.test(s));
                             setEditEmpModal(d);
-                            setEditGiris(d.giris === '-' ? (d.shift?.start_time || '08:30').substring(0, 5) : d.giris.substring(0, 5));
-                            setEditCikis(d.cikis === '-' ? (d.shift?.end_time || '18:00').substring(0, 5) : d.cikis.substring(0, 5));
-                            setEditOfficeName(d.officeName !== '-' ? d.officeName : (officeLocations.find(l => l.is_default)?.name || officeLocations[0]?.name || 'Merkez Ofis'));
+                            setEditGiris(isTimeStr(d.giris) ? d.giris.substring(0, 5) : (d.shift?.start_time || '08:30').substring(0, 5));
+                            setEditCikis(isTimeStr(d.cikis) ? d.cikis.substring(0, 5) : (d.shift?.end_time || '18:00').substring(0, 5));
+                            setEditOfficeName(d.officeName !== '-' ? d.officeName : resolveEmployeeOfficeName(d.employee, d.shift, null));
                           }}
                           className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
                         >
@@ -2411,14 +3121,27 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   onChange={(e) => setEditOfficeName(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
-                  {(isHrOrAdmin ? officeLocations : visibleOfficeLocations).map((l) => (
-                    <option key={l.id} value={l.name}>
-                      🏢 {l.name} {l.il ? `(${l.il}${l.ilce ? ` / ${l.ilce}` : ''})` : ''}
-                    </option>
-                  ))}
-                  {(isHrOrAdmin ? officeLocations : visibleOfficeLocations).length === 0 && (
-                    <option value="Merkez Ofis">🏢 Merkez Ofis</option>
-                  )}
+                  {(() => {
+                    const modalEmpCompId = normalizeCompanyId(editEmpModal.employee?.company_id || editEmpModal.employee?.company);
+                    const modalOffices = (allCompanyOfficesMap[modalEmpCompId] && allCompanyOfficesMap[modalEmpCompId].length > 0)
+                      ? allCompanyOfficesMap[modalEmpCompId]
+                      : (modalEmpCompId === resolvedCompanyId && officeLocations.length > 0)
+                      ? officeLocations
+                      : getDefaultOfficesForCompany(modalEmpCompId);
+
+                    return (
+                      <>
+                        {modalOffices.map((l) => (
+                          <option key={l.id} value={l.name}>
+                            🏢 {l.name} {l.il ? `(${l.il}${l.ilce ? ` / ${l.ilce}` : ''})` : ''}
+                          </option>
+                        ))}
+                        {modalOffices.length === 0 && (
+                          <option value="Merkez Ofis">🏢 Merkez Ofis</option>
+                        )}
+                      </>
+                    );
+                  })()}
                 </select>
               </div>
 
@@ -2463,7 +3186,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 onClick={async () => {
                   if (!editEmpModal) return;
                   const cleanGiris = editGiris ? editGiris.substring(0, 5) : '08:30';
-                  const todayStr = getTodayYYYYMMDD();
+                  const activeRecordDate = selectedDate || getTodayYYYYMMDD();
                   const targetCompanyId = normalizeCompanyId(editEmpModal.employee.company_id || resolvedCompanyId);
 
                   const overrideObj = {
@@ -2474,13 +3197,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     officeName: editOfficeName || 'Merkez Ofis',
                   };
 
-                  localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
-                  setAdminOverrides((prev) => ({ ...prev, [editEmpModal.employee.id]: overrideObj }));
+                  if (activeRecordDate === getTodayYYYYMMDD()) {
+                    localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
+                    setAdminOverrides((prev) => ({ ...prev, [editEmpModal.employee.id]: overrideObj }));
+                  }
 
                   try {
                     const rawPuantajOverrides = localStorage.getItem('humanius_puantaj_overrides');
                     const pOverrides = rawPuantajOverrides ? JSON.parse(rawPuantajOverrides) : {};
-                    delete pOverrides[`${editEmpModal.employee.id}_${todayStr}`];
+                    delete pOverrides[`${editEmpModal.employee.id}_${activeRecordDate}`];
                     localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(pOverrides));
                   } catch (e) {}
 
@@ -2490,7 +3215,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       savedDbRecord = await pdksService.createVardiya({
                         company_id: targetCompanyId,
                         employee_id: editEmpModal.employee.id,
-                        tarih: todayStr,
+                        tarih: activeRecordDate,
                         giris_saati: cleanGiris,
                         cikis_saati: null,
                         vardiya_tipi: 'tam-gun',
@@ -2506,7 +3231,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     id: `v-edit-${Date.now()}`,
                     company_id: targetCompanyId,
                     employee_id: editEmpModal.employee.id,
-                    tarih: todayStr,
+                    tarih: activeRecordDate,
                     giris_saati: cleanGiris,
                     cikis_saati: null,
                     vardiya_tipi: 'tam-gun',
@@ -2515,7 +3240,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   };
 
                   setAllShiftRecords(prev => {
-                    const idx = prev.findIndex(r => r.employee_id === editEmpModal.employee.id && r.tarih === todayStr);
+                    const idx = prev.findIndex(r => r.employee_id === editEmpModal.employee.id && r.tarih === activeRecordDate);
                     if (idx >= 0) {
                       const next = [...prev];
                       next[idx] = newRecord;
@@ -2569,7 +3294,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       diffHours = parseFloat((((cH * 60 + cM) - actualMin) / 60).toFixed(1));
                     }
 
-                    const todayStr = getTodayYYYYMMDD();
+                    const activeRecordDate = selectedDate || getTodayYYYYMMDD();
                     const overrideObj = {
                       giris: cleanGiris,
                       cikis: cleanCikis,
@@ -2578,15 +3303,17 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       officeName: editOfficeName || 'Merkez Ofis',
                     };
 
-                    localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
-                    setAdminOverrides((prev) => ({ ...prev, [editEmpModal.employee.id]: overrideObj }));
+                    if (activeRecordDate === getTodayYYYYMMDD()) {
+                      localStorage.setItem(`humanius_pdks_override_${editEmpModal.employee.id}`, JSON.stringify(overrideObj));
+                      setAdminOverrides((prev) => ({ ...prev, [editEmpModal.employee.id]: overrideObj }));
+                    }
 
                     // Puantaj Cetveli Manuel Düzeltmelerine (humanius_puantaj_overrides) Doğrudan Senkronize Et
                     try {
                       const rawPuantajOverrides = localStorage.getItem('humanius_puantaj_overrides');
                       const pOverrides = rawPuantajOverrides ? JSON.parse(rawPuantajOverrides) : {};
                       if (cleanCikis) {
-                        pOverrides[`${editEmpModal.employee.id}_${todayStr}`] = {
+                        pOverrides[`${editEmpModal.employee.id}_${activeRecordDate}`] = {
                           kod: 'Ç',
                           giris: cleanGiris,
                           cikis: cleanCikis,
@@ -2594,7 +3321,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                           kodAciklama: `Fiili Çalışma (${cleanGiris}-${cleanCikis})`
                         };
                       } else {
-                        delete pOverrides[`${editEmpModal.employee.id}_${todayStr}`];
+                        delete pOverrides[`${editEmpModal.employee.id}_${activeRecordDate}`];
                       }
                       localStorage.setItem('humanius_puantaj_overrides', JSON.stringify(pOverrides));
                     } catch (e) {
@@ -2610,7 +3337,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       savedDbRecord = await pdksService.createVardiya({
                         company_id: targetCompanyId,
                         employee_id: editEmpModal.employee.id,
-                        tarih: todayStr,
+                        tarih: activeRecordDate,
                         giris_saati: cleanGiris,
                         cikis_saati: cleanCikis,
                         vardiya_tipi: 'tam-gun',
@@ -2626,14 +3353,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     id: `v-edit-${Date.now()}`,
                     company_id: targetCompanyId,
                     employee_id: editEmpModal.employee.id,
-                    tarih: todayStr,
+                    tarih: activeRecordDate,
                     giris_saati: cleanGiris,
                     cikis_saati: cleanCikis,
                     vardiya_tipi: 'tam-gun',
                     durum: newDurum === 'Zamanında' ? 'zamaninda' : 'gec-kaldi',
                     notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
                   };
-                  setAllShiftRecords((prev) => [newRecord, ...prev.filter(r => !(r.employee_id === editEmpModal.employee.id && r.tarih === todayStr))]);
+                  setAllShiftRecords((prev) => [newRecord, ...prev.filter(r => !(r.employee_id === editEmpModal.employee.id && r.tarih === activeRecordDate))]);
 
                   // Puantaj cetveli ve diğer bileşenlerin anında güncellenmesi için custom event fırlat
                   window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));

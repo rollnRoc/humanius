@@ -139,6 +139,24 @@ export const companyService = {
     if (error) throw error;
   },
 
+  async getAllOfficeLocations(): Promise<Record<string, import('../types').CompanyOfficeLocation[]>> {
+    const companyIds = [
+      BIGSAFER_COMPANY_ID,
+      MICI_COMPANY_ID,
+      HIZEL_COMPANY_ID,
+      CAVDARLI_COMPANY_ID,
+      SKILLBRIDGE_COMPANY_ID,
+      BIGSAFELY_COMPANY_ID
+    ];
+    const map: Record<string, import('../types').CompanyOfficeLocation[]> = {};
+    await Promise.all(
+      companyIds.map(async (cid) => {
+        map[cid] = await this.getOfficeLocations(cid);
+      })
+    );
+    return map;
+  },
+
   async getOfficeLocations(companyId?: string): Promise<import('../types').CompanyOfficeLocation[]> {
     const targetCompId = normalizeCompanyId(companyId);
 
@@ -152,13 +170,7 @@ export const companyService = {
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         } catch {}
       }
-      if (targetCompId === BIGSAFER_COMPANY_ID) {
-        return BIGSAFER_DEFAULT_OFFICES;
-      }
-      if (targetCompId === MICI_COMPANY_ID) {
-        return MICI_DEFAULT_OFFICES;
-      }
-      return [];
+      return getDefaultOfficesForCompany(targetCompId);
     }
 
     // 2. SUPABASE / PRODUCTION MODE
@@ -193,18 +205,23 @@ export const companyService = {
 
     // STRICT MULTI-TENANCY FILTER:
     // Guarantee that ONLY locations belonging to targetCompId are ever returned!
-    locations = locations.filter((l) => l.company_id === targetCompId);
+    // Strip any junk entries like 'Kütahya' or cross-tenant leaks.
+    locations = locations.filter((l) => {
+      if (l.company_id !== targetCompId) return false;
+      const lowerName = (l.name || '').trim().toLowerCase();
+      if (lowerName === 'kütahya' || lowerName === 'kutahya') return false;
+      if (targetCompId === MICI_COMPANY_ID) {
+        if (['düzce', 'duzce', 'bolu', 'istanbul'].some((k) => lowerName.includes(k))) return false;
+      }
+      if (targetCompId === BIGSAFER_COMPANY_ID) {
+        if (['adana', 'kayseri', 'tarsus', 'toyota', 'byd', 'suzuki', 'sixt'].some((k) => lowerName.includes(k))) return false;
+      }
+      return true;
+    });
 
     // If still empty in database, provide company-specific defaults without leaking other companies
     if (locations.length === 0) {
-      if (targetCompId === BIGSAFER_COMPANY_ID) {
-        locations = [...BIGSAFER_DEFAULT_OFFICES];
-      } else if (targetCompId === MICI_COMPANY_ID) {
-        locations = [...MICI_DEFAULT_OFFICES];
-      } else {
-        const localSaved = localStorage.getItem(`humanius_office_locations_${targetCompId}`);
-        locations = localSaved ? JSON.parse(localSaved) : [];
-      }
+      locations = getDefaultOfficesForCompany(targetCompId);
     }
 
     // For BigSafer: ensure Düzce Ofisi, Bolu Şubesi, İstanbul Genel Merkez are always present
@@ -216,15 +233,12 @@ export const companyService = {
       }
     }
 
-    // For Mıçı Otomotiv: ensure BigSafer offices are NEVER present
+    // For Mıçı Otomotiv: ensure all 5 core offices are present and never contaminated
     if (targetCompId === MICI_COMPANY_ID) {
-      locations = locations.filter(
-        (l) =>
-          !['düzce ofisi', 'bolu şubesi', 'istanbul genel merkez'].includes(l.name.trim().toLowerCase()) &&
-          l.company_id === MICI_COMPANY_ID
-      );
-      if (locations.length === 0) {
-        locations = [...MICI_DEFAULT_OFFICES];
+      for (const defOff of MICI_DEFAULT_OFFICES) {
+        if (!locations.some((l) => l.name.trim().toLowerCase() === defOff.name.trim().toLowerCase())) {
+          locations.push(defOff);
+        }
       }
     }
 
@@ -378,39 +392,76 @@ export const companyService = {
 
 export const BIGSAFER_COMPANY_ID = '11111111-1111-1111-1111-111111111111';
 export const MICI_COMPANY_ID = '735825a4-f12b-4ee7-959c-a8a29e674617';
+export const CAVDARLI_COMPANY_ID = '87ed6f79-6a54-40ea-b188-8b325513dc41';
+export const HIZEL_COMPANY_ID = 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9';
+export const SKILLBRIDGE_COMPANY_ID = 'c2b6dd6f-317e-41a1-90d8-ac8774249c75';
+export const BIGSAFELY_COMPANY_ID = '71fa880b-c3e2-4967-b121-a2692353aa55';
 
 export function normalizeCompanyId(companyId?: string | null): string {
   if (!companyId) return BIGSAFER_COMPANY_ID;
   const s = String(companyId).trim().toLowerCase();
   if (s === 'all' || s === 'default' || s === 'demo-company-id-9999') return BIGSAFER_COMPANY_ID;
-  if (s === BIGSAFER_COMPANY_ID || s.includes('bigsafer') || s.includes('bigsafely')) {
+  if (s === BIGSAFELY_COMPANY_ID || s.includes('bigsafely')) {
+    return BIGSAFELY_COMPANY_ID;
+  }
+  if (s === BIGSAFER_COMPANY_ID || s.includes('bigsafer')) {
     return BIGSAFER_COMPANY_ID;
   }
   if (s === MICI_COMPANY_ID || s.includes('mıçı') || s.includes('mici')) {
     return MICI_COMPANY_ID;
   }
-  if (s.includes('çavdarlı') || s.includes('cavdarli')) {
-    return '87ed6f79-6a54-40ea-b188-8b325513dc41';
+  if (s === CAVDARLI_COMPANY_ID || s.includes('çavdarlı') || s.includes('cavdarli')) {
+    return CAVDARLI_COMPANY_ID;
   }
-  if (s.includes('hızel') || s.includes('hizel')) {
-    return 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9';
+  if (s === HIZEL_COMPANY_ID || s.includes('hızel') || s.includes('hizel')) {
+    return HIZEL_COMPANY_ID;
+  }
+  if (s === SKILLBRIDGE_COMPANY_ID || s.includes('skillbridge')) {
+    return SKILLBRIDGE_COMPANY_ID;
   }
   return companyId;
 }
 
-const BIGSAFER_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
+export const BIGSAFER_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
   { id: 'loc-bigsafer-1', company_id: BIGSAFER_COMPANY_ID, name: 'Düzce Ofisi', lat: 40.8438, lng: 31.1565, radius_meters: 200, address: 'Düzce Merkez', il: 'Düzce', ilce: 'Merkez', is_default: true },
   { id: 'loc-bigsafer-2', company_id: BIGSAFER_COMPANY_ID, name: 'Bolu Şubesi', lat: 40.7350, lng: 31.6061, radius_meters: 250, address: 'Bolu Merkez', il: 'Bolu', ilce: 'Merkez', is_default: false },
   { id: 'loc-bigsafer-3', company_id: BIGSAFER_COMPANY_ID, name: 'İstanbul Genel Merkez', lat: 41.0082, lng: 28.9784, radius_meters: 300, address: 'Maslak, Sarıyer', il: 'İstanbul', ilce: 'Sarıyer', is_default: false },
 ];
 
-const MICI_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
+export const MICI_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
+  { id: 'f4715a38-36e2-4e5b-aed6-de7e869e304a', company_id: MICI_COMPANY_ID, name: 'TOYOTA/BYD/LX', lat: 36.994158, lng: 35.196171, radius_meters: 400, address: 'Merkez', il: 'Adana', ilce: 'Seyhan', is_default: true },
   { id: '0442aec2-6107-41b5-afde-6363b58c3b54', company_id: MICI_COMPANY_ID, name: 'Kayseri Ofis', lat: 38.765104, lng: 35.487037, radius_meters: 200, address: 'Kayseri', il: 'Kayseri', ilce: 'Melikgazi', is_default: false },
   { id: 'c8a208a1-16e4-4e08-8ccc-7c3d2d9fae06', company_id: MICI_COMPANY_ID, name: 'Tarsus Ofis', lat: 36.904161, lng: 35.06787, radius_meters: 400, address: 'Tarsus', il: 'Mersin', ilce: 'Tarsus', is_default: false },
-  { id: 'f4715a38-36e2-4e5b-aed6-de7e869e304a', company_id: MICI_COMPANY_ID, name: 'TOYOTA/BYD/LX', lat: 36.994158, lng: 35.196171, radius_meters: 400, address: 'Merkez', il: 'Adana', ilce: 'Seyhan', is_default: false },
   { id: 'cbf1a8e2-dbe5-4da6-bcc9-cab0bc5af1d0', company_id: MICI_COMPANY_ID, name: 'Sixt Adana', lat: 37.005433, lng: 35.331296, radius_meters: 200, address: 'Adana', il: 'Adana', ilce: 'Seyhan', is_default: false },
-  { id: 'f48267c8-bf34-4e7a-8f02-a02cd2bfc592', company_id: MICI_COMPANY_ID, name: 'Suzuki / Mg', lat: 36.99479, lng: 35.28881, radius_meters: 200, address: '', il: 'Adana', ilce: 'Yüreğir', is_default: false },
+  { id: 'f48267c8-bf34-4e7a-8f02-a02cd2bfc592', company_id: MICI_COMPANY_ID, name: 'Suzuki / Mg', lat: 36.99479, lng: 35.28881, radius_meters: 200, address: 'Yüreğir', il: 'Adana', ilce: 'Yüreğir', is_default: false },
 ];
+
+export const HIZEL_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
+  { id: 'loc-hizel-1', company_id: HIZEL_COMPANY_ID, name: 'Düzce Merkez Ofis', lat: 40.8438, lng: 31.1565, radius_meters: 300, address: 'Düzce', il: 'Düzce', ilce: 'Merkez', is_default: true },
+];
+
+export const CAVDARLI_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
+  { id: 'loc-cavdarli-1', company_id: CAVDARLI_COMPANY_ID, name: 'Bursa Merkez Ofis', lat: 40.2153, lng: 28.9322, radius_meters: 300, address: 'Bursa Nilüfer', il: 'Bursa', ilce: 'Nilüfer', is_default: true },
+];
+
+export const SKILLBRIDGE_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
+  { id: 'loc-skillbridge-1', company_id: SKILLBRIDGE_COMPANY_ID, name: 'Ankara Ofis', lat: 39.9208, lng: 32.8541, radius_meters: 250, address: 'Ankara Çankaya', il: 'Ankara', ilce: 'Çankaya', is_default: true },
+];
+
+export const BIGSAFELY_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
+  { id: 'loc-bigsafely-1', company_id: BIGSAFELY_COMPANY_ID, name: 'İstanbul Ofis', lat: 40.9912, lng: 29.0267, radius_meters: 250, address: 'İstanbul Kadıköy', il: 'İstanbul', ilce: 'Kadıköy', is_default: true },
+];
+
+export function getDefaultOfficesForCompany(companyId?: string | null): import('../types').CompanyOfficeLocation[] {
+  const compId = normalizeCompanyId(companyId);
+  if (compId === MICI_COMPANY_ID) return [...MICI_DEFAULT_OFFICES];
+  if (compId === BIGSAFER_COMPANY_ID) return [...BIGSAFER_DEFAULT_OFFICES];
+  if (compId === HIZEL_COMPANY_ID) return [...HIZEL_DEFAULT_OFFICES];
+  if (compId === CAVDARLI_COMPANY_ID) return [...CAVDARLI_DEFAULT_OFFICES];
+  if (compId === SKILLBRIDGE_COMPANY_ID) return [...SKILLBRIDGE_DEFAULT_OFFICES];
+  if (compId === BIGSAFELY_COMPANY_ID) return [...BIGSAFELY_DEFAULT_OFFICES];
+  return [...BIGSAFER_DEFAULT_OFFICES];
+}
 
 function inferIlIlce(name?: string, address?: string, currentIl?: string, currentIlce?: string): { il: string; ilce: string } {
   if (currentIl && currentIl.trim()) {
@@ -419,16 +470,16 @@ function inferIlIlce(name?: string, address?: string, currentIl?: string, curren
   const text = `${name || ''} ${address || ''}`.toLowerCase();
   if (text.includes('düzce') || text.includes('duzce')) return { il: 'Düzce', ilce: 'Merkez' };
   if (text.includes('bolu')) return { il: 'Bolu', ilce: 'Merkez' };
-  if (text.includes('istanbul') || text.includes('maslak') || text.includes('sarıyer') || text.includes('pendik')) {
-    return { il: 'İstanbul', ilce: text.includes('pendik') ? 'Pendik' : 'Sarıyer' };
+  if (text.includes('istanbul') || text.includes('maslak') || text.includes('sarıyer') || text.includes('pendik') || text.includes('kadıköy') || text.includes('kadikoy')) {
+    return { il: 'İstanbul', ilce: text.includes('pendik') ? 'Pendik' : text.includes('kadıköy') || text.includes('kadikoy') ? 'Kadıköy' : 'Sarıyer' };
   }
   if (text.includes('kayseri')) return { il: 'Kayseri', ilce: 'Melikgazi' };
   if (text.includes('tarsus') || text.includes('mersin')) return { il: 'Mersin', ilce: 'Tarsus' };
-  if (text.includes('adana') || text.includes('toyota') || text.includes('byd') || text.includes('sixt') || text.includes('suzuki')) {
-    return { il: 'Adana', ilce: text.includes('yüreğir') ? 'Yüreğir' : 'Seyhan' };
+  if (text.includes('adana') || text.includes('toyota') || text.includes('byd') || text.includes('sixt') || text.includes('suzuki') || text.includes('suzik')) {
+    return { il: 'Adana', ilce: text.includes('yüreğir') || text.includes('yuregir') ? 'Yüreğir' : 'Seyhan' };
   }
-  if (text.includes('kütahya') || text.includes('kutahya')) return { il: 'Kütahya', ilce: 'Merkez' };
-  if (text.includes('ankara')) return { il: 'Ankara', ilce: 'Çankaya' };
+  if (text.includes('bursa') || text.includes('nilüfer') || text.includes('nilufer')) return { il: 'Bursa', ilce: 'Nilüfer' };
+  if (text.includes('ankara') || text.includes('çankaya') || text.includes('cankaya')) return { il: 'Ankara', ilce: 'Çankaya' };
   return { il: '', ilce: '' };
 }
 
