@@ -108,6 +108,11 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadData();
+      const handleOfficeUpdate = () => loadData();
+      window.addEventListener('humanius_office_locations_updated', handleOfficeUpdate);
+      return () => {
+        window.removeEventListener('humanius_office_locations_updated', handleOfficeUpdate);
+      };
     }
   }, [isOpen, effectiveCompanyId]);
 

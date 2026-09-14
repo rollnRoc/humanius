@@ -353,13 +353,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       if (match && match[1]) {
         const candidate = match[1].trim();
         const normCand = normalizeTr(candidate);
-        // Filter out any garbage or foreign names like 'kutahya' for Mıçı
-        if (!['kutahya', 'kütahya'].includes(normCand) || empCompId !== MICI_COMPANY_ID) {
-          const found = compOffices.find(
-            (o) => normalizeTr(o.name) === normCand || normalizeTr(o.name).includes(normCand) || normCand.includes(normalizeTr(o.name))
-          );
-          if (found) return found.name;
-        }
+        const found = compOffices.find(
+          (o) => normalizeTr(o.name) === normCand || normalizeTr(o.name).includes(normCand) || normCand.includes(normalizeTr(o.name))
+        );
+        if (found) return found.name;
       }
     }
 
@@ -784,6 +781,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
   useEffect(() => {
     loadOfficeLocations();
+    const handleOfficeUpdate = () => {
+      loadOfficeLocations();
+    };
+    window.addEventListener('humanius_office_locations_updated', handleOfficeUpdate);
+    return () => {
+      window.removeEventListener('humanius_office_locations_updated', handleOfficeUpdate);
+    };
   }, [loadOfficeLocations]);
 
   // Load shift history from database and sync shift status
@@ -1158,6 +1162,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         ilce: locIlce.trim(),
         is_default: locIsDefault,
       });
+
+      if (!saved) {
+        throw new Error('Ofis kaydedilemedi. Lütfen bilgileri kontrol edip tekrar deneyin.');
+      }
+
       await loadOfficeLocations();
       if (saved?.id) {
         setSelectedOfficeId(saved.id);
