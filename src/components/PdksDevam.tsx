@@ -71,7 +71,7 @@ function checkIsShiftExpired(
   shiftStartIso: string | null,
   cikisTimeStr: string = '18:00',
   isOvertimeAuthorized: boolean = false,
-  gracePeriodMinutes: number = 30
+  gracePeriodMinutes: number = 0
 ): { isExpired: boolean; autoCloseTime: string } {
   if (!shiftStartIso) return { isExpired: true, autoCloseTime: cikisTimeStr };
   const startMs = new Date(shiftStartIso).getTime();
@@ -87,13 +87,13 @@ function checkIsShiftExpired(
     return { isExpired: true, autoCloseTime: cikisTimeStr };
   }
 
-  // 2. If overtime is authorized by manager, don't auto-expire at shift end + grace
+  // 2. If overtime is authorized by manager, don't auto-expire at shift end
   if (isOvertimeAuthorized) {
     const elapsedSecs = (now.getTime() - startMs) / 1000;
     return { isExpired: elapsedSecs >= 18 * 3600, autoCloseTime: cikisTimeStr };
   }
 
-  // 3. Grace Window Calculation: e.g. 18:00 + 30 mins = 18:30
+  // 3. Shift End Window Calculation (e.g. Tarsus 15:00)
   const [cH, cM] = cikisTimeStr.split(':').map(Number);
   if (!isNaN(cH) && !isNaN(cM)) {
     const shiftEnd = new Date(startDate);
@@ -103,12 +103,12 @@ function checkIsShiftExpired(
       shiftEnd.setDate(shiftEnd.getDate() + 1);
     }
     
-    // Deadline: Shift End + 30 Minutes Grace Window
-    const graceDeadline = new Date(shiftEnd.getTime() + gracePeriodMinutes * 60 * 1000);
+    // Deadline: Shift End + Grace Window (0 by default)
+    const deadline = new Date(shiftEnd.getTime() + gracePeriodMinutes * 60 * 1000);
     
-    if (now.getTime() >= graceDeadline.getTime()) {
-      // 30 minutes grace passed without overtime authorization:
-      // Auto-expire and register exit time as the scheduled shift end time (e.g. 18:00)
+    if (now.getTime() >= deadline.getTime()) {
+      // Shift end time reached without overtime authorization:
+      // Auto-expire and register exit time as the scheduled shift end time (e.g. 15:00)
       return { isExpired: true, autoCloseTime: cikisTimeStr };
     }
   }
@@ -120,6 +120,26 @@ function checkIsShiftExpired(
   }
 
   return { isExpired: false, autoCloseTime: cikisTimeStr };
+}
+
+// "vardıyada ne yazıyosa ona göre cıkış yapılsın"
+// Personelin tanımlı vardiyası (Tarsus 15:00 vb.) varsa her zaman o vardiyanın çıkış saati esastır.
+// Sadece özel vardiyası olmayan genel personel için Cumartesi erken çıkış (16:00) uygulanır.
+function getTargetCikisTime(
+  activeShift: { end_time?: string; id?: string } | null | undefined,
+  defaultShiftId: string | undefined,
+  isSaturday: boolean,
+  satConfig: any
+): string {
+  if (activeShift?.end_time && activeShift.end_time !== '00:00') {
+    if (activeShift.end_time !== '18:00' || (activeShift.id && defaultShiftId && activeShift.id !== defaultShiftId)) {
+      return activeShift.end_time;
+    }
+  }
+  if (isSaturday && satConfig?.isSaturdayWork) {
+    return satConfig.endTime || '16:00';
+  }
+  return activeShift?.end_time || '18:00';
 }
 
 const PdksDevam: React.FC<PdksDevamProps> = ({
@@ -354,12 +374,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         setSaturdayConfig(fetchedSat);
 
         const defaultShift = cleanShifts.find((s) => s.is_default) || cleanShifts[0] || VARSAYILAN_VARDIYALAR[0];
-        if (empId && fetchedAssignments[empId]) {
-          const found = cleanShifts.find((s) => s.id === fetchedAssignments[empId]);
-          setActiveUserShift(found || defaultShift);
-        } else {
-          setActiveUserShift(defaultShift);
+        const empUserId = (currentEmployee as any)?.user_id;
+        const assignedId = (empId && fetchedAssignments[empId]) || (empUserId && fetchedAssignments[empUserId]);
+        let userShift = assignedId ? cleanShifts.find((s) => s.id === assignedId) : null;
+        if (!userShift && currentEmployee) {
+          const empLoc = currentEmployee.department || currentEmployee.ilce || currentEmployee.il || (currentEmployee as any).city || '';
+          if (empLoc) {
+            userShift = cleanShifts.find(s => 
+              s.name.toLowerCase().includes(empLoc.toLowerCase()) || 
+              (s.office_name && s.office_name.toLowerCase().includes(empLoc.toLowerCase()))
+            );
+          }
         }
+        setActiveUserShift(userShift || defaultShift);
       } catch (err) {
         console.warn('Error loading shifts:', err);
       }
@@ -451,17 +478,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     const savedActiveId = localStorage.getItem('pdks_active_shift_id');
     const savedStart = localStorage.getItem('pdks_active_shift_start');
     const isTodaySaturday = new Date().getDay() === 6;
-    const targetCikisTime = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
-      ? (saturdayConfig.endTime || '16:00')
-      : (activeUserShift.end_time || '18:00');
+    const targetCikisTime = getTargetCikisTime(activeUserShift, undefined, isTodaySaturday, saturdayConfig);
     const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
     
     if (savedActiveId && savedStart) {
-      const { isExpired, autoCloseTime } = checkIsShiftExpired(savedStart, targetCikisTime, isOvertimeAuthorized, 30);
+      const { isExpired, autoCloseTime } = checkIsShiftExpired(savedStart, targetCikisTime, isOvertimeAuthorized, 0);
       if (isExpired) {
         pdksService.updateVardiya(savedActiveId, {
           cikis_saati: autoCloseTime,
-          notlar: `Vardiya çıkış saati +30 dk tolerans aşıldığı için mesai bitiş saati (${autoCloseTime}) olarak sistem tarafından otomatik tamamlandı`
+          notlar: `Vardiya çıkış saati (${autoCloseTime}) dolduğu için sistem tarafından otomatik tamamlandı`
         }).catch(err => console.warn("Auto-close expired shift DB warning:", err));
 
         localStorage.removeItem('pdks_active_shift_id');
@@ -476,7 +501,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         startWatchingLocation();
       }
     } else if (savedStart && !savedActiveId) {
-      const { isExpired } = checkIsShiftExpired(savedStart, targetCikisTime, isOvertimeAuthorized, 30);
+      const { isExpired } = checkIsShiftExpired(savedStart, targetCikisTime, isOvertimeAuthorized, 0);
       if (isExpired) {
         localStorage.removeItem('pdks_active_shift_start');
         setIsShiftActive(false);
@@ -547,13 +572,31 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           setShiftStartTime(null);
           setActiveShiftRecordId(null);
         } else if (todayRec && todayRec.giris_saati && (!todayRec.cikis_saati || todayRec.cikis_saati === '00:00:00' || todayRec.cikis_saati === '00:00')) {
-          // Shift is still active in DB
-          setActiveShiftRecordId(todayRec.id);
-          localStorage.setItem('pdks_active_shift_id', todayRec.id);
+          // Check if shift has reached exit time according to employee's vardiya
           const startIso = todayRec.created_at || `${todayRec.tarih}T${todayRec.giris_saati}`;
-          setShiftStartTime(startIso);
-          localStorage.setItem('pdks_active_shift_start', startIso);
-          setIsShiftActive(true);
+          const isTodaySaturday = new Date().getDay() === 6;
+          const targetCikisTime = getTargetCikisTime(activeUserShift, undefined, isTodaySaturday, saturdayConfig);
+          const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
+          const { isExpired, autoCloseTime } = checkIsShiftExpired(startIso, targetCikisTime, isOvertimeAuthorized, 0);
+
+          if (isExpired) {
+            pdksService.updateVardiya(todayRec.id, {
+              cikis_saati: autoCloseTime,
+              notlar: `Vardiya çıkış saati (${autoCloseTime}) dolduğu için sistem tarafından otomatik tamamlandı`
+            }).catch(err => console.warn("Auto-close expired shift DB warning:", err));
+
+            localStorage.removeItem('pdks_active_shift_id');
+            localStorage.removeItem('pdks_active_shift_start');
+            setIsShiftActive(false);
+            setShiftStartTime(null);
+            setActiveShiftRecordId(null);
+          } else {
+            setActiveShiftRecordId(todayRec.id);
+            localStorage.setItem('pdks_active_shift_id', todayRec.id);
+            setShiftStartTime(startIso);
+            localStorage.setItem('pdks_active_shift_start', startIso);
+            setIsShiftActive(true);
+          }
         }
 
         // Map to localHistory format
@@ -617,9 +660,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     let intervalId: any;
     if (isShiftActive && shiftStartTime) {
       const isTodaySaturday = new Date().getDay() === 6;
-      const targetCikisTime = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
-        ? (saturdayConfig.endTime || '16:00')
-        : (activeUserShift?.end_time || '18:00');
+      const targetCikisTime = getTargetCikisTime(activeUserShift, undefined, isTodaySaturday, saturdayConfig);
       const startMs = new Date(shiftStartTime).getTime();
       
       intervalId = setInterval(() => {
@@ -628,13 +669,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         const totalSecs = Math.floor(diffMs / 1000);
 
         const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
-        const { isExpired, autoCloseTime } = checkIsShiftExpired(shiftStartTime, targetCikisTime, isOvertimeAuthorized, 30);
+        const { isExpired, autoCloseTime } = checkIsShiftExpired(shiftStartTime, targetCikisTime, isOvertimeAuthorized, 0);
 
         if (isExpired) {
           if (activeShiftRecordId) {
             pdksService.updateVardiya(activeShiftRecordId, {
               cikis_saati: autoCloseTime,
-              notlar: `Vardiya çıkış saati +30 dk tolerans aşıldığı için mesai bitiş saati (${autoCloseTime}) olarak sistem tarafından otomatik tamamlandı`
+              notlar: `Vardiya çıkış saati (${autoCloseTime}) dolduğu için sistem tarafından otomatik tamamlandı`
             }).catch(err => console.warn("Auto-end shift error:", err));
           }
           localStorage.removeItem('pdks_active_shift_id');
@@ -668,15 +709,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       const now = new Date();
       const isTodaySaturday = now.getDay() === 6;
       const currentMin = now.getHours() * 60 + now.getMinutes();
-      const shiftStartStr = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
-        ? (saturdayConfig.startTime || '08:30')
-        : (activeUserShift?.start_time || '08:30');
-      const shiftEndStr = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
-        ? (saturdayConfig.endTime || '16:00')
-        : (activeUserShift?.end_time || '18:00');
-      const toleranceMin = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
-        ? Math.max(0, Number(saturdayConfig.toleranceMinutes ?? 15))
-        : Math.max(0, Number(activeUserShift?.tolerance_minutes || 0));
+      const shiftStartStr = (activeUserShift?.start_time && activeUserShift.start_time !== '00:00')
+        ? activeUserShift.start_time
+        : (isTodaySaturday && saturdayConfig?.isSaturdayWork ? (saturdayConfig.startTime || '08:30') : '08:30');
+      const shiftEndStr = getTargetCikisTime(activeUserShift, undefined, isTodaySaturday, saturdayConfig);
+      const toleranceMin = (activeUserShift?.tolerance_minutes !== undefined && activeUserShift?.tolerance_minutes !== null)
+        ? Math.max(0, Number(activeUserShift.tolerance_minutes))
+        : (isTodaySaturday && saturdayConfig?.isSaturdayWork ? Math.max(0, Number(saturdayConfig.toleranceMinutes ?? 15)) : 15);
 
       // 1. Shift Start & Late Tolerance Alerts (If user has not started shift yet)
       if (!isShiftActive && shiftStartStr) {
@@ -1091,23 +1130,59 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     alert(`Seçili ofis lokasyonu (${activeOffice?.name || 'Şirket'}) tarayıcı konumunuza (${lat.toFixed(5)}, ${lng.toFixed(5)}) eşitlendi!`);
   };
 
-  const handleClearAllPdks = async () => {
-    if (!window.confirm('PDKS ve mesai takibindeki TÜM kaydedilmiş verileri silmek/temizlemek istediğinize emin misiniz? Bu işlem geri alınamaz.')) {
+  const handleAutoEndShifts = async () => {
+    const todayStr = getTodayYYYYMMDD();
+    const isTodaySaturday = new Date().getDay() === 6;
+    const cleanShifts = allCompanyShifts.filter(isNotSaturdayShift);
+    const defaultShift = cleanShifts.find((s) => s.is_default) || cleanShifts[0] || VARSAYILAN_VARDIYALAR[0];
+
+    const uncompletedToday = allShiftRecords.filter(r => 
+      r.tarih === todayStr && 
+      r.giris_saati && 
+      (!r.cikis_saati || r.cikis_saati === '00:00:00' || r.cikis_saati === '00:00')
+    );
+
+    if (uncompletedToday.length === 0) {
+      alert('Bugün için çıkış saati bekleyen aktif mesai kaydı bulunamadı.');
       return;
     }
+
+    if (!window.confirm(`Bugün (${todayStr}) giriş yapmış ancak henüz çıkışı yapılmamış ${uncompletedToday.length} personelin mesaisi tanımlı vardiyalarına göre (Tarsus: 15:00 vb.) otomatik sonlandırılsın mı?`)) {
+      return;
+    }
+
     try {
-      await pdksService.clearAllData();
-      setAllShiftRecords([]);
-      setIsShiftActive(false);
-      setShiftStartTime(null);
-      setActiveShiftRecordId(null);
-      setTimerText("00:00:00");
-      alert('Tüm mesai ve PDKS devam kayıtları başarıyla temizlendi.');
+      for (const rec of uncompletedToday) {
+        const emp = employees.find(e => e.id === rec.employee_id || (e as any).user_id === rec.employee_id);
+        const assignedShiftId = emp ? (allShiftAssignments[emp.id] || ((emp as any).user_id && allShiftAssignments[(emp as any).user_id])) : undefined;
+        let empShift = assignedShiftId ? cleanShifts.find(s => s.id === assignedShiftId) : null;
+        if (!empShift && emp) {
+          const empLoc = emp.department || emp.ilce || emp.il || (emp as any).branch || (emp as any).city || (emp as any).office_name || '';
+          if (empLoc) {
+            empShift = cleanShifts.find(s => 
+              s.name.toLowerCase().includes(empLoc.toLowerCase()) || 
+              (s.office_name && s.office_name.toLowerCase().includes(empLoc.toLowerCase()))
+            );
+          }
+        }
+        if (!empShift) empShift = defaultShift;
+
+        const targetCikis = getTargetCikisTime(empShift, defaultShift?.id, isTodaySaturday, saturdayConfig);
+        await pdksService.updateVardiya(rec.id, {
+          cikis_saati: targetCikis + ':00',
+          notlar: `Otomatik vardiya sonlandırma (${targetCikis}) - Vardiya: ${empShift?.name || 'Standart'}`
+        });
+      }
+
+      window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+      await loadShiftHistory();
+      alert(`İşlem Başarılı: ${uncompletedToday.length} personelin çıkışı kendi vardiya saatlerine göre kaydedildi.`);
     } catch (err: any) {
       console.error(err);
-      alert('Veriler temizlenirken hata oluştu: ' + (err?.message || err));
+      alert('Mesailer kapatılırken hata oluştu: ' + (err?.message || err));
     }
   };
+
 
   // -------------------------------------------------------------
   // TEAM MONITORING (MANAGER VIEW) DATA
@@ -1130,23 +1205,43 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
       // Resolve employee assigned shift (strictly isolate Saturday vs Weekday)
       const isTodaySaturday = new Date().getDay() === 6;
-      const assignedShiftId = allShiftAssignments[emp.id];
+      const assignedShiftId = allShiftAssignments[emp.id] || ((emp as any).user_id && allShiftAssignments[(emp as any).user_id]);
       const cleanShifts = allCompanyShifts.filter(isNotSaturdayShift);
       const defaultShift = cleanShifts.find((s) => s.is_default) || cleanShifts[0] || VARSAYILAN_VARDIYALAR[0];
-      const baseShift = cleanShifts.find((s) => s.id === assignedShiftId) || defaultShift;
+      let baseShift = assignedShiftId ? cleanShifts.find((s) => s.id === assignedShiftId) : null;
 
-      // On Saturdays with 6-day work active, apply Saturday hours; on ALL OTHER DAYS (Monday-Friday) strictly use baseShift!
-      const empShift = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
+      // Eşleştirme: ID ile doğrudan atanmamışsa ofis / şube / departman / il / ilçe adına göre eşleştir (Örn: Tarsus)
+      if (!baseShift) {
+        const empLoc = emp.department || emp.ilce || emp.il || (emp as any).branch || (emp as any).city || (emp as any).office_name || '';
+        if (empLoc) {
+          baseShift = cleanShifts.find(s => 
+            s.name.toLowerCase().includes(empLoc.toLowerCase()) || 
+            (s.office_name && s.office_name.toLowerCase().includes(empLoc.toLowerCase()))
+          );
+        }
+      }
+      if (!baseShift) {
+        baseShift = defaultShift;
+      }
+
+      // "vardıyada ne yazıyosa ona göre cıkış yapılsın"
+      const targetCikis = getTargetCikisTime(baseShift, defaultShift?.id, isTodaySaturday, saturdayConfig);
+      const isSaturdayOverride = isTodaySaturday && saturdayConfig?.isSaturdayWork && targetCikis === (saturdayConfig.endTime || '16:00');
+
+      const empShift = isSaturdayOverride
         ? {
             ...baseShift,
             name: 'Cumartesi Mesaisi',
             start_time: saturdayConfig.startTime || '08:30',
-            end_time: saturdayConfig.endTime || '16:00',
+            end_time: targetCikis,
             break_minutes: Number(saturdayConfig.breakMinutes ?? 30),
             tolerance_minutes: Number(saturdayConfig.toleranceMinutes ?? 15),
             color: '#f59e0b',
           }
-        : baseShift;
+        : {
+            ...baseShift,
+            end_time: targetCikis,
+          };
 
       // 0. Check admin override first (in memory or localStorage)
       const memOverride = adminOverrides[emp.id];
@@ -1383,21 +1478,21 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         {isManagement && (
           <div className="flex items-center gap-2 flex-wrap">
             <button
+              onClick={handleAutoEndShifts}
+              className="flex items-center gap-1.5 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs"
+              title="Bugün giriş yapmış personellerin mesaisini vardiya saatlerine göre (Tarsus 15:00 vb.) otomatik tamamla"
+            >
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              Mesaileri Kapat
+            </button>
+
+            <button
               onClick={handlePrintPdf}
               className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs"
               title="Tüm Personellerin Günlük PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
             >
               <Printer className="w-3.5 h-3.5 text-blue-400" />
               PDKS Raporu Al (PDF)
-            </button>
-
-            <button
-              onClick={handleClearAllPdks}
-              className="flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors shadow-xs"
-              title="Tüm PDKS Devam ve Mesai Kayıtlarını Temizle / Sıfırla"
-            >
-              <Trash2 className="w-3.5 h-3.5 text-red-600" />
-              Temizle
             </button>
 
             <div className="flex bg-gray-100 p-1 rounded-xl">

@@ -5,6 +5,7 @@ import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR } from '../services/s
 import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
 import { printPdksDevamRaporuPdf, exportPdksToCsv, PdksReportRecord } from '../utils/pdksReportPdf';
 import { isSaturdayWorkActive } from '../utils/izinCalculations';
+import { getTodayYYYYMMDD } from '../utils/sanitize';
 import { Loader2 } from 'lucide-react';
 
 import {
@@ -285,7 +286,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       }
     } catch {}
   }, [aktifSekme]);
-  const [secilenTarih, setSecilenTarih] = useState('2026-05-04');
+  const [secilenTarih, setSecilenTarih] = useState(() => getTodayYYYYMMDD());
   const [secilenDepartman, setSecilenDepartman] = useState('all');
   const [checkInModal, setCheckInModal] = useState(false);
   const [checkInTur, setCheckInTur] = useState<KaynakTip>('mobil-qr');
@@ -336,20 +337,102 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
     };
   }, [loadCompanyShifts]);
 
+  const resolveEmployeeShift = useCallback((
+    recEmployeeId: string,
+    tarihStr?: string,
+    customShifts?: CompanyShift[],
+    customAssignments?: Record<string, string>,
+    customSat?: any
+  ) => {
+    const shiftsList = customShifts && customShifts.length > 0 ? customShifts : companyShifts;
+    const assignmentsList = customAssignments && Object.keys(customAssignments).length > 0 ? customAssignments : companyShiftAssignments;
+    
+    const emp = employees.find(e => 
+      e.id === recEmployeeId || 
+      (e as any).user_id === recEmployeeId || 
+      (e.email && recEmployeeId && e.email.toLowerCase() === recEmployeeId.toLowerCase())
+    );
+
+    const empShiftId = emp 
+      ? (assignmentsList[emp.id] || ((emp as any).user_id && assignmentsList[(emp as any).user_id]) || assignmentsList[recEmployeeId])
+      : assignmentsList[recEmployeeId];
+
+    let empShift = shiftsList.find(s => s.id === empShiftId);
+
+    // Doğrudan ID ataması yoksa ofis / şube / departman / il / ilce bazlı eşleştir (Örn: Tarsus)
+    if (!empShift && emp) {
+      const empLoc = emp.department || emp.ilce || emp.il || (emp as any).branch || (emp as any).city || (emp as any).office_name || '';
+      if (empLoc) {
+        empShift = shiftsList.find(s => 
+          s.name.toLowerCase().includes(empLoc.toLowerCase()) || 
+          (s.office_name && s.office_name.toLowerCase().includes(empLoc.toLowerCase()))
+        );
+      }
+    }
+
+    // Varsayılan vardiya
+    if (!empShift) {
+      empShift = shiftsList.find(s => s.is_default) || shiftsList[0] || (DEMO_VARDIYALAR[0] as any);
+    }
+
+    const recDate = tarihStr ? new Date(tarihStr + 'T00:00:00') : new Date(secilenTarih + 'T00:00:00');
+    const isSaturday = recDate.getDay() === 6;
+
+    // "vardıyada ne yazıyosa ona göre cıkış yapılsın"
+    // Personelin tanımlı vardiyası (Tarsus 15:00 vb.) varsa vardiyadaki saatler esastır.
+    let rawCikis = empShift?.end_time;
+    const isSpecificShift = rawCikis && rawCikis !== '18:00' && rawCikis !== '00:00';
+    if (!rawCikis || rawCikis === '00:00' || (!isSpecificShift && isSaturday && customSat?.isSaturdayWork)) {
+      rawCikis = (isSaturday && customSat?.isSaturdayWork) ? (customSat.endTime || '16:00') : '18:00';
+    }
+
+    const cleanCikis = rawCikis.substring(0, 5);
+    const cleanGiris = (empShift?.start_time || '08:30').substring(0, 5);
+
+    const vardiyaTanimi: VardiyaTanimi = {
+      ad: empShift?.name || 'Genel Vardiya',
+      giris: cleanGiris,
+      cikis: cleanCikis,
+      departman: emp?.department || 'Tümü',
+      toleransDk: 15,
+      molaDk: empShift?.break_duration ?? 60,
+      haftaOtLimit: 45,
+      esnek: false,
+    };
+
+    return {
+      emp,
+      shift: empShift,
+      cikisSaati: cleanCikis,
+      girisSaati: cleanGiris,
+      vardiyaTanimi
+    };
+  }, [companyShifts, companyShiftAssignments, employees, secilenTarih]);
+
   const loadData = async () => {
     if (!employees.length || !user) return;
     try {
       setLoading(true);
-      const vardiyalarDb = await pdksService.getVardiyalar();
-      const mesailerDb = await pdksService.getFazlaMesailer();
+      const targetCompanyId = profile?.company_id || employees[0]?.company_id || undefined;
+      const [vardiyalarDb, mesailerDb, fetchedShifts, fetchedAssignments, satConfig] = await Promise.all([
+        pdksService.getVardiyalar(),
+        pdksService.getFazlaMesailer(),
+        companyShifts.length > 0 ? Promise.resolve(companyShifts) : shiftService.getShifts(targetCompanyId),
+        Object.keys(companyShiftAssignments).length > 0 ? Promise.resolve(companyShiftAssignments) : shiftService.getAssignments(targetCompanyId),
+        shiftService.getSaturdayConfig(targetCompanyId).catch(() => null)
+      ]);
+
+      if (fetchedShifts && fetchedShifts.length > 0 && companyShifts.length === 0) {
+        setCompanyShifts(fetchedShifts);
+      }
+      if (fetchedAssignments && Object.keys(companyShiftAssignments).length === 0) {
+        setCompanyShiftAssignments(fetchedAssignments);
+      }
       
       const mapped: PDKSKaydi[] = vardiyalarDb.map(v => {
-        const emp = employees.find(e => 
-          e.id === v.employee_id || 
-          (e as any).user_id === v.employee_id || 
-          (e.email && v.employee_id && e.email.toLowerCase() === v.employee_id.toLowerCase())
-        );
-        const vardiyaTanimi = DEMO_VARDIYALAR[0];
+        const resolved = resolveEmployeeShift(v.employee_id, v.tarih, fetchedShifts, fetchedAssignments, satConfig);
+        const emp = resolved.emp;
+        const vardiyaTanimi = resolved.vardiyaTanimi;
         
         let girisSaati = v.giris_saati ? v.giris_saati.substring(0, 5) : null;
         let cikisSaati = v.cikis_saati ? v.cikis_saati.substring(0, 5) : null;
@@ -591,7 +674,8 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       // Update local state record dynamically: set cikisZamani to null
       setAllKayitlar(prev => prev.map(item => {
         if (item.id === duzeltmeModal.id) {
-          const hesap = hesaplaKayit(updatedGiris, null, DEMO_VARDIYALAR[0]);
+          const resolved = resolveEmployeeShift(item.employeeId, item.tarih);
+          const hesap = hesaplaKayit(updatedGiris, null, resolved.vardiyaTanimi);
           return {
             ...item,
             girisZamani: updatedGiris,
@@ -629,7 +713,8 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       // Update local state record dynamically
       setAllKayitlar(prev => prev.map(item => {
         if (item.id === duzeltmeModal.id) {
-          const hesap = hesaplaKayit(updatedGiris, updatedCikis, DEMO_VARDIYALAR[0]);
+          const resolved = resolveEmployeeShift(item.employeeId, item.tarih);
+          const hesap = hesaplaKayit(updatedGiris, updatedCikis, resolved.vardiyaTanimi);
           return {
             ...item,
             girisZamani: updatedGiris,
@@ -661,33 +746,29 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
     }
 
     const targetCompanyId = profile?.company_id || employees[0]?.company_id || undefined;
-    const secilenDate = new Date(secilenTarih + 'T00:00:00');
-    const isSaturday = secilenDate.getDay() === 6;
-    let targetCikisDisplay = '18:00';
     let satConfig: any = null;
 
     try {
       satConfig = await shiftService.getSaturdayConfig(targetCompanyId);
-      if (isSaturday && satConfig.isSaturdayWork) {
-        targetCikisDisplay = satConfig.endTime || '16:00';
-      }
     } catch (e) {
       console.warn('Failed to load saturday config in PDKSYonetimi:', e);
     }
 
-    if (!confirm(`Seçili tarihteki (${secilenTarih} - ${isSaturday ? 'Cumartesi' : 'Hafta İçi'}) çıkış yapmamış / sıfırlanmış ${ongoingRecords.length} personelin mesaisi vardiya bitiş saati (${targetCikisDisplay}) itibarıyla otomatik sonlandırılsın mı?`)) {
+    const summaryList = ongoingRecords.slice(0, 4).map(r => {
+      const { shift, cikisSaati } = resolveEmployeeShift(r.employeeId, secilenTarih, companyShifts, companyShiftAssignments, satConfig);
+      return `${r.employeeName}: ${cikisSaati} (${shift?.name || 'Vardiya'})`;
+    }).join('\n• ');
+
+    const moreText = ongoingRecords.length > 4 ? `\nve ${ongoingRecords.length - 4} personel daha...` : '';
+
+    if (!confirm(`Seçili tarihteki (${secilenTarih}) çıkış yapmamış ${ongoingRecords.length} personelin mesaisi tanımlı vardiyalarına göre (Tarsus: 15:00 vb.) otomatik sonlandırılsın mı?\n\n• ${summaryList}${moreText}`)) {
       return;
     }
 
     try {
       setLoading(true);
       for (const rec of ongoingRecords) {
-        const empShiftId = companyShiftAssignments[rec.employeeId];
-        const empShift = companyShifts.find(s => s.id === empShiftId) || companyShifts[0];
-        const rawCikis = (isSaturday && satConfig?.isSaturdayWork) 
-          ? (satConfig.endTime || '16:00') 
-          : (empShift?.end_time || '18:00');
-        const cikisSaati = rawCikis.substring(0, 5);
+        const { cikisSaati } = resolveEmployeeShift(rec.employeeId, secilenTarih, companyShifts, companyShiftAssignments, satConfig);
 
         await pdksService.updateVardiya(rec.id, {
           cikis_saati: cikisSaati + ':00'
@@ -696,18 +777,8 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
 
       setAllKayitlar(prev => prev.map(item => {
         if (item.girisZamani && (!item.cikisZamani || item.cikisZamani === '00:00' || item.cikisZamani === '00:00:00') && item.tarih === secilenTarih) {
-          const empShiftId = companyShiftAssignments[item.employeeId];
-          const empShift = companyShifts.find(s => s.id === empShiftId) || companyShifts[0];
-          const rawCikis = (isSaturday && satConfig?.isSaturdayWork) 
-            ? (satConfig.endTime || '16:00') 
-            : (empShift?.end_time || '18:00');
-          const cikisSaati = rawCikis.substring(0, 5);
-
-          const vardiyaKullanim = {
-            ...DEMO_VARDIYALAR[0],
-            cikis: cikisSaati
-          };
-          const hesap = hesaplaKayit(item.girisZamani, cikisSaati, vardiyaKullanim);
+          const { shift, cikisSaati, vardiyaTanimi } = resolveEmployeeShift(item.employeeId, secilenTarih, companyShifts, companyShiftAssignments, satConfig);
+          const hesap = hesaplaKayit(item.girisZamani, cikisSaati, vardiyaTanimi);
           return {
             ...item,
             cikisZamani: cikisSaati,
@@ -720,31 +791,14 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
 
       window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
       await loadData();
-      alert(`İşlem Başarılı: ${ongoingRecords.length} personelin devam eden mesaisi vardiya bitiş saatinde (${targetCikisDisplay}) otomatik olarak sonlandırıldı.`);
+      alert(`İşlem Başarılı: ${ongoingRecords.length} personelin mesaisi kendi vardiya tanımlarına göre (Tarsus 15:00 vb.) otomatik olarak sonlandırıldı.`);
     } catch (err) {
-      console.error(err);
+      console.error('Otomatik mesai sonlandırma hatası:', err);
       alert('Otomatik mesai sonlandırma sırasında bir hata oluştu.');
     } finally {
       setLoading(false);
     }
   }
-
-  const handleClearAllData = async () => {
-    if (!window.confirm('Mesai ve PDKS devam takibindeki TÜM kaydedilmiş verileri silmek/temizlemek istediğinize emin misiniz? Bu işlem geri alınamaz.')) {
-      return;
-    }
-    try {
-      setLoading(true);
-      await pdksService.clearAllData();
-      await loadData();
-      alert('Tüm mesai ve PDKS kayıtları başarıyla temizlendi.');
-    } catch (err: any) {
-      console.error(err);
-      alert('Veriler temizlenirken hata oluştu: ' + (err?.message || err));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return <div className="flex justify-center p-20"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
@@ -758,16 +812,6 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
           <p className="text-sm text-gray-500 mt-0.5">Hesaplama motoru, vardiya yonetimi ve otomatik mesai sonlandırma</p>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
-          {isAdmin && (
-            <button
-              onClick={handleClearAllData}
-              className="flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-red-100 transition-colors"
-              title="Tüm Mesai ve PDKS Kayıtlarını Sıfırla / Temizle"
-            >
-              <Trash2 className="w-4 h-4 text-red-600" />
-              Verileri Temizle
-            </button>
-          )}
           <button
             onClick={handlePrintPdksRaporu}
             className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all"

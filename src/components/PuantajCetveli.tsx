@@ -223,7 +223,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
       const targetCompanyId = profile?.company_id || employees[0]?.company_id || undefined;
       const [fetchedVardiyalar, fetchedShifts, fetchedAssignments, fetchedSaturday, fetchedLeaveTypes] = await Promise.all([
-        pdksService.getVardiyalar(),
+        pdksService.getVardiyalar(targetCompanyId),
         shiftService.getShifts(targetCompanyId),
         shiftService.getAssignments(targetCompanyId),
         shiftService.getSaturdayConfig(targetCompanyId),

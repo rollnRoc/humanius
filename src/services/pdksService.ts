@@ -55,7 +55,7 @@ export const pdksService = {
   // =====================================
   // VARDIYA İŞLEMLERİ
   // =====================================
-  async getVardiyalar(): Promise<VardiyaKaydi[]> {
+  async getVardiyalar(companyId?: string): Promise<VardiyaKaydi[]> {
     if (demoService.isDemoActive()) {
       const records = secureStorage.getItem<VardiyaKaydi[]>('humanius_demo_pdks_vardiya');
       if (!records) {
@@ -95,13 +95,38 @@ export const pdksService = {
       return records;
     }
     try {
-      const { data, error } = await supabase
-        .from('pdks_vardiya_kayitlari')
-        .select('*')
-        .order('tarih', { ascending: false });
+      let allRows: VardiyaKaydi[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
-      const dbList = (data as VardiyaKaydi[]) || [];
+      while (hasMore) {
+        let query = supabase
+          .from('pdks_vardiya_kayitlari')
+          .select('*')
+          .order('tarih', { ascending: false });
+
+        if (companyId) {
+          const cleanCompId = normalizeCompanyId(companyId);
+          query = query.or(`company_id.eq.${cleanCompId},company_id.is.null`);
+        }
+
+        const { data, error } = await query.range(from, from + pageSize - 1);
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allRows = allRows.concat(data as VardiyaKaydi[]);
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            from += pageSize;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const dbList = allRows;
 
       // Merge with local vardiya cache if any exists
       try {
@@ -352,13 +377,31 @@ export const pdksService = {
       }
       return JSON.parse(records);
     }
-    const { data, error } = await supabase
-      .from('pdks_fazla_mesai')
-      .select('*')
-      .order('tarih', { ascending: false });
+    let allRows: FazlaMesai[] = [];
+    let from = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-    if (error) throw error;
-    return data as FazlaMesai[];
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('pdks_fazla_mesai')
+        .select('*')
+        .order('tarih', { ascending: false })
+        .range(from, from + pageSize - 1);
+
+      if (error) throw error;
+      if (data && data.length > 0) {
+        allRows = allRows.concat(data as FazlaMesai[]);
+        if (data.length < pageSize) {
+          hasMore = false;
+        } else {
+          from += pageSize;
+        }
+      } else {
+        hasMore = false;
+      }
+    }
+    return allRows;
   },
 
   async createFazlaMesai(kayit: FazlaMesaiInsert): Promise<FazlaMesai> {
@@ -456,7 +499,7 @@ export const pdksService = {
       });
       return;
     }
-    await supabase.from('pdks_fazla_mesai').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('pdks_vardiya_kayitlari').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    console.warn('clearAllData veritabanı silme koruması aktif: Toplu silme engellendi.');
+    throw new Error('Veri güvenliği ve mevzuat gereği canlı veritabanı üzerindeki tüm PDKS kayıtlarını toplu silme işlemi kalıcı olarak devre dışı bırakılmıştır.');
   }
 };
