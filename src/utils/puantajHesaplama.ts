@@ -304,13 +304,21 @@ export function hesaplaPersonelAylikPuantaj(params: {
 
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    let shiftStartMinutes = 8 * 60 + 30;
     let shiftEndMinutes = 18 * 60;
+    if (activeStartTime) {
+      const [sH, sM] = activeStartTime.split(':').map(Number);
+      if (!isNaN(sH) && !isNaN(sM)) {
+        shiftStartMinutes = sH * 60 + sM;
+      }
+    }
     if (activeEndTime) {
       const [eH, eM] = activeEndTime.split(':').map(Number);
       if (!isNaN(eH) && !isNaN(eM)) {
         shiftEndMinutes = eH * 60 + eM;
       }
     }
+    const isOvernight = shiftEndMinutes < shiftStartMinutes;
 
     if (girisSaati && cikisSaati) {
       const [gH, gM] = girisSaati.split(':').map(Number);
@@ -347,11 +355,25 @@ export function hesaplaPersonelAylikPuantaj(params: {
           }
         }
       }
-    } else if (girisSaati && !cikisSaati && isToday) {
+    } else if (girisSaati && !cikisSaati) {
       const [gH, gM] = girisSaati.split(':').map(Number);
+      let isShiftCompleted = false;
 
-      if (currentMinutes >= shiftEndMinutes) {
-        // Vardiya çıkış saati gelmiş/geçmiş (örn: saat 15:00 çıkışlı vardiya saat 15:00'te tamamlandı)
+      if (isToday) {
+        if (isOvernight) {
+          // Gece vardiyası (örn: 17:00 / 03:00): vardiya bugün başladı ve ertesi gün sabah (03:00) bitecek.
+          // Bugün içerisinde vardiya HER ZAMAN devam ediyor durumundadır.
+          isShiftCompleted = false;
+        } else {
+          isShiftCompleted = currentMinutes >= shiftEndMinutes;
+        }
+      } else {
+        // Geçmiş bir günse ve çıkış saati basılmamışsa vardiya saatine göre tamamlanmış kabul edilir
+        isShiftCompleted = true;
+      }
+
+      if (isShiftCompleted) {
+        // Vardiya bitiş saati gelmiş/geçmiş (örn: saat 15:00 çıkışlı vardiya veya geçmiş gün)
         cikisSaati = activeEndTime;
         isOngoing = false;
         const [cH, cM] = cikisSaati.split(':').map(Number);
@@ -363,7 +385,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
           netSureSaat = parseFloat((Math.max(0, diffMins - yasalMola) / 60).toFixed(1));
         }
       } else {
-        // Vardiyası henüz bitmemiş, mesai devam ediyor (örn: 17:00, 17:45, 18:00, 22:00 vardiyaları)
+        // Vardiyası henüz bitmemiş, mesai devam ediyor (örn: 17:00, 17:45, 18:00, 22:00 veya gece vardiyaları)
         isOngoing = true;
         cikisSaati = null;
         if (!isNaN(gH) && !isNaN(gM)) {

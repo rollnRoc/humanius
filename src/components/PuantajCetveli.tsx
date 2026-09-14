@@ -22,13 +22,15 @@ import {
   AlertCircle,
   User,
   ArrowUpDown,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Trash2,
 } from 'lucide-react';
 import { Employee } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaKaydi } from '../services/pdksService';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG } from '../services/shiftService';
 import { leaveTypeService } from '../services/leaveTypeService';
+import { izinService } from '../services/izinService';
 import { IzinTuruKural } from './IzinTanimlari';
 import { getCompanyIzinTurleri } from '../utils/izinCalculations';
 import {
@@ -38,6 +40,39 @@ import {
   GunlukPuantajDetay,
   getCalismaSaati,
 } from '../utils/puantajHesaplama';
+import { getTodayYYYYMMDD } from '../utils/sanitize';
+
+function puantajKoduToIzinTuru(kod: string, leaveTypes?: any[]): string {
+  const clean = String(kod || '').trim().toUpperCase();
+  if (clean === 'Yİ' || clean === 'YI') return 'yillik';
+  if (clean === 'Mİ' || clean === 'MZ') return 'mazeret';
+  if (clean === 'RP' || clean === 'R' || clean === 'HA') return 'hastalik';
+  if (clean === 'Üİ' || clean === 'UC') return 'ucretsiz';
+  if (clean === 'EV') return 'evlilik';
+  if (clean === 'EG') return 'egitim';
+  if (clean === 'DĞ') return 'dogum';
+  if (clean === 'BB') return 'babalik';
+  if (clean === 'OL') return 'olum';
+  if (clean === 'ASK') return 'askerlik';
+
+  if (leaveTypes && Array.isArray(leaveTypes)) {
+    const matched = leaveTypes.find(
+      (lt) => lt.kod?.toUpperCase() === clean || lt.id?.toLowerCase() === clean.toLowerCase()
+    );
+    if (matched) return matched.id;
+  }
+  return clean.toLowerCase();
+}
+
+function isLeavePuantajKod(kod: string, leaveTypes?: any[]): boolean {
+  const clean = String(kod || '').trim().toUpperCase();
+  const known = ['Yİ', 'YI', 'Mİ', 'MZ', 'RP', 'R', 'HA', 'Üİ', 'UC', 'EV', 'EG', 'DĞ', 'BB', 'OL', 'ASK'];
+  if (known.includes(clean)) return true;
+  if (leaveTypes && Array.isArray(leaveTypes)) {
+    return leaveTypes.some((lt) => lt.kod?.toUpperCase() === clean || lt.id?.toUpperCase() === clean);
+  }
+  return false;
+}
 import {
   printPuantajCetveliPdf,
   exportPuantajExcel,
@@ -411,6 +446,26 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     };
   }, [filteredPuantaj]);
 
+  // Düzenlenen hücrede onaylı izin talebi var mı?
+  const editActiveLeave = useMemo(() => {
+    if (!editTarget) return null;
+    const { employee, gun } = editTarget;
+    return (izinTalepleri || []).find((t) => {
+      const tEmpId = t.employeeId || t.employee_id;
+      if (!tEmpId || tEmpId !== employee.id) return false;
+      const tDurum = String(t.durum || '').toLowerCase();
+      if (!['onaylandi', 'onaylandı', 'ik onayladı', 'yönetici onayladı'].includes(tDurum)) return false;
+      const s = (t.baslangicTarihi || t.baslangic_tarihi || '').split('T')[0];
+      const e = (t.bitisTarihi || t.bitis_tarihi || '').split('T')[0];
+      return Boolean(s && e && gun.tarih >= s && gun.tarih <= e);
+    });
+  }, [editTarget, izinTalepleri]);
+
+  const isEditCellLeave = useMemo(() => {
+    if (!editTarget) return false;
+    return Boolean(editActiveLeave) || isLeavePuantajKod(editTarget.gun.kod, leaveTypes);
+  }, [editTarget, editActiveLeave, leaveTypes]);
+
   // Hücre Düzenleme Aç
   const handleOpenEditCell = (rec: PersonelAylikPuantaj, gun: GunlukPuantajDetay) => {
     if (!isManagement) return;
@@ -422,23 +477,74 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     setEditModalOpen(true);
   };
 
+  // İzni Kaldır (İzin kaydını sil/böl, yıllık izni tekrar hesapla ve otomatik güne dön)
+  const handleRemoveLeaveFromCell = async () => {
+    if (!editTarget) return;
+    const { employee, gun } = editTarget;
+    const targetCompId = employee.company_id || profile?.company_id || 'default';
+
+    try {
+      // 1. İzin talebini sil veya böl (yıllık izinse otomatik bakiye hesaplar)
+      await izinService.removeOrSplitLeaveDate(employee.id, gun.tarih, targetCompId);
+
+      // 2. pdks_vardiya_kayitlari tablosundaki bu tarihe ait kaydı sil
+      const existing = vardiyaKayitlari.find(
+        (v) => (v.employee_id === employee.id || (v as any).employeeId === employee.id) && v.tarih === gun.tarih
+      );
+      if (existing?.id) {
+        await pdksService.deleteVardiya(existing.id);
+      }
+
+      // 3. Local override varsa temizle
+      const overrideKey = `${employee.id}_${gun.tarih}`;
+      setAdminOverrides((prev) => {
+        const next = { ...prev };
+        delete next[overrideKey];
+        return next;
+      });
+
+      // 4. Personelin yıllık izin bakiyesini doğrula
+      await izinService.recalculateEmployeeAnnualLeave(employee.id, targetCompId);
+
+      // 5. Olayları tetikle ve verileri yenile
+      window.dispatchEvent(new CustomEvent('humanius_izin_updated', { detail: { employeeId: employee.id } }));
+      window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+      window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
+
+      setEditModalOpen(false);
+      await loadPuantajData();
+    } catch (err) {
+      console.error('İzin kaldırma hatası:', err);
+      alert('İzin kaldırılırken bir hata oluştu.');
+    }
+  };
+
   // Hücre Düzenleme Kaydet
   const handleSaveCellEdit = async () => {
     if (!editTarget) return;
     const { employee, gun } = editTarget;
     const overrideKey = `${employee.id}_${gun.tarih}`;
+    const targetCompId = employee.company_id || profile?.company_id || 'default';
     const matchedCustom = leaveTypes.find((lt) => lt.kod === editKod || lt.id === editKod);
     const customDesc = matchedCustom?.ad;
-    const cleanCikis = editCikis && editCikis.trim() !== '-' ? editCikis.trim() : null;
+    const cleanGiris = editGiris && editGiris.trim() !== '-' && editGiris.trim() !== '' ? editGiris.trim() : null;
+    const cleanCikis = editCikis && editCikis.trim() !== '-' && editCikis.trim() !== '' ? editCikis.trim() : null;
+
+    const isPrevLeave = Boolean(editActiveLeave) || isLeavePuantajKod(gun.kod, leaveTypes);
+    const isNewLeave = isLeavePuantajKod(editKod, leaveTypes);
+
+    const isPastDay = gun.tarih < getTodayYYYYMMDD();
+    const effectiveGiris = cleanGiris || '08:30';
+    const effectiveCikis = cleanCikis || (isPastDay ? '18:00' : null);
 
     const newOverride = {
       kod: editKod,
-      giris: editKod === 'Ç' ? editGiris : '-',
-      cikis: editKod === 'Ç' ? (cleanCikis || '-') : '-',
+      giris: editKod === 'Ç' ? effectiveGiris : '-',
+      cikis: editKod === 'Ç' ? (effectiveCikis || '-') : '-',
       notlar: editNotlar || undefined,
       kodAciklama:
         editKod === 'Ç'
-          ? (cleanCikis ? `Fiili Çalışma (${editGiris}-${cleanCikis})` : `Vardiyası Devam Ediyor (Giriş: ${editGiris})`)
+          ? (effectiveCikis ? `Fiili Çalışma (${effectiveGiris}-${effectiveCikis})` : `Vardiyası Devam Ediyor (Giriş: ${effectiveGiris})`)
           : editKod === 'Yİ' || editKod === 'YI'
           ? 'Yıllık Ücretli İzin'
           : editKod === 'EG'
@@ -463,29 +569,82 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     const nextOverrides = { ...adminOverrides, [overrideKey]: newOverride };
     setAdminOverrides(nextOverrides);
 
-    // Canlı veritabanına anında yaz (Tüm durumlar: Ç, HT, AT, Yİ, RP, D, UBGT vb.)
     try {
-      const targetCompId = normalizeCompanyId(employee.company_id || profile?.company_id || 'default');
-      const notlarText = `[PUANTAJ:${editKod}] ${newOverride.kodAciklama || ''} ${editNotlar ? '- ' + editNotlar : ''}`.trim();
-      const girisVal = editKod === 'Ç' ? (editGiris || '08:30') : null;
-      const cikisVal = editKod === 'Ç' ? cleanCikis : null;
-      const durumVal = editKod === 'Ç' ? 'zamaninda' : (editKod === 'D' ? 'gelmedi' : 'izinli');
+      if (editKod === 'Ç') {
+        // İzinli günden fiili çalışmaya dönüldü: Onaylı izni kaldır/böl
+        if (isPrevLeave) {
+          await izinService.removeOrSplitLeaveDate(employee.id, gun.tarih, targetCompId);
+        }
 
-      await pdksService.createVardiya({
-        company_id: targetCompId,
-        employee_id: employee.id,
-        tarih: gun.tarih,
-        vardiya_tipi: 'tam-gun',
-        giris_saati: girisVal,
-        cikis_saati: cikisVal,
-        durum: durumVal,
-        notlar: notlarText,
-      });
+        const notlarText = `[PUANTAJ:Ç] Fiili Çalışma (${effectiveGiris}-${effectiveCikis || 'Devam'}) ${editNotlar ? '- ' + editNotlar : ''}`.trim();
+        await pdksService.createVardiya({
+          company_id: targetCompId,
+          employee_id: employee.id,
+          tarih: gun.tarih,
+          vardiya_tipi: 'tam-gun',
+          giris_saati: effectiveGiris,
+          cikis_saati: effectiveCikis,
+          durum: 'zamaninda',
+          notlar: notlarText,
+        });
+      } else if (isNewLeave) {
+        // Yeni bir izin kodu seçildi (Yİ, Mİ, RP, Üİ vb.)
+        const newLeaveType = puantajKoduToIzinTuru(editKod, leaveTypes);
+
+        // Önceki izin varsa temizle/böl (yıllık izin ise bakiyesi iade edilir)
+        if (isPrevLeave) {
+          await izinService.removeOrSplitLeaveDate(employee.id, gun.tarih, targetCompId);
+        }
+
+        // Yeni onaylı izin talebini oluştur (yıllık ise bakiyesi otomatik düşülür)
+        await izinService.addApprovedLeaveFromPuantaj({
+          employeeId: employee.id,
+          companyId: targetCompId,
+          date: gun.tarih,
+          leaveType: newLeaveType,
+          aciklama: `Puantaj Düzenleme (${editKod}) ${editNotlar ? '- ' + editNotlar : ''}`.trim(),
+        });
+
+        const kodAciklama = editKod === 'Yİ' ? 'Yıllık Ücretli İzin' : (customDesc || 'İzinli');
+        const notlarText = `[PUANTAJ:${editKod}] ${kodAciklama} ${editNotlar ? '- ' + editNotlar : ''}`.trim();
+        await pdksService.createVardiya({
+          company_id: targetCompId,
+          employee_id: employee.id,
+          tarih: gun.tarih,
+          vardiya_tipi: 'tam-gun',
+          giris_saati: null,
+          cikis_saati: null,
+          durum: 'izinli',
+          notlar: notlarText,
+        });
+      } else {
+        // HT, AT, UBGT, D vb. kodlar
+        if (isPrevLeave) {
+          await izinService.removeOrSplitLeaveDate(employee.id, gun.tarih, targetCompId);
+        }
+
+        const kodAciklama = editKod === 'HT' ? 'Hafta Tatili' : (editKod === 'AT' ? 'Akdi Tatil' : (editKod === 'UBGT' ? 'Resmi Tatil' : 'Devamsız'));
+        const notlarText = `[PUANTAJ:${editKod}] ${kodAciklama} ${editNotlar ? '- ' + editNotlar : ''}`.trim();
+        await pdksService.createVardiya({
+          company_id: targetCompId,
+          employee_id: employee.id,
+          tarih: gun.tarih,
+          vardiya_tipi: 'tam-gun',
+          giris_saati: null,
+          cikis_saati: null,
+          durum: editKod === 'D' ? 'gelmedi' : 'izinli',
+          notlar: notlarText,
+        });
+      }
+
+      // Personelin yıllık izin bakiyesini her durumda garantilemek için yeniden hesapla
+      await izinService.recalculateEmployeeAnnualLeave(employee.id, targetCompId);
     } catch (err) {
-      console.warn('Veritabanı puantaj güncelleme uyarısı:', err);
+      console.warn('Puantaj hücre kaydı güncelleme hatası:', err);
     }
 
     setEditModalOpen(false);
+    window.dispatchEvent(new CustomEvent('humanius_izin_updated', { detail: { employeeId: employee.id } }));
     window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
     window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
     await loadPuantajData();
@@ -502,7 +661,9 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
     // Veritabanındaki puantaj kaydını sil
     try {
-      const existing = vardiyaKayitlari.find(v => (v.employee_id === employee.id || (v as any).employeeId === employee.id) && v.tarih === gun.tarih);
+      const existing = vardiyaKayitlari.find(
+        (v) => (v.employee_id === employee.id || (v as any).employeeId === employee.id) && v.tarih === gun.tarih
+      );
       if (existing) {
         await pdksService.deleteVardiya(existing.id);
       }
@@ -1727,6 +1888,28 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
               </button>
             </div>
 
+            {isEditCellLeave && (
+              <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="text-xs text-amber-900 flex-1">
+                  <div className="font-bold flex items-center justify-between">
+                    <span>Kayıtlı İzin Bulundu</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200 font-bold uppercase text-amber-800">
+                      {editActiveLeave ? (editActiveLeave.izinTuru || 'İzin') : editTarget.gun.kodAciklama}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-amber-800 font-medium">
+                    {editActiveLeave
+                      ? `${editActiveLeave.baslangicTarihi} - ${editActiveLeave.bitisTarihi} (${editActiveLeave.gunSayisi} gün)`
+                      : `${editTarget.gun.tarih} (${editTarget.gun.kodAciklama})`}
+                  </p>
+                  <p className="text-[11px] text-amber-700 mt-1">
+                    Bu izni aşağıdaki listeden başka bir türe/çalışmaya dönüştürebilir veya <strong>"İzni Kaldır"</strong> butonuyla tamamen silebilirsiniz. Yıllık izin değiştirildiğinde veya kaldırıldığında personelin kalan yıllık izni otomatik olarak yeniden hesaplanır.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3 text-xs">
               <div>
                 <label className="font-bold text-gray-700 block mb-1">Puantaj Durumu (Mevzuat Kodu):</label>
@@ -1760,7 +1943,19 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
               {editKod === 'Ç' && (
                 <div className="grid grid-cols-2 gap-3 p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
                   <div>
-                    <label className="font-bold text-gray-700 block mb-1">Giriş Saati:</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold text-gray-700 block">Giriş Saati:</label>
+                      {editGiris && (
+                        <button
+                          type="button"
+                          onClick={() => setEditGiris('')}
+                          className="text-[10px] text-amber-600 hover:text-amber-800 font-semibold cursor-pointer"
+                          title="Giriş saatini temizler"
+                        >
+                          Girişi Sıfırla
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="time"
                       value={editGiris}
@@ -1769,9 +1964,21 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="font-bold text-gray-700 block mb-1">
-                      Çıkış Saati {editTarget?.gun?.isOngoing && <span className="text-[10px] text-emerald-600 font-normal">(Mesai Devam Ediyor)</span>}:
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold text-gray-700 block">
+                        Çıkış Saati {editTarget?.gun?.isOngoing && <span className="text-[10px] text-emerald-600 font-normal">(Devam Ediyor)</span>}:
+                      </label>
+                      {editCikis && (
+                        <button
+                          type="button"
+                          onClick={() => setEditCikis('')}
+                          className="text-[10px] text-red-500 hover:text-red-700 font-semibold cursor-pointer"
+                          title="Çıkış saatini kaldırır ve mesaiyi açık/devam ediyor yapar"
+                        >
+                          Çıkışı Sıfırla
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="time"
                       value={editCikis}
@@ -1795,6 +2002,18 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   className="w-full border border-gray-200 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-100"
                 />
               </div>
+
+              {isEditCellLeave && (
+                <button
+                  type="button"
+                  onClick={handleRemoveLeaveFromCell}
+                  className="w-full py-2.5 px-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+                  title="Bu tarihteki izni iptal eder, personeli normal güne döndürür ve yıllık iznini tekrar hesaplar"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  İzni Kaldır (Normal Güne Döndür & Yıllık İzni Güncelle)
+                </button>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-100">

@@ -272,6 +272,26 @@ export const pdksService = {
     if (error) throw error;
   },
 
+  async deleteVardiyaByEmployeeAndDate(employeeId: string, tarih: string): Promise<void> {
+    const cleanTarih = String(tarih).split('T')[0];
+    if (demoService.isDemoActive()) {
+      const list = await this.getVardiyalar();
+      const filtered = list.filter(r => !(r.employee_id === employeeId && r.tarih === cleanTarih));
+      localStorage.setItem('humanius_demo_pdks_vardiya', JSON.stringify(filtered));
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('pdks_vardiya_kayitlari')
+        .delete()
+        .eq('employee_id', employeeId)
+        .eq('tarih', cleanTarih);
+      if (error) console.error('deleteVardiyaByEmployeeAndDate error:', error);
+    } catch (err) {
+      console.error('deleteVardiyaByEmployeeAndDate catch:', err);
+    }
+  },
+
   // =====================================
   // FAZLA MESAİ İŞLEMLERİ
   // =====================================

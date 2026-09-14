@@ -665,10 +665,21 @@ const AppInner: React.FC = () => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_talepleri' }, () => {
           loadData();
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_haklari' }, () => {
+          loadData();
+        })
         .subscribe();
+
+      const handleIzinSync = () => {
+        loadData();
+      };
+      window.addEventListener('humanius_izin_updated', handleIzinSync);
+      window.addEventListener('humanius_puantaj_updated', handleIzinSync);
 
       return () => {
         supabase.removeChannel(channel);
+        window.removeEventListener('humanius_izin_updated', handleIzinSync);
+        window.removeEventListener('humanius_puantaj_updated', handleIzinSync);
       };
     }
   }, [user, profile?.company_id, profile?.role, loadData]);

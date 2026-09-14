@@ -25,6 +25,7 @@ import {
   Save,
   TrendingUp,
   Trash2,
+  RotateCcw,
   UserCheck,
   UserX,
   Wifi,
@@ -586,10 +587,13 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
 
     if (k.girisZamani && (!k.cikisZamani || k.cikisZamani === '00:00')) {
       if (isToday) {
-        const { cikisSaati: planliCikis } = resolveEmployeeShift(k.employeeId, k.tarih, companyShifts, companyShiftAssignments, null);
+        const { cikisSaati: planliCikis, vardiyaTanimi } = resolveEmployeeShift(k.employeeId, k.tarih, companyShifts, companyShiftAssignments, null);
         const [eH, eM] = (planliCikis || '18:00').split(':').map(Number);
+        const [sH, sM] = (vardiyaTanimi?.giris || '08:30').split(':').map(Number);
         const shiftEndMin = !isNaN(eH) && !isNaN(eM) ? eH * 60 + eM : 18 * 60;
-        if (currentMinutes < shiftEndMin) {
+        const shiftStartMin = !isNaN(sH) && !isNaN(sM) ? sH * 60 + sM : 8 * 60 + 30;
+        const isOvernight = shiftEndMin < shiftStartMin;
+        if (isOvernight || currentMinutes < shiftEndMin) {
           return k.durum || 'normal'; // Vardiyası devam ediyor
         }
       }
@@ -616,10 +620,13 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
         const todayStr = now.toISOString().split('T')[0];
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
         const isToday = k.tarih === todayStr;
-        const { cikisSaati: planliCikis } = resolveEmployeeShift(k.employeeId, k.tarih, companyShifts, companyShiftAssignments, null);
+        const { cikisSaati: planliCikis, vardiyaTanimi } = resolveEmployeeShift(k.employeeId, k.tarih, companyShifts, companyShiftAssignments, null);
         const [eH, eM] = (planliCikis || '18:00').split(':').map(Number);
+        const [sH, sM] = (vardiyaTanimi?.giris || '08:30').split(':').map(Number);
         const shiftEndMin = !isNaN(eH) && !isNaN(eM) ? eH * 60 + eM : 18 * 60;
-        if (isToday && currentMinutes < shiftEndMin) {
+        const shiftStartMin = !isNaN(sH) && !isNaN(sM) ? sH * 60 + sM : 8 * 60 + 30;
+        const isOvernight = shiftEndMin < shiftStartMin;
+        if (isToday && (isOvernight || currentMinutes < shiftEndMin)) {
           durumStr = 'Vardiyası Devam Ediyor';
         } else {
           durumStr = 'Çıkış Bekleniyor';
@@ -702,6 +709,25 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
     }
   }
 
+  async function girisSifirla() {
+    if (!duzeltmeModal) return;
+    try {
+      await pdksService.deleteVardiya(duzeltmeModal.id);
+      if (duzeltmeModal.employeeId && duzeltmeModal.tarih) {
+        await pdksService.deleteVardiyaByEmployeeAndDate(duzeltmeModal.employeeId, duzeltmeModal.tarih);
+      }
+      setAllKayitlar(prev => prev.filter(item => item.id !== duzeltmeModal.id));
+      window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+      window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
+      await loadData();
+    } catch(err) {
+      console.error('Giriş sıfırlama hatası:', err);
+    }
+    setDuzeltmeModal(null);
+    setDuzeltmeGirisSaati('');
+    setDuzeltmeSaati('');
+  }
+
   async function cikisSifirla() {
     if (!duzeltmeModal) return;
     try {
@@ -710,7 +736,8 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
 
       await pdksService.updateVardiya(duzeltmeModal.id, {
         giris_saati: updatedGiris ? updatedGiris + ':00' : undefined,
-        cikis_saati: null
+        cikis_saati: null,
+        notlar: `[PUANTAJ:Ç] Fiili Çalışma (${updatedGiris}-Devam) - Çıkış Sıfırlandı`
       });
 
       // Update local state record dynamically: set cikisZamani to null
@@ -730,6 +757,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       }));
 
       window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+      window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
       await loadData();
     } catch(err) {
       console.error('Çıkış sıfırlama hatası:', err);
@@ -744,12 +772,30 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
     try {
       const rawGiris = duzeltmeGirisSaati !== '' ? duzeltmeGirisSaati : duzeltmeModal.girisZamani || '';
       const rawCikis = duzeltmeSaati ? duzeltmeSaati.trim() : '';
-      const updatedGiris = rawGiris ? rawGiris.substring(0, 5) : '';
-      const updatedCikis = rawCikis ? rawCikis.substring(0, 5) : null;
+      const updatedGiris = rawGiris && rawGiris.trim() !== '' ? rawGiris.substring(0, 5) : null;
+      const updatedCikis = rawCikis && rawCikis.trim() !== '' ? rawCikis.substring(0, 5) : null;
+
+      if (!updatedGiris && !updatedCikis) {
+        await pdksService.deleteVardiya(duzeltmeModal.id);
+        if (duzeltmeModal.employeeId && duzeltmeModal.tarih) {
+          await pdksService.deleteVardiyaByEmployeeAndDate(duzeltmeModal.employeeId, duzeltmeModal.tarih);
+        }
+        setAllKayitlar(prev => prev.filter(item => item.id !== duzeltmeModal.id));
+        window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+        window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
+        await loadData();
+        setDuzeltmeModal(null);
+        setDuzeltmeGirisSaati('');
+        setDuzeltmeSaati('');
+        return;
+      }
       
       await pdksService.updateVardiya(duzeltmeModal.id, {
-        giris_saati: updatedGiris ? updatedGiris + ':00' : undefined,
-        cikis_saati: updatedCikis ? updatedCikis + ':00' : null
+        giris_saati: updatedGiris ? updatedGiris + ':00' : null,
+        cikis_saati: updatedCikis ? updatedCikis + ':00' : null,
+        notlar: updatedCikis
+          ? `[PUANTAJ:Ç] Fiili Çalışma (${updatedGiris}-${updatedCikis}) - Yönetici Düzeltmesi`
+          : `[PUANTAJ:Ç] Fiili Çalışma (${updatedGiris}-Devam) - Yönetici Düzeltmesi (Mesai Açık)`
       });
 
       // Update local state record dynamically
@@ -769,6 +815,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       }));
 
       window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+      window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
       await loadData();
     } catch(err) {
       console.error('PDKS düzeltme kaydı güncellenirken hata:', err);
@@ -1098,7 +1145,8 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
                             onClick={() => {
                               setDuzeltmeModal(k);
                               setDuzeltmeGirisSaati(k.girisZamani ? k.girisZamani.substring(0, 5) : '');
-                              setDuzeltmeSaati(k.cikisZamani ? k.cikisZamani.substring(0, 5) : '');
+                              const isRealExit = k.cikisZamani && k.cikisZamani !== '00:00' && k.cikisZamani !== '00:00:00';
+                              setDuzeltmeSaati(isRealExit ? k.cikisZamani.substring(0, 5) : '');
                             }}
                             className="text-xs text-blue-600 hover:underline font-semibold flex items-center gap-1"
                           >
@@ -1373,7 +1421,19 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Giriş Saati</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-gray-700">Giriş Saati</label>
+                  {duzeltmeGirisSaati && (
+                    <button
+                      type="button"
+                      onClick={() => setDuzeltmeGirisSaati('')}
+                      className="text-[10px] text-amber-600 hover:text-amber-800 font-medium cursor-pointer"
+                      title="Giriş saatini kaldırır"
+                    >
+                      Girişi Sıfırla
+                    </button>
+                  )}
+                </div>
                 <input
                   type="time"
                   value={duzeltmeGirisSaati}
@@ -1404,6 +1464,16 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
               </div>
             </div>
             <div className="flex flex-col gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={girisSifirla}
+                className="w-full py-2.5 px-3 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+                title="Giriş kaydını tamamen silerek personeli 'Giriş Yapılmadı' durumuna getirir"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                Giriş Saatini Sıfırla (Giriş Yapılmadı / Kaydı Sil)
+              </button>
+
               <button
                 type="button"
                 onClick={cikisSifirla}

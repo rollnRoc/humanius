@@ -10,7 +10,7 @@ import { systemDataService } from '../services/systemDataService';
 import {
   Clock, LogIn, LogOut, Search, Filter, MapPin, Fingerprint,
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
-  Sliders, Navigation, CheckCircle, RefreshCw, Trash2,
+  Sliders, Navigation, CheckCircle, RefreshCw, Trash2, RotateCcw,
   Building2, Plus, Edit2, Check, X, Bell, BellRing, Users,
   Printer, FileText, Download, CalendarCheck, ArrowUpDown
 } from 'lucide-react';
@@ -808,12 +808,21 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           setShiftStartTime(null);
           setActiveShiftRecordId(null);
         } else if (todayRec && todayRec.giris_saati && (!todayRec.cikis_saati || todayRec.cikis_saati === '00:00:00' || todayRec.cikis_saati === '00:00')) {
-          // Check if shift has reached exit time according to employee's vardiya
-          const startIso = todayRec.created_at || `${todayRec.tarih}T${todayRec.giris_saati}`;
+          // Her zaman personelin gerçek giriş saatini esas al (created_at veritabanı kayıt tarihidir, mesai saati değildir!)
+          const cleanGiris = todayRec.giris_saati.substring(0, 5);
+          const startIso = `${todayRec.tarih}T${cleanGiris}:00`;
           const isTodaySaturday = new Date().getDay() === 6;
           const targetCikisTime = getTargetCikisTime(activeUserShift, undefined, isTodaySaturday, saturdayConfig);
           const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
-          const { isExpired, autoCloseTime } = checkIsShiftExpired(startIso, targetCikisTime, isOvertimeAuthorized, 0);
+
+          // Gece vardiyası kontrolü (örn: 17:00 / 03:00)
+          const [sH, sM] = (activeUserShift?.start_time || '08:30').split(':').map(Number);
+          const [eH, eM] = (targetCikisTime || '18:00').split(':').map(Number);
+          const isOvernight = (!isNaN(eH) && !isNaN(eM) && !isNaN(sH) && !isNaN(sM)) && (eH * 60 + eM < sH * 60 + sM);
+
+          const { isExpired, autoCloseTime } = isOvernight
+            ? { isExpired: false, autoCloseTime: targetCikisTime }
+            : checkIsShiftExpired(startIso, targetCikisTime, isOvertimeAuthorized, 0);
 
           if (isExpired) {
             pdksService.updateVardiya(todayRec.id, {
@@ -1483,45 +1492,68 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       if (realRecord) {
         const notlar = realRecord.notlar || '';
         const puantajMatch = notlar.match(/\[PUANTAJ:([A-ZÇĞİÖŞÜ]+)\]/i);
-        const isExplicitLeaveOrAbsence = puantajMatch || ((realRecord.durum === 'izinli' || realRecord.durum === 'gelmedi') && !realRecord.giris_saati && !realRecord.cikis_saati);
+        const pKod = puantajMatch ? puantajMatch[1].toUpperCase() : '';
+        const isLeaveOrAbsenceCode = Boolean(pKod && pKod !== 'Ç');
+        const isExplicitLeaveOrAbsence = isLeaveOrAbsenceCode || ((realRecord.durum === 'izinli' || realRecord.durum === 'gelmedi') && !realRecord.giris_saati && !realRecord.cikis_saati && pKod !== 'Ç');
 
         if (isExplicitLeaveOrAbsence) {
-          let pKod = puantajMatch ? puantajMatch[1].toUpperCase() : '';
-          if (!pKod) {
-            if (realRecord.durum === 'gelmedi' || notlar.includes('Devamsız')) pKod = 'D';
-            else if (notlar.includes('HT') || notlar.includes('Hafta Tatili')) pKod = 'HT';
-            else if (notlar.includes('AT') || notlar.includes('Akdi Tatil')) pKod = 'AT';
-            else if (notlar.includes('Yİ') || notlar.includes('YI') || notlar.includes('Yıllık')) pKod = 'Yİ';
-            else if (notlar.includes('RP') || notlar.includes('Rapor') || notlar.includes('İstirahat')) pKod = 'RP';
-            else pKod = 'İZİN';
+          let effKod = pKod;
+          if (!effKod) {
+            if (realRecord.durum === 'gelmedi' || notlar.includes('Devamsız')) effKod = 'D';
+            else if (notlar.includes('HT') || notlar.includes('Hafta Tatili')) effKod = 'HT';
+            else if (notlar.includes('AT') || notlar.includes('Akdi Tatil')) effKod = 'AT';
+            else if (notlar.includes('Yİ') || notlar.includes('YI') || notlar.includes('Yıllık')) effKod = 'Yİ';
+            else if (notlar.includes('RP') || notlar.includes('Rapor') || notlar.includes('İstirahat')) effKod = 'RP';
+            else effKod = 'İZİN';
           }
 
-          const leaveTitle = pKod === 'HT' ? 'Haftalık Tatil'
-            : pKod === 'AT' ? 'Akdi Tatil'
-            : pKod === 'D' ? 'Devamsız'
-            : pKod === 'Yİ' ? 'Yıllık İzin'
-            : pKod === 'RP' ? 'Raporlu'
-            : pKod === 'UBGT' ? 'Resmi Tatil'
-            : pKod === 'EG' ? 'Eğitim İzni'
-            : pKod === 'Üİ' ? 'Ücretsiz İzin'
-            : pKod === 'Mİ' ? 'Mazeret İzni'
+          const leaveTitle = effKod === 'HT' ? 'Haftalık Tatil'
+            : effKod === 'AT' ? 'Akdi Tatil'
+            : effKod === 'D' ? 'Devamsız'
+            : effKod === 'Yİ' ? 'Yıllık İzin'
+            : effKod === 'RP' ? 'Raporlu'
+            : effKod === 'UBGT' ? 'Resmi Tatil'
+            : effKod === 'EG' ? 'Eğitim İzni'
+            : effKod === 'Üİ' ? 'Ücretsiz İzin'
+            : effKod === 'Mİ' ? 'Mazeret İzni'
             : (notlar.replace(/\[PUANTAJ:[^\]]+\]/g, '').trim() || 'İzinli');
 
           return {
             employee: emp,
-            giris: pKod,
-            cikis: pKod,
+            giris: effKod,
+            cikis: effKod,
             durum: leaveTitle,
-            isLeave: pKod !== 'D',
+            isLeave: effKod !== 'D',
             mesai: 0,
             officeName: '-',
             shift: empShift,
           };
         }
 
-        if (realRecord.giris_saati || realRecord.cikis_saati) {
-          const checkIn = realRecord.giris_saati ? realRecord.giris_saati.substring(0, 5) : null;
-          const checkOut = realRecord.cikis_saati ? realRecord.cikis_saati.substring(0, 5) : null;
+        if (realRecord.giris_saati || realRecord.cikis_saati || pKod === 'Ç') {
+          let checkIn = realRecord.giris_saati ? realRecord.giris_saati.substring(0, 5) : null;
+          let checkOut = realRecord.cikis_saati ? realRecord.cikis_saati.substring(0, 5) : null;
+
+          // Eğer puantajdan Ç (Fiili Çalışma) seçilmişse ve giriş saati null ise,
+          // notlardan veya atanmış vardiyanın başlama saatinden al (örn: 08:30)
+          if (!checkIn && pKod === 'Ç') {
+            const timeRangeMatch = notlar.match(/\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2}|Devam)\)/i);
+            if (timeRangeMatch && timeRangeMatch[1]) {
+              checkIn = timeRangeMatch[1];
+              if (!checkOut && timeRangeMatch[2] && timeRangeMatch[2].toLowerCase() !== 'devam') {
+                checkOut = timeRangeMatch[2];
+              }
+            } else {
+              checkIn = empShift.start_time || '08:30';
+            }
+          }
+          if (!checkOut && pKod === 'Ç') {
+            const timeRangeMatch = notlar.match(/\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)/i);
+            if (timeRangeMatch && timeRangeMatch[2] && timeRangeMatch[2].toLowerCase() !== 'devam') {
+              checkOut = timeRangeMatch[2];
+            }
+          }
+
           const officeName = checkIn ? resolveEmployeeOfficeName(emp, empShift, realRecord.notlar) : '-';
           const isTimeStr = (s?: string | null) => Boolean(s && /^\d{1,2}:\d{2}/.test(s));
 
@@ -1531,19 +1563,37 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           if (!checkOut && checkIn) {
             const now = new Date();
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            let shiftStartMinutes = 8 * 60 + 30;
             let shiftEndMinutes = 18 * 60;
+            if (empShift.start_time) {
+              const [sH, sM] = empShift.start_time.split(':').map(Number);
+              if (!isNaN(sH) && !isNaN(sM)) shiftStartMinutes = sH * 60 + sM;
+            }
             if (empShift.end_time) {
               const [eH, eM] = empShift.end_time.split(':').map(Number);
               if (!isNaN(eH) && !isNaN(eM)) shiftEndMinutes = eH * 60 + eM;
             }
 
+            const isOvernight = shiftEndMinutes < shiftStartMinutes;
+
             if (targetDate === todayStr) {
-              if (currentMinutes >= shiftEndMinutes) {
+              let isShiftCompleted = false;
+              if (isOvernight) {
+                // Gece vardiyası (örn: 17:00 / 03:00 veya 23:00 / 07:00):
+                // Vardiya bugün başladı ve ertesi gün sabah bitecek.
+                // Bugün içerisinde vardiya HER ZAMAN devam ediyor durumundadır.
+                isShiftCompleted = false;
+              } else {
+                isShiftCompleted = currentMinutes >= shiftEndMinutes;
+              }
+
+              if (isShiftCompleted) {
                 // Vardiya bitiş saati gelmiş/geçmiş (örn: saat 15:00 çıkışlı vardiya saat 15:00'te tamamlandı)
                 effectiveCheckOut = empShift.end_time;
                 status = 'Zamanında';
               } else {
-                // Vardiyası devam eden personel (örn: 17:00, 17:45, 18:00, 22:00 vb.)
+                // Vardiyası devam eden personel (örn: 17:00, 17:45, 18:00, 22:00 veya gece vardiyaları)
+                effectiveCheckOut = null;
                 status = 'Mesai Devam Ediyor';
               }
             } else {
@@ -1953,9 +2003,27 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   <p className="text-5xl font-black text-gray-800 font-mono tracking-tight">
                     {isShiftActive ? timerText : new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   </p>
-                  {isShiftActive && shiftStartTime && (
-                    <p className="text-[11px] text-gray-400 mt-1">
-                      Başlangıç Saati: {new Date(shiftStartTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                  {isShiftActive && (
+                    <p className="text-[11px] text-gray-500 font-medium mt-1">
+                      Başlangıç Saati: <strong className="text-gray-700 font-mono">{(() => {
+                        const todayStr = getTodayYYYYMMDD();
+                        const todayRec = (allShiftRecords || []).find(
+                          (r) => r.employee_id === currentEmployee?.id && r.tarih === todayStr
+                        );
+                        if (todayRec?.giris_saati) {
+                          return todayRec.giris_saati.substring(0, 5);
+                        }
+                        if (shiftStartTime) {
+                          if (/^\d{1,2}:\d{2}/.test(shiftStartTime)) return shiftStartTime.substring(0, 5);
+                          try {
+                            const d = new Date(shiftStartTime);
+                            if (!isNaN(d.getTime())) {
+                              return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                            }
+                          } catch {}
+                        }
+                        return activeUserShift?.start_time || '08:30';
+                      })()}</strong>
                     </p>
                   )}
                 </div>
@@ -2900,6 +2968,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 shadow-2xs">
                           {d.giris}
                         </span>
+                      ) : d.giris === 'Ç' ? (
+                        d.shift?.start_time || '08:30'
                       ) : d.isLeave && d.giris !== '-' ? (
                         <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200 shadow-2xs">
                           {d.giris}
@@ -2917,6 +2987,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 shadow-2xs">
                           {d.cikis}
                         </span>
+                      ) : d.cikis === 'Ç' ? (
+                        d.shift?.end_time || '18:00'
                       ) : d.isLeave && d.cikis !== '-' ? (
                         <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200 shadow-2xs">
                           {d.cikis}
@@ -2983,7 +3055,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     )}
                     <td className="px-6 py-4 text-center">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs ${
-                        d.durum === 'Zamanında'
+                        d.durum === 'Zamanında' || d.durum === 'Fiili Çalışma' || d.durum.includes('Fiili Çalışma')
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                           : d.durum === 'Geç Kaldı'
                           ? 'bg-amber-100 text-amber-800 border border-amber-200'
@@ -2995,15 +3067,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                           ? 'bg-sky-100 text-sky-800 border border-sky-200'
                           : d.durum === 'Giriş Yapılmadı' || d.durum === 'Devamsız'
                           ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                          : 'bg-blue-100 text-blue-700 border border-blue-200'
+                          : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                       }`}>
                         {(d.durum === 'Haftalık Tatil' || d.durum === 'Hafta Tatili' || d.durum === 'Akdi Tatil') && (
                           <span className="text-xs">🏖️</span>
                         )}
-                        {(d.isLeave || d.durum.includes('İzin') || d.durum.includes('Rapor')) && !(d.durum.includes('Tatil')) && (
+                        {(d.isLeave || d.durum.includes('İzin') || d.durum.includes('Rapor')) && !(d.durum.includes('Tatil')) && !(d.durum.includes('Fiili Çalışma')) && (
                           <span className="text-xs">📋</span>
                         )}
-                        {d.durum}
+                        {d.durum === 'Fiili Çalışma' || d.durum.includes('Fiili Çalışma') ? 'Zamanında' : d.durum}
                       </span>
                     </td>
                     {isManagement && (
@@ -3013,7 +3085,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                             const isTimeStr = (s?: string) => Boolean(s && /^\d{1,2}:\d{2}/.test(s));
                             setEditEmpModal(d);
                             setEditGiris(isTimeStr(d.giris) ? d.giris.substring(0, 5) : (d.shift?.start_time || '08:30').substring(0, 5));
-                            setEditCikis(isTimeStr(d.cikis) ? d.cikis.substring(0, 5) : (d.shift?.end_time || '18:00').substring(0, 5));
+                            const hasExplicitExit = isTimeStr(d.cikis) && d.durum !== 'Mesai Devam Ediyor';
+                            setEditCikis(hasExplicitExit ? (d.cikis as string).substring(0, 5) : '');
                             setEditOfficeName(d.officeName !== '-' ? d.officeName : resolveEmployeeOfficeName(d.employee, d.shift, null));
                           }}
                           className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
@@ -3083,17 +3156,32 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Giriş Saati</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-gray-700">Giriş Saati</label>
+                    {editGiris && (
+                      <button
+                        type="button"
+                        onClick={() => setEditGiris('')}
+                        className="text-[10px] text-amber-600 hover:text-amber-800 font-semibold cursor-pointer"
+                        title="Giriş saatini temizler"
+                      >
+                        Girişi Sıfırla
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="time"
                     value={editGiris}
                     onChange={(e) => setEditGiris(e.target.value)}
+                    placeholder="--:--"
                     className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-gray-700">Çıkış Saati</label>
+                    <label className="block text-xs font-semibold text-gray-700">
+                      Çıkış Saati {(!editCikis || editEmpModal.durum === 'Mesai Devam Ediyor') && <span className="text-[10px] text-emerald-600 font-normal ml-1">(Mesai Devam Ediyor)</span>}
+                    </label>
                     {editCikis && (
                       <button
                         type="button"
@@ -3112,16 +3200,57 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     placeholder="--:--"
                     className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  {!editCikis && (
+                    <p className="text-[10px] text-gray-400 mt-0.5">Boş bırakılırsa mesai devam ediyor olarak korunur.</p>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2.5 pt-2">
+            <div className="flex flex-col gap-2 pt-1">
               <button
                 type="button"
                 onClick={async () => {
                   if (!editEmpModal) return;
-                  const cleanGiris = editGiris ? editGiris.substring(0, 5) : '08:30';
+                  const activeRecordDate = selectedDate || getTodayYYYYMMDD();
+                  const existingRecord = allShiftRecords.find(
+                    r => (r.employee_id === editEmpModal.employee.id || (editEmpModal.employee as any).user_id === r.employee_id) && r.tarih === activeRecordDate
+                  );
+
+                  try {
+                    if (existingRecord?.id) {
+                      await pdksService.deleteVardiya(existingRecord.id);
+                    }
+                    await pdksService.deleteVardiyaByEmployeeAndDate(editEmpModal.employee.id, activeRecordDate);
+                  } catch (e) {
+                    console.error("Vardiya giriş kaydı silme hatası:", e);
+                  }
+
+                  setAllShiftRecords(prev => prev.filter(r => !(r.employee_id === editEmpModal.employee.id && r.tarih === activeRecordDate)));
+                  setEditEmpModal(null);
+                  setEditGiris('08:30');
+                  setEditCikis('');
+                  window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+                  window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
+                  await loadShiftHistory();
+                }}
+                className="w-full py-2 px-3 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+                title="Giriş saatini ve kaydını tamamen silerek personeli 'Giriş Yapılmadı' durumuna geri döndürür"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Giriş Saatini Sıfırla (Giriş Yapılmadı / Kaydı Sil)
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!editEmpModal) return;
+                  const isTimeStr = (s?: string) => Boolean(s && /^\d{1,2}:\d{2}/.test(s));
+                  const cleanGiris = editGiris && isTimeStr(editGiris)
+                    ? editGiris.substring(0, 5)
+                    : (editEmpModal.giris && isTimeStr(editEmpModal.giris)
+                        ? editEmpModal.giris.substring(0, 5)
+                        : (editEmpModal.shift?.start_time || '08:30').substring(0, 5));
                   const activeRecordDate = selectedDate || getTodayYYYYMMDD();
                   const targetCompanyId = normalizeCompanyId(editEmpModal.employee.company_id || resolvedCompanyId);
 
@@ -3136,7 +3265,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         cikis_saati: null,
                         vardiya_tipi: 'tam-gun',
                         durum: 'zamaninda',
-                        notlar: `Yönetici Girişi (Mesai Açık): ${editOfficeName || 'Merkez Ofis'}`
+                        notlar: `[PUANTAJ:Ç] Fiili Çalışma (${cleanGiris}-Devam) - Yönetici Girişi (Mesai Açık): ${editOfficeName || 'Merkez Ofis'}`
                       });
                     } catch (e) {
                       console.error("Vardiya veritabanı çıkış sıfırlama hatası:", e);
@@ -3152,7 +3281,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     cikis_saati: null,
                     vardiya_tipi: 'tam-gun',
                     durum: 'zamaninda',
-                    notlar: `Yönetici Girişi (Mesai Açık): ${editOfficeName || 'Merkez Ofis'}`
+                    notlar: `[PUANTAJ:Ç] Fiili Çalışma (${cleanGiris}-Devam) - Yönetici Girişi (Mesai Açık): ${editOfficeName || 'Merkez Ofis'}`
                   };
 
                   setAllShiftRecords(prev => {
@@ -3167,18 +3296,18 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
                   await loadShiftHistory();
                 }}
-                className="w-full py-2.5 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+                className="w-full py-2 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
                 title="Çıkış saatini tamamen kaldırarak (NULL) personeli mesai devam ediyor durumuna getirir"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Çıkış Saatini Sıfırla (Mesaiye Döndür / NULL Yap)
               </button>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => setEditEmpModal(null)}
-                  className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                  className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 cursor-pointer"
                 >
                   İptal
                 </button>
@@ -3186,11 +3315,34 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   type="button"
                   onClick={async () => {
                     if (!editEmpModal) return;
-                    const cleanGiris = editGiris ? editGiris.substring(0, 5) : '08:30';
-                    const cleanCikis = (editCikis && editCikis.trim() !== '') ? editCikis.substring(0, 5) : null;
+                    const activeRecordDate = selectedDate || getTodayYYYYMMDD();
+                    const isTimeStr = (s?: string) => Boolean(s && /^\d{1,2}:\d{2}/.test(s));
+                    const cleanGiris = (editGiris && isTimeStr(editGiris.trim())) ? editGiris.substring(0, 5) : null;
+                    const cleanCikis = (editCikis && isTimeStr(editCikis.trim())) ? editCikis.substring(0, 5) : null;
+
+                    // Eğer hem giriş hem çıkış boşaltıldıysa kaydı sil (Giriş Yapılmadı)
+                    if (!cleanGiris && !cleanCikis) {
+                      try {
+                        const existingRecord = allShiftRecords.find(
+                          r => (r.employee_id === editEmpModal.employee.id || (editEmpModal.employee as any).user_id === r.employee_id) && r.tarih === activeRecordDate
+                        );
+                        if (existingRecord?.id) {
+                          await pdksService.deleteVardiya(existingRecord.id);
+                        }
+                        await pdksService.deleteVardiyaByEmployeeAndDate(editEmpModal.employee.id, activeRecordDate);
+                      } catch (e) {
+                        console.error("Vardiya kaydı silme hatası:", e);
+                      }
+                      setAllShiftRecords(prev => prev.filter(r => !(r.employee_id === editEmpModal.employee.id && r.tarih === activeRecordDate)));
+                      setEditEmpModal(null);
+                      window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
+                      window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
+                      await loadShiftHistory();
+                      return;
+                    }
 
                     // Calculate new status
-                    const [gH, gM] = cleanGiris.split(':').map(Number);
+                    const [gH, gM] = (cleanGiris || '08:30').split(':').map(Number);
                     const empShift = editEmpModal.shift || activeUserShift;
                     const [sGh, sGm] = (empShift.start_time || '08:30').split(':').map(Number);
                     
@@ -3200,8 +3352,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     const tolerance = empShift.tolerance_minutes ?? 15;
                     
                     const newDurum = lateDiff > tolerance ? 'gec-kaldi' : 'zamaninda';
-                    const activeRecordDate = selectedDate || getTodayYYYYMMDD();
                     const targetCompanyId = normalizeCompanyId(editEmpModal.employee.company_id || resolvedCompanyId);
+
+                    const noteText = cleanCikis
+                      ? `[PUANTAJ:Ç] Fiili Çalışma (${cleanGiris}-${cleanCikis}) - Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
+                      : `[PUANTAJ:Ç] Fiili Çalışma (${cleanGiris}-Devam) - Yönetici Girişi (Mesai Açık): ${editOfficeName || 'Merkez Ofis'}`;
 
                     // Always record shift to pdksService and Supabase
                     let savedDbRecord: any = null;
@@ -3215,7 +3370,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                           cikis_saati: cleanCikis,
                           vardiya_tipi: 'tam-gun',
                           durum: newDurum,
-                          notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
+                          notlar: noteText
                         });
                       } catch (e) {
                         console.error("Vardiya veritabanı kayıt hatası:", e);
@@ -3231,7 +3386,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       cikis_saati: cleanCikis,
                       vardiya_tipi: 'tam-gun',
                       durum: newDurum,
-                      notlar: `Yönetici Girişi: ${editOfficeName || 'Merkez Ofis'}`
+                      notlar: noteText
                     };
                     setAllShiftRecords((prev) => [newRecord, ...prev.filter(r => !(r.employee_id === editEmpModal.employee.id && r.tarih === activeRecordDate))]);
 
@@ -3242,7 +3397,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                     setEditEmpModal(null);
                     await loadShiftHistory();
                   }}
-                  className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 shadow-sm"
+                  className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 shadow-sm cursor-pointer"
                 >
                   Kaydet
                 </button>
