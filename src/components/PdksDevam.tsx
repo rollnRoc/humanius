@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaInsert } from '../services/pdksService';
 import { companyService, BIGSAFER_COMPANY_ID, MICI_COMPANY_ID, normalizeCompanyId, getDefaultOfficesForCompany } from '../services/companyService';
 import { notificationService } from '../services/notificationService';
-import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, isNotSaturdayShift, inferOfficeForShift, isShiftMatchingOffice, resolveOfficeForShift, normalizeTr } from '../services/shiftService';
+import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, isNotSaturdayShift, inferOfficeForShift, isShiftMatchingOffice, resolveOfficeForShift, normalizeTr, getShiftOfficeMeta } from '../services/shiftService';
 import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
 import { printPdksDevamRaporuPdf, exportPdksToCsv, PdksReportRecord } from '../utils/pdksReportPdf';
 import { systemDataService } from '../services/systemDataService';
@@ -72,7 +72,8 @@ function checkIsShiftExpired(
   shiftStartIso: string | null,
   cikisTimeStr: string = '18:00',
   isOvertimeAuthorized: boolean = false,
-  gracePeriodMinutes: number = 0
+  gracePeriodMinutes: number = 0,
+  shiftStartTimeStr?: string
 ): { isExpired: boolean; autoCloseTime: string } {
   if (!shiftStartIso) return { isExpired: true, autoCloseTime: cikisTimeStr };
   const startMs = new Date(shiftStartIso).getTime();
@@ -80,46 +81,60 @@ function checkIsShiftExpired(
   
   const now = new Date();
   const startDate = new Date(shiftStartIso);
-  
-  // 1. If start date is a previous calendar day (e.g. yesterday or earlier) -> Expired
-  const startYMD = startDate.getFullYear() * 10000 + (startDate.getMonth() + 1) * 100 + startDate.getDate();
-  const nowYMD = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
-  if (nowYMD > startYMD) {
+  const elapsedMs = now.getTime() - startMs;
+  const elapsedHours = elapsedMs / (1000 * 60 * 60);
+
+  // 1. Failsafe (Açık unutulmuş mesai): 18 saatten fazla geçmişse kesinlikle otomatik kapat
+  if (elapsedHours >= 18) {
     return { isExpired: true, autoCloseTime: cikisTimeStr };
   }
 
-  // 2. If overtime is authorized by manager, don't auto-expire at shift end
+  // 2. Fazla mesai onayı varsa: Yönetici onayladığı için vardiya bitişinde otomatik kapatma yapılmaz
   if (isOvertimeAuthorized) {
-    const elapsedSecs = (now.getTime() - startMs) / 1000;
-    return { isExpired: elapsedSecs >= 18 * 3600, autoCloseTime: cikisTimeStr };
+    return { isExpired: false, autoCloseTime: cikisTimeStr };
   }
 
-  // 3. Shift End Window Calculation (e.g. Tarsus 15:00)
-  const [cH, cM] = cikisTimeStr.split(':').map(Number);
-  if (!isNaN(cH) && !isNaN(cM)) {
-    const shiftEnd = new Date(startDate);
-    shiftEnd.setHours(cH, cM, 0, 0);
-    // Handle overnight shifts if end time is before start time
-    if (shiftEnd.getTime() <= startDate.getTime()) {
-      shiftEnd.setDate(shiftEnd.getDate() + 1);
-    }
-    
-    // Deadline: Shift End + Grace Window (0 by default)
-    const deadline = new Date(shiftEnd.getTime() + gracePeriodMinutes * 60 * 1000);
-    
-    if (now.getTime() >= deadline.getTime()) {
-      // Shift end time reached without overtime authorization:
-      // Auto-expire and register exit time as the scheduled shift end time (e.g. 15:00)
-      return { isExpired: true, autoCloseTime: cikisTimeStr };
-    }
+  // 3. 7 Saat Güvenlik Kontrolü:
+  // Mesai başlangıcından bu yana henüz 7 saat DOLMAMIŞSA KESİNLİKLE otomatik kapatma yapılmaz!
+  // Personel kendi mesaisini istediği zaman bitirebilir ya da İK manuel bitirebilir;
+  // fakat sistem arka planda 7 saat dolmadan asla otomatik çıkış yapmaz.
+  if (elapsedHours < 7) {
+    return { isExpired: false, autoCloseTime: cikisTimeStr };
   }
 
-  // 4. Failsafe: Only auto-expire if duration exceeds 18 hours (e.g. forgotten overnight shifts)
-  const elapsedSecs = (now.getTime() - startMs) / 1000;
-  if (elapsedSecs >= 18 * 3600) {
+  // 4. Vardiya Planlanan Bitiş Saati Kontrolü (Gündüz, Sabah ve Gece Vardiyaları):
+  const [eH, eM] = cikisTimeStr.split(':').map(Number);
+  if (isNaN(eH) || isNaN(eM)) {
+    return { isExpired: false, autoCloseTime: cikisTimeStr };
+  }
+
+  const shiftEnd = new Date(startDate);
+  shiftEnd.setHours(eH, eM, 0, 0);
+
+  // Gece vardiyası kontrolü (örn: 23:00 / 07:00 veya 17:00 / 03:00):
+  // Bitiş saati başlangıç saatinden küçükse veya bitiş zamanı startDate'ten önceyse,
+  // vardiya ertesi gün sabahında tamamlanır (+1 gün eklenir).
+  let isOvernight = false;
+  if (shiftStartTimeStr) {
+    const [sH, sM] = shiftStartTimeStr.split(':').map(Number);
+    if (!isNaN(sH) && !isNaN(sM)) {
+      isOvernight = (eH * 60 + eM) < (sH * 60 + sM);
+    }
+  }
+  if (isOvernight || shiftEnd.getTime() <= startDate.getTime()) {
+    shiftEnd.setDate(shiftEnd.getDate() + 1);
+  }
+
+  // Tolerans eklenmiş hedef süre
+  const deadline = new Date(shiftEnd.getTime() + gracePeriodMinutes * 60 * 1000);
+
+  // 5. En az 7 saat çalışılmış VE vardiya planlanan kapanış saati gelmiş/geçmiş ise:
+  // Olması gereken saatte (örn: 17:00, 18:00, 07:00) otomatik çıkış yapılır.
+  if (now.getTime() >= deadline.getTime()) {
     return { isExpired: true, autoCloseTime: cikisTimeStr };
   }
 
+  // 7 saat geçmiş olsa dahi henüz vardiya bitiş saati gelmediyse direkt 7. saatte bitirilmez, mesai devam eder.
   return { isExpired: false, autoCloseTime: cikisTimeStr };
 }
 
@@ -366,24 +381,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       return adminOverrides[emp.id].officeName;
     }
 
-    // 3. Kullanıcının bizzat seçip kaydettiği ofis tercihi varsa
-    if (emp?.id) {
-      try {
-        const savedOfficeId = localStorage.getItem(`humanius_user_selected_office_${emp.id}`);
-        if (savedOfficeId) {
-          const matchedSaved = compOffices.find((o) => o.id === savedOfficeId);
-          if (matchedSaved) return matchedSaved.name;
-        }
-      } catch (e) {}
-    }
-
-    // 4. Atanmış vardiyada ofis tanımlıysa
+    // 3. Atanmış vardiyada ofis tanımlıysa
     if (shift) {
       const shiftOff = resolveOfficeForShift(shift, compOffices);
       if (shiftOff) return shiftOff.name;
     }
 
-    // 5. Personelin departman / il / ilçe bilgisine göre ofis eşleştir
+    // 4. Personelin departman / il / ilçe bilgisine göre ofis eşleştir
     const dept = normalizeTr(emp?.department || '');
     const city = normalizeTr(emp?.il || (emp as any)?.city || '');
     const ilce = normalizeTr(emp?.ilce || '');
@@ -415,37 +419,28 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     return defaultOfficeName;
   }, [allCompanyOfficesMap, officeLocations, resolvedCompanyId, adminOverrides]);
 
-  // 2. Personelin kendi ofisi (Öneri / Otomatik başlangıç seçimi)
+  // 2. Personelin kendi mevcut ofisi (Doğrudan başlangıç seçimi)
   const employeeAssignedOffice = useMemo<CompanyOfficeLocation | null>(() => {
     if (officeLocations.length === 0) return null;
-    // 0. Kullanıcının daha önce bizzat seçtiği ofis tercihi varsa
-    if (currentEmployee?.id) {
-      try {
-        const savedId = localStorage.getItem(`humanius_user_selected_office_${currentEmployee.id}`);
-        if (savedId) {
-          const foundSaved = officeLocations.find((o) => o.id === savedId);
-          if (foundSaved) return foundSaved;
-        }
-      } catch {}
-    }
     // 1. Önce atanmış vardiyadan ofisi çöz
     if (employeeAssignedShift) {
       const off = resolveOfficeForShift(employeeAssignedShift, officeLocations);
       if (off) return off;
     }
-    // 2. Eğer atanmış vardiya genel ise ama kullanıcının seçtiği aktif vardiya bir ofise bağlıysa
-    if (activeUserShift) {
-      const off = resolveOfficeForShift(activeUserShift, officeLocations);
-      if (off) return off;
-    }
-    // 3. Personelin departman veya il/ilçe bilgisine göre ofis eşleştir
+    // 2. Personelin departman veya il/ilçe/şube bilgisine göre ofis eşleştir
     if (currentEmployee) {
-      const offName = resolveEmployeeOfficeName(currentEmployee, activeUserShift, null);
+      const offName = resolveEmployeeOfficeName(currentEmployee, employeeAssignedShift, null);
       const found = officeLocations.find((o) => normalizeTr(o.name) === normalizeTr(offName));
       if (found) return found;
     }
+    // 3. Personelin il bilgisine göre eşleşen ofis
+    if (currentEmployee?.il) {
+      const userCity = normalizeTr(currentEmployee.il);
+      const cityOff = officeLocations.find((o) => o.il && normalizeTr(o.il) === userCity);
+      if (cityOff) return cityOff;
+    }
     return officeLocations.find((o) => o.is_default) || officeLocations[0] || null;
-  }, [employeeAssignedShift, activeUserShift, officeLocations, currentEmployee, resolveEmployeeOfficeName]);
+  }, [employeeAssignedShift, officeLocations, currentEmployee, resolveEmployeeOfficeName]);
   
   // Location Modal Form state
   const [locName, setLocName] = useState('');
@@ -493,7 +488,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     if (!officeLocations || officeLocations.length === 0) return [];
 
     // Tüm şirket ofisleri seçilebilir olmalıdır (isteyen ofisini değiştirebilsin).
-    // Personelin kendi ofisi en üstte, ardından iline uyan ofisler, varsayılan merkez ofis ve diğerleri sıralanır.
+    // Personelin kendi ofisi (Kendi Ofisiniz) daima en üstte (1. sırada), ardından iline uyan ofisler, varsayılan merkez ofis ve diğerleri sıralanır.
     const assignedId = employeeAssignedOffice?.id;
     const userCityNorm = currentEmployee?.il ? normalizeTr(currentEmployee.il) : '';
 
@@ -518,37 +513,45 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     });
   }, [officeLocations, employeeAssignedOffice, currentEmployee?.il]);
 
-  // Otomatik seçim: Sayfa açıldığında personelin kendi ofisi otomatik seçili gelir,
-  // fakat personel başka bir ofis seçtiğinde kullanıcının seçimi korunur (ezilmez).
+  // Efektif seçili ofis ID'si (Kullanıcının kendi atanmış ofisi doğrudan seçili gelir)
+  const effectiveSelectedOfficeId = useMemo(() => {
+    if (selectedOfficeId && visibleOfficeLocations.some((l) => l.id === selectedOfficeId)) {
+      return selectedOfficeId;
+    }
+    if (employeeAssignedOffice?.id && visibleOfficeLocations.some((l) => l.id === employeeAssignedOffice.id)) {
+      return employeeAssignedOffice.id;
+    }
+    return visibleOfficeLocations[0]?.id || '';
+  }, [selectedOfficeId, visibleOfficeLocations, employeeAssignedOffice]);
+
+  // Otomatik seçim: Sayfa açıldığında personelin mevcut ofisi otomatik seçili gelir,
+  // personel mesai başlatma kartında başka bir ofis seçtiğinde kullanıcının seçimi korunur.
   useEffect(() => {
     if (!officeLocations || officeLocations.length === 0) return;
 
     setSelectedOfficeId((prev) => {
-      // 1. Zaten seçilmiş ve listede mevcut bir ofis varsa, kullanıcının seçimi korunur!
+      // 1. Zaten bu oturumda seçilmiş ve listede mevcut bir ofis varsa koru
       if (prev && officeLocations.some((l) => l.id === prev)) {
         return prev;
       }
 
-      // 2. LocalStorage'da saklanan kullanıcı seçimi varsa onu getir
-      if (currentEmployee?.id) {
-        try {
-          const savedId = localStorage.getItem(`humanius_user_selected_office_${currentEmployee.id}`);
-          if (savedId && officeLocations.some((l) => l.id === savedId)) {
-            return savedId;
-          }
-        } catch {}
-      }
-
-      // 3. Otomatik kendi ofisi seçili gelsin
+      // 2. Personelin kendi mevcut ofisi doğrudan seçili gelsin
       if (employeeAssignedOffice && officeLocations.some((l) => l.id === employeeAssignedOffice.id)) {
         return employeeAssignedOffice.id;
       }
 
-      // 4. Varsayılan merkez ofis veya ilk ofis
+      // 3. Varsayılan merkez ofis veya ilk ofis
       const def = officeLocations.find((l) => l.is_default) || officeLocations[0];
       return def ? def.id : '';
     });
-  }, [officeLocations, employeeAssignedOffice, currentEmployee?.id]);
+  }, [officeLocations, employeeAssignedOffice]);
+
+  // Personel değiştiğinde (ör. oturum açıldığında veya personel değişiminde) personelin mevcut ofisini doğrudan seçili yap
+  useEffect(() => {
+    if (employeeAssignedOffice?.id) {
+      setSelectedOfficeId(employeeAssignedOffice.id);
+    }
+  }, [employeeAssignedOffice?.id, currentEmployee?.id]);
   
   // Edit Employee PDKS Modal states
   const [editEmpModal, setEditEmpModal] = useState<any | null>(null);
@@ -684,60 +687,151 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   //   2. O OFİSİN vardiyaları listelenir ve personel o ofisin vardiyaları arasında seçim yapabilir.
   //   3. Personelin atanmış olduğu vardiya da daima listede yer alır.
   //   4. Eğer ofise özel başka hiçbir vardiya yoksa genel vardiyalar gösterilir.
-  const visibleShiftsForEmployee = useMemo(() => {
-    if (isHrOrAdmin) {
-      return allCompanyShifts;
+  // Seçili ofise kayıtlı vardiyaları filtreleme yardımcı fonksiyonu:
+  // Herhangi bir ofis seçildiğinde SADECE o ofise ait vardiyalar listelenir.
+  const getShiftsForSpecificOffice = React.useCallback((
+    targetOfficeId: string,
+    shiftsList: CompanyShift[],
+    locations: CompanyOfficeLocation[]
+  ): CompanyShift[] => {
+    if (!targetOfficeId || shiftsList.length === 0) return [];
+
+    const targetOff = locations.find((o) => o.id === targetOfficeId);
+
+    // 1. Bu ofise doğrudan veya eşleşme kuralıyla kayıtlı olan vardiyalar
+    const matched = shiftsList.filter((shift) => {
+      // A. Doğrudan office_id eşleşmesi
+      if (shift.office_id && shift.office_id === targetOfficeId) return true;
+
+      // B. Local metadata office_id eşleşmesi
+      if (shift.id) {
+        const meta = getShiftOfficeMeta(shift.id);
+        if (meta?.office_id && meta.office_id === targetOfficeId) return true;
+      }
+
+      // C. resolveOfficeForShift eşleşmesi
+      const resolved = resolveOfficeForShift(shift, locations);
+      if (resolved && resolved.id === targetOfficeId) return true;
+
+      // D. inferOfficeForShift eşleşmesi
+      const inferred = inferOfficeForShift(shift, locations);
+      if (inferred && inferred.office_id === targetOfficeId) return true;
+
+      // E. Hedef ofis adı, ili veya ilçesi ile metin eşleşmesi
+      if (targetOff) {
+        const normTargetName = normalizeTr(targetOff.name);
+        const normShiftName = normalizeTr(shift.name);
+        const normOfficeName = normalizeTr(shift.office_name || '');
+
+        if (normOfficeName && (normOfficeName === normTargetName || normTargetName.includes(normOfficeName) || normOfficeName.includes(normTargetName))) {
+          return true;
+        }
+        if (normShiftName && normShiftName.includes(normTargetName)) {
+          return true;
+        }
+        if (targetOff.ilce && targetOff.ilce.length >= 3) {
+          const normIlce = normalizeTr(targetOff.ilce);
+          if (normShiftName.includes(normIlce) || normOfficeName.includes(normIlce)) {
+            return true;
+          }
+        }
+        if (targetOff.il && targetOff.il.length >= 3) {
+          const normIl = normalizeTr(targetOff.il);
+          if (normShiftName.includes(normIl) || normOfficeName.includes(normIl)) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    });
+
+    if (matched.length > 0) {
+      return matched;
     }
 
-    const targetOfficeId = selectedOfficeId || employeeAssignedOffice?.id;
-
-    if (targetOfficeId) {
-      // 1. Önce bu ofise özel/eşleşen vardiyaları filtrele
-      const officeShifts = allCompanyShifts.filter((shift) => {
-        if (employeeAssignedShift && shift.id === employeeAssignedShift.id) return true;
-        const shiftOffice = resolveOfficeForShift(shift, officeLocations);
-        if (shiftOffice && shiftOffice.id === targetOfficeId) return true;
-        return isShiftMatchingOffice(shift, targetOfficeId, officeLocations, false);
+    // 2. Eğer hedef ofis MERKEZ (varsayılan) ise ve başka bir şubeye ait olmayan genel vardiyalar varsa
+    const isDefaultOffice = targetOff?.is_default || locations.length <= 1;
+    if (isDefaultOffice) {
+      const generalShifts = shiftsList.filter((s) => {
+        // Başka bir spesifik şubeye ait değilse genel/merkez vardiyasıdır
+        const otherOff = resolveOfficeForShift(s, locations);
+        if (otherOff && otherOff.id !== targetOfficeId && !otherOff.is_default) {
+          return false;
+        }
+        const inferred = inferOfficeForShift(s, locations);
+        if (inferred && inferred.office_id && inferred.office_id !== targetOfficeId) {
+          const infOff = locations.find((l) => l.id === inferred.office_id);
+          if (infOff && !infOff.is_default) return false;
+        }
+        return true;
       });
-      if (officeShifts.length > 0) {
-        return officeShifts;
+      if (generalShifts.length > 0) {
+        return generalShifts;
       }
     }
 
-    // 2. Ofise özel vardiya yoksa genel (herhangi bir ofise ait olmayan) vardiyaları göster
-    const generalShifts = allCompanyShifts.filter((s) => {
-      if (employeeAssignedShift && s.id === employeeAssignedShift.id) return true;
-      const off = resolveOfficeForShift(s, officeLocations);
-      return !off && !inferOfficeForShift(s, officeLocations);
+    // 3. Eğer ofise özel hiçbir vardiya tanımlanmamışsa genel vardiyaları fallback olarak sağla
+    const unassignedShifts = shiftsList.filter((s) => {
+      const off = resolveOfficeForShift(s, locations);
+      return !off || off.is_default;
     });
-    if (generalShifts.length > 0) {
-      return generalShifts;
+    return unassignedShifts.length > 0 ? unassignedShifts : shiftsList;
+  }, []);
+
+  // Mesai Başlatma kartında seçili ofise kayıtlı vardiyaların listesi:
+  // - Seçilen ofise kayıtlı vardiyalar SADECE gösterilir (diğer ofislerin vardiyaları sızmaz).
+  // - Personelin atanmış olduğu vardiya bu ofise aitse en başta listelenir.
+  const visibleShiftsForEmployee = useMemo(() => {
+    const targetOfficeId = effectiveSelectedOfficeId || employeeAssignedOffice?.id;
+    if (!targetOfficeId) return allCompanyShifts;
+
+    const officeShifts = getShiftsForSpecificOffice(targetOfficeId, allCompanyShifts, officeLocations);
+
+    return [...officeShifts].sort((a, b) => {
+      if (employeeAssignedShift) {
+        if (a.id === employeeAssignedShift.id) return -1;
+        if (b.id === employeeAssignedShift.id) return 1;
+      }
+      if (a.is_default && !b.is_default) return -1;
+      if (!a.is_default && b.is_default) return 1;
+      return a.name.localeCompare(b.name, 'tr-TR');
+    });
+  }, [effectiveSelectedOfficeId, employeeAssignedOffice?.id, allCompanyShifts, officeLocations, employeeAssignedShift, getShiftsForSpecificOffice]);
+
+  // Efektif seçili vardiya ID'si
+  const effectiveSelectedShiftId = useMemo(() => {
+    if (activeUserShift?.id && visibleShiftsForEmployee.some((s) => s.id === activeUserShift.id)) {
+      return activeUserShift.id;
     }
+    if (employeeAssignedShift?.id && visibleShiftsForEmployee.some((s) => s.id === employeeAssignedShift.id)) {
+      return employeeAssignedShift.id;
+    }
+    return visibleShiftsForEmployee[0]?.id || '';
+  }, [activeUserShift, visibleShiftsForEmployee, employeeAssignedShift]);
 
-    return employeeAssignedShift ? [employeeAssignedShift] : allCompanyShifts;
-  }, [isHrOrAdmin, allCompanyShifts, employeeAssignedOffice, selectedOfficeId, officeLocations, employeeAssignedShift]);
-
-  // Ofis veya vardiya listesi değiştiğinde aktif vardiyayı personelin atanmış vardiyasına / ofis vardiyasına senkronize et
+  // Ofis veya vardiya listesi değiştiğinde aktif vardiyayı personelin atanmış vardiyasına veya seçili ofisin vardiyasına senkronize et
   useEffect(() => {
     if (isShiftActive) return;
+    if (!visibleShiftsForEmployee || visibleShiftsForEmployee.length === 0) return;
 
-    if (employeeAssignedShift) {
-      if (activeUserShift?.id !== employeeAssignedShift.id) {
-        setActiveUserShift(employeeAssignedShift);
-        return;
-      }
+    // Aktif vardiya zaten seçili ofisin vardiyaları arasındaysa korunur
+    const exists = visibleShiftsForEmployee.some((s) => s.id === activeUserShift?.id);
+    if (exists) return;
+
+    // Personelin atanmış vardiyası bu seçili ofisin vardiyaları içindeyse onu seç
+    const matchingAssigned = employeeAssignedShift && visibleShiftsForEmployee.find((s) => s.id === employeeAssignedShift.id);
+    if (matchingAssigned) {
+      setActiveUserShift(matchingAssigned);
+      return;
     }
 
-    if (visibleShiftsForEmployee && visibleShiftsForEmployee.length > 0) {
-      const exists = visibleShiftsForEmployee.some((s) => s.id === activeUserShift?.id);
-      if (!exists) {
-        const def = (employeeAssignedShift && visibleShiftsForEmployee.some((s) => s.id === employeeAssignedShift.id))
-          ? employeeAssignedShift
-          : (visibleShiftsForEmployee.find((s) => s.is_default) || visibleShiftsForEmployee[0]);
-        if (def) setActiveUserShift(def);
-      }
+    // Aksi halde seçili ofisin varsayılan veya ilk vardiyasını otomatik seç
+    const def = visibleShiftsForEmployee.find((s) => s.is_default) || visibleShiftsForEmployee[0];
+    if (def) {
+      setActiveUserShift(def);
     }
-  }, [visibleShiftsForEmployee, isShiftActive, employeeAssignedShift]);
+  }, [visibleShiftsForEmployee, isShiftActive, employeeAssignedShift, activeUserShift?.id]);
 
   // Geolocation watch ID ref
   const watchIdRef = useRef<number | null>(null);
@@ -754,7 +848,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
     
     if (savedActiveId && savedStart) {
-      const { isExpired, autoCloseTime } = checkIsShiftExpired(savedStart, targetCikisTime, isOvertimeAuthorized, 0);
+      const { isExpired, autoCloseTime } = checkIsShiftExpired(
+        savedStart,
+        targetCikisTime,
+        isOvertimeAuthorized,
+        0,
+        activeUserShift?.start_time
+      );
       if (isExpired) {
         pdksService.updateVardiya(savedActiveId, {
           cikis_saati: autoCloseTime,
@@ -773,7 +873,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         startWatchingLocation();
       }
     } else if (savedStart && !savedActiveId) {
-      const { isExpired } = checkIsShiftExpired(savedStart, targetCikisTime, isOvertimeAuthorized, 0);
+      const { isExpired } = checkIsShiftExpired(
+        savedStart,
+        targetCikisTime,
+        isOvertimeAuthorized,
+        0,
+        activeUserShift?.start_time
+      );
       if (isExpired) {
         localStorage.removeItem('pdks_active_shift_start');
         setIsShiftActive(false);
@@ -814,12 +920,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       if (locs && locs.length > 0) {
         setSelectedOfficeId((prev) => {
           if (prev && locs.some((l) => l.id === prev)) return prev;
-          if (currentEmployee?.id) {
-            try {
-              const savedId = localStorage.getItem(`humanius_user_selected_office_${currentEmployee.id}`);
-              if (savedId && locs.some((l) => l.id === savedId)) return savedId;
-            } catch {}
-          }
           if (employeeAssignedOffice && locs.some((l) => l.id === employeeAssignedOffice.id)) {
             return employeeAssignedOffice.id;
           }
@@ -865,21 +965,20 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           setShiftStartTime(null);
           setActiveShiftRecordId(null);
         } else if (todayRec && todayRec.giris_saati && (!todayRec.cikis_saati || todayRec.cikis_saati === '00:00:00' || todayRec.cikis_saati === '00:00')) {
-          // Her zaman personelin gerçek giriş saatini esas al (created_at veritabanı kayıt tarihidir, mesai saati değildir!)
+          // Her zaman personelin gerçek giriş saatini esas al
           const cleanGiris = todayRec.giris_saati.substring(0, 5);
           const startIso = `${todayRec.tarih}T${cleanGiris}:00`;
           const isTodaySaturday = new Date().getDay() === 6;
           const targetCikisTime = getTargetCikisTime(activeUserShift, undefined, isTodaySaturday, saturdayConfig);
           const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
 
-          // Gece vardiyası kontrolü (örn: 17:00 / 03:00)
-          const [sH, sM] = (activeUserShift?.start_time || '08:30').split(':').map(Number);
-          const [eH, eM] = (targetCikisTime || '18:00').split(':').map(Number);
-          const isOvernight = (!isNaN(eH) && !isNaN(eM) && !isNaN(sH) && !isNaN(sM)) && (eH * 60 + eM < sH * 60 + sM);
-
-          const { isExpired, autoCloseTime } = isOvernight
-            ? { isExpired: false, autoCloseTime: targetCikisTime }
-            : checkIsShiftExpired(startIso, targetCikisTime, isOvertimeAuthorized, 0);
+          const { isExpired, autoCloseTime } = checkIsShiftExpired(
+            startIso,
+            targetCikisTime,
+            isOvertimeAuthorized,
+            0,
+            activeUserShift?.start_time
+          );
 
           if (isExpired) {
             pdksService.updateVardiya(todayRec.id, {
@@ -972,8 +1071,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         const diffMs = now.getTime() - startMs;
         const totalSecs = Math.floor(diffMs / 1000);
 
-        const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
-        const { isExpired, autoCloseTime } = checkIsShiftExpired(shiftStartTime, targetCikisTime, isOvertimeAuthorized, 0);
+        const { isExpired, autoCloseTime } = checkIsShiftExpired(
+          shiftStartTime,
+          targetCikisTime,
+          isOvertimeAuthorized,
+          0,
+          activeUserShift?.start_time
+        );
 
         if (isExpired) {
           if (activeShiftRecordId) {
@@ -1119,9 +1223,9 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const activeOffice = React.useMemo<CompanyOfficeLocation>(() => {
     const listToUse = visibleOfficeLocations.length > 0 ? visibleOfficeLocations : officeLocations;
     if (listToUse.length > 0) {
-      // 1. Birincil öncelik: Kullanıcının bizzat seçtiği ofis
-      if (selectedOfficeId) {
-        const found = listToUse.find((l) => l.id === selectedOfficeId);
+      // 1. Birincil öncelik: Seçili ofis (veya personelin kendi atanmış ofisi)
+      if (effectiveSelectedOfficeId) {
+        const found = listToUse.find((l) => l.id === effectiveSelectedOfficeId);
         if (found) return found;
       }
       // 2. İkincil öncelik: Personelin kendi atanmış ofisi
@@ -1142,7 +1246,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       address: companyDetails?.address || '',
       is_default: true,
     };
-  }, [selectedOfficeId, employeeAssignedOffice, visibleOfficeLocations, officeLocations, companyDetails, companyCoords, geofenceRadius, resolvedCompanyId]);
+  }, [effectiveSelectedOfficeId, employeeAssignedOffice, visibleOfficeLocations, officeLocations, companyDetails, companyCoords, geofenceRadius, resolvedCompanyId]);
 
   // Distance to selected active office
   const distanceToSelectedOffice = React.useMemo(() => {
@@ -1645,22 +1749,34 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
             const isOvernight = shiftEndMinutes < shiftStartMinutes;
 
             if (targetDate === todayStr) {
-              let isShiftCompleted = false;
-              if (isOvernight) {
-                // Gece vardiyası (örn: 17:00 / 03:00 veya 23:00 / 07:00):
-                // Vardiya bugün başladı ve ertesi gün sabah bitecek.
-                // Bugün içerisinde vardiya HER ZAMAN devam ediyor durumundadır.
-                isShiftCompleted = false;
-              } else {
-                isShiftCompleted = currentMinutes >= shiftEndMinutes;
+              // Giriş saatinden bu yana geçen süre (saat cinsinden)
+              const [gH, gM] = checkIn.split(':').map(Number);
+              let elapsedSinceCheckInHours = 0;
+              if (!isNaN(gH) && !isNaN(gM)) {
+                let diffMin = currentMinutes - (gH * 60 + gM);
+                if (diffMin < 0) diffMin += 24 * 60;
+                elapsedSinceCheckInHours = diffMin / 60;
               }
 
-              if (isShiftCompleted) {
-                // Vardiya bitiş saati gelmiş/geçmiş (örn: saat 15:00 çıkışlı vardiya saat 15:00'te tamamlandı)
+              // Otomatik kapanma kontrolleri:
+              // 1. En az 7 saat çalışılmış olmalı (elapsedSinceCheckInHours >= 7)
+              // 2. Vardiya kapanış saati gelmiş olmalı (currentMinutes >= shiftEndMinutes)
+              // 3. Gece vardiyasında (isOvernight) vardiya bugün başladıysa ertesi gün sabah biter, bugün içerisinde kapanmaz.
+              let isShiftAutoClosed = false;
+              if (elapsedSinceCheckInHours >= 7) {
+                if (isOvernight) {
+                  isShiftAutoClosed = false;
+                } else {
+                  isShiftAutoClosed = currentMinutes >= shiftEndMinutes;
+                }
+              }
+
+              if (isShiftAutoClosed) {
+                // 7 saat dolmuş VE vardiya kapanış saati gelmiş: Olması gereken saatte (örn: 17:00, 18:00) otomatik çıkış!
                 effectiveCheckOut = empShift.end_time;
                 status = 'Zamanında';
               } else {
-                // Vardiyası devam eden personel (örn: 17:00, 17:45, 18:00, 22:00 veya gece vardiyaları)
+                // Henüz 7 saat dolmamış VEYA vardiya saati henüz bitmemiş: Mesai Devam Ediyor
                 effectiveCheckOut = null;
                 status = 'Mesai Devam Ediyor';
               }
@@ -2156,7 +2272,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   {!isShiftActive ? (
                     <div className="space-y-2">
                       <select
-                        value={activeUserShift?.id || ''}
+                        value={effectiveSelectedShiftId}
                         onChange={(e) => {
                           const selected = visibleShiftsForEmployee.find((s) => s.id === e.target.value);
                           if (selected) {
@@ -2171,19 +2287,25 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         {visibleShiftsForEmployee.map((s) => {
                           const off = inferOfficeForShift(s, officeLocations);
                           const offName = s.office_name || off?.office_name;
+                          const isAssigned = employeeAssignedShift?.id === s.id;
                           return (
                             <option key={s.id} value={s.id}>
-                              {s.name} {offName ? `[📍 ${offName}]` : ''} ({s.start_time} - {s.end_time}) • Mola: {s.break_minutes}dk
+                              {s.name} {offName ? `[📍 ${offName}]` : ''} {isAssigned ? '★ (Atandığınız Vardiya) ' : ''}({s.start_time} - {s.end_time}) • Mola: {s.break_minutes}dk
                             </option>
                           );
                         })}
+                        {visibleShiftsForEmployee.length === 0 && (
+                          <option value="" disabled>
+                            ⚠️ Bu ofise kayıtlı vardiya bulunamadı
+                          </option>
+                        )}
                       </select>
                       <div className="flex items-center justify-between text-[11px] text-indigo-900/80 px-1 font-medium">
-                        <span>Mola: <strong>{activeUserShift.break_minutes} dk</strong></span>
+                        <span>Mola: <strong>{activeUserShift?.break_minutes ?? 60} dk</strong></span>
                         <span>•</span>
-                        <span>Tolerans: <strong>{activeUserShift.tolerance_minutes} dk</strong></span>
+                        <span>Tolerans: <strong>{activeUserShift?.tolerance_minutes ?? 15} dk</strong></span>
                         <span>•</span>
-                        <span className="font-mono font-bold text-indigo-700">{activeUserShift.start_time} - {activeUserShift.end_time}</span>
+                        <span className="font-mono font-bold text-indigo-700">{activeUserShift?.start_time || '08:30'} - {activeUserShift?.end_time || '18:00'}</span>
                       </div>
                     </div>
                   ) : (
@@ -2191,28 +2313,28 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       <div className="flex items-center gap-2.5">
                         <div
                           className="w-3 h-3 rounded-full shrink-0"
-                          style={{ backgroundColor: activeUserShift.color || '#3b82f6' }}
+                          style={{ backgroundColor: activeUserShift?.color || '#3b82f6' }}
                         />
                         <div>
                           <p className="text-xs font-bold text-indigo-950">
-                            {activeUserShift.name}{' '}
+                            {activeUserShift?.name || 'Vardiya'}{' '}
                             {(() => {
                               const off = inferOfficeForShift(activeUserShift, officeLocations);
-                              const offName = activeUserShift.office_name || off?.office_name;
+                              const offName = activeUserShift?.office_name || off?.office_name;
                               return offName ? `[📍 ${offName}]` : '';
                             })()}
                           </p>
                           <p className="text-[11px] font-mono text-indigo-700 font-medium">
                             {new Date().getDay() === 6 && saturdayConfig?.isSaturdayWork
-                              ? `${activeUserShift.saturday_start_time || '08:30'} - ${activeUserShift.saturday_end_time || '13:00'} (Cumartesi)`
-                              : `${activeUserShift.start_time} - ${activeUserShift.end_time}`}
+                              ? `${activeUserShift?.saturday_start_time || '08:30'} - ${activeUserShift?.saturday_end_time || '13:00'} (Cumartesi)`
+                              : `${activeUserShift?.start_time || '08:30'} - ${activeUserShift?.end_time || '18:00'}`}
                           </p>
                         </div>
                       </div>
                       <div className="text-[10px] text-indigo-800 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
                         {new Date().getDay() === 6 && saturdayConfig?.isSaturdayWork
-                          ? (activeUserShift.saturday_break_minutes ?? 30)
-                          : activeUserShift.break_minutes} dk mola
+                          ? (activeUserShift?.saturday_break_minutes ?? 30)
+                          : (activeUserShift?.break_minutes ?? 60)} dk mola
                       </div>
                     </div>
                   )}
@@ -2248,12 +2370,18 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   <div className="relative">
                     <select
                       id="pdks-office-select"
-                      value={selectedOfficeId}
+                      value={effectiveSelectedOfficeId}
                       onChange={(e) => {
                         const newId = e.target.value;
                         setSelectedOfficeId(newId);
-                        if (currentEmployee?.id) {
-                          localStorage.setItem(`humanius_user_selected_office_${currentEmployee.id}`, newId);
+                        // Seçilen ofise kayıtlı vardiyaları anında senkronize et
+                        const newOfficeShifts = getShiftsForSpecificOffice(newId, allCompanyShifts, officeLocations);
+                        if (newOfficeShifts.length > 0) {
+                          const matchingAssigned = employeeAssignedShift && newOfficeShifts.find((s) => s.id === employeeAssignedShift.id);
+                          const nextShift = matchingAssigned || newOfficeShifts.find((s) => s.is_default) || newOfficeShifts[0];
+                          if (nextShift) {
+                            setActiveUserShift(nextShift);
+                          }
                         }
                       }}
                       className="w-full bg-white border border-indigo-200/90 rounded-xl px-3.5 py-2.5 text-xs font-bold text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-xs cursor-pointer appearance-none pr-8 transition-all"
@@ -2266,7 +2394,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         const isAssigned = employeeAssignedOffice?.id === loc.id;
                         return (
                           <option key={loc.id} value={loc.id}>
-                            🏢 {loc.name} {locInfo}{isAssigned ? '★ (Kendi Ofisiniz) ' : ''}{distStr ? `(${distStr} • ${inRange ? '✅ Ofis İçi' : '❌ Alan Dışı'})` : ''}
+                            🏢 {loc.name} {locInfo}{isAssigned ? '★ (Mevcut Ofisiniz) ' : ''}{distStr ? `(${distStr} • ${inRange ? '✅ Ofis İçi' : '❌ Alan Dışı'})` : ''}
                           </option>
                         );
                       })}
@@ -2463,114 +2591,121 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               )}
             </div>
 
-            {/* Şirket Ofis & Şube Konumları Paneli (Tüm personel görebilir, tıklayarak ofisini değiştirebilir) */}
-            <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 rounded-2xl p-5 text-white space-y-4 shadow-md">
-              <div className="flex items-center justify-between border-b border-indigo-800/80 pb-3">
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-indigo-400" />
-                  <div>
-                    <h3 className="font-bold text-sm">Şirket Ofis & Şubeleri</h3>
-                    <p className="text-[10px] text-indigo-300">
-                      Tıklayarak mesai yapacağınız ofisi seçebilirsiniz ({visibleOfficeLocations.length} Ofis)
-                    </p>
+            {/* Şirket Ofis & Şube Konumları Paneli (Sadece Yönetici / İK personeli görebilir, normal personele gözükmez) */}
+            {isManagement && (
+              <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 rounded-2xl p-5 text-white space-y-4 shadow-md">
+                <div className="flex items-center justify-between border-b border-indigo-800/80 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-indigo-400" />
+                    <div>
+                      <h3 className="font-bold text-sm">Şirket Ofis & Şubeleri</h3>
+                      <p className="text-[10px] text-indigo-300">
+                        Tıklayarak mesai yapacağınız ofisi seçebilirsiniz ({visibleOfficeLocations.length} Ofis)
+                      </p>
+                    </div>
                   </div>
-                </div>
-                {isHrOrAdmin && (
-                  <button
-                    onClick={handleOpenNewOffice}
-                    className="text-[11px] bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm transition-all cursor-pointer"
-                  >
-                    <Plus className="w-3 h-3" /> Ofis Ekle
-                  </button>
-                )}
-              </div>
-              
-              {/* Registered Offices List */}
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {visibleOfficeLocations.map((loc) => {
-                  const dist = userCoords ? Math.round(getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng)) : null;
-                  const isSelected = loc.id === selectedOfficeId;
-                  const inRange = dist !== null && dist <= loc.radius_meters;
-                  const isAssigned = employeeAssignedOffice?.id === loc.id;
-
-                  return (
-                    <div
-                      key={loc.id}
-                      onClick={() => {
-                        setSelectedOfficeId(loc.id);
-                        if (currentEmployee?.id) {
-                          localStorage.setItem(`humanius_user_selected_office_${currentEmployee.id}`, loc.id);
-                        }
-                      }}
-                      className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
-                        isSelected 
-                          ? 'bg-indigo-800/80 border-indigo-400 shadow-md ring-2 ring-indigo-400/50' 
-                          : 'bg-white/5 border-white/10 hover:bg-white/10'
-                      }`}
+                  {isHrOrAdmin && (
+                    <button
+                      onClick={handleOpenNewOffice}
+                      className="text-[11px] bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm transition-all cursor-pointer"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-sm">🏢</span>
-                          <span className="font-bold text-xs text-white">{loc.name}</span>
-                          {(loc.il || loc.ilce) && (
-                            <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded font-medium border border-indigo-400/20">
-                              📍 {loc.il}{loc.ilce ? ` / ${loc.ilce}` : ''}
-                            </span>
-                          )}
-                          {isAssigned && (
-                            <span className="text-[9px] bg-emerald-500/30 text-emerald-200 px-1.5 py-0.5 rounded font-bold border border-emerald-400/30">
-                              ⭐ Kendi Ofisiniz
-                            </span>
-                          )}
-                          {loc.is_default && (
-                            <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded font-semibold border border-amber-400/30">
-                              Merkez
-                            </span>
+                      <Plus className="w-3 h-3" /> Ofis Ekle
+                    </button>
+                  )}
+                </div>
+                
+                {/* Registered Offices List */}
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {visibleOfficeLocations.map((loc) => {
+                    const dist = userCoords ? Math.round(getDistance(userCoords.lat, userCoords.lng, loc.lat, loc.lng)) : null;
+                    const isSelected = loc.id === effectiveSelectedOfficeId;
+                    const inRange = dist !== null && dist <= loc.radius_meters;
+                    const isAssigned = employeeAssignedOffice?.id === loc.id;
+
+                    return (
+                      <div
+                        key={loc.id}
+                        onClick={() => {
+                          setSelectedOfficeId(loc.id);
+                          const newOfficeShifts = getShiftsForSpecificOffice(loc.id, allCompanyShifts, officeLocations);
+                          if (newOfficeShifts.length > 0) {
+                            const matchingAssigned = employeeAssignedShift && newOfficeShifts.find((s) => s.id === employeeAssignedShift.id);
+                            const nextShift = matchingAssigned || newOfficeShifts.find((s) => s.is_default) || newOfficeShifts[0];
+                            if (nextShift) {
+                              setActiveUserShift(nextShift);
+                            }
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                          isSelected 
+                            ? 'bg-indigo-800/80 border-indigo-400 shadow-md ring-2 ring-indigo-400/50' 
+                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm">🏢</span>
+                            <span className="font-bold text-xs text-white">{loc.name}</span>
+                            {(loc.il || loc.ilce) && (
+                              <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded font-medium border border-indigo-400/20">
+                                📍 {loc.il}{loc.ilce ? ` / ${loc.ilce}` : ''}
+                              </span>
+                            )}
+                            {isAssigned && (
+                              <span className="text-[9px] bg-emerald-500/30 text-emerald-200 px-1.5 py-0.5 rounded font-bold border border-emerald-400/30">
+                                ⭐ Mevcut Ofisiniz
+                              </span>
+                            )}
+                            {loc.is_default && (
+                              <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded font-semibold border border-amber-400/30">
+                                Merkez
+                              </span>
+                            )}
+                          </div>
+                          {isHrOrAdmin && (
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => handleOpenEditOffice(loc)}
+                                className="p-1 text-indigo-300 hover:text-white hover:bg-indigo-700/50 rounded cursor-pointer"
+                                title="Düzenle"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOffice(loc.id, loc.name)}
+                                className="p-1 text-red-400 hover:text-red-200 hover:bg-red-900/40 rounded cursor-pointer"
+                                title="Sil"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
                           )}
                         </div>
-                        {isHrOrAdmin && (
-                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={() => handleOpenEditOffice(loc)}
-                              className="p-1 text-indigo-300 hover:text-white hover:bg-indigo-700/50 rounded cursor-pointer"
-                              title="Düzenle"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteOffice(loc.id, loc.name)}
-                              className="p-1 text-red-400 hover:text-red-200 hover:bg-red-900/40 rounded cursor-pointer"
-                              title="Sil"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
 
-                      <div className="flex items-center justify-between text-[11px] text-indigo-200 mt-1.5">
-                        <span className="font-mono text-[10px] text-gray-300">
-                          {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)} ({loc.radius_meters}m)
-                        </span>
-                        <span className={`font-semibold text-[10px] px-1.5 py-0.5 rounded ${
-                          inRange ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
-                        }`}>
-                          {dist !== null ? (dist < 1000 ? `${dist}m` : `${(dist / 1000).toFixed(1)}km`) : '-'}
-                        </span>
+                        <div className="flex items-center justify-between text-[11px] text-indigo-200 mt-1.5">
+                          <span className="font-mono text-[10px] text-gray-300">
+                            {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)} ({loc.radius_meters}m)
+                          </span>
+                          <span className={`font-semibold text-[10px] px-1.5 py-0.5 rounded ${
+                            inRange ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                          }`}>
+                            {dist !== null ? (dist < 1000 ? `${dist}m` : `${(dist / 1000).toFixed(1)}km`) : '-'}
+                          </span>
+                        </div>
                       </div>
+                    );
+                  })}
+
+                  {visibleOfficeLocations.length === 0 && (
+                    <div className="p-3 bg-white/5 rounded-xl text-center text-xs text-indigo-200">
+                      {currentEmployee?.il
+                        ? `${currentEmployee.il} bölgesinde kayıtlı şube bulunmuyor.`
+                        : 'Henüz kayıtlı şube bulunmuyor. Merkez ofis varsayılan olarak kullanılmaktadır.'}
                     </div>
-                  );
-                })}
-
-                {visibleOfficeLocations.length === 0 && (
-                  <div className="p-3 bg-white/5 rounded-xl text-center text-xs text-indigo-200">
-                    {currentEmployee?.il
-                      ? `${currentEmployee.il} bölgesinde kayıtlı şube bulunmuyor.`
-                      : 'Henüz kayıtlı şube bulunmuyor. Merkez ofis varsayılan olarak kullanılmaktadır.'}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       ) : (
