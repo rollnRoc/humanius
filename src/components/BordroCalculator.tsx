@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Calculator, Save, FileText, Download, User, DollarSign, CheckCircle,
   ArrowRightLeft, TrendingUp, Briefcase, Building2, Percent, ShieldCheck,
-  Sparkles, HelpCircle, ArrowUpRight
+  Sparkles, HelpCircle, ArrowUpRight, ChevronDown, Sliders, Gift, MinusCircle,
+  ChevronsUpDown
 } from 'lucide-react';
 import { BordroItem } from '../types/bordro';
 import {
@@ -70,6 +71,36 @@ const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBo
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [oncekiAylarGVMatrahi, setOncekiAylarGVMatrahi] = useState(0);
+
+  const [openSections, setOpenSections] = useState<{
+    parameters: boolean;
+    earnings: boolean;
+    additional: boolean;
+    taxDiscounts: boolean;
+    deductions: boolean;
+  }>({
+    parameters: true,
+    earnings: false,
+    additional: false,
+    taxDiscounts: false,
+    deductions: false,
+  });
+
+  const toggleSection = (section: keyof typeof openSections) => {
+    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const isAllOpen = Object.values(openSections).every(Boolean);
+  const toggleAllSections = () => {
+    const nextState = !isAllOpen;
+    setOpenSections({
+      parameters: nextState,
+      earnings: nextState,
+      additional: nextState,
+      taxDiscounts: nextState,
+      deductions: nextState,
+    });
+  };
 
   useEffect(() => {
     if (selectedEmployee) {
@@ -502,6 +533,33 @@ const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBo
     }
   };
 
+  const yanHaklarToplami = (Number(formData.yolParasi) || 0) +
+    (Number(formData.gidaYardimi) || 0) +
+    (Number(formData.cocukYardimi) || 0) +
+    (Number(formData.digerKazanclar) || 0);
+
+  const ekOdemelerToplami = (calculatedBordro?.fazlaMesaiTutar || 0) +
+    (Number(formData.fazlaMesai) || 0) +
+    (Number(formData.ikramiye) || 0) +
+    (Number(formData.prim) || 0) +
+    (Number(formData.yillikIzinUcreti) || 0) +
+    (Number(formData.haftalikTatil) || 0) +
+    (Number(formData.genelTatil) || 0);
+
+  const vergiIndirimiToplami = Number(formData.engelliIndirimi) || 0;
+
+  const digerKesintilerToplami = (Number(formData.besKesintisi) || 0) +
+    (Number(formData.icraKesintisi) || 0) +
+    (Number(formData.avans) || 0) +
+    (Number(formData.sendikaidat) || 0) +
+    (Number(formData.digerKesintiler) || 0);
+
+  const aktifVergiDilimi = calculatedBordro ? (
+    calculatedBordro.kumulatifVergiMatrahi > 1200000 ? 35 :
+    calculatedBordro.kumulatifVergiMatrahi > 330000 ? 27 :
+    calculatedBordro.kumulatifVergiMatrahi > 158000 ? 20 : 15
+  ) : 15;
+
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
       <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -781,339 +839,631 @@ const BordroCalculator: React.FC<BordroCalculatorProps> = ({ employees, onSaveBo
               </div>
             </div>
 
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <DollarSign className="w-5 h-5" />
-                Bordro Parametreleri
-              </h3>
-
-              {selectedEmployee && (
-                <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 flex items-center justify-between text-xs text-blue-900">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-blue-700">Kümülatif Vergi Matrahı Devri:</span>
-                    <span className="font-mono font-bold text-blue-950">
-                      {formatCurrency(oncekiAylarGVMatrahi)}
-                    </span>
-                    <span className="text-[11px] text-blue-600">({period.split('-')[1]}. aydan önceki birikmiş matrah)</span>
-                  </div>
-                  <div className="bg-blue-600 text-white font-semibold px-2.5 py-1 rounded-lg text-[11px] shrink-0">
-                    Aktif Vergi Dilimi: %{calculatedBordro ? (
-                      (calculatedBordro.kumulatifVergiMatrahi > 1200000 ? 35 :
-                       calculatedBordro.kumulatifVergiMatrahi > 330000 ? 27 :
-                       calculatedBordro.kumulatifVergiMatrahi > 158000 ? 20 : 15)
-                    ) : 15}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.maritalStatus')}</label>
-                    <select
-                      value={formData.medeniDurum}
-                      onChange={(e) => setFormData(prev => ({ ...prev, medeniDurum: e.target.value as 'bekar' | 'evli' }))}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    >
-                      <option value="bekar">{t('bordro.single')}</option>
-                      <option value="evli">{t('bordro.married')}</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.childrenCount')}</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.cocukSayisi}
-                      onChange={(e) => setFormData(prev => ({ ...prev, cocukSayisi: parseInt(e.target.value) || 0 }))}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.employerSGKDiscount')}</label>
-                  <select
-                    value={formData.sgkIsverenIndirimOrani}
-                    onChange={(e) => setFormData(prev => ({ ...prev, sgkIsverenIndirimOrani: parseInt(e.target.value) }))}
-                    className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  >
-                    <option value="0">{t('bordro.noDiscount')}</option>
-                    <option value="5">5 {t('bordro.pointDiscount')}</option>
-                    <option value="4">4 {t('bordro.pointDiscount')}</option>
-                    <option value="2">2 {t('bordro.pointDiscount')}</option>
-                  </select>
-                </div>
+            {/* Akordeon Kontrol Başlığı */}
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Hesaplama Detayları & Parametreler
+                </span>
+                <span className="text-[10px] bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded-full">
+                  5 Bölüm
+                </span>
               </div>
+              <button
+                type="button"
+                onClick={toggleAllSections}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <ChevronsUpDown className="w-3.5 h-3.5" />
+                <span>{isAllOpen ? 'Tümünü Daralt' : 'Tümünü Genişlet'}</span>
+              </button>
             </div>
 
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2 mt-6">
-                <DollarSign className="w-5 h-5" />
-                {t('bordro.totalEarnings')}
-              </h3>
-
-              <div className="grid grid-cols-1 gap-3">
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.transportAllowance')}</label>
-                    <input
-                      type="number"
-                      value={formData.yolParasi}
-                      onChange={(e) => handleInputChange('yolParasi', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.foodAllowance')}</label>
-                    <input
-                      type="number"
-                      value={formData.gidaYardimi}
-                      onChange={(e) => handleInputChange('gidaYardimi', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.childAllowance')}</label>
-                    <input
-                      type="number"
-                      value={formData.cocukYardimi}
-                      onChange={(e) => handleInputChange('cocukYardimi', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.otherEarnings')}</label>
-                    <input
-                      type="number"
-                      value={formData.digerKazanclar}
-                      onChange={(e) => handleInputChange('digerKazanclar', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-
-                <h3 className="text-lg font-semibold text-gray-800 mt-6">{t('bordro.additionalPayments')}</h3>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-3">
-                  <h4 className="text-sm font-semibold text-blue-800 mb-3">{t('bordro.overtimeCalculation')}</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">{t('bordro.overtime50')} (%50)</label>
-                      <input
-                        type="number"
-                        value={formData.fazlaMesaiSaat50}
-                        onChange={(e) => handleInputChange('fazlaMesaiSaat50', e.target.value)}
-                        className="w-full bg-white border border-gray-200 text-gray-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                        step="0.5"
-                        placeholder="Saat"
-                      />
+            <div className="space-y-3.5">
+              {/* 1. Bordro Parametreleri */}
+              <div className={`bg-white rounded-2xl overflow-hidden transition-all border-2 ${
+                openSections.parameters
+                  ? 'border-blue-500 shadow-md ring-2 ring-blue-100/80'
+                  : 'border-slate-300 hover:border-slate-400 shadow-xs'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => toggleSection('parameters')}
+                  className={`w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
+                    openSections.parameters ? 'bg-blue-50/50 hover:bg-blue-50/70' : 'hover:bg-slate-50'
+                  }`}
+                  aria-expanded={openSections.parameters}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-blue-100 border border-blue-300 text-blue-700 flex items-center justify-center shrink-0 shadow-xs">
+                      <Sliders className="w-4 h-4" />
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">{t('bordro.overtime100')} (%100)</label>
-                      <input
-                        type="number"
-                        value={formData.fazlaMesaiSaat100}
-                        onChange={(e) => handleInputChange('fazlaMesaiSaat100', e.target.value)}
-                        className="w-full bg-white border border-gray-200 text-gray-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                        step="0.5"
-                        placeholder="Saat"
-                      />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-800">Bordro Parametreleri</span>
+                        <span className="bg-slate-100 border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md text-[11px] font-medium">
+                          {formData.medeniDurum === 'evli' ? t('bordro.married') : t('bordro.single')} • {formData.cocukSayisi} Çocuk
+                        </span>
+                        {formData.sgkIsverenIndirimOrani > 0 && (
+                          <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md text-[11px] font-semibold">
+                            %{formData.sgkIsverenIndirimOrani} İndirim
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate">Medeni hal, çocuk ve SGK işveren indirim oranı</p>
                     </div>
                   </div>
-                  <div className="mt-2 text-xs text-gray-500">
-                    {t('bordro.overtimeInfo')}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.overtimeManual')}</label>
-                    <input
-                      type="number"
-                      value={formData.fazlaMesai}
-                      onChange={(e) => handleInputChange('fazlaMesai', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                      placeholder="Manuel tutar"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.bonus')}</label>
-                    <input
-                      type="number"
-                      value={formData.ikramiye}
-                      onChange={(e) => handleInputChange('ikramiye', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.premium')}</label>
-                    <input
-                      type="number"
-                      value={formData.prim}
-                      onChange={(e) => handleInputChange('prim', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.annualLeaveWage')}</label>
-                    <input
-                      type="number"
-                      value={formData.yillikIzinUcreti}
-                      onChange={(e) => handleInputChange('yillikIzinUcreti', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.weeklyHoliday')}</label>
-                    <input
-                      type="number"
-                      value={formData.haftalikTatil}
-                      onChange={(e) => handleInputChange('haftalikTatil', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.publicHoliday')}</label>
-                    <input
-                      type="number"
-                      value={formData.genelTatil}
-                      onChange={(e) => handleInputChange('genelTatil', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-
-                <h3 className="text-lg font-semibold text-gray-800 mt-6">{t('bordro.taxDeductions')}</h3>
-
-                <div className="grid grid-1 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.disabilityReduction')}</label>
-                    <input
-                      type="number"
-                      value={formData.engelliIndirimi}
-                      onChange={(e) => handleInputChange('engelliIndirimi', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-
-                <h3 className="text-lg font-semibold text-gray-800 mt-6">{t('bordro.otherDeductions')}</h3>
-
-                <div className="grid grid-cols-1 gap-3">
-                  {/* BES (%3 OKS) Kartı */}
-                  <div className="bg-indigo-50/60 border border-indigo-200 rounded-xl p-3.5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 text-sm font-semibold text-indigo-950 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={besActive || formData.besKesintisi > 0}
-                          onChange={(e) => toggleBes(e.target.checked)}
-                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                        />
-                        <span>BES (%3 Otomatik Katılım OKS)</span>
-                      </label>
-                      <span className="text-xs text-indigo-600 font-medium">
-                        Brütün %3'ü
-                      </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-transform duration-200 ${openSections.parameters ? 'rotate-180 bg-slate-200 text-slate-900 border-slate-400' : ''}`}>
+                      <ChevronDown className="w-4 h-4" />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
+                  </div>
+                </button>
+
+                {openSections.parameters && (
+                  <div className="px-4 pb-4 pt-3.5 border-t-2 border-slate-200 space-y-4">
+                    {selectedEmployee && (
+                      <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3 flex items-center justify-between text-xs text-blue-900">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-blue-700">Kümülatif Vergi Matrahı Devri:</span>
+                          <span className="font-mono font-bold text-blue-950">
+                            {formatCurrency(oncekiAylarGVMatrahi)}
+                          </span>
+                          <span className="text-[11px] text-blue-600">({period.split('-')[1]}. aydan önceki birikmiş matrah)</span>
+                        </div>
+                        <div className="bg-blue-600 text-white font-semibold px-2.5 py-1 rounded-lg text-[11px] shrink-0">
+                          Aktif Dilim: %{aktifVergiDilimi}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.maritalStatus')}</label>
+                        <select
+                          value={formData.medeniDurum}
+                          onChange={(e) => setFormData(prev => ({ ...prev, medeniDurum: e.target.value as 'bekar' | 'evli' }))}
+                          className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="bekar">{t('bordro.single')}</option>
+                          <option value="evli">{t('bordro.married')}</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.childrenCount')}</label>
                         <input
                           type="number"
-                          value={formData.besKesintisi === 0 ? '' : formData.besKesintisi}
-                          onChange={(e) => handleInputChange('besKesintisi', e.target.value)}
+                          min="0"
+                          value={formData.cocukSayisi}
+                          onChange={(e) => setFormData(prev => ({ ...prev, cocukSayisi: parseInt(e.target.value) || 0 }))}
+                          className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.employerSGKDiscount')}</label>
+                      <select
+                        value={formData.sgkIsverenIndirimOrani}
+                        onChange={(e) => setFormData(prev => ({ ...prev, sgkIsverenIndirimOrani: parseInt(e.target.value) }))}
+                        className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      >
+                        <option value="0">{t('bordro.noDiscount')}</option>
+                        <option value="5">5 {t('bordro.pointDiscount')}</option>
+                        <option value="4">4 {t('bordro.pointDiscount')}</option>
+                        <option value="2">2 {t('bordro.pointDiscount')}</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Toplam Kazanç (Yan Haklar) */}
+              <div className={`bg-white rounded-2xl overflow-hidden transition-all border-2 ${
+                openSections.earnings
+                  ? 'border-emerald-500 shadow-md ring-2 ring-emerald-100/80'
+                  : 'border-slate-300 hover:border-slate-400 shadow-xs'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => toggleSection('earnings')}
+                  className={`w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
+                    openSections.earnings ? 'bg-emerald-50/50 hover:bg-emerald-50/70' : 'hover:bg-slate-50'
+                  }`}
+                  aria-expanded={openSections.earnings}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-700 flex items-center justify-center shrink-0 shadow-xs">
+                      <DollarSign className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-800">{t('bordro.totalEarnings')}</span>
+                        {yanHaklarToplami > 0 ? (
+                          <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                            +{formatCurrency(yanHaklarToplami)}
+                          </span>
+                        ) : (
+                          <span className="bg-slate-100 border border-slate-200 text-slate-500 font-medium px-2 py-0.5 rounded-md text-[11px]">
+                            0,00 ₺
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate">Yol, gıda, çocuk yardımı ve diğer yan haklar</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-transform duration-200 ${openSections.earnings ? 'rotate-180 bg-slate-200 text-slate-900 border-slate-400' : ''}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                </button>
+
+                {openSections.earnings && (
+                  <div className="px-4 pb-4 pt-3.5 border-t-2 border-slate-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.transportAllowance')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.yolParasi === 0 ? '' : formData.yolParasi}
+                            onChange={(e) => handleInputChange('yolParasi', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.foodAllowance')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.gidaYardimi === 0 ? '' : formData.gidaYardimi}
+                            onChange={(e) => handleInputChange('gidaYardimi', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.childAllowance')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.cocukYardimi === 0 ? '' : formData.cocukYardimi}
+                            onChange={(e) => handleInputChange('cocukYardimi', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.otherEarnings')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.digerKazanclar === 0 ? '' : formData.digerKazanclar}
+                            onChange={(e) => handleInputChange('digerKazanclar', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Ek Ödemeler */}
+              <div className={`bg-white rounded-2xl overflow-hidden transition-all border-2 ${
+                openSections.additional
+                  ? 'border-amber-500 shadow-md ring-2 ring-amber-100/80'
+                  : 'border-slate-300 hover:border-slate-400 shadow-xs'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => toggleSection('additional')}
+                  className={`w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
+                    openSections.additional ? 'bg-amber-50/50 hover:bg-amber-50/70' : 'hover:bg-slate-50'
+                  }`}
+                  aria-expanded={openSections.additional}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 text-amber-700 flex items-center justify-center shrink-0 shadow-xs">
+                      <Gift className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-800">{t('bordro.additionalPayments')}</span>
+                        {ekOdemelerToplami > 0 ? (
+                          <span className="bg-amber-100 text-amber-800 border border-amber-200 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                            +{formatCurrency(ekOdemelerToplami)}
+                          </span>
+                        ) : (
+                          <span className="bg-slate-100 border border-slate-200 text-slate-500 font-medium px-2 py-0.5 rounded-md text-[11px]">
+                            0,00 ₺
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate">Mesai saatleri, ikramiye, prim ve tatil çalışmaları</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-transform duration-200 ${openSections.additional ? 'rotate-180 bg-slate-200 text-slate-900 border-slate-400' : ''}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                </button>
+
+                {openSections.additional && (
+                  <div className="px-4 pb-4 pt-3.5 border-t-2 border-slate-200 space-y-4">
+                    {/* Fazla Mesai Hesaplayıcı */}
+                    <div className="bg-amber-50/60 border-2 border-amber-200 rounded-xl p-3.5">
+                      <h4 className="text-xs font-bold text-amber-900 mb-2.5 flex items-center gap-1.5">
+                        <span>{t('bordro.overtimeCalculation')}</span>
+                        {calculatedBordro?.fazlaMesaiTutar ? (
+                          <span className="text-[11px] font-mono text-amber-700 font-bold">
+                            ({formatCurrency(calculatedBordro.fazlaMesaiTutar)})
+                          </span>
+                        ) : null}
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">{t('bordro.overtime50')} (%50)</label>
+                          <input
+                            type="number"
+                            value={formData.fazlaMesaiSaat50 === 0 ? '' : formData.fazlaMesaiSaat50}
+                            onChange={(e) => handleInputChange('fazlaMesaiSaat50', e.target.value)}
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+                            step="0.5"
+                            placeholder="Saat"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">{t('bordro.overtime100')} (%100)</label>
+                          <input
+                            type="number"
+                            value={formData.fazlaMesaiSaat100 === 0 ? '' : formData.fazlaMesaiSaat100}
+                            onChange={(e) => handleInputChange('fazlaMesaiSaat100', e.target.value)}
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+                            step="0.5"
+                            placeholder="Saat"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-2 text-[11px] text-amber-800/80">
+                        {t('bordro.overtimeInfo')}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.overtimeManual')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.fazlaMesai === 0 ? '' : formData.fazlaMesai}
+                            onChange={(e) => handleInputChange('fazlaMesai', e.target.value)}
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.bonus')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.ikramiye === 0 ? '' : formData.ikramiye}
+                            onChange={(e) => handleInputChange('ikramiye', e.target.value)}
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.premium')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.prim === 0 ? '' : formData.prim}
+                            onChange={(e) => handleInputChange('prim', e.target.value)}
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.annualLeaveWage')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.yillikIzinUcreti === 0 ? '' : formData.yillikIzinUcreti}
+                            onChange={(e) => handleInputChange('yillikIzinUcreti', e.target.value)}
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.weeklyHoliday')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.haftalikTatil === 0 ? '' : formData.haftalikTatil}
+                            onChange={(e) => handleInputChange('haftalikTatil', e.target.value)}
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.publicHoliday')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.genelTatil === 0 ? '' : formData.genelTatil}
+                            onChange={(e) => handleInputChange('genelTatil', e.target.value)}
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Vergi İndirimleri */}
+              <div className={`bg-white rounded-2xl overflow-hidden transition-all border-2 ${
+                openSections.taxDiscounts
+                  ? 'border-purple-500 shadow-md ring-2 ring-purple-100/80'
+                  : 'border-slate-300 hover:border-slate-400 shadow-xs'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => toggleSection('taxDiscounts')}
+                  className={`w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
+                    openSections.taxDiscounts ? 'bg-purple-50/50 hover:bg-purple-50/70' : 'hover:bg-slate-50'
+                  }`}
+                  aria-expanded={openSections.taxDiscounts}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-purple-100 border border-purple-300 text-purple-700 flex items-center justify-center shrink-0 shadow-xs">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-800">{t('bordro.taxDeductions')}</span>
+                        {vergiIndirimiToplami > 0 ? (
+                          <span className="bg-purple-100 text-purple-800 border border-purple-200 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                            -{formatCurrency(vergiIndirimiToplami)}
+                          </span>
+                        ) : (
+                          <span className="bg-slate-100 border border-slate-200 text-slate-500 font-medium px-2 py-0.5 rounded-md text-[11px]">
+                            İndirim Yok
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate">Engelli vergi indirimi ve yasal muafiyetler</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-transform duration-200 ${openSections.taxDiscounts ? 'rotate-180 bg-slate-200 text-slate-900 border-slate-400' : ''}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                </button>
+
+                {openSections.taxDiscounts && (
+                  <div className="px-4 pb-4 pt-3.5 border-t-2 border-slate-200">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.disabilityReduction')}</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={formData.engelliIndirimi === 0 ? '' : formData.engelliIndirimi}
+                          onChange={(e) => handleInputChange('engelliIndirimi', e.target.value)}
                           placeholder="0.00"
-                          className="w-full bg-white border border-indigo-200 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                          className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                           step="0.01"
                         />
-                        <span className="absolute right-3 top-2 text-xs font-bold text-gray-400">₺</span>
+                        <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const autoVal = Math.round((formData.temelKazanc || 0) * 0.03 * 100) / 100;
-                          setBesActive(true);
-                          handleInputChange('besKesintisi', String(autoVal));
-                        }}
-                        className="px-2.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shrink-0 transition-colors"
-                      >
-                        %3 Hesapla
-                      </button>
+                      <p className="text-[11px] text-gray-500 mt-1.5">
+                        Gelir vergisi matrahından indirilecek yasal engellilik indirim tutarı
+                      </p>
                     </div>
                   </div>
-
-                  {/* İcra / Nafaka Kesintisi */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">İcra / Nafaka Kesintisi (₺)</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={formData.icraKesintisi === 0 ? '' : formData.icraKesintisi}
-                        onChange={(e) => handleInputChange('icraKesintisi', e.target.value)}
-                        placeholder="0.00"
-                        className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                        step="0.01"
-                      />
-                      <span className="absolute right-3 top-3 text-xs font-bold text-gray-400">₺</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.advance')}</label>
-                    <input
-                      type="number"
-                      value={formData.avans}
-                      onChange={(e) => handleInputChange('avans', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.unionDues')}</label>
-                    <input
-                      type="number"
-                      value={formData.sendikaidat}
-                      onChange={(e) => handleInputChange('sendikaidat', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('bordro.otherDeduction')}</label>
-                    <input
-                      type="number"
-                      value={formData.digerKesintiler}
-                      onChange={(e) => handleInputChange('digerKesintiler', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
+
+              {/* 5. Diğer Kesintiler */}
+              <div className={`bg-white rounded-2xl overflow-hidden transition-all border-2 ${
+                openSections.deductions
+                  ? 'border-rose-500 shadow-md ring-2 ring-rose-100/80'
+                  : 'border-slate-300 hover:border-slate-400 shadow-xs'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => toggleSection('deductions')}
+                  className={`w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
+                    openSections.deductions ? 'bg-rose-50/50 hover:bg-rose-50/70' : 'hover:bg-slate-50'
+                  }`}
+                  aria-expanded={openSections.deductions}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-rose-100 border border-rose-300 text-rose-700 flex items-center justify-center shrink-0 shadow-xs">
+                      <MinusCircle className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-800">{t('bordro.otherDeductions')}</span>
+                        {digerKesintilerToplami > 0 ? (
+                          <span className="bg-rose-100 text-rose-800 border border-rose-200 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                            -{formatCurrency(digerKesintilerToplami)}
+                          </span>
+                        ) : (
+                          <span className="bg-slate-100 border border-slate-200 text-slate-500 font-medium px-2 py-0.5 rounded-md text-[11px]">
+                            Kesinti Yok
+                          </span>
+                        )}
+                        {(besActive || formData.besKesintisi > 0) && (
+                          <span className="bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-1.5 py-0.5 rounded text-[10px]">
+                            BES Aktif
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate">BES (%3 OKS), icra, nafaka, avans ve sendika kesintileri</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-transform duration-200 ${openSections.deductions ? 'rotate-180 bg-slate-200 text-slate-900 border-slate-400' : ''}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                </button>
+
+                {openSections.deductions && (
+                  <div className="px-4 pb-4 pt-3.5 border-t-2 border-slate-200 space-y-3">
+                    {/* BES (%3 OKS) Kartı */}
+                    <div className="bg-indigo-50/60 border-2 border-indigo-200 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 text-xs font-semibold text-indigo-950 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={besActive || formData.besKesintisi > 0}
+                            onChange={(e) => toggleBes(e.target.checked)}
+                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                          />
+                          <span>BES (%3 Otomatik Katılım OKS)</span>
+                        </label>
+                        <span className="text-[11px] text-indigo-600 font-medium">
+                          Brütün %3'ü
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="number"
+                            value={formData.besKesintisi === 0 ? '' : formData.besKesintisi}
+                            onChange={(e) => handleInputChange('besKesintisi', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-1.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            step="0.01"
+                          />
+                          <span className="absolute right-3 top-2 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const autoVal = Math.round((formData.temelKazanc || 0) * 0.03 * 100) / 100;
+                            setBesActive(true);
+                            handleInputChange('besKesintisi', String(autoVal));
+                          }}
+                          className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shrink-0 transition-colors cursor-pointer"
+                        >
+                          %3 Hesapla
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">İcra / Nafaka Kesintisi (₺)</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.icraKesintisi === 0 ? '' : formData.icraKesintisi}
+                            onChange={(e) => handleInputChange('icraKesintisi', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.advance')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.avans === 0 ? '' : formData.avans}
+                            onChange={(e) => handleInputChange('avans', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.unionDues')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.sendikaidat === 0 ? '' : formData.sendikaidat}
+                            onChange={(e) => handleInputChange('sendikaidat', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">{t('bordro.otherDeduction')}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={formData.digerKesintiler === 0 ? '' : formData.digerKesintiler}
+                            onChange={(e) => handleInputChange('digerKesintiler', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-white border border-slate-300 text-gray-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            step="0.01"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">₺</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
             </div>
 
           {/* Sağ Panel - Bordro Önizleme */}
