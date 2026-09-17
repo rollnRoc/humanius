@@ -41,6 +41,7 @@ import { notificationService } from './services/notificationService';
 import ExcelImportModal from './components/ExcelImportModal';
 import { userService } from './services/userService';
 import * as XLSX from 'xlsx';
+import { showConfirm, showSuccess, showError } from './utils/swal';
 
 import { Suspense } from 'react';
 import { lazyWithRetry } from './utils/lazyWithRetry';
@@ -1007,11 +1008,18 @@ const AppInner: React.FC = () => {
 
   const handleDeleteEmployee = async (id: string) => {
     if (!canDeleteUsers(effectiveAppRole)) {
-      alert('Personel ve kullanıcı hesabı silme yetkisi sadece Şirket Yöneticisindedir (Admin).');
+      showError('Yetki Yetersiz', 'Personel ve kullanıcı hesabı silme yetkisi sadece Şirket Yöneticisindedir (Admin).');
       return;
     }
     const targetEmp = employees.find((e) => e.id === id);
-    if (!window.confirm('Bu personeli ve sisteme bağlı kullanıcı hesabını tamamen silmek istediğinize emin misiniz?')) return;
+    const confirmed = await showConfirm({
+      title: 'Personeli Silmek İstiyor Musunuz?',
+      text: `${targetEmp?.name || 'Bu personeli'} ve sisteme bağlı kullanıcı hesabını tamamen silmek istediğinize emin misiniz?`,
+      confirmButtonText: 'Evet, Sil',
+      cancelButtonText: 'Vazgeç',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     try {
       try {
         await userManagementService.deleteUserAndEmployee({
@@ -1025,8 +1033,10 @@ const AppInner: React.FC = () => {
       await employeeService.delete(id);
       setDrawerOpen(false);
       await loadData();
+      showSuccess('Personel Silindi', 'Personel ve bağlı kullanıcı hesabı başarıyla silindi.');
     } catch (err) {
       console.error('Personel silinemedi:', err);
+      showError('Hata', 'Personel silinirken bir hata oluştu.');
     }
   };
 
@@ -1200,15 +1210,22 @@ const AppInner: React.FC = () => {
   };
 
   const handleDeleteIzin = async (id: string) => {
-    if (!window.confirm('Bu izin kaydını kalıcı olarak silmek / kaldırmak istediğinize emin misiniz?\nKullanılan izin günleri personelin izin bakiyesine otomatik olarak iade edilecektir.')) return;
+    const confirmed = await showConfirm({
+      title: 'İzin Kaydını Silmek İstiyor Musunuz?',
+      text: 'Bu izin kaydını kalıcı olarak silmek istediğinize emin misiniz? Kullanılan izin günleri personelin izin bakiyesine otomatik olarak iade edilecektir.',
+      confirmButtonText: 'Evet, Sil ve İade Et',
+      cancelButtonText: 'Vazgeç',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     try {
       await izinService.deleteTalep(id);
       setEditingIzin(null);
       await loadData();
-      alert('İzin kaydı başarıyla silindi ve bakiye iade edildi.');
+      showSuccess('İşlem Başarılı', 'İzin kaydı başarıyla silindi ve bakiye iade edildi.');
     } catch (err: any) {
       console.error('İzin silinemedi:', err);
-      alert(`İzin silinemedi!${err?.message ? `\nDetay: ${err.message}` : ''}`);
+      showError('Hata', `İzin silinemedi! ${err?.message || ''}`);
     }
   };
 
@@ -1338,15 +1355,21 @@ const AppInner: React.FC = () => {
   };
 
   const handleSendBordroForApproval = async (bordro: BordroItem) => {
-    const confirmSend = window.confirm(`${bordro.period} dönemi bordrosunu personelin onayına göndermek istediğinize emin misiniz?`);
+    const confirmSend = await showConfirm({
+      title: 'Bordroyu Onaya Gönder',
+      text: `${bordro.period} dönemi bordrosunu personelin onayına göndermek istediğinize emin misiniz?`,
+      confirmButtonText: 'Evet, Onaya Gönder',
+      cancelButtonText: 'Vazgeç',
+      icon: 'question'
+    });
     if (confirmSend) {
       try {
         await bordroService.updateApprovalStatus(bordro.id, 'beklemede');
         await loadData();
-        alert('Bordro başarıyla personelin onayına gönderildi.');
+        showSuccess('Başarılı', 'Bordro başarıyla personelin onayına gönderildi.');
       } catch (err: any) {
         console.error('Bordro onaya gönderilemedi:', err);
-        alert(`Onaya gönderme işlemi başarısız oldu!\nDetay: ${err.message}`);
+        showError('Hata', `Onaya gönderme işlemi başarısız oldu!\nDetay: ${err.message}`);
       }
     }
   };
@@ -1358,33 +1381,48 @@ const AppInner: React.FC = () => {
         setSelectedBordro(null);
       }
       await loadData();
+      showSuccess('Silindi', 'Bordro kaydı başarıyla silindi.');
     } catch (err: any) {
       console.error('Bordro silinemedi:', err);
-      alert(`Bordro silinemedi!${err?.message ? `\nDetay: ${err.message}` : ''}`);
+      showError('Hata', `Bordro silinemedi! ${err?.message || ''}`);
     }
   };
 
   const handleDeleteIzinTalebi = async (id: string) => {
-    if (!window.confirm('Bu izin kaydını silmek istediğinize emin misiniz?')) return;
+    const confirmed = await showConfirm({
+      title: 'İzin Talebini Sil',
+      text: 'Bu izin kaydını silmek istediğinize emin misiniz?',
+      confirmButtonText: 'Evet, Sil',
+      cancelButtonText: 'Vazgeç',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     try {
       await izinService.deleteTalep(id);
       await loadData();
-      alert('İzin kaydı başarıyla silindi.');
+      showSuccess('Başarılı', 'İzin kaydı başarıyla silindi.');
     } catch (err: any) {
       console.error('İzin silinirken hata oluştu:', err);
-      alert('İzin kaydı silinirken bir hata oluştu.');
+      showError('Hata', 'İzin kaydı silinirken bir hata oluştu.');
     }
   };
 
   const handleCancelIzinTalebi = async (id: string) => {
-    if (!window.confirm('Bu izin kaydını iptal etmek istediğinize emin misiniz?')) return;
+    const confirmed = await showConfirm({
+      title: 'İzin Talebini İptal Et',
+      text: 'Bu izin kaydını iptal etmek istediğinize emin misiniz?',
+      confirmButtonText: 'Evet, İptal Et',
+      cancelButtonText: 'Vazgeç',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     try {
       await izinService.updateTalep(id, { durum: 'iptal' });
       await loadData();
-      alert('İzin kaydı başarıyla iptal edildi.');
+      showSuccess('Başarılı', 'İzin kaydı başarıyla iptal edildi.');
     } catch (err: any) {
       console.error('İzin iptal edilirken hata oluştu:', err);
-      alert('İzin kaydı iptal edilirken bir hata oluştu.');
+      showError('Hata', 'İzin kaydı iptal edilirken bir hata oluştu.');
     }
   };
 

@@ -18,6 +18,7 @@ import type { Employee, CompanyOfficeLocation } from '../types';
 import { getDevamKontroluIzinLabel, getDevamKontroluIzinKisaltma } from '../utils/izinCalculations';
 import iller, { type IlIlceItem } from '../lib/illce';
 import { matchEmployeeToUser, getTodayYYYYMMDD } from '../utils/sanitize';
+import { confirmShiftStart, confirmShiftEnd, showConfirm, showSuccess, showError, showWarning, showInfo } from '../utils/swal';
 
 
 interface PdksDevamProps {
@@ -1228,14 +1229,21 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   };
 
   const handleDeleteOffice = async (locId: string, name: string) => {
-    if (!window.confirm(`"${name}" konumunu silmek istediğinize emin misiniz?`)) return;
+    const ok = await showConfirm({
+      title: 'Konumu Silmek İstiyor Musunuz?',
+      text: `"${name}" konumunu silmek istediğinize emin misiniz?`,
+      confirmButtonText: 'Evet, Sil',
+      cancelButtonText: 'Vazgeç',
+      isDanger: true,
+    });
+    if (!ok) return;
     try {
       await companyService.deleteOfficeLocation(locId, resolvedCompanyId);
       await loadOfficeLocations();
-      alert(`"${name}" konumu silindi.`);
+      showSuccess('Konum Silindi', `"${name}" konumu başarıyla silindi.`);
     } catch (err: any) {
       console.error(err);
-      alert('Silme sırasında hata oluştu: ' + (err?.message || err));
+      showError('Hata', 'Silme sırasında hata oluştu: ' + (err?.message || err));
     }
   };
 
@@ -1243,31 +1251,64 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const handleStartShift = async () => {
     // 1. Double check position against selected active office
     if (distanceToSelectedOffice === null || distanceToSelectedOffice > (activeOffice?.radius_meters || geofenceRadius)) {
-      alert(`Hata: Seçili ofis (${activeOffice?.name || 'Şirket'}) konumunun dışındasınız. Mesai sadece bulunduğunuz ofis sınırları içerisindeyken başlatılabilir!`);
+      showError(
+        'Ofis Sınırları Dışındasınız',
+        `Seçili ofis (${activeOffice?.name || 'Şirket'}) konumunun dışındasınız. Mesai sadece bulunduğunuz ofis sınırları içerisindeyken başlatılabilir!`
+      );
       return;
     }
 
     const empId = currentEmployee?.id;
     if (!empId) {
-      alert("Personel kaydınız sistemde bulunamadı. Lütfen İK yöneticinizle iletişime geçin.");
+      showError(
+        'Personel Kaydı Bulunamadı',
+        'Personel kaydınız sistemde bulunamadı. Lütfen İK yöneticinizle iletişime geçin.'
+      );
       return;
     }
 
-    try {
-      const now = new Date();
-      const startIso = now.toISOString();
-      const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
-      const dateStr = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
-      
-      // Calculate delay based on selected shift's start time and tolerance
-      const currentMin = now.getHours() * 60 + now.getMinutes();
-      const [sH, sM] = (activeUserShift?.start_time || '08:30').split(':').map(Number);
-      const shiftTargetMin = (!isNaN(sH) && !isNaN(sM)) ? (sH * 60 + sM) : (9 * 60);
-      const shiftTolerance = activeUserShift?.tolerance_minutes ?? 15;
-      const isLate = currentMin > shiftTargetMin + shiftTolerance;
-      const statusValue = isLate ? 'gec-kaldi' : 'zamaninda';
-      const officeName = activeOffice?.name || 'Ofis';
+    const now = new Date();
+    const startIso = now.toISOString();
+    const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
+    const dateStr = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
+    
+    // Calculate delay based on selected shift's start time and tolerance
+    const isTodaySaturday = now.getDay() === 6;
+    const shiftStart = isTodaySaturday && activeUserShift?.saturday_start_time ? activeUserShift.saturday_start_time : (activeUserShift?.start_time || '08:30');
+    const shiftEnd = isTodaySaturday && activeUserShift?.saturday_end_time ? activeUserShift.saturday_end_time : (activeUserShift?.end_time || '18:00');
+    const toleranceMinutes = (activeUserShift?.tolerance_minutes !== undefined && activeUserShift?.tolerance_minutes !== null) ? Number(activeUserShift.tolerance_minutes) : 15;
+    const breakMinutes = (isTodaySaturday && activeUserShift?.saturday_break_minutes !== undefined) ? Number(activeUserShift.saturday_break_minutes) : (activeUserShift?.break_minutes ?? 60);
 
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+    const [sH, sM] = shiftStart.split(':').map(Number);
+    const shiftTargetMin = (!isNaN(sH) && !isNaN(sM)) ? (sH * 60 + sM) : (9 * 60);
+    const diffFromStartMinutes = currentMin - shiftTargetMin;
+    const isOneHourEarly = diffFromStartMinutes < -60;
+    const isOneHourLate = diffFromStartMinutes > 60;
+    const isLate = currentMin > shiftTargetMin + toleranceMinutes;
+    const statusValue = isLate ? 'gec-kaldi' : 'zamaninda';
+    const officeName = activeOffice?.name || 'Ofis';
+
+    // Prominent SweetAlert2 Confirmation Dialog
+    const confirmed = await confirmShiftStart({
+      officeName,
+      isWithinGeofence: isWithinGeofence,
+      shiftName: activeUserShift?.name || 'Standart Vardiya',
+      shiftStart,
+      shiftEnd,
+      toleranceMinutes,
+      breakMinutes,
+      shiftColor: activeUserShift?.color || '#3b82f6',
+      isLate,
+      isOneHourEarly,
+      isOneHourLate,
+      currentTimeStr: timeStr,
+      currentDateStr: now.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' })
+    });
+
+    if (!confirmed) return;
+
+    try {
       // Sync with Supabase if company is available
       const shiftCompId = currentEmployee?.company_id || resolvedCompanyId || profile?.company_id;
       if (shiftCompId) {
@@ -1279,7 +1320,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           giris_saati: timeStr,
           cikis_saati: null,
           durum: statusValue,
-          notlar: `Tarayıcı GPS Doğrulandı: ${officeName} • Vardiya: ${activeUserShift?.name || 'Vardiya'} (${activeUserShift?.start_time || '08:30'}-${activeUserShift?.end_time || '18:00'})`
+          notlar: `Tarayıcı GPS Doğrulandı: ${officeName} • Vardiya: ${activeUserShift?.name || 'Vardiya'} (${shiftStart}-${shiftEnd})`
         };
         
         try {
@@ -1299,10 +1340,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       
       // Start watching user location actively during the shift
       startWatchingLocation();
+
+      showSuccess(
+        'Mesainiz Başlatıldı! 🚀',
+        `<strong>${officeName}</strong> lokasyonunda mesainiz kaydedildi. İyi çalışmalar dileriz!`
+      );
       
     } catch (err) {
       console.error("Mesai başlatma hatası:", err);
-      alert("Mesai başlatılırken bir hata oluştu.");
+      showError("Mesai Başlatılamadı", "Mesai başlatılırken bir hata oluştu.");
     }
   };
 
@@ -1310,12 +1356,46 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const handleEndShift = async (wasAutoEnded = false) => {
     if (!isShiftActive || !shiftStartTime) return;
 
-    try {
-      const now = new Date();
-      const endIso = now.toISOString();
-      const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
-      const officeName = activeOffice?.name || 'Ofis';
+    const now = new Date();
+    const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
+    const officeName = activeOffice?.name || 'Ofis';
+
+    if (!wasAutoEnded) {
+      const isTodaySaturday = now.getDay() === 6;
+      const shiftStart = isTodaySaturday && activeUserShift?.saturday_start_time ? activeUserShift.saturday_start_time : (activeUserShift?.start_time || '08:30');
+      const shiftEnd = isTodaySaturday && activeUserShift?.saturday_end_time ? activeUserShift.saturday_end_time : (activeUserShift?.end_time || '18:00');
       
+      const currentHM = timeStr;
+      const isEarlyExit = currentHM < shiftEnd;
+      
+      let formattedDuration = timerText || '00:00:00';
+      if (shiftStartTime) {
+        const startD = new Date(shiftStartTime);
+        const diffMs = now.getTime() - startD.getTime();
+        if (diffMs > 0) {
+          const totalSecs = Math.floor(diffMs / 1000);
+          const h = Math.floor(totalSecs / 3600);
+          const m = Math.floor((totalSecs % 3600) / 60);
+          const s = totalSecs % 60;
+          formattedDuration = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+      }
+
+      const confirmed = await confirmShiftEnd({
+        officeName,
+        shiftName: activeUserShift?.name || 'Standart Vardiya',
+        shiftHours: `${shiftStart} - ${shiftEnd}`,
+        startTimeStr: shiftStartTime ? new Date(shiftStartTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '-',
+        currentTimeStr: timeStr,
+        durationText: formattedDuration,
+        isEarlyExit,
+        targetEndTime: shiftEnd
+      });
+
+      if (!confirmed) return;
+    }
+
+    try {
       // 1. Update Database if activeShiftRecordId is valid
       if (activeShiftRecordId) {
         try {
@@ -1377,14 +1457,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       stopWatchingLocation();
 
       if (wasAutoEnded) {
-        alert("Mesainiz konum sınırından uzaklaştığınız için otomatik olarak sonlandırıldı.");
+        showWarning("Mesai Otomatik Sonlandırıldı", "Mesainiz konum sınırından uzaklaştığınız için otomatik olarak sonlandırıldı.");
       } else {
-        alert("Mesainiz başarıyla sonlandırıldı (Çıkış yapıldı). İyi günler!");
+        showSuccess("Mesainiz Tamamlandı! ✨", `<strong>${officeName}</strong> konumundaki mesainiz başarıyla sonlandırıldı. İyi günler!`);
       }
       
     } catch (err) {
       console.error("Mesai bitirme hatası:", err);
-      alert("Mesai sonlandırılırken bir hata oluştu.");
+      showError("Mesai Sonlandırılamadı", "Mesai sonlandırılırken bir hata oluştu.");
     }
   };
 
@@ -1447,11 +1527,18 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     );
 
     if (uncompletedToday.length === 0) {
-      alert('Bugün için çıkış saati bekleyen aktif mesai kaydı bulunamadı.');
+      showInfo('Mesai Kaydı Bulunamadı', 'Bugün için çıkış saati bekleyen aktif mesai kaydı bulunamadı.');
       return;
     }
 
-    if (!window.confirm(`Bugün (${todayStr}) giriş yapmış ancak henüz çıkışı yapılmamış ${uncompletedToday.length} personelin mesaisi tanımlı vardiyalarına göre (Tarsus: 15:00 vb.) otomatik sonlandırılsın mı?`)) {
+    const ok = await showConfirm({
+      title: 'Toplu Mesai Sonlandırma',
+      text: `Bugün (${todayStr}) giriş yapmış ancak henüz çıkışı yapılmamış ${uncompletedToday.length} personelin mesaisi tanımlı vardiyalarına göre otomatik sonlandırılsın mı?`,
+      confirmButtonText: 'Evet, Sonlandır',
+      cancelButtonText: 'İptal',
+      icon: 'question'
+    });
+    if (!ok) {
       return;
     }
 

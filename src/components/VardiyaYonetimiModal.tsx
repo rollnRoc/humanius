@@ -3,6 +3,7 @@ import { X, Clock, Plus, Trash2, Edit2, CheckCircle, Users, Sliders, Check, Sear
 import type { Employee, CompanyOfficeLocation } from '../types';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, inferOfficeForShift, isShiftMatchingOffice } from '../services/shiftService';
 import { companyService } from '../services/companyService';
+import { showConfirm, showSuccess, showError } from '../utils/swal';
 
 interface VardiyaYonetimiModalProps {
   isOpen: boolean;
@@ -194,18 +195,26 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
 
   const handleDeleteShift = async (shiftId: string, name: string) => {
     if (shifts.length <= 1) {
-      alert('En az 1 adet varsayılan vardiya bulunmalıdır.');
+      showError('İşlem Engellendi', 'En az 1 adet varsayılan vardiya bulunmalıdır.');
       return;
     }
-    if (!window.confirm(`"${name}" vardiyasını silmek istediğinize emin misiniz?`)) return;
+    const confirmed = await showConfirm({
+      title: 'Vardiyayı Sil',
+      text: `"${name}" vardiyasını silmek istediğinize emin misiniz?`,
+      confirmButtonText: 'Evet, Sil',
+      cancelButtonText: 'Vazgeç',
+      isDanger: true,
+    });
+    if (!confirmed) return;
 
     try {
       setShifts((prev) => prev.filter((s) => s.id !== shiftId));
       await shiftService.deleteShift(effectiveCompanyId, shiftId);
       await loadData();
+      showSuccess('Vardiya Silindi', `"${name}" vardiyası başarıyla silindi.`);
     } catch (err) {
       console.error('Silme hatası:', err);
-      alert('Vardiya silinirken bir sorun oluştu.');
+      showError('Hata', 'Vardiya silinirken bir sorun oluştu.');
       await loadData();
     }
   };

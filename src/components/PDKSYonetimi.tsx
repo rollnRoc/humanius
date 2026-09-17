@@ -7,6 +7,7 @@ import { printPdksDevamRaporuPdf, exportPdksToCsv, PdksReportRecord } from '../u
 import { isSaturdayWorkActive } from '../utils/izinCalculations';
 import { getTodayYYYYMMDD } from '../utils/sanitize';
 import { Loader2 } from 'lucide-react';
+import { showConfirm, showSuccess, showError, showWarning } from '../utils/swal';
 
 import {
   AlertCircle,
@@ -830,7 +831,7 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
       k => k.girisZamani && (!k.cikisZamani || k.cikisZamani === '00:00' || k.cikisZamani === '00:00:00')
     );
     if (ongoingRecords.length === 0) {
-      alert('Seçili günde mesai bitiş saati gelip çıkış yapmamış aktif personel bulunmamaktadır.');
+      showWarning('Mesai Kaydı Yok', 'Seçili günde mesai bitiş saati gelip çıkış yapmamış aktif personel bulunmamaktadır.');
       return;
     }
 
@@ -845,12 +846,28 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
 
     const summaryList = ongoingRecords.slice(0, 4).map(r => {
       const { shift, cikisSaati } = resolveEmployeeShift(r.employeeId, secilenTarih, companyShifts, companyShiftAssignments, satConfig);
-      return `${r.employeeName}: ${cikisSaati} (${shift?.name || 'Vardiya'})`;
-    }).join('\n• ');
+      return `<li class="py-1"><strong>${r.employeeName}</strong>: ${cikisSaati} (${shift?.name || 'Vardiya'})</li>`;
+    }).join('');
 
-    const moreText = ongoingRecords.length > 4 ? `\nve ${ongoingRecords.length - 4} personel daha...` : '';
+    const moreText = ongoingRecords.length > 4 ? `<div class="text-xs text-gray-500 mt-2 font-medium">...ve ${ongoingRecords.length - 4} personel daha</div>` : '';
 
-    if (!confirm(`Seçili tarihteki (${secilenTarih}) çıkış yapmamış ${ongoingRecords.length} personelin mesaisi tanımlı vardiyalarına göre (Tarsus: 15:00 vb.) otomatik sonlandırılsın mı?\n\n• ${summaryList}${moreText}`)) {
+    const confirmed = await showConfirm({
+      title: 'Toplu Mesai Sonlandırma',
+      html: `
+        <div class="text-left text-sm text-gray-700">
+          <p class="mb-2">Seçili tarihteki (<strong>${secilenTarih}</strong>) çıkış yapmamış <strong>${ongoingRecords.length} personelin</strong> mesaisi tanımlı vardiyalarına göre otomatik sonlandırılsın mı?</p>
+          <ul class="bg-gray-50 p-3 rounded-xl border border-gray-200 list-disc list-inside text-xs space-y-1 my-2">
+            ${summaryList}
+          </ul>
+          ${moreText}
+        </div>
+      `,
+      confirmButtonText: 'Evet, Sonlandır',
+      cancelButtonText: 'İptal',
+      icon: 'question'
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -880,10 +897,10 @@ const PDKSYonetimi: React.FC<PDKSYonetimiProps> = ({
 
       window.dispatchEvent(new CustomEvent('humanius_shifts_updated'));
       await loadData();
-      alert(`İşlem Başarılı: ${ongoingRecords.length} personelin mesaisi kendi vardiya tanımlarına göre (Tarsus 15:00 vb.) otomatik olarak sonlandırıldı.`);
+      showSuccess('İşlem Başarılı', `${ongoingRecords.length} personelin mesaisi kendi vardiya tanımlarına göre otomatik olarak sonlandırıldı.`);
     } catch (err) {
       console.error('Otomatik mesai sonlandırma hatası:', err);
-      alert('Otomatik mesai sonlandırma sırasında bir hata oluştu.');
+      showError('Hata', 'Otomatik mesai sonlandırma sırasında bir hata oluştu.');
     } finally {
       setLoading(false);
     }
