@@ -614,8 +614,10 @@ function inferIlIlce(name?: string, address?: string, currentIl?: string, curren
   if (normText.includes('cankaya') || normText.includes('çankaya')) return { il: 'Ankara', ilce: 'Çankaya' };
   if (normText.includes('melikgazi')) return { il: 'Kayseri', ilce: 'Melikgazi' };
   if (normText.includes('yuregir') || normText.includes('yüreğir')) return { il: 'Adana', ilce: 'Yüreğir' };
-  if (normText.includes('seyhan')) return { il: 'Adana', ilce: 'Seyhan' };
-  if (normText.includes('toyota') || normText.includes('byd') || normText.includes('sixt') || normText.includes('suzuki') || normText.includes('suzik')) {
+  if (normText.includes('suzuki') || normText.includes('suzik') || normText.includes('mg')) {
+    return { il: 'Adana', ilce: 'Yüreğir' };
+  }
+  if (normText.includes('toyota') || normText.includes('byd') || normText.includes('sixt')) {
     return { il: 'Adana', ilce: 'Seyhan' };
   }
 

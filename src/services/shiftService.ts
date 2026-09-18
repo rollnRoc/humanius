@@ -156,12 +156,6 @@ export function resolveOfficeForShift<T extends { id: string; name: string; il?:
         return o;
       }
     }
-    if (o.il) {
-      const normIl = normalizeTr(o.il);
-      if (normIl.length >= 3 && normShiftName.includes(normIl)) {
-        return o;
-      }
-    }
     // Match by office name keywords (min 3 chars, excluding generic words)
     const parts = normO
       .split(/[\s\/\-_]+/)
