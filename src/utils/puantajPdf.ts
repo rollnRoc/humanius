@@ -64,8 +64,8 @@ export const printPuantajCetveliPdf = (params: {
           if (g.kod === 'Ç') {
             badgeBg = '#dcfce7';
             badgeColor = '#15803d';
-            const hours = getCalismaSaati(g, rec.shift);
-            text = `${hours}s`;
+            const hours = getCalismaSaati(g, rec.shift, saturdayConfig as any);
+            text = hours > 0 && hours < 0.1 ? `${Math.max(1, Math.round(hours * 60))}dk` : `${hours}s`;
           } else if (g.kod === 'HT') {
             badgeBg = '#dbeafe';
             badgeColor = '#1d4ed8';

@@ -294,7 +294,7 @@ export function getShiftSaturdayHours(
   satConfig?: SaturdayWorkConfig | null
 ): { startTime: string; endTime: string; breakMinutes: number; toleranceMinutes: number } {
   const satStart = shift?.saturday_start_time || satConfig?.startTime || '08:30';
-  const satEnd = shift?.saturday_end_time || satConfig?.endTime || '13:00';
+  const satEnd = shift?.saturday_end_time || satConfig?.endTime || '16:00';
   const satBreak = shift?.saturday_break_minutes != null ? Number(shift.saturday_break_minutes) : Number(satConfig?.breakMinutes ?? 30);
   const satTol = shift?.tolerance_minutes != null ? Number(shift.tolerance_minutes) : Number(satConfig?.toleranceMinutes ?? 15);
   return {
@@ -473,6 +473,15 @@ class ShiftService {
         if (Array.isArray(localData) && localData.length > 0) {
           const clean = localData.filter(isNotSaturdayShift);
           if (clean.length > 0) {
+            clean.forEach((s: any) => {
+              // Self-repair: Eğer hafta içi varsayılan vardiyasının çıkışı sehven 16:00 (Cumartesi çıkışı) olarak kalmışsa düzelt
+              if (s.is_default && s.end_time === '16:00') {
+                s.end_time = '17:45';
+              }
+              if (s.name && s.name.toLowerCase().includes('toyota') && s.end_time === '16:00') {
+                s.end_time = '17:45';
+              }
+            });
             if (!clean.some((s: any) => s.is_default)) clean[0].is_default = true;
             return clean;
           }
@@ -484,6 +493,14 @@ class ShiftService {
         if (Array.isArray(localData) && localData.length > 0) {
           const clean = localData.filter(isNotSaturdayShift);
           if (clean.length > 0) {
+            clean.forEach((s: any) => {
+              if (s.is_default && s.end_time === '16:00') {
+                s.end_time = '17:45';
+              }
+              if (s.name && s.name.toLowerCase().includes('toyota') && s.end_time === '16:00') {
+                s.end_time = '17:45';
+              }
+            });
             if (!clean.some((s: any) => s.is_default)) clean[0].is_default = true;
             return clean;
           }

@@ -1355,8 +1355,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                             displayVal = 'Devam';
                           } else {
                             badgeStyle = 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-200 font-bold';
-                            const hours = getCalismaSaati(g, p.shift);
-                            displayVal = `${hours}s`;
+                            const hours = getCalismaSaati(g, p.shift, saturdayConfig);
+                            displayVal = hours > 0 && hours < 0.1 ? `${Math.max(1, Math.round(hours * 60))}dk` : `${hours}s`;
                           }
                         } else if (g.kod === 'HT') {
                           badgeStyle = 'bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-200 font-bold';
@@ -1400,7 +1400,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                             key={g.tarih}
                             onClick={() => handleOpenEditCell(p, g)}
                             className={`px-0.5 py-1 text-center border-r border-gray-100 ${cellBg} cursor-pointer transition-all hover:ring-1 hover:ring-blue-400`}
-                            title={`${emp.name} - ${g.tarih} (${g.gunAdi})\nDurum: ${g.kodAciklama}\nGiriş: ${g.girisSaati || '-'}\nÇıkış: ${g.cikisSaati || (g.isOngoing ? 'Vardiyası Devam Ediyor' : '-')}\nNet Süre: ${g.netSureSaat} saat\n(Düzenlemek için tıklayın)`}
+                            title={`${emp.name} - ${g.tarih} (${g.gunAdi})\nDurum: ${g.kodAciklama}\nGiriş: ${g.girisSaati || '-'}\nÇıkış: ${g.cikisSaati || (g.isOngoing ? 'Vardiyası Devam Ediyor' : '-')}\nNet Süre: ${g.netSureSaat > 0 && g.netSureSaat < 0.1 ? `${Math.max(1, Math.round(g.netSureSaat * 60))} dk (${g.netSureSaat} saat)` : `${g.netSureSaat} saat`}\n(Düzenlemek için tıklayın)`}
                           >
                             <div className="flex flex-col items-center justify-center">
                               <span
@@ -1829,7 +1829,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                           {item.molaDk} dk
                         </td>
                         <td className="px-4 py-2.5 text-center font-extrabold text-emerald-700 bg-emerald-50/20">
-                          {item.netSureSaat > 0 ? `${item.netSureSaat} saat` : '-'}
+                          {item.netSureSaat > 0 ? (item.netSureSaat < 0.1 ? `${item.netSureSaat} saat (~${Math.max(1, Math.round(item.netSureSaat * 60))} dk)` : `${item.netSureSaat} saat`) : '-'}
                         </td>
                         <td className="px-4 py-2.5 text-center font-bold text-amber-600">
                           {item.fazlaMesaiSaat > 0 ? `+${item.fazlaMesaiSaat}s` : '-'}

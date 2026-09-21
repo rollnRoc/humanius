@@ -69,32 +69,70 @@ div:where(.swal2-container).swal2-backdrop-show {
 }
 
 .humanius-swal-popup {
+  width: 94% !important;
+  max-width: 460px !important;
+  max-height: 88vh !important;
+  max-height: 88dvh !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
   border-radius: 20px !important;
-  padding: 24px !important;
+  padding: 20px 16px !important;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
   border: 1px solid rgba(226, 232, 240, 0.8) !important;
   font-family: inherit !important;
+  box-sizing: border-box !important;
+}
+
+.humanius-swal-popup::-webkit-scrollbar {
+  width: 4px;
+}
+.humanius-swal-popup::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
 .humanius-swal-title {
-  font-size: 1.25rem !important;
+  font-size: 1.15rem !important;
   font-weight: 800 !important;
   color: #0f172a !important;
   padding: 0 !important;
-  margin-top: 8px !important;
+  margin-top: 4px !important;
 }
 
 .humanius-swal-html {
-  margin: 12px 0 0 0 !important;
+  margin: 8px 0 0 0 !important;
   font-size: 0.875rem !important;
 }
 
 .humanius-swal-actions {
-  margin-top: 20px !important;
-  gap: 10px !important;
+  margin-top: 14px !important;
+  gap: 8px !important;
   width: 100% !important;
   display: flex !important;
   justify-content: flex-end !important;
+}
+
+@media (max-width: 480px) {
+  .humanius-swal-popup {
+    width: 95% !important;
+    padding: 14px 10px !important;
+    border-radius: 16px !important;
+    max-height: 88dvh !important;
+  }
+  .humanius-swal-title {
+    font-size: 1.05rem !important;
+  }
+  .humanius-swal-actions {
+    flex-direction: column-reverse !important;
+    gap: 8px !important;
+    margin-top: 12px !important;
+  }
+  .humanius-swal-actions button {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 12px 14px !important;
+    font-size: 0.9rem !important;
+  }
 }
 
 .humanius-swal-confirm-btn {

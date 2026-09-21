@@ -85,21 +85,28 @@ function checkIsShiftExpired(
 // Personelin tanımlı vardiyası (Tarsus 15:00 vb.) varsa her zaman o vardiyanın çıkış saati esastır.
 // Sadece özel vardiyası olmayan genel personel için Cumartesi erken çıkış (16:00) uygulanır.
 function getTargetCikisTime(
-  activeShift: { end_time?: string; id?: string; saturday_end_time?: string } | null | undefined,
+  activeShift: { end_time?: string; id?: string; saturday_end_time?: string; is_default?: boolean } | null | undefined,
   defaultShiftId: string | undefined,
-  isSaturday: boolean,
+  isWeekend: boolean,
   satConfig: any
 ): string {
-  if (isSaturday && satConfig?.isSaturdayWork) {
+  if (isWeekend && satConfig?.isSaturdayWork) {
     if (activeShift?.saturday_end_time && activeShift.saturday_end_time !== '00:00') {
       return activeShift.saturday_end_time;
     }
-    return satConfig.endTime || '13:00';
+    const isDefault = activeShift?.is_default || (defaultShiftId && activeShift?.id === defaultShiftId);
+    if (isDefault) {
+      return satConfig?.endTime || '16:00';
+    }
+    if (activeShift?.end_time && activeShift.end_time !== '00:00') {
+      return activeShift.end_time;
+    }
+    return satConfig?.endTime || '16:00';
   }
   if (activeShift?.end_time && activeShift.end_time !== '00:00') {
     return activeShift.end_time;
   }
-  return activeShift?.end_time || '18:00';
+  return isWeekend ? (satConfig?.endTime || '16:00') : '18:00';
 }
 
 const PdksDevam: React.FC<PdksDevamProps> = ({
@@ -834,8 +841,9 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     // Read local storage for active session
     const savedActiveId = localStorage.getItem('pdks_active_shift_id');
     const savedStart = localStorage.getItem('pdks_active_shift_start');
-    const isTodaySaturday = new Date().getDay() === 6;
-    const targetCikisTime = getTargetCikisTime(activeUserShift, undefined, isTodaySaturday, saturdayConfig);
+    const nowInit = new Date();
+    const isTodayWeekend = nowInit.getDay() === 6 || nowInit.getDay() === 0;
+    const targetCikisTime = getTargetCikisTime(activeUserShift, undefined, isTodayWeekend, saturdayConfig);
     const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
     
     if (savedActiveId && savedStart) {
@@ -938,15 +946,28 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         const todayStr = getTodayYYYYMMDD();
         const todayRec = myVardiyalar.find(v => v.tarih === todayStr);
 
+        // KULLANICI KESİN TALİMATI: Bugün için otomatik çıkışlar iptal edilir, çalışan kendi kapatmalıdır
+        if (todayRec && todayRec.cikis_saati && todayRec.notlar && (todayRec.notlar.includes('Otomatik vardiya sonlandırma') || todayRec.notlar.includes('otomatik sonlandırıldı'))) {
+          try {
+            await pdksService.updateVardiya(todayRec.id, {
+              cikis_saati: null,
+              notlar: (todayRec.notlar || '').replace(/Otomatik vardiya sonlandırma[^•\n]*/, '').replace(/\[OFİS:[^\]]+\]\s*\[VARDIYA:[^\]]+\]\s*\[VARDIYA_ID:[^\]]+\]\s*Konumdan uzaklaşıldığı için sistem tarafından otomatik sonlandırıldı[^\n]*/, '').trim()
+            });
+            todayRec.cikis_saati = null;
+          } catch (e) {
+            console.warn('Otomatik çıkış geri alma hatası:', e);
+          }
+        }
+
         if (todayRec && todayRec.cikis_saati && todayRec.cikis_saati !== '00:00:00' && todayRec.cikis_saati !== '00:00') {
-          // Exit was completed (either by employee or by manager/HR)
+          // Exit was completed (by employee manually)
           localStorage.removeItem('pdks_active_shift_id');
           localStorage.removeItem('pdks_active_shift_start');
           setIsShiftActive(false);
           setShiftStartTime(null);
           setActiveShiftRecordId(null);
         } else if (todayRec && todayRec.giris_saati && (!todayRec.cikis_saati || todayRec.cikis_saati === '00:00:00' || todayRec.cikis_saati === '00:00')) {
-          // Personelin mesaisi devam ediyor (otomatik kapatma yok, çalışan kendisi bitirecektir)
+          // Personelin mesaisi devam ediyor (otomatik kapatma asla yok, çalışan kendisi bitirecektir)
           const cleanGiris = todayRec.giris_saati.substring(0, 5);
           const startIso = `${todayRec.tarih}T${cleanGiris}:00`;
 
@@ -1046,12 +1067,12 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
 
       const now = new Date();
-      const isTodaySaturday = now.getDay() === 6;
+      const isTodayWeekend = now.getDay() === 6 || now.getDay() === 0;
       const currentMin = now.getHours() * 60 + now.getMinutes();
-      const shiftStartStr = (isTodaySaturday && saturdayConfig?.isSaturdayWork)
-        ? (activeUserShift?.saturday_start_time || activeUserShift?.start_time || '08:30')
+      const shiftStartStr = (isTodayWeekend && saturdayConfig?.isSaturdayWork)
+        ? (activeUserShift?.saturday_start_time || saturdayConfig?.startTime || activeUserShift?.start_time || '08:30')
         : (activeUserShift?.start_time || '08:30');
-      const shiftEndStr = getTargetCikisTime(activeUserShift, undefined, isTodaySaturday, saturdayConfig);
+      const shiftEndStr = getTargetCikisTime(activeUserShift, undefined, isTodayWeekend, saturdayConfig);
       const toleranceMin = (activeUserShift?.tolerance_minutes !== undefined && activeUserShift?.tolerance_minutes !== null)
         ? Math.max(0, Number(activeUserShift.tolerance_minutes))
         : 15;
@@ -1098,6 +1119,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   }, [isShiftActive, activeUserShift?.start_time, activeUserShift?.end_time, activeUserShift?.tolerance_minutes]);
 
   // Request browser location once
+  // Request browser location with multi-stage fallback (GPS -> Network/Wi-Fi)
   const requestLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus('error');
@@ -1106,22 +1128,49 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     }
 
     setLocationStatus('pending');
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserCoords({ lat: latitude, lng: longitude });
-        setLocationStatus('success');
-      },
-      (error) => {
-        if (error.code === 1) {
-          console.warn('Konum izni verilmedi (Kullanıcı tercihi).');
-        } else {
-          console.warn('Konum uyarısı:', error.message);
+
+    const handleSuccess = (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords;
+      setUserCoords({ lat: latitude, lng: longitude });
+      setLocationStatus('success');
+      setLocationErrorMsg('');
+
+      // Akıllı ofis eşleştirme: Kullanıcının GPS koordinatına en yakın şirket şubesini tespit et
+      const availableOffices = visibleOfficeLocations.length > 0 ? visibleOfficeLocations : officeLocations;
+      if (availableOffices.length > 0) {
+        let closest = availableOffices[0];
+        let minD = getDistance(latitude, longitude, closest.lat, closest.lng);
+        for (let i = 1; i < availableOffices.length; i++) {
+          const d = getDistance(latitude, longitude, availableOffices[i].lat, availableOffices[i].lng);
+          if (d < minD) {
+            minD = d;
+            closest = availableOffices[i];
+          }
         }
-        setLocationStatus('denied');
-        setLocationErrorMsg('Konum izni verilmedi. İşleminize konum bilgisi eklenmeden devam edilebilir.');
+        // Eğer en yakın ofis yakın bir mesafedeyse (şube sınırları veya 2 km civarı), otomatik seç
+        if (closest && minD <= Math.max(2500, (closest.radius_meters || 200) * 3)) {
+          setSelectedOfficeId(closest.id);
+        }
+      }
+    };
+
+    // 1. Aşama: Yüksek hassasiyetli GPS (15 saniye zaman aşımı, son 1 dakikalık önbelleğe izin)
+    navigator.geolocation.getCurrentPosition(
+      handleSuccess,
+      (error) => {
+        console.warn('Yüksek hassasiyetli GPS zaman aşımı/uyarısı, ağ tabanlı standart konuma geçiliyor:', error.message);
+        // 2. Aşama: Kapalı alanlar ve mobil cihazlar için düşük hassasiyetli (Wi-Fi/Hücresel) fallback
+        navigator.geolocation.getCurrentPosition(
+          handleSuccess,
+          (lowAccError) => {
+            console.warn('Standart konum uyarısı:', lowAccError.message);
+            setLocationStatus('denied');
+            setLocationErrorMsg('Konum tam doğrulanamadı. Mesainizi onaylayarak devam edebilirsiniz.');
+          },
+          { enableHighAccuracy: false, timeout: 15000, maximumAge: 180000 }
+        );
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
   };
 
@@ -1297,15 +1346,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
   // Start Shift Handler
   const handleStartShift = async () => {
-    // 1. Double check position against selected active office
-    if (distanceToSelectedOffice === null || distanceToSelectedOffice > (activeOffice?.radius_meters || geofenceRadius)) {
-      showError(
-        'Ofis Sınırları Dışındasınız',
-        `Seçili ofis (${activeOffice?.name || 'Şirket'}) konumunun dışındasınız. Mesai sadece bulunduğunuz ofis sınırları içerisindeyken başlatılabilir!`
-      );
-      return;
-    }
-
     const empId = currentEmployee?.id;
     if (!empId) {
       showError(
@@ -1318,14 +1358,25 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     const now = new Date();
     const startIso = now.toISOString();
     const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
-    const dateStr = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
+    const dateStr = getTodayYYYYMMDD();
     
-    // Calculate delay based on selected shift's start time and tolerance
-    const isTodaySaturday = now.getDay() === 6;
-    const shiftStart = isTodaySaturday && activeUserShift?.saturday_start_time ? activeUserShift.saturday_start_time : (activeUserShift?.start_time || '08:30');
-    const shiftEnd = isTodaySaturday && activeUserShift?.saturday_end_time ? activeUserShift.saturday_end_time : (activeUserShift?.end_time || '18:00');
-    const toleranceMinutes = (activeUserShift?.tolerance_minutes !== undefined && activeUserShift?.tolerance_minutes !== null) ? Number(activeUserShift.tolerance_minutes) : 15;
-    const breakMinutes = (isTodaySaturday && activeUserShift?.saturday_break_minutes !== undefined) ? Number(activeUserShift.saturday_break_minutes) : (activeUserShift?.break_minutes ?? 60);
+    // Calculate delay based on selected shift's start time and tolerance (Cumartesi ve Pazar dahil)
+    const dayOfWeek = now.getDay();
+    const isTodayWeekend = dayOfWeek === 6 || dayOfWeek === 0;
+    const isWeekendActive = isTodayWeekend && saturdayConfig?.isSaturdayWork;
+
+    const shiftStart = isWeekendActive
+      ? (activeUserShift?.saturday_start_time || saturdayConfig?.startTime || activeUserShift?.start_time || '08:30')
+      : (activeUserShift?.start_time || '08:30');
+    const shiftEnd = isWeekendActive
+      ? (activeUserShift?.saturday_end_time || saturdayConfig?.endTime || (saturdayConfig?.isSaturdayWork ? '16:00' : (activeUserShift?.end_time || '18:00')))
+      : (activeUserShift?.end_time || '18:00');
+    const toleranceMinutes = (activeUserShift?.tolerance_minutes !== undefined && activeUserShift?.tolerance_minutes !== null)
+      ? Number(activeUserShift.tolerance_minutes)
+      : (isWeekendActive && saturdayConfig?.toleranceMinutes != null ? Number(saturdayConfig.toleranceMinutes) : 15);
+    const breakMinutes = isWeekendActive
+      ? (activeUserShift?.saturday_break_minutes !== undefined ? Number(activeUserShift.saturday_break_minutes) : Number(saturdayConfig?.breakMinutes ?? 30))
+      : (activeUserShift?.break_minutes ?? 60);
 
     const currentMin = now.getHours() * 60 + now.getMinutes();
     const [sH, sM] = shiftStart.split(':').map(Number);
@@ -1358,10 +1409,16 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
     try {
       // Sync with Supabase if company is available
-      if (shiftCompId) {
-        const noteText = `[OFİS:${officeName}] [VARDIYA:${activeUserShift?.name || 'Vardiya'}] [VARDIYA_ID:${activeUserShift?.id || ''}] Tarayıcı GPS Doğrulandı: ${officeName} • Vardiya: ${activeUserShift?.name || 'Vardiya'} (${shiftStart}-${shiftEnd})`;
+      const targetCompanyId = resolvedCompanyId || currentEmployee?.company_id || effectiveCompanyId;
+      if (targetCompanyId) {
+        const gpsStatus = isWithinGeofence
+          ? `Tarayıcı GPS Doğrulandı: ${officeName}`
+          : (distanceToSelectedOffice !== null
+              ? `Konum Dışı/Personel Teyitli (${distanceToSelectedOffice}m): ${officeName}`
+              : `Konum Alınamadı/Personel Teyitli: ${officeName}`);
+        const noteText = `[OFİS:${officeName}] [VARDIYA:${activeUserShift?.name || 'Vardiya'}] [VARDIYA_ID:${activeUserShift?.id || ''}] ${gpsStatus} • Vardiya: ${activeUserShift?.name || 'Vardiya'} (${shiftStart}-${shiftEnd})`;
         const payload: VardiyaInsert = {
-          company_id: shiftCompId,
+          company_id: targetCompanyId,
           employee_id: empId,
           tarih: dateStr,
           vardiya_tipi: 'tam-gun',
@@ -1426,9 +1483,16 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     const officeName = activeOffice?.name || 'Ofis';
 
     if (!wasAutoEnded) {
-      const isTodaySaturday = now.getDay() === 6;
-      const shiftStart = isTodaySaturday && activeUserShift?.saturday_start_time ? activeUserShift.saturday_start_time : (activeUserShift?.start_time || '08:30');
-      const shiftEnd = isTodaySaturday && activeUserShift?.saturday_end_time ? activeUserShift.saturday_end_time : (activeUserShift?.end_time || '18:00');
+      const dayOfWeek = now.getDay();
+      const isTodayWeekend = dayOfWeek === 6 || dayOfWeek === 0;
+      const isWeekendActive = isTodayWeekend && saturdayConfig?.isSaturdayWork;
+
+      const shiftStart = isWeekendActive
+        ? (activeUserShift?.saturday_start_time || saturdayConfig?.startTime || activeUserShift?.start_time || '08:30')
+        : (activeUserShift?.start_time || '08:30');
+      const shiftEnd = isWeekendActive
+        ? (activeUserShift?.saturday_end_time || saturdayConfig?.endTime || (saturdayConfig?.isSaturdayWork ? '16:00' : (activeUserShift?.end_time || '18:00')))
+        : (activeUserShift?.end_time || '18:00');
       
       const currentHM = timeStr;
       const isEarlyExit = currentHM < shiftEnd;
@@ -1581,7 +1645,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
   const handleAutoEndShifts = async () => {
     const todayStr = getTodayYYYYMMDD();
-    const isTodaySaturday = new Date().getDay() === 6;
+    const todayDay = new Date().getDay();
+    const isTodayWeekend = todayDay === 6 || todayDay === 0;
     const cleanShifts = allCompanyShifts.filter(isNotSaturdayShift);
     const defaultShift = cleanShifts.find((s) => s.is_default) || cleanShifts[0] || VARSAYILAN_VARDIYALAR[0];
 
@@ -1623,7 +1688,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         }
         if (!empShift) empShift = defaultShift;
 
-        const targetCikis = getTargetCikisTime(empShift, defaultShift?.id, isTodaySaturday, saturdayConfig);
+        const targetCikis = getTargetCikisTime(empShift, defaultShift?.id, isTodayWeekend, saturdayConfig);
         await pdksService.updateVardiya(rec.id, {
           cikis_saati: targetCikis + ':00',
           notlar: `Otomatik vardiya sonlandırma (${targetCikis}) - Vardiya: ${empShift?.name || 'Standart'}`
@@ -1735,7 +1800,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           baseShift = cleanShifts.find(s => 
             s.name.toLowerCase().includes(empLoc.toLowerCase()) || 
             (s.office_name && s.office_name.toLowerCase().includes(empLoc.toLowerCase()))
-          );
+          ) || null;
         }
       }
       if (!baseShift) {
@@ -1750,20 +1815,22 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
 
       // "vardıyada ne yazıyosa ona göre cıkış yapılsın"
-      const targetCikis = getTargetCikisTime(baseShift, defaultShift?.id, isTargetSaturday, saturdayConfig);
-      const isSaturdayActive = isTargetSaturday && saturdayConfig?.isSaturdayWork;
+      const isTargetWeekend = isTargetSaturday || isTargetSunday;
+      const targetCikis = getTargetCikisTime(baseShift, defaultShift?.id, isTargetWeekend, saturdayConfig);
+      const isWeekendActive = isTargetWeekend && saturdayConfig?.isSaturdayWork;
 
-      const empShift = isSaturdayActive
+      const empShift = isWeekendActive
         ? {
             ...baseShift,
-            start_time: baseShift.saturday_start_time || baseShift.start_time || '08:30',
+            start_time: baseShift.saturday_start_time || saturdayConfig?.startTime || baseShift.start_time || '08:30',
             end_time: targetCikis,
             break_minutes: baseShift.saturday_break_minutes != null ? Number(baseShift.saturday_break_minutes) : Number(saturdayConfig.breakMinutes ?? 30),
             tolerance_minutes: Number(baseShift.tolerance_minutes ?? 15),
           }
         : {
             ...baseShift,
-            end_time: targetCikis,
+            start_time: baseShift.start_time || '08:30',
+            end_time: (baseShift.end_time && baseShift.end_time !== '00:00') ? baseShift.end_time : targetCikis,
           };
 
       if (realRecord) {
@@ -1811,6 +1878,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           let checkIn = realRecord.giris_saati ? realRecord.giris_saati.substring(0, 5) : null;
           let checkOut = realRecord.cikis_saati ? realRecord.cikis_saati.substring(0, 5) : null;
 
+          // Eğer bugün için sistem otomatik sonlandırma yaptıysa (16:00 vb.), bunu iptal et ve mesaiyi devam ettir!
+          if (targetDate === todayStr && checkOut && realRecord.notlar && (realRecord.notlar.includes('Otomatik vardiya sonlandırma') || realRecord.notlar.includes('otomatik sonlandırıldı'))) {
+            checkOut = null;
+          }
+
           // Eğer puantajdan Ç (Fiili Çalışma) seçilmişse ve giriş saati null ise,
           // notlardan veya atanmış vardiyanın başlama saatinden al (örn: 08:30)
           if (!checkIn && pKod === 'Ç') {
@@ -1840,53 +1912,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           let effectiveCheckOut = checkOut;
 
           if (!checkOut && checkIn) {
-            const now = new Date();
-            const currentMinutes = now.getHours() * 60 + now.getMinutes();
-            let shiftStartMinutes = 8 * 60 + 30;
-            let shiftEndMinutes = 18 * 60;
-            if (empShift.start_time) {
-              const [sH, sM] = empShift.start_time.split(':').map(Number);
-              if (!isNaN(sH) && !isNaN(sM)) shiftStartMinutes = sH * 60 + sM;
-            }
-            if (empShift.end_time) {
-              const [eH, eM] = empShift.end_time.split(':').map(Number);
-              if (!isNaN(eH) && !isNaN(eM)) shiftEndMinutes = eH * 60 + eM;
-            }
-
-            const isOvernight = shiftEndMinutes < shiftStartMinutes;
-
             if (targetDate === todayStr) {
-              // Giriş saatinden bu yana geçen süre (saat cinsinden)
-              const [gH, gM] = checkIn.split(':').map(Number);
-              let elapsedSinceCheckInHours = 0;
-              if (!isNaN(gH) && !isNaN(gM)) {
-                let diffMin = currentMinutes - (gH * 60 + gM);
-                if (diffMin < 0) diffMin += 24 * 60;
-                elapsedSinceCheckInHours = diffMin / 60;
-              }
-
-              // Otomatik kapanma kontrolleri:
-              // 1. En az 7 saat çalışılmış olmalı (elapsedSinceCheckInHours >= 7)
-              // 2. Vardiya kapanış saati gelmiş olmalı (currentMinutes >= shiftEndMinutes)
-              // 3. Gece vardiyasında (isOvernight) vardiya bugün başladıysa ertesi gün sabah biter, bugün içerisinde kapanmaz.
-              let isShiftAutoClosed = false;
-              if (elapsedSinceCheckInHours >= 7) {
-                if (isOvernight) {
-                  isShiftAutoClosed = false;
-                } else {
-                  isShiftAutoClosed = currentMinutes >= shiftEndMinutes;
-                }
-              }
-
-              if (isShiftAutoClosed) {
-                // 7 saat dolmuş VE vardiya kapanış saati gelmiş: Olması gereken saatte (örn: 17:00, 18:00) otomatik çıkış!
-                effectiveCheckOut = empShift.end_time;
-                status = 'Zamanında';
-              } else {
-                // Henüz 7 saat dolmamış VEYA vardiya saati henüz bitmemiş: Mesai Devam Ediyor
-                effectiveCheckOut = null;
-                status = 'Mesai Devam Ediyor';
-              }
+              // KULLANICI KESİN TALİMATI: Bugün için mesai ASLA otomatik kapanmaz!
+              // Personel kendisi "Mesaiyi Bitir" ile çıkış yapana kadar "Mesai Devam Ediyor" durumundadır.
+              effectiveCheckOut = null;
+              status = 'Mesai Devam Ediyor';
             } else {
               // Geçmiş bir günse ve çıkış basılmamışsa vardiya saatine göre tamamlanmış kabul edilir
               effectiveCheckOut = empShift.end_time || '18:00';
@@ -2188,7 +2218,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       mesaiSaat: d.mesai || 0,
     }));
 
-    const companyName = companyDetails?.name || profile?.company_name || 'Humanius HRMS';
+    const companyName = companyDetails?.name || (profile as any)?.company_name || 'Humanius HRMS';
     printPdksDevamRaporuPdf({
       companyName,
       reportTitle: `GÜNLÜK PERSONEL PDKS DEVAM VE VARDİYA ÇİZELGESİ (${formattedSelectedDateText})`,
@@ -2212,7 +2242,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       mesaiSaat: d.mesai || 0,
     }));
 
-    const companyName = companyDetails?.name || profile?.company_name || 'Humanius';
+    const companyName = companyDetails?.name || (profile as any)?.company_name || 'Humanius';
     exportPdksToCsv(companyName, selectedDate || new Date().toLocaleDateString('tr-TR'), records);
   };
 
@@ -2229,12 +2259,12 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         {isManagement && (
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={handleAutoEndShifts}
-              className="flex items-center gap-1.5 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs"
-              title="Bugün giriş yapmış personellerin mesaisini vardiya saatlerine göre (Tarsus 15:00 vb.) otomatik tamamla"
+              onClick={loadShiftHistory}
+              className="flex items-center gap-1.5 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              title="Tüm personellerin canlı mesai ve vardiya durumunu yenile"
             >
-              <Clock className="w-3.5 h-3.5 text-amber-600" />
-              Mesaileri Kapat
+              <Clock className="w-3.5 h-3.5 text-indigo-600" />
+              Verileri Yenile
             </button>
 
             <button
@@ -2411,11 +2441,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         )}
                       </select>
                       <div className="flex items-center justify-between text-[11px] text-indigo-900/80 px-1 font-medium">
-                        <span>Mola: <strong>{activeUserShift?.break_minutes ?? 60} dk</strong></span>
+                        <span>Mola: <strong>{(new Date().getDay() === 6 || new Date().getDay() === 0) && saturdayConfig?.isSaturdayWork ? (activeUserShift?.saturday_break_minutes ?? saturdayConfig?.breakMinutes ?? 30) : (activeUserShift?.break_minutes ?? 60)} dk</strong></span>
                         <span>•</span>
-                        <span>Tolerans: <strong>{activeUserShift?.tolerance_minutes ?? 15} dk</strong></span>
+                        <span>Tolerans: <strong>{(new Date().getDay() === 6 || new Date().getDay() === 0) && saturdayConfig?.toleranceMinutes != null ? Number(saturdayConfig.toleranceMinutes) : (activeUserShift?.tolerance_minutes ?? 15)} dk</strong></span>
                         <span>•</span>
-                        <span className="font-mono font-bold text-indigo-700">{activeUserShift?.start_time || '08:30'} - {activeUserShift?.end_time || '18:00'}</span>
+                        <span className="font-mono font-bold text-indigo-700">
+                          {(new Date().getDay() === 6 || new Date().getDay() === 0) && saturdayConfig?.isSaturdayWork
+                            ? `${activeUserShift?.saturday_start_time || saturdayConfig?.startTime || activeUserShift?.start_time || '08:30'} - ${activeUserShift?.saturday_end_time || saturdayConfig?.endTime || '16:00'}`
+                            : `${activeUserShift?.start_time || '08:30'} - ${activeUserShift?.end_time || '18:00'}`}
+                        </span>
                       </div>
                     </div>
                   ) : (
@@ -2435,15 +2469,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                             })()}
                           </p>
                           <p className="text-[11px] font-mono text-indigo-700 font-medium">
-                            {new Date().getDay() === 6 && saturdayConfig?.isSaturdayWork
-                              ? `${activeUserShift?.saturday_start_time || '08:30'} - ${activeUserShift?.saturday_end_time || '13:00'} (Cumartesi)`
+                            {(new Date().getDay() === 6 || new Date().getDay() === 0) && saturdayConfig?.isSaturdayWork
+                              ? `${activeUserShift?.saturday_start_time || saturdayConfig?.startTime || activeUserShift?.start_time || '08:30'} - ${activeUserShift?.saturday_end_time || saturdayConfig?.endTime || '16:00'} (${new Date().getDay() === 6 ? 'Cumartesi' : 'Pazar'})`
                               : `${activeUserShift?.start_time || '08:30'} - ${activeUserShift?.end_time || '18:00'}`}
                           </p>
                         </div>
                       </div>
                       <div className="text-[10px] text-indigo-800 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                        {new Date().getDay() === 6 && saturdayConfig?.isSaturdayWork
-                          ? (activeUserShift?.saturday_break_minutes ?? 30)
+                        {(new Date().getDay() === 6 || new Date().getDay() === 0) && saturdayConfig?.isSaturdayWork
+                          ? (activeUserShift?.saturday_break_minutes ?? saturdayConfig?.breakMinutes ?? 30)
                           : (activeUserShift?.break_minutes ?? 60)} dk mola
                       </div>
                     </div>
@@ -2562,26 +2596,42 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 </div>
 
                 {/* Status Indicator */}
-                <div className={`p-4 rounded-2xl border w-full max-w-sm transition-all flex items-center gap-3 ${
+                <div className={`p-4 rounded-2xl border w-full max-w-sm transition-all flex items-start gap-3 ${
                   isWithinGeofence
-                    ? 'bg-green-50 border-green-200 text-green-800'
-                    : 'bg-amber-50 border-amber-200 text-amber-900'
+                    ? 'bg-green-50/90 border-green-200 text-green-900 shadow-sm'
+                    : 'bg-amber-50/90 border-amber-200 text-amber-950 shadow-sm'
                 }`}>
                   {isWithinGeofence ? (
-                    <CheckCircle2 className="w-6 h-6 text-green-600 shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
                   ) : (
-                    <ShieldAlert className="w-6 h-6 text-amber-600 shrink-0" />
+                    <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                   )}
-                  <div className="text-left">
-                    <p className="text-xs font-bold uppercase tracking-wide">
-                      {isWithinGeofence ? `${activeOffice.name.toUpperCase()} LOKASYONUNDASINIZ` : "OFİS ALANI DIŞINDASINIZ"}
-                    </p>
-                    <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
+                  <div className="text-left flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold uppercase tracking-wide truncate">
+                        {isWithinGeofence 
+                          ? `${activeOffice.name.toUpperCase()} LOKASYONUNDASINIZ` 
+                          : (locationStatus === 'pending' ? 'KONUM ARANIYOR...' : 'OFİS ALANI DIŞI / TEYİTLİ')}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={requestLocation}
+                        disabled={locationStatus === 'pending'}
+                        className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 bg-white/80 hover:bg-white px-2 py-0.5 rounded-md border border-indigo-200 shrink-0 flex items-center gap-1 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                        title="GPS Konumunu Yenile"
+                      >
+                        <RefreshCw className={`w-2.5 h-2.5 ${locationStatus === 'pending' ? 'animate-spin text-indigo-500' : ''}`} />
+                        <span>{locationStatus === 'pending' ? 'Taranıyor' : 'Yenile'}</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-gray-600 mt-1 leading-relaxed">
                       {isWithinGeofence 
-                        ? `GPS Doğrulaması Başarılı • ${activeOffice.name}${activeOffice.il ? ` (${activeOffice.il}${activeOffice.ilce ? ` / ${activeOffice.ilce}` : ''})` : ''} (Uzaklık: ${distanceToSelectedOffice}m • Sınır: ${activeOffice.radius_meters}m)`
+                        ? `GPS Doğrulaması Başarılı • ${activeOffice.name}${activeOffice.il ? ` (${activeOffice.il}${activeOffice.ilce ? ` / ${activeOffice.ilce}` : ''})` : ''} (Mesafe: ${distanceToSelectedOffice}m • Sınır: ${activeOffice.radius_meters}m)`
                         : distanceToSelectedOffice !== null 
-                          ? `"${activeOffice.name}${activeOffice.il ? ` (${activeOffice.il}${activeOffice.ilce ? ` / ${activeOffice.ilce}` : ''})` : ''}" konumuna uzaklığınız ${distanceToSelectedOffice >= 1000 ? `${(distanceToSelectedOffice / 1000).toFixed(1)} km` : `${distanceToSelectedOffice} metre`} (İzin verilen sınır: ${activeOffice.radius_meters}m). Lütfen kayıtlı ofis sınırları içerisindeyken mesai başlatınız.`
-                          : "Konum doğrulanıyor, lütfen tarayıcınızdan konum izni veriniz..."
+                          ? `"${activeOffice.name}${activeOffice.il ? ` (${activeOffice.il}${activeOffice.ilce ? ` / ${activeOffice.ilce}` : ''})` : ''}" konumuna mesafeniz ${distanceToSelectedOffice >= 1000 ? `${(distanceToSelectedOffice / 1000).toFixed(1)} km` : `${distanceToSelectedOffice}m`} (Sınır: ${activeOffice.radius_meters}m). Aşağıdaki butona dokunarak teyitli mesai başlatabilirsiniz.`
+                          : locationStatus === 'pending'
+                            ? "Telefonunuzun GPS ve hücresel konumu taranıyor... Dilerseniz beklemeden hemen teyitli mesai başlatabilirsiniz."
+                            : "Konum alınamadı. 'Yenile'ye dokunabilir veya doğrudan aşağıdaki butonla teyitli mesai başlatabilirsiniz."
                       }
                     </p>
                   </div>
@@ -2592,24 +2642,30 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   {isShiftActive ? (
                     <button
                       onClick={() => handleEndShift(false)}
-                      className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-red-100 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 cursor-pointer"
+                      className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-red-100 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                     >
                       <Square className="w-5 h-5 fill-white" />
                       Mesaiyi Bitir (Çıkış)
                     </button>
                   ) : (
-                    <button
-                      onClick={handleStartShift}
-                      disabled={!isWithinGeofence}
-                      className={`w-full font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all transform ${
-                        isWithinGeofence
-                          ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-100 hover:-translate-y-0.5 cursor-pointer'
-                          : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-80'
-                      }`}
-                    >
-                      <Play className="w-5 h-5 fill-current" />
-                      Mesaiyi Başlat (Giriş)
-                    </button>
+                    <div className="flex flex-col items-center w-full">
+                      <button
+                        onClick={handleStartShift}
+                        className={`w-full font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer shadow-lg ${
+                          isWithinGeofence
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
+                            : 'bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white shadow-amber-200'
+                        }`}
+                      >
+                        <Play className="w-5 h-5 fill-current" />
+                        {isWithinGeofence ? 'Mesaiyi Başlat (Ofis İçi Giriş)' : 'Mesaiyi Başlat (Ofis Dışı / Teyitli)'}
+                      </button>
+                      {!isWithinGeofence && (
+                        <p className="text-[11px] text-amber-700 mt-2 font-medium text-center">
+                          ℹ️ Konum teyitli olarak kaydedilecek ve puantajınıza yansıtılacaktır.
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

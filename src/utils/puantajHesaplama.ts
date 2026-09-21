@@ -114,9 +114,29 @@ export function checkIsResmiTatil(dateStr: string): { isTatil: boolean; ad?: str
  */
 export function hesaplaYasalAraDinlenme(brutSaat: number, vardiyaMolaDk?: number): number {
   if (brutSaat <= 0) return 0;
-  if (vardiyaMolaDk !== undefined && vardiyaMolaDk !== null && vardiyaMolaDk >= 0) return vardiyaMolaDk;
-  if (brutSaat <= 4) return 15;
-  if (brutSaat <= 7.5) return 30;
+  // 1 saatten az çalışmalarda yasal ara dinlenme düşülmez (kısa süreli mesai/test/erken çıkış)
+  if (brutSaat < 1) return 0;
+
+  // 1 - 4 saat arası çalışmalarda yasal ara dinlenme azami 15 dakikadır
+  if (brutSaat <= 4) {
+    if (vardiyaMolaDk !== undefined && vardiyaMolaDk !== null && vardiyaMolaDk >= 0) {
+      return Math.min(vardiyaMolaDk, 15);
+    }
+    return 15;
+  }
+
+  // 4 saatten fazla - 7.5 saate kadar çalışmalarda ara dinlenme azami 30 dakikadır
+  if (brutSaat <= 7.5) {
+    if (vardiyaMolaDk !== undefined && vardiyaMolaDk !== null && vardiyaMolaDk >= 0) {
+      return Math.min(vardiyaMolaDk, 30);
+    }
+    return 30;
+  }
+
+  // 7.5 saatten fazla tam gün çalışmalarda vardiya molası (veya yasal 60 dk) uygulanır
+  if (vardiyaMolaDk !== undefined && vardiyaMolaDk !== null && vardiyaMolaDk >= 0) {
+    return vardiyaMolaDk;
+  }
   return 60;
 }
 
@@ -156,34 +176,40 @@ export function getCalismaSaati(
   if (gun.netSureSaat && gun.netSureSaat > 0) {
     return gun.netSureSaat;
   }
-  // Giriş ve çıkış saati mevcutsa aradaki net süreyi hesapla
+  // Giriş ve çıkış saati mevcutsa aradaki fiili net süreyi hesapla ve doğrudan dön (asla tam gün vardiyaya düşme)
   if (gun.girisSaati && gun.cikisSaati) {
     const [gH, gM] = gun.girisSaati.split(':').map(Number);
     const [cH, cM] = gun.cikisSaati.split(':').map(Number);
     if (!isNaN(gH) && !isNaN(gM) && !isNaN(cH) && !isNaN(cM)) {
       let diffMins = (cH * 60 + cM) - (gH * 60 + gM);
       if (diffMins < 0) diffMins += 24 * 60;
-      const netMins = Math.max(0, diffMins - (gun.molaDk ?? 60));
-      const calculated = parseFloat((netMins / 60).toFixed(1));
-      if (calculated > 0) return calculated;
+      const brutSaat = diffMins / 60;
+      const yasalMola = hesaplaYasalAraDinlenme(brutSaat, gun.molaDk);
+      const netMins = Math.max(0, diffMins - yasalMola);
+      const netSaatCalc = netMins / 60;
+      const calculated = netSaatCalc > 0 && netSaatCalc < 0.1
+        ? parseFloat(netSaatCalc.toFixed(2))
+        : parseFloat(netSaatCalc.toFixed(1));
+      return calculated;
     }
   }
-  // Cumartesi çalışma aktifse Cumartesiye özel planlanan net çalışma süresi (Öncelik: Personelin vardiyası)
-  if (gun.isCumartesi && gun.isCumartesiCalisma && saturdayConfig?.isSaturdayWork) {
-    const sStr = shift?.saturday_start_time || saturdayConfig.startTime || '08:30';
-    const eStr = shift?.saturday_end_time || saturdayConfig.endTime || '13:00';
+  // Cumartesi ise Cumartesiye özel planlanan net çalışma süresi (Öncelik: Personelin vardiyası)
+  if (gun.isCumartesi) {
+    const sStr = shift?.saturday_start_time || saturdayConfig?.startTime || '08:30';
+    const eStr = shift?.saturday_end_time || saturdayConfig?.endTime || '16:00';
     const [sH, sM] = sStr.split(':').map(Number);
     const [eH, eM] = eStr.split(':').map(Number);
     if (!isNaN(sH) && !isNaN(sM) && !isNaN(eH) && !isNaN(eM)) {
       let diffMins = (eH * 60 + eM) - (sH * 60 + sM);
       if (diffMins < 0) diffMins += 24 * 60;
-      const mola = shift?.saturday_break_minutes != null ? Number(shift.saturday_break_minutes) : Number(saturdayConfig.breakMinutes ?? 30);
+      const mola = shift?.saturday_break_minutes != null ? Number(shift.saturday_break_minutes) : Number(saturdayConfig?.breakMinutes ?? 30);
       const netMins = Math.max(0, diffMins - mola);
       const calculated = parseFloat((netMins / 60).toFixed(1));
       if (calculated > 0) return calculated;
     }
+    return 7.0; // Standart Cumartesi net çalışma süresi (08:30 - 16:00, 30dk mola)
   }
-  // Vardiya planındaki net çalışma süresi
+  // Hafta içi vardiya planındaki net çalışma süresi
   if (shift?.start_time && shift?.end_time) {
     const [sH, sM] = shift.start_time.split(':').map(Number);
     const [eH, eM] = shift.end_time.split(':').map(Number);
@@ -249,7 +275,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
 
     if (isCumartesiCalisma) {
       activeStartTime = activeShift?.saturday_start_time || saturdayConfig?.startTime || '08:30';
-      activeEndTime = activeShift?.saturday_end_time || saturdayConfig?.endTime || '13:00';
+      activeEndTime = activeShift?.saturday_end_time || saturdayConfig?.endTime || '16:00';
       activeMolaDk = activeShift?.saturday_break_minutes != null ? Number(activeShift.saturday_break_minutes) : Number(saturdayConfig?.breakMinutes ?? 30);
       activeTolerance = activeShift?.tolerance_minutes || Number(saturdayConfig?.toleranceMinutes ?? 15);
     }
@@ -301,6 +327,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
     let fazlaMesaiSaat = 0;
     let gecikmeDk = 0;
     let isOngoing = false;
+    let appliedMolaDk = activeMolaDk;
 
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -326,11 +353,18 @@ export function hesaplaPersonelAylikPuantaj(params: {
       if (!isNaN(gH) && !isNaN(gM) && !isNaN(cH) && !isNaN(cM)) {
         let diffMins = (cH * 60 + cM) - (gH * 60 + gM);
         if (diffMins < 0) diffMins += 24 * 60; // Gece vardiyası
-        brutSureSaat = parseFloat((diffMins / 60).toFixed(1));
+        const brutSaatCalc = diffMins / 60;
+        brutSureSaat = brutSaatCalc > 0 && brutSaatCalc < 0.1
+          ? parseFloat(brutSaatCalc.toFixed(2))
+          : parseFloat(brutSaatCalc.toFixed(1));
 
-        const yasalMola = hesaplaYasalAraDinlenme(brutSureSaat, activeMolaDk);
+        const yasalMola = hesaplaYasalAraDinlenme(brutSaatCalc, activeMolaDk);
+        appliedMolaDk = yasalMola;
         const netMins = Math.max(0, diffMins - yasalMola);
-        netSureSaat = parseFloat((netMins / 60).toFixed(1));
+        const netSaatCalc = netMins / 60;
+        netSureSaat = netSaatCalc > 0 && netSaatCalc < 0.1
+          ? parseFloat(netSaatCalc.toFixed(2))
+          : parseFloat(netSaatCalc.toFixed(1));
 
         // Geç kalma tespiti
         const [sH, sM] = activeStartTime.split(':').map(Number);
@@ -360,40 +394,52 @@ export function hesaplaPersonelAylikPuantaj(params: {
       let isShiftCompleted = false;
 
       if (isToday) {
-        if (isOvernight) {
-          // Gece vardiyası (örn: 17:00 / 03:00): vardiya bugün başladı ve ertesi gün sabah (03:00) bitecek.
-          // Bugün içerisinde vardiya HER ZAMAN devam ediyor durumundadır.
-          isShiftCompleted = false;
-        } else {
-          isShiftCompleted = currentMinutes >= shiftEndMinutes;
-        }
+        // KULLANICI KESİN TALİMATI: Bugün için mesai ASLA otomatik kapanmaz!
+        // Çalışan "Mesaiyi Bitir" ile kendisi kapatana kadar mesai her zaman devam ediyor (isOngoing = true).
+        isShiftCompleted = false;
       } else {
         // Geçmiş bir günse ve çıkış saati basılmamışsa vardiya saatine göre tamamlanmış kabul edilir
         isShiftCompleted = true;
       }
 
       if (isShiftCompleted) {
-        // Vardiya bitiş saati gelmiş/geçmiş (örn: saat 15:00 çıkışlı vardiya veya geçmiş gün)
+        // Geçmiş günün vardiya bitiş saatine göre tamamlanma
         cikisSaati = activeEndTime;
         isOngoing = false;
         const [cH, cM] = cikisSaati.split(':').map(Number);
         if (!isNaN(gH) && !isNaN(gM) && !isNaN(cH) && !isNaN(cM)) {
           let diffMins = (cH * 60 + cM) - (gH * 60 + gM);
           if (diffMins < 0) diffMins += 24 * 60;
-          brutSureSaat = parseFloat((diffMins / 60).toFixed(1));
-          const yasalMola = hesaplaYasalAraDinlenme(brutSureSaat, activeMolaDk);
-          netSureSaat = parseFloat((Math.max(0, diffMins - yasalMola) / 60).toFixed(1));
+          const brutSaatCalc = diffMins / 60;
+          brutSureSaat = brutSaatCalc > 0 && brutSaatCalc < 0.1
+            ? parseFloat(brutSaatCalc.toFixed(2))
+            : parseFloat(brutSaatCalc.toFixed(1));
+          const yasalMola = hesaplaYasalAraDinlenme(brutSaatCalc, activeMolaDk);
+          appliedMolaDk = yasalMola;
+          const netMins = Math.max(0, diffMins - yasalMola);
+          const netSaatCalc = netMins / 60;
+          netSureSaat = netSaatCalc > 0 && netSaatCalc < 0.1
+            ? parseFloat(netSaatCalc.toFixed(2))
+            : parseFloat(netSaatCalc.toFixed(1));
         }
       } else {
-        // Vardiyası henüz bitmemiş, mesai devam ediyor (örn: 17:00, 17:45, 18:00, 22:00 veya gece vardiyaları)
+        // Bugün: Mesai devam ediyor, asla otomatik çıkış yapılmaz, personel kendisi kapatacak
         isOngoing = true;
         cikisSaati = null;
         if (!isNaN(gH) && !isNaN(gM)) {
           let workedSoFarMins = currentMinutes - (gH * 60 + gM);
           if (workedSoFarMins < 0) workedSoFarMins = 0;
-          brutSureSaat = parseFloat((workedSoFarMins / 60).toFixed(1));
-          const yasalMola = hesaplaYasalAraDinlenme(brutSureSaat, activeMolaDk);
-          netSureSaat = parseFloat((Math.max(0, workedSoFarMins - yasalMola) / 60).toFixed(1));
+          const brutSaatCalc = workedSoFarMins / 60;
+          brutSureSaat = brutSaatCalc > 0 && brutSaatCalc < 0.1
+            ? parseFloat(brutSaatCalc.toFixed(2))
+            : parseFloat(brutSaatCalc.toFixed(1));
+          const yasalMola = hesaplaYasalAraDinlenme(brutSaatCalc, activeMolaDk);
+          appliedMolaDk = yasalMola;
+          const netMins = Math.max(0, workedSoFarMins - yasalMola);
+          const netSaatCalc = netMins / 60;
+          netSureSaat = netSaatCalc > 0 && netSaatCalc < 0.1
+            ? parseFloat(netSaatCalc.toFixed(2))
+            : parseFloat(netSaatCalc.toFixed(1));
         }
       }
 
@@ -427,7 +473,13 @@ export function hesaplaPersonelAylikPuantaj(params: {
       kodAciklama = effectiveKodAciklama || 'Manuel Düzenlendi';
       if (kod === 'Ç') {
         fiiliCalismaGun += 1;
-        fiiliCalismaSaat += netSureSaat || 9;
+        if (netSureSaat > 0) {
+          fiiliCalismaSaat += netSureSaat;
+        } else if (girisSaati || cikisSaati) {
+          fiiliCalismaSaat += netSureSaat;
+        } else {
+          fiiliCalismaSaat += (shift?.start_time && shift?.end_time ? 8.5 : 9);
+        }
       } else if (kod === 'HT') {
         haftaTatiliGun += 1;
       } else if (kod === 'AT') {
@@ -465,7 +517,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
         }
       }
     } else if (resmiTatilInfo.isTatil) {
-      if (girisSaati && cikisSaati && netSureSaat > 0) {
+      if (girisSaati && (cikisSaati || isToday) && (netSureSaat > 0 || (girisSaati && cikisSaati))) {
         kod = 'Ç';
         kodAciklama = `Resmi Tatil Çalışması (${resmiTatilInfo.ad || 'UBGT'})`;
         ubgtCalismasi = true;
@@ -481,7 +533,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
     } else if (isCumartesi && !isCumartesiCalisma) {
       // 5 Günlük Çalışma Düzeni: Cumartesi günü Akdi Tatildir (AT).
       // İzin aralığına denk gelse dahi izinler toplamına yazılmaz ve izin sayılmaz.
-      if (girisSaati && cikisSaati && netSureSaat > 0) {
+      if (girisSaati && (cikisSaati || isToday) && (netSureSaat > 0 || (girisSaati && cikisSaati))) {
         kod = 'Ç';
         kodAciklama = 'Cumartesi Akdi Tatil Çalışması';
         fiiliCalismaGun += 1;
@@ -518,19 +570,12 @@ export function hesaplaPersonelAylikPuantaj(params: {
 
       const isRapor =
         matched?.id === 'hastalik' ||
-        matched?.id === 'rapor' ||
-        matched?.id === 'istirahat' ||
-        matched?.kod?.toUpperCase() === 'HA' ||
-        matched?.kod?.toUpperCase() === 'R' ||
         matched?.kod?.toUpperCase() === 'RP' ||
+        matched?.kod?.toUpperCase() === 'R' ||
         turLower.includes('rapor') ||
-        turLower.includes('hastalik') ||
-        turLower.includes('hastalık') ||
         turLower.includes('istirahat') ||
-        turLower === 'r' ||
-        turLower === 'rp' ||
-        turLower === '-r' ||
-        turLower === 'ha';
+        turLower.includes('hastalik') ||
+        turLower.includes('hastalık');
 
       const isEgitim =
         !isRapor &&
@@ -635,7 +680,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
       }
     } else if (isPazar) {
       // Pazar günü (İzinli değilse): Hafta Tatilidir (HT).
-      if (girisSaati && cikisSaati && netSureSaat > 0) {
+      if (girisSaati && (cikisSaati || isToday) && (netSureSaat > 0 || (girisSaati && cikisSaati))) {
         kod = 'Ç';
         kodAciklama = 'Pazar Hafta Tatili Çalışması (Fazla Mesai)';
         fiiliCalismaGun += 1;
@@ -722,7 +767,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
       girisSaati,
       cikisSaati,
       brutSureSaat,
-      molaDk: activeMolaDk,
+      molaDk: appliedMolaDk,
       netSureSaat,
       fazlaMesaiSaat,
       gecikmeDk,
@@ -752,7 +797,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
     gunler,
     ozet: {
       fiiliCalismaGun,
-      fiiliCalismaSaat: parseFloat(fiiliCalismaSaat.toFixed(1)),
+      fiiliCalismaSaat: fiiliCalismaSaat > 0 && fiiliCalismaSaat < 0.1 ? parseFloat(fiiliCalismaSaat.toFixed(2)) : parseFloat(fiiliCalismaSaat.toFixed(1)),
       haftaTatiliGun,
       akdiTatilGun,
       yillikIzinGun,
@@ -764,7 +809,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
       devamsizGun,
       ubgtGun,
       ubgtCalisilanGun,
-      toplamFazlaMesaiSaat: parseFloat(toplamFazlaMesaiSaat.toFixed(1)),
+      toplamFazlaMesaiSaat: toplamFazlaMesaiSaat > 0 && toplamFazlaMesaiSaat < 0.1 ? parseFloat(toplamFazlaMesaiSaat.toFixed(2)) : parseFloat(toplamFazlaMesaiSaat.toFixed(1)),
       toplamGecikmeDk,
       bordroGun,
     },

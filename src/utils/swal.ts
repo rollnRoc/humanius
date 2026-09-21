@@ -187,16 +187,16 @@ export const confirmShiftStart = async (params: ShiftStartConfirmParams): Promis
   if (isCriticalTimeDiff) {
     // 🚨 RED WARNING CARD (if 1 hour early or 1 hour late)
     statusCardHtml = `
-      <div style="background: #fef2f2; border: 2px solid #ef4444; border-radius: 12px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);">
-        <span style="font-size: 22px; line-height: 1;">🚨</span>
+      <div style="background: #fef2f2; border: 1.5px solid #ef4444; border-radius: 10px; padding: 8px 10px; display: flex; align-items: flex-start; gap: 8px; box-shadow: 0 1px 4px rgba(239, 68, 68, 0.1);">
+        <span style="font-size: 16px; line-height: 1; margin-top: 1px;">🚨</span>
         <div>
-          <div style="font-size: 13px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.3px;">
+          <div style="font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase;">
             ${isOneHourEarly ? 'DİKKAT: VARDİYADAN 1 SAAT ERKEN GİRİŞ!' : 'DİKKAT: VARDİYADAN 1 SAAT GEÇ GİRİŞ!'}
           </div>
-          <div style="font-size: 11.5px; color: #7f1d1d; margin-top: 3px; line-height: 1.45;">
+          <div style="font-size: 10px; color: #7f1d1d; margin-top: 2px; line-height: 1.35;">
             ${isOneHourEarly 
-              ? `Vardiya başlangıç saatiniz <strong>${shiftStart}</strong> olup, 1 saatten daha erken bir saatte (<strong>${currentTimeStr}</strong>) mesai başlatmaktasınız. Lütfen saatinizi kontrol ediniz.`
-              : `Vardiya başlangıç saatiniz olan <strong>${shiftStart}</strong> üzerinden 1 saatten fazla süre geçmiştir (Şu an: <strong>${currentTimeStr}</strong>). Bu işlem sisteme <strong>Ciddi Geç Kalma</strong> olarak işlenecektir.`
+              ? `Vardiya başlangıcınız (<strong>${shiftStart}</strong>) olup, 1 saatten daha erken mesai başlatmaktasınız.`
+              : `Vardiya başlangıcınızın (<strong>${shiftStart}</strong>) üzerinden 1 saatten fazla süre geçmiştir (Şu an: <strong>${currentTimeStr}</strong>).`
             }
           </div>
         </div>
@@ -205,14 +205,14 @@ export const confirmShiftStart = async (params: ShiftStartConfirmParams): Promis
   } else if (isLate) {
     // ⚠️ YELLOW/AMBER WARNING CARD (late beyond tolerance, but <= 60 mins)
     statusCardHtml = `
-      <div style="background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 12px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px;">
-        <span style="font-size: 20px; line-height: 1;">⚠️</span>
+      <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px; padding: 7px 10px; display: flex; align-items: flex-start; gap: 8px;">
+        <span style="font-size: 16px; line-height: 1; margin-top: 1px;">⚠️</span>
         <div>
-          <div style="font-size: 12px; font-weight: 800; color: #92400e;">
-            Vardiya Başlangıç Toleransı Aşıldı!
+          <div style="font-size: 11px; font-weight: 800; color: #92400e;">
+            Vardiya Toleransı Aşıldı
           </div>
-          <div style="font-size: 11px; color: #78350f; margin-top: 2px; line-height: 1.4;">
-            Vardiya hedef saatiniz (<strong>${shiftStart}</strong>) ve ${toleranceMinutes} dakikalık tolerans süresi dolduğu için bu işlem <strong>Geç Kaldı</strong> olarak kaydedilecektir.
+          <div style="font-size: 10px; color: #78350f; margin-top: 1px; line-height: 1.35;">
+            Hedef saat (<strong>${shiftStart}</strong>) ve ${toleranceMinutes} dk tolerans dolduğu için <strong>Geç Kaldı</strong> işlenecektir.
           </div>
         </div>
       </div>
@@ -220,14 +220,14 @@ export const confirmShiftStart = async (params: ShiftStartConfirmParams): Promis
   } else {
     // 🟢 GREEN ON-TIME CARD
     statusCardHtml = `
-      <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px;">
-        <span style="font-size: 20px; line-height: 1;">🟢</span>
+      <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px; padding: 7px 10px; display: flex; align-items: flex-start; gap: 8px;">
+        <span style="font-size: 15px; line-height: 1; margin-top: 1px;">🟢</span>
         <div>
-          <div style="font-size: 12px; font-weight: 800; color: #166534;">
+          <div style="font-size: 11px; font-weight: 800; color: #166534;">
             Zamanında Giriş Yapıyorsunuz
           </div>
-          <div style="font-size: 11px; color: #15803d; margin-top: 2px; line-height: 1.4;">
-            Vardiya başlangıç saatiniz olan <strong>${shiftStart}</strong> dilimine uygun olarak giriş yapıyorsunuz. Başarılar dileriz!
+          <div style="font-size: 10px; color: #15803d; margin-top: 1px; line-height: 1.35;">
+            Vardiya başlangıç saatinize (<strong>${shiftStart}</strong>) uygun giriş yapıyorsunuz. İyi çalışmalar!
           </div>
         </div>
       </div>
@@ -235,59 +235,56 @@ export const confirmShiftStart = async (params: ShiftStartConfirmParams): Promis
   }
 
   const htmlContent = `
-    <div style="text-align: left; font-family: inherit; margin-top: 8px;">
-      <!-- Date & Subtitle -->
-      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-        <span style="font-size: 12px; font-weight: 600; color: #475569;">📅 ${currentDateStr}</span>
-        <span style="font-size: 13px; font-weight: 700; color: #0f172a; font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 6px;">⏰ Saat: ${currentTimeStr}</span>
+    <div style="text-align: left; font-family: inherit; margin-top: 4px;">
+      <!-- Date & Time Bar -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 5px 8px; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; font-size: 10.5px;">
+        <span style="font-weight: 600; color: #475569;">📅 ${currentDateStr}</span>
+        <span style="font-weight: 700; color: #0f172a; font-family: monospace; background: #e2e8f0; padding: 1px 6px; border-radius: 4px;">⏰ Saat: ${currentTimeStr}</span>
       </div>
 
-      <!-- OFFICE CARD (Clean - Only Office Name) -->
-      <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(34, 197, 94, 0.08);">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 18px;">🏢</span>
-            <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; color: #15803d; text-transform: uppercase;">Çalışma Ofisi</span>
+      <!-- OFFICE & SHIFT CARDS (COMPACT 2-COL GRID) -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+        <!-- OFİS -->
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 6px 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
+            <span style="font-size: 9.5px; font-weight: 800; color: #15803d; text-transform: uppercase;">🏢 OFİS</span>
+            <span style="font-size: 8.5px; font-weight: 700; padding: 1px 4px; border-radius: 9999px; background: ${isWithinGeofence ? '#dcfce7; color: #166534;' : '#fef3c7; color: #92400e;'}">
+              ${isWithinGeofence ? '✅ Ofis İçi' : '⚠️ Sınır Dışı'}
+            </span>
           </div>
-          <span style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: ${isWithinGeofence ? '#dcfce7; color: #166534;' : '#fef3c7; color: #92400e;'} border: 1px solid ${isWithinGeofence ? '#bbf7d0;' : '#fde68a;'}">
-            ${isWithinGeofence ? '✅ Ofis İçi' : '⚠️ Sınır Dışı'}
-          </span>
+          <div style="font-size: 12px; font-weight: 800; color: #14532d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${officeName}">
+            ${officeName}
+          </div>
         </div>
-        <div style="font-size: 18px; font-weight: 900; color: #14532d; line-height: 1.3;">
-          ${officeName}
-        </div>
-      </div>
 
-      <!-- SHIFT INFORMATION CARD (WITH HIGHLY PROMINENT START & END TIMES) -->
-      <div style="background: #eef2ff; border: 1.5px solid #a5b4fc; border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(99, 102, 241, 0.08);">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 18px;">⏱️</span>
-            <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; color: #4338ca; text-transform: uppercase;">Atanan Vardiya</span>
+        <!-- VARDIYA -->
+        <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 6px 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
+            <span style="font-size: 9.5px; font-weight: 800; color: #4338ca; text-transform: uppercase;">⏱️ VARDİYA</span>
+            <span style="font-size: 8.5px; font-weight: 700; padding: 1px 5px; border-radius: 3px; background: ${shiftColor}; color: #ffffff;">
+              Seçili
+            </span>
           </div>
-          <span style="font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 6px; background: ${shiftColor}; color: #ffffff;">
+          <div style="font-size: 12px; font-weight: 800; color: #1e1b4b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${shiftName}">
             ${shiftName}
-          </span>
-        </div>
-
-        <!-- HIGHLY EMPHASIZED WORKING HOURS -->
-        <div style="background: #ffffff; border: 2px solid #818cf8; border-radius: 12px; padding: 10px 14px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; text-align: center; gap: 8px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(99, 102, 241, 0.08);">
-          <div style="background: #f8fafc; border-radius: 8px; padding: 6px 4px;">
-            <div style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Başlangıç Saati</div>
-            <div style="font-size: 26px; font-weight: 900; color: #1e1b4b; font-family: monospace; letter-spacing: -0.5px; line-height: 1.2; margin-top: 2px;">
-              ${shiftStart}
-            </div>
-          </div>
-          <div style="font-size: 22px; font-weight: 900; color: #6366f1; padding: 0 4px;">➔</div>
-          <div style="background: #f8fafc; border-radius: 8px; padding: 6px 4px;">
-            <div style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Bitiş Saati</div>
-            <div style="font-size: 26px; font-weight: 900; color: #1e1b4b; font-family: monospace; letter-spacing: -0.5px; line-height: 1.2; margin-top: 2px;">
-              ${shiftEnd}
-            </div>
           </div>
         </div>
+      </div>
 
-        <div style="display: flex; align-items: center; justify-content: center; gap: 14px; font-size: 11px; color: #475569; border-top: 1px dashed #cbd5e1; padding-top: 6px;">
+      <!-- WORKING HOURS & BREAKS CARD -->
+      <div style="background: #ffffff; border: 1.5px solid #818cf8; border-radius: 10px; padding: 6px 10px; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(99, 102, 241, 0.05);">
+        <div style="display: flex; align-items: center; justify-content: space-around; text-align: center;">
+          <div>
+            <div style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase;">Başlangıç</div>
+            <div style="font-size: 18px; font-weight: 900; color: #1e1b4b; font-family: monospace; line-height: 1.2;">${shiftStart}</div>
+          </div>
+          <div style="font-size: 15px; font-weight: 900; color: #6366f1;">➔</div>
+          <div>
+            <div style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase;">Bitiş</div>
+            <div style="font-size: 18px; font-weight: 900; color: #1e1b4b; font-family: monospace; line-height: 1.2;">${shiftEnd}</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 10px; color: #475569; border-top: 1px dashed #e2e8f0; margin-top: 4px; padding-top: 3px;">
           <span>☕ <strong>${breakMinutes} dk</strong> Mola</span>
           <span>•</span>
           <span>⏳ <strong>${toleranceMinutes} dk</strong> Tolerans</span>
@@ -300,13 +297,13 @@ export const confirmShiftStart = async (params: ShiftStartConfirmParams): Promis
   `;
 
   const result = await HumaniusSwal.fire({
-    title: '<div class="text-xl font-extrabold text-gray-900">Mesaiyi Başlatmak İstiyor Musunuz?</div>',
+    title: '<div class="text-base sm:text-lg font-extrabold text-gray-900">Mesaiyi Başlatmak İstiyor Musunuz?</div>',
     html: htmlContent,
     showCancelButton: true,
     confirmButtonText: '🚀 Evet, Mesaiyi Başlat',
     cancelButtonText: 'Vazgeç',
     customClass: {
-      popup: 'humanius-swal-popup !max-w-lg',
+      popup: 'humanius-swal-popup !max-w-md',
       confirmButton: isCriticalTimeDiff ? 'humanius-swal-end-btn' : 'humanius-swal-start-btn',
       cancelButton: 'humanius-swal-cancel-btn',
       actions: 'humanius-swal-actions'
@@ -343,60 +340,60 @@ export const confirmShiftEnd = async (params: ShiftEndConfirmParams): Promise<bo
   } = params;
 
   const htmlContent = `
-    <div style="text-align: left; font-family: inherit; margin-top: 10px;">
+    <div style="text-align: left; font-family: inherit; margin-top: 4px;">
       <!-- DURATION BANNER -->
-      <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border-radius: 14px; padding: 16px; margin-bottom: 14px; text-align: center; color: white; box-shadow: 0 4px 12px rgba(30, 27, 75, 0.2);">
-        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #a5b4fc; margin-bottom: 4px;">
+      <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; text-align: center; color: white; box-shadow: 0 3px 8px rgba(30, 27, 75, 0.15);">
+        <div style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #a5b4fc; margin-bottom: 2px;">
           ⏱️ Toplam Çalışma Süreniz
         </div>
-        <div style="font-size: 32px; font-weight: 900; font-family: monospace; letter-spacing: 1px; color: #ffffff;">
+        <div style="font-size: 24px; font-weight: 900; font-family: monospace; letter-spacing: 0.5px; color: #ffffff; line-height: 1.15;">
           ${durationText}
         </div>
-        <div style="font-size: 11px; color: #c7d2fe; margin-top: 4px;">
+        <div style="font-size: 10px; color: #c7d2fe; margin-top: 3px;">
           Giriş: <strong style="color: #ffffff;">${startTimeStr}</strong> &nbsp;•&nbsp; Çıkış: <strong style="color: #ffffff;">${currentTimeStr}</strong>
         </div>
       </div>
 
       <!-- OFFICE & SHIFT CARDS GRID -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
         <!-- OFİS -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px;">
-          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 2px;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px;">
+          <div style="font-size: 8.5px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 1px;">
             🏢 Çıkış Lokasyonu
           </div>
-          <div style="font-size: 13px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          <div style="font-size: 12px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${officeName}">
             ${officeName}
           </div>
-          <div style="font-size: 10px; color: #16a34a; font-weight: 600; margin-top: 2px;">
+          <div style="font-size: 9px; color: #16a34a; font-weight: 600; margin-top: 1px;">
             ✓ GPS Eşleşti
           </div>
         </div>
 
         <!-- VARDIYA -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px;">
-          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 2px;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px;">
+          <div style="font-size: 8.5px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 1px;">
             📋 Vardiya Planı
           </div>
-          <div style="font-size: 13px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          <div style="font-size: 12px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${shiftName}">
             ${shiftName}
           </div>
-          <div style="font-size: 10px; font-weight: 700; color: #4338ca; margin-top: 2px; font-family: monospace;">
+          <div style="font-size: 9px; font-weight: 700; color: #4338ca; margin-top: 1px; font-family: monospace;">
             ${shiftHours}
           </div>
         </div>
       </div>
 
       <!-- STATUS NOTE -->
-      <div style="background: ${isEarlyExit ? '#fffbeb' : '#f0fdf4'}; border: 1px solid ${isEarlyExit ? '#fcd34d' : '#86efac'}; border-radius: 12px; padding: 12px; display: flex; align-items: flex-start; gap: 10px;">
-        <span style="font-size: 18px; line-height: 1;">${isEarlyExit ? '⚠️' : '🌟'}</span>
+      <div style="background: ${isEarlyExit ? '#fffbeb' : '#f0fdf4'}; border: 1px solid ${isEarlyExit ? '#fcd34d' : '#86efac'}; border-radius: 8px; padding: 6px 8px; display: flex; align-items: flex-start; gap: 6px;">
+        <span style="font-size: 15px; line-height: 1; margin-top: 1px;">${isEarlyExit ? '⚠️' : '🌟'}</span>
         <div>
-          <div style="font-size: 12px; font-weight: 800; color: ${isEarlyExit ? '#92400e' : '#166534'};">
+          <div style="font-size: 10.5px; font-weight: 800; color: ${isEarlyExit ? '#92400e' : '#166534'};">
             ${isEarlyExit ? 'Erken Çıkış Uyarısı' : 'Mesai Tamamlandı'}
           </div>
-          <div style="font-size: 11px; color: ${isEarlyExit ? '#78350f' : '#15803d'}; margin-top: 2px; line-height: 1.4;">
+          <div style="font-size: 10px; color: ${isEarlyExit ? '#78350f' : '#15803d'}; margin-top: 1px; line-height: 1.3;">
             ${isEarlyExit 
-              ? `Vardiya bitiş saatiniz olan <strong>${targetEndTime}</strong> öncesinde mesaiyi sonlandırıyorsunuz. Çıkış kaydınız işlenecektir.`
-              : 'Günlük mesai sürenizi başarıyla tamamladınız. Çıkış kaydınız sistem tarafından güvenle onaylanacaktır.'
+              ? `Vardiya bitiş saatiniz (<strong>${targetEndTime}</strong>) öncesinde mesaiyi sonlandırıyorsunuz.`
+              : 'Günlük mesai sürenizi başarıyla tamamladınız. Çıkış kaydınız kaydedilecektir.'
             }
           </div>
         </div>
@@ -405,13 +402,13 @@ export const confirmShiftEnd = async (params: ShiftEndConfirmParams): Promise<bo
   `;
 
   const result = await HumaniusSwal.fire({
-    title: '<div class="text-xl font-extrabold text-gray-900">Mesaiyi Bitirmek İstiyor Musunuz?</div>',
+    title: '<div class="text-base sm:text-lg font-extrabold text-gray-900">Mesaiyi Bitirmek İstiyor Musunuz?</div>',
     html: htmlContent,
     showCancelButton: true,
     confirmButtonText: '🛑 Evet, Mesaiyi Bitir',
     cancelButtonText: 'Çalışmaya Devam Et',
     customClass: {
-      popup: 'humanius-swal-popup !max-w-lg',
+      popup: 'humanius-swal-popup !max-w-md',
       confirmButton: 'humanius-swal-end-btn',
       cancelButton: 'humanius-swal-cancel-btn',
       actions: 'humanius-swal-actions'
