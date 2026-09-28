@@ -348,6 +348,8 @@ export const exportPuantajExcel = (
     'No',
     'Personel Adı Soyadı',
     'TC Kimlik No',
+    'Personel Sicil No',
+    'İş Yeri SGK Sicil No',
     'Departman',
     ...Array.from({ length: daysCount }, (_, i) => `Gün ${i + 1}`),
     'Fiili Gün',
@@ -371,10 +373,15 @@ export const exportPuantajExcel = (
       return g.kod;
     });
 
+    const isYeriSgk = emp?.is_yeri_sgk_sicil_no || (emp as any)?.isYeriSgkSicilNo || '';
+    const sicilNo = emp?.sicil_no || (emp as any)?.sicilNo || '';
+
     return [
       i + 1,
       emp?.name || '-',
       emp?.tc_no || (emp as any)?.tcNo || '',
+      sicilNo,
+      isYeriSgk,
       emp?.department || 'Genel',
       ...dayCells,
       ozet.fiiliCalismaGun,
@@ -525,10 +532,10 @@ export const exportPuantajExcel = (
           cell.s = headerStyle;
         } else {
           // Veri satırları
-          if (C === 1 || C === 3) {
+          if (C === 1 || C === 5) {
             // Personel Adı veya Departman (Sola yaslı okunabilirlik için)
             cell.s = textLeftStyle;
-          } else if (C >= 4 && C < 4 + daysCount) {
+          } else if (C >= 6 && C < 6 + daysCount) {
             // Gün hücreleri: Harf veya rakam fark etmeksizin hepsi ortalı!
             const val = cell.v;
             if (typeof val === 'number' || (!isNaN(Number(val)) && val !== '-' && val !== '')) {
@@ -558,11 +565,11 @@ export const exportPuantajExcel = (
             } else {
               cell.s = mazeretIzinStyle;
             }
-          } else if (C >= 4 + daysCount) {
+          } else if (C >= 6 + daysCount) {
             // Özet toplam sütunları (Ortalı ve belirgin)
             cell.s = ozetSayiStyle;
           } else {
-            // No ve TC Kimlik sütunları (Ortalı)
+            // No, TC Kimlik, Sicil No ve İş Yeri SGK Sicil No sütunları (Ortalı)
             cell.s = centerDefaultStyle;
           }
         }
@@ -575,6 +582,8 @@ export const exportPuantajExcel = (
     { wch: 6 },   // No
     { wch: 25 },  // Personel Adı
     { wch: 14 },  // TC
+    { wch: 15 },  // Sicil No
+    { wch: 22 },  // İş Yeri SGK Sicil No
     { wch: 18 },  // Departman
     ...Array.from({ length: daysCount }, () => ({ wch: 8 })), // Günler
     { wch: 10 },  // Fiili Gün
@@ -691,6 +700,8 @@ export const exportPuantajCsv = (
 export interface GunlukDetayliRaporItem {
   employeeName: string;
   tcNo?: string;
+  sicilNo?: string;
+  isYeriSgkSicilNo?: string;
   department: string;
   tarih: string;
   gunAdi: string;
@@ -927,6 +938,8 @@ export const exportGunlukDetayliExcel = (
     'No',
     'Personel Adı',
     'TC Kimlik',
+    'Sicil No',
+    'İş Yeri SGK Sicil No',
     'Departman',
     'Tarih',
     'Gün',
@@ -945,6 +958,8 @@ export const exportGunlukDetayliExcel = (
     i + 1,
     item.employeeName,
     item.tcNo || '',
+    item.sicilNo || '',
+    item.isYeriSgkSicilNo || '',
     item.department || '',
     item.tarih,
     item.gunAdi,
@@ -964,6 +979,8 @@ export const exportGunlukDetayliExcel = (
     { wch: 5 },
     { wch: 24 },
     { wch: 14 },
+    { wch: 15 },
+    { wch: 22 },
     { wch: 18 },
     { wch: 12 },
     { wch: 8 },

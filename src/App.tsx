@@ -39,6 +39,7 @@ import DemoBanner from './components/DemoBanner';
 import { NotificationPermissionBanner } from './components/NotificationPermissionBanner';
 import { notificationService } from './services/notificationService';
 import ExcelImportModal from './components/ExcelImportModal';
+import EmployeeExportModal from './components/EmployeeExportModal';
 import { userService } from './services/userService';
 import * as XLSX from 'xlsx';
 import { showConfirm, showSuccess, showError } from './utils/swal';
@@ -50,7 +51,15 @@ import { leaveTypeService } from './services/leaveTypeService';
 import { shiftService } from './services/shiftService';
 import AIBrowserPage from './browser/AIBrowserPage';
 import GuideContextMenu from './components/GuideContextMenu';
-import { getEmployeeLocationMeta, parseAddressCity, saveEmployeeLocationMeta } from './utils/employeeLocationMeta';
+import {
+  getEmployeeLocationMeta,
+  parseAddressCity,
+  parseIsYeriSgkFromAddress,
+  getEmployeeIsYeriSgkSicil,
+  saveEmployeeLocationMeta,
+  saveEmployeeIsYeriSgkSicil,
+  formatAddressWithLocationAndSgk,
+} from './utils/employeeLocationMeta';
 
 const PDKSYonetimi = lazyWithRetry(() => import('./components/PDKSYonetimi'));
 const PerformansYonetimi = lazyWithRetry(() => import('./components/PerformansYonetimi'));
@@ -268,6 +277,7 @@ const AppInner: React.FC = () => {
   const [isNewEmployee, setIsNewEmployee] = useState(false);
   const [globalAccessGranted, setGlobalAccessGranted] = useState(false);
   const [showExcelImportModal, setShowExcelImportModal] = useState(false);
+  const [showEmployeeExportModal, setShowEmployeeExportModal] = useState(false);
 
   useEffect(() => {
     if (selectedEmployee) {
@@ -352,6 +362,12 @@ const AppInner: React.FC = () => {
         const parsedAddr = parseAddressCity(e.address);
         const resolvedIl = (e.il && String(e.il).trim()) || locMeta.il || parsedAddr.il || '';
         const resolvedIlce = (e.ilce && String(e.ilce).trim()) || locMeta.ilce || parsedAddr.ilce || '';
+        const resolvedIsYeriSgk =
+          (e.is_yeri_sgk_sicil_no && String(e.is_yeri_sgk_sicil_no).trim()) ||
+          ((e as any).isYeriSgkSicilNo && String((e as any).isYeriSgkSicilNo).trim()) ||
+          parseIsYeriSgkFromAddress(e.address) ||
+          getEmployeeIsYeriSgkSicil(e.id, empEmail) ||
+          '';
 
         return {
           id: e.id,
@@ -359,6 +375,8 @@ const AppInner: React.FC = () => {
           name: e.name ?? '',
           tc_no: e.tc_no,
           sicil_no: e.sicil_no,
+          is_yeri_sgk_sicil_no: resolvedIsYeriSgk,
+          isYeriSgkSicilNo: resolvedIsYeriSgk,
           company: resolvedCompName,
           department: e.department ?? '',
           position: e.position ?? '',
@@ -731,7 +749,9 @@ const AppInner: React.FC = () => {
       normalize(emp.status).includes(searchNorm) ||
       normalize(emp.company).includes(searchNorm) ||
       normalize(emp.tc_no).includes(searchNorm) ||
-      normalize(emp.sicil_no).includes(searchNorm);
+      normalize(emp.sicil_no).includes(searchNorm) ||
+      normalize(emp.is_yeri_sgk_sicil_no).includes(searchNorm) ||
+      normalize((emp as any).isYeriSgkSicilNo).includes(searchNorm);
 
     const matchDept =
       selectedDepartment === 'all' || emp.department === selectedDepartment;
@@ -895,6 +915,9 @@ const AppInner: React.FC = () => {
 
       const oldEmail = selectedEmployee?.email || (emp as any).oldEmail || emp.email;
 
+      const finalIsYeriSgk = (emp.is_yeri_sgk_sicil_no || (emp as any).isYeriSgkSicilNo || '').trim();
+      const fullAddress = formatAddressWithLocationAndSgk(emp.address, emp.il, emp.ilce, finalIsYeriSgk);
+
       // Yalnızca mevcut personel güncellenirken kullanıcı detaylarını güncelle
       if (!isNewEmployee && (targetEmail || emp.id)) {
         try {
@@ -915,8 +938,10 @@ const AppInner: React.FC = () => {
             birth_date: cleanBirthDate,
             tc_no: emp.tc_no ?? '',
             sicil_no: emp.sicil_no ?? '',
+            is_yeri_sgk_sicil_no: finalIsYeriSgk,
+            isYeriSgkSicilNo: finalIsYeriSgk,
             employee_type: emp.employeeType ?? emp.employee_type ?? 'normal',
-            address: emp.address ?? '',
+            address: fullAddress,
           });
         } catch (authErr) {
           console.warn('Oturum detay güncelleme uyarısı:', authErr);
@@ -934,13 +959,15 @@ const AppInner: React.FC = () => {
           status: emp.status,
           phone: emp.phone ?? '',
           email: targetEmail || emp.email,
-          address: emp.address ?? '',
+          address: fullAddress,
           il: emp.il ?? '',
           ilce: emp.ilce ?? '',
           skills: emp.skills ?? [],
           employee_type: emp.employeeType ?? emp.employee_type ?? 'normal',
           tc_no: emp.tc_no ?? '',
           sicil_no: emp.sicil_no ?? '',
+          is_yeri_sgk_sicil_no: finalIsYeriSgk,
+          isYeriSgkSicilNo: finalIsYeriSgk,
           join_date: cleanJoinDate,
           birth_date: cleanBirthDate,
           role: emp.role || 'employee',
@@ -968,6 +995,7 @@ const AppInner: React.FC = () => {
         }
         if (emp.id) {
           saveEmployeeLocationMeta(emp.id, targetEmail || emp.email, emp.il, emp.ilce);
+          saveEmployeeIsYeriSgkSicil(emp.id, targetEmail || emp.email, finalIsYeriSgk);
         }
       } catch (clientEmpErr) {
         console.warn('İstemci personel güncelleme uyarısı:', clientEmpErr);
@@ -980,8 +1008,11 @@ const AppInner: React.FC = () => {
           id: emp.id,
           company: matchedCompName || emp.company || 'Şirket',
           email: targetEmail || emp.email,
+          address: fullAddress,
           il: emp.il || '',
           ilce: emp.ilce || '',
+          is_yeri_sgk_sicil_no: finalIsYeriSgk,
+          isYeriSgkSicilNo: finalIsYeriSgk,
           joinDate: cleanJoinDate || emp.joinDate,
           join_date: cleanJoinDate || emp.join_date,
         };
@@ -1053,6 +1084,7 @@ const AppInner: React.FC = () => {
         'Adı Soyadı': e.name || '',
         'TC Kimlik No': e.tc_no || '',
         'Sicil No': e.sicil_no || '',
+        'İş Yeri SGK Sicil No': e.is_yeri_sgk_sicil_no || (e as any).isYeriSgkSicilNo || '',
         'Şirket': e.company || '',
         'Departman': e.department || '',
         'Pozisyon': e.position || '',
@@ -1600,7 +1632,7 @@ const AppInner: React.FC = () => {
               selectedCompany={selectedCompany}
               onCompanyChange={setSelectedCompany}
               onNewEmployee={handleNewEmployee}
-              onExportCSV={handleExportCSV}
+              onExportCSV={() => setShowEmployeeExportModal(true)}
               onImportExcel={() => setShowExcelImportModal(true)}
               companies={companies}
               departments={departments}
@@ -1912,6 +1944,14 @@ const AppInner: React.FC = () => {
         }}
         activeCompanyId={profile?.company_id}
         activeCompanyName={companies[0]}
+      />
+
+      <EmployeeExportModal
+        isOpen={showEmployeeExportModal}
+        onClose={() => setShowEmployeeExportModal(false)}
+        employees={employees}
+        companies={companies as any}
+        departments={departments as any}
       />
 
       {editingBordro && (

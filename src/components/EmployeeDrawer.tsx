@@ -7,7 +7,7 @@ import { canDeleteUsers } from '../auth/roles';
 import { supabase } from '../lib/supabase';
 import { userService } from '../services/userService';
 import iller, { type IlIlceItem } from '../lib/illce';
-import { getEmployeeLocationMeta, parseAddressCity } from '../utils/employeeLocationMeta';
+import { getEmployeeLocationMeta, parseAddressCity, parseIsYeriSgkFromAddress, getEmployeeIsYeriSgkSicil } from '../utils/employeeLocationMeta';
 
 interface EmployeeDrawerProps {
   isOpen: boolean;
@@ -199,6 +199,12 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         const resolvedIl = (employee.il && String(employee.il).trim()) || locMeta.il || parsedAddr.il || '';
         const resolvedIlce = (employee.ilce && String(employee.ilce).trim()) || locMeta.ilce || parsedAddr.ilce || '';
         const cleanAddr = parsedAddr.cleanAddress || employee.address || '';
+        const resolvedIsYeriSgk =
+          (employee.is_yeri_sgk_sicil_no && String(employee.is_yeri_sgk_sicil_no).trim()) ||
+          ((employee as any).isYeriSgkSicilNo && String((employee as any).isYeriSgkSicilNo).trim()) ||
+          parseIsYeriSgkFromAddress(employee.address) ||
+          getEmployeeIsYeriSgkSicil(employee.id, employee.email) ||
+          '';
 
         setFormData({
           ...employee,
@@ -212,6 +218,8 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           il: resolvedIl,
           ilce: resolvedIlce,
           role: employee.role || 'employee',
+          is_yeri_sgk_sicil_no: resolvedIsYeriSgk,
+          isYeriSgkSicilNo: resolvedIsYeriSgk,
         });
 
         // Also fetch exact profile role to guarantee 100% sync with real user role
@@ -255,6 +263,8 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           employeeType: 'normal',
           tc_no: '',
           sicil_no: '',
+          is_yeri_sgk_sicil_no: '',
+          isYeriSgkSicilNo: '',
           joinDate: today,
           join_date: today,
           approval_passcode: '987654',
@@ -278,11 +288,14 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       .replace(/\.{2,}/g, '.');
 
     const finalJd = formData.joinDate || formData.join_date || new Date().toISOString().split('T')[0];
+    const isYeriSgk = formData.is_yeri_sgk_sicil_no || (formData as any).isYeriSgkSicilNo || '';
     onSave({
       ...formData,
       email: cleanEmail,
       joinDate: finalJd,
       join_date: finalJd,
+      is_yeri_sgk_sicil_no: isYeriSgk,
+      isYeriSgkSicilNo: isYeriSgk,
       approval_passcode: formData.approval_passcode || '987654',
     });
   };
@@ -308,6 +321,9 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       setFormData(prev => prev ? { ...prev, birth_date: cleanValue, birthDate: cleanValue } : null);
     } else if (field === 'contact_email' || field === 'personal_email') {
       setFormData(prev => prev ? { ...prev, contact_email: value, personal_email: value } : null);
+    } else if (field === 'is_yeri_sgk_sicil_no' || (field as any) === 'isYeriSgkSicilNo') {
+      const cleanVal = value !== undefined && value !== null ? String(value) : '';
+      setFormData(prev => prev ? { ...prev, is_yeri_sgk_sicil_no: cleanVal, isYeriSgkSicilNo: cleanVal } : null);
     } else {
       setFormData(prev => prev ? { ...prev, [field]: value } : null);
     }
@@ -446,6 +462,17 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       onChange={(e) => handleInputChange('sicil_no', e.target.value)}
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       placeholder="SGK Sicil Numarası"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="employee-is-yeri-sgk-sicil-no" className="block text-sm font-medium text-gray-700 mb-2">İş Yeri SGK Sicil No</label>
+                    <input
+                      id="employee-is-yeri-sgk-sicil-no"
+                      type="text"
+                      value={formData.is_yeri_sgk_sicil_no || (formData as any).isYeriSgkSicilNo || ''}
+                      onChange={(e) => handleInputChange('is_yeri_sgk_sicil_no' as any, e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder="İş Yeri SGK Sicil Numarası"
                     />
                   </div>
                   <div>
@@ -622,6 +649,17 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       <option value="normal">Normal Çalışan</option>
                       <option value="emekli">Emekli</option>
                     </select>
+                  </div>
+                  <div>
+                    <label htmlFor="job-is-yeri-sgk-sicil-no" className="block text-sm font-medium text-gray-700 mb-2">İş Yeri SGK Sicil No</label>
+                    <input
+                      id="job-is-yeri-sgk-sicil-no"
+                      type="text"
+                      value={formData.is_yeri_sgk_sicil_no || (formData as any).isYeriSgkSicilNo || ''}
+                      onChange={(e) => handleInputChange('is_yeri_sgk_sicil_no' as any, e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder="İş Yeri SGK Sicil Numarası"
+                    />
                   </div>
                   <div>
                     <label htmlFor="employee-status" className="block text-sm font-medium text-gray-700 mb-2">Durum</label>

@@ -1258,6 +1258,9 @@ Deno.serve(async (req: Request) => {
       if (payload.tc_no !== undefined) empUpdates.tc_no = String(payload.tc_no);
       if (payload.sicil_no !== undefined) empUpdates.sicil_no = String(payload.sicil_no);
       if (payload.address !== undefined) empUpdates.address = String(payload.address);
+      if (payload.is_yeri_sgk_sicil_no !== undefined || payload.isYeriSgkSicilNo !== undefined) {
+        empUpdates.is_yeri_sgk_sicil_no = String(payload.is_yeri_sgk_sicil_no ?? payload.isYeriSgkSicilNo ?? '').trim();
+      }
       if (payload.employee_type !== undefined) empUpdates.employee_type = String(payload.employee_type);
       if (payload.employeeType !== undefined) empUpdates.employee_type = String(payload.employeeType);
       if (payload.birth_date !== undefined) empUpdates.birth_date = payload.birth_date ? String(payload.birth_date).split('T')[0] : null;
@@ -1265,10 +1268,18 @@ Deno.serve(async (req: Request) => {
 
       if (Object.keys(empUpdates).length > 0) {
         if (employeeId) {
-          await adminClient.from('employees').update(empUpdates).eq('id', employeeId);
+          const res = await adminClient.from('employees').update(empUpdates).eq('id', employeeId);
+          if (res.error && res.error.message?.includes('is_yeri_sgk_sicil_no')) {
+            const { is_yeri_sgk_sicil_no: _, ...fallback } = empUpdates;
+            await adminClient.from('employees').update(fallback).eq('id', employeeId);
+          }
         }
         if (email) {
-          await adminClient.from('employees').update(empUpdates).ilike('email', email);
+          const res = await adminClient.from('employees').update(empUpdates).ilike('email', email);
+          if (res.error && res.error.message?.includes('is_yeri_sgk_sicil_no')) {
+            const { is_yeri_sgk_sicil_no: _, ...fallback } = empUpdates;
+            await adminClient.from('employees').update(fallback).ilike('email', email);
+          }
         }
       }
 
@@ -1282,6 +1293,7 @@ Deno.serve(async (req: Request) => {
         const client = new Client(dbUrl);
         await client.connect();
         await client.queryArray(`ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS birth_date text;`);
+        await client.queryArray(`ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS is_yeri_sgk_sicil_no text DEFAULT '';`);
         await client.queryArray(`
           CREATE TABLE IF NOT EXISTS public.company_locations (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

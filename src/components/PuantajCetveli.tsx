@@ -82,6 +82,7 @@ import {
   exportGunlukDetayliCsv,
   GunlukDetayliRaporItem,
 } from '../utils/puantajPdf';
+import PuantajExportModal from './PuantajExportModal';
 
 interface PuantajCetveliProps {
   employees: Employee[];
@@ -111,6 +112,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
   // Görünüm Modu: Matris (Çizelge) veya Günlük Detay
   const [activeTab, setActiveTab] = useState<'matrix' | 'daily'>('matrix');
+  const [showPuantajExportModal, setShowPuantajExportModal] = useState(false);
 
   // Filtreler
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -691,12 +693,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   };
 
   const handleExportExcel = () => {
-    exportPuantajExcel(
-      profile?.company_name || 'Humanius',
-      selectedYear,
-      selectedMonthIndex,
-      filteredPuantaj
-    );
+    setShowPuantajExportModal(true);
   };
 
   const handleExportCsv = () => {
@@ -757,6 +754,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         .map((g) => ({
           employeeName: emp.name || 'İsimsiz Personel',
           tcNo: emp.tc_no || emp.tcNo || '',
+          sicilNo: emp.sicil_no || emp.sicilNo || '',
+          isYeriSgkSicilNo: emp.is_yeri_sgk_sicil_no || emp.isYeriSgkSicilNo || '',
           department: emp.department || 'Genel',
           tarih: g.tarih,
           gunAdi: g.gunAdi,
@@ -850,21 +849,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   };
 
   const handleExportDailyExcel = () => {
-    const periodStr =
-      selectedDayFilter === 'all'
-        ? `${AY_ADLARI[selectedMonthIndex]}_${selectedYear}`
-        : `${selectedDayFilter}_${AY_ADLARI[selectedMonthIndex]}_${selectedYear}`;
-
-    const prefix =
-      activeDailyEmployeeId === 'all'
-        ? 'Toplu_Gunluk'
-        : `${(selectedPuantajRecord?.employee?.name || 'Personel').replace(/\s+/g, '_')}_Gunluk`;
-
-    exportGunlukDetayliExcel(
-      profile?.company_name || 'Humanius',
-      `${prefix}_${periodStr}`,
-      dailyFilteredItems
-    );
+    setShowPuantajExportModal(true);
   };
 
   return (
@@ -2181,6 +2166,16 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
           </div>
         </div>
       )}
+
+      <PuantajExportModal
+        isOpen={showPuantajExportModal}
+        onClose={() => setShowPuantajExportModal(false)}
+        allCalculatedPuantaj={allCalculatedPuantaj}
+        companyName={profile?.company_name || 'Humanius'}
+        selectedYear={selectedYear}
+        selectedMonthIndex={selectedMonthIndex}
+        departments={departments}
+      />
     </div>
   );
 };

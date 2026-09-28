@@ -29,6 +29,7 @@ const TARGET_FIELDS: TargetField[] = [
   { key: 'name', label: 'Adı Soyadı', required: true, matchKeywords: ['ad', 'soyad', 'adı soyadı', 'isim', 'personel adı', 'name', 'full name', 'çalışan'] },
   { key: 'tc_no', label: 'TC Kimlik No', matchKeywords: ['tc', 'tckn', 'tc no', 'tc kimlik', 'kimlik no', 'vatandaşlık no'] },
   { key: 'sicil_no', label: 'Sicil No', matchKeywords: ['sicil', 'sicil no', 'personel no', 'kart no', 'employee id', 'özlük no'] },
+  { key: 'is_yeri_sgk_sicil_no', label: 'İş Yeri SGK Sicil No', matchKeywords: ['iş yeri sgk', 'işyeri sgk', 'iş yeri sicil', 'işyeri sicil', 'işyeri sicil no', 'iş yeri sgk sicil', 'isyeri sgk', 'sgk işyeri', 'sgk isyeri'] },
   { key: 'department', label: 'Departman', matchKeywords: ['departman', 'bölüm', 'birim', 'müdürlük', 'department', 'şube'] },
   { key: 'position', label: 'Pozisyon / Görev', matchKeywords: ['pozisyon', 'görev', 'ünvan', 'unvan', 'rol', 'meslek', 'title', 'position', 'job'] },
   { key: 'join_date', label: 'İşe Giriş Tarihi', matchKeywords: ['giriş', 'işe giriş', 'başlama tarihi', 'giriş tarihi', 'start date', 'tarih', 'başlangıç'] },
@@ -62,6 +63,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         'Adı Soyadı': 'Ahmet Yılmaz',
         'TC Kimlik No': '12345678901',
         'Sicil No': 'SICIL-001',
+        'İş Yeri SGK Sicil No': '',
         'Departman': 'Yazılım',
         'Pozisyon': 'Kıdemli Yazılım Geliştirici',
         'İşe Giriş Tarihi': '2023-04-15',
@@ -73,6 +75,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         'Adı Soyadı': 'Ayşe Kaya',
         'TC Kimlik No': '98765432109',
         'Sicil No': 'SICIL-002',
+        'İş Yeri SGK Sicil No': '',
         'Departman': 'İnsan Kaynakları',
         'Pozisyon': 'İK Uzmanı',
         'İşe Giriş Tarihi': '2024-01-10',
@@ -222,6 +225,11 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             val = String(val).replace(/\.0$/, '').trim();
           }
 
+          // İş Yeri SGK Sicil No Temizleme
+          if (targetKey === 'is_yeri_sgk_sicil_no' && val) {
+            val = String(val).replace(/\.0$/, '').trim();
+          }
+
           // Seviye Temizleme (Junior, Mid, Senior, Lead, Manager)
           if (targetKey === 'level' && val) {
             const lStr = String(val).trim().toLowerCase();
@@ -286,6 +294,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         name: emp.name,
         tc_no: emp.tc_no || '',
         sicil_no: emp.sicil_no || '',
+        is_yeri_sgk_sicil_no: emp.is_yeri_sgk_sicil_no || '',
         department: emp.department || 'Genel Departman',
         position: emp.position || 'Personel',
         level: 'Mid',

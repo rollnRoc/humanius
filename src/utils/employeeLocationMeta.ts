@@ -9,9 +9,18 @@ export interface ParsedAddress {
   cleanAddress: string;
 }
 
+export function parseIsYeriSgkFromAddress(address?: string | null): string {
+  if (!address) return '';
+  const match = String(address).match(/\[SGK-ISYERI:\s*([^\]]+)\]/i);
+  return match ? match[1].trim() : '';
+}
+
 export function parseAddressCity(address?: string | null): ParsedAddress {
   if (!address) return { il: '', ilce: '', cleanAddress: '' };
-  const raw = String(address).trim();
+  let raw = String(address).trim();
+
+  // Strip SGK-ISYERI tag from address string for city/district parsing
+  raw = raw.replace(/\[SGK-ISYERI:\s*[^\]]+\]/gi, '').trim();
 
   // 1. Bracket format: "Açık adres metni [İlçe / İl]" or "Açık adres metni [İl]"
   const bracketMatch = raw.match(/\[(.*?)\]/);
@@ -36,23 +45,41 @@ export function parseAddressCity(address?: string | null): ParsedAddress {
   return { il: '', ilce: '', cleanAddress: raw };
 }
 
+export function formatAddressWithLocationAndSgk(
+  address?: string | null,
+  il?: string | null,
+  ilce?: string | null,
+  isYeriSgk?: string | null
+): string {
+  let baseAddr = (address || '').trim();
+  // Strip previous metadata tags from base address
+  baseAddr = baseAddr.replace(/\[SGK-ISYERI:\s*[^\]]+\]/gi, '').trim();
+  baseAddr = baseAddr.replace(/\[.*?\]/, '').trim();
+
+  const trimmedIl = (il || '').trim();
+  const trimmedIlce = (ilce || '').trim();
+  const trimmedSgk = (isYeriSgk || '').trim();
+
+  const parts: string[] = [];
+  if (baseAddr) parts.push(baseAddr);
+  if (trimmedIl || trimmedIlce) {
+    const locTag = trimmedIlce ? `[${trimmedIlce} / ${trimmedIl}]` : `[${trimmedIl}]`;
+    parts.push(locTag);
+  }
+  if (trimmedSgk) {
+    parts.push(`[SGK-ISYERI: ${trimmedSgk}]`);
+  }
+  return parts.join(' ').trim();
+}
+
 export function formatAddressWithCity(
   address?: string | null,
   il?: string | null,
-  ilce?: string | null
+  ilce?: string | null,
+  isYeriSgk?: string | null
 ): string {
-  const trimmedIl = (il || '').trim();
-  const trimmedIlce = (ilce || '').trim();
-  let baseAddr = (address || '').trim();
-
-  // Remove any previous [ilce / il] bracket
-  baseAddr = baseAddr.replace(/\[.*?\]/, '').trim();
-
-  if (!trimmedIl && !trimmedIlce) return baseAddr;
-
-  const tag = trimmedIlce ? `[${trimmedIlce} / ${trimmedIl}]` : `[${trimmedIl}]`;
-  if (!baseAddr) return tag;
-  return `${baseAddr} ${tag}`;
+  const existingSgk = isYeriSgk !== undefined && isYeriSgk !== null ? isYeriSgk : parseIsYeriSgkFromAddress(address);
+  return formatAddressWithLocationAndSgk(address, il, ilce, existingSgk);
 }
 
 export function getEmployeeLocationMeta(
@@ -99,10 +126,59 @@ export function saveEmployeeLocationMeta(
   } catch {}
 }
 
+export function getEmployeeIsYeriSgkSicil(
+  empId?: string | null,
+  email?: string | null
+): string {
+  try {
+    if (empId) {
+      const val = localStorage.getItem(`humanius_emp_sgk_isyeri_${empId}`);
+      if (val) return val;
+    }
+    if (email) {
+      const cleanEmail = email.trim().toLowerCase();
+      const val = localStorage.getItem(`humanius_emp_sgk_isyeri_${cleanEmail}`);
+      if (val) return val;
+    }
+  } catch {}
+  return '';
+}
+
+export function saveEmployeeIsYeriSgkSicil(
+  empId?: string | null,
+  email?: string | null,
+  sicilNo?: string | null
+): void {
+  const clean = (sicilNo || '').trim();
+  try {
+    if (empId) {
+      if (clean) {
+        localStorage.setItem(`humanius_emp_sgk_isyeri_${empId}`, clean);
+      } else {
+        localStorage.removeItem(`humanius_emp_sgk_isyeri_${empId}`);
+      }
+    }
+    if (email) {
+      const cleanEmail = email.trim().toLowerCase();
+      if (clean) {
+        localStorage.setItem(`humanius_emp_sgk_isyeri_${cleanEmail}`, clean);
+      } else {
+        localStorage.removeItem(`humanius_emp_sgk_isyeri_${cleanEmail}`);
+      }
+    }
+  } catch {}
+}
+
 export function enrichEmployeeWithLocation<T extends Record<string, any>>(emp: T): T {
   if (!emp) return emp;
   const meta = getEmployeeLocationMeta(emp.id, emp.email);
   const parsed = parseAddressCity(emp.address);
+  const isYeriSgk =
+    (emp.is_yeri_sgk_sicil_no && String(emp.is_yeri_sgk_sicil_no).trim()) ||
+    (emp.isYeriSgkSicilNo && String(emp.isYeriSgkSicilNo).trim()) ||
+    parseIsYeriSgkFromAddress(emp.address) ||
+    getEmployeeIsYeriSgkSicil(emp.id, emp.email) ||
+    '';
 
   const resolvedIl = (emp.il && String(emp.il).trim()) || meta.il || parsed.il || '';
   const resolvedIlce = (emp.ilce && String(emp.ilce).trim()) || meta.ilce || parsed.ilce || '';
@@ -111,5 +187,7 @@ export function enrichEmployeeWithLocation<T extends Record<string, any>>(emp: T
     ...emp,
     il: resolvedIl,
     ilce: resolvedIlce,
+    is_yeri_sgk_sicil_no: isYeriSgk,
+    isYeriSgkSicilNo: isYeriSgk,
   };
 }

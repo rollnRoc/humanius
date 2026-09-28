@@ -281,6 +281,7 @@ export const printOzlukDosyasiPdf = (
   const adSoyad = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.name || 'Personel';
   const tc = emp.tc_no || '---';
   const sicil = emp.sicil_no || '---';
+  const isYeriSgkSicil = emp.is_yeri_sgk_sicil_no || (emp as any).isYeriSgkSicilNo || '---';
   const departman = emp.department || '---';
   const pozisyon = emp.position || '---';
   const telefon = emp.phone || '---';
@@ -447,6 +448,7 @@ export const printOzlukDosyasiPdf = (
     <div class="info-card"><div class="info-label">Ad Soyad</div><div class="info-val">${adSoyad}</div></div>
     <div class="info-card"><div class="info-label">T.C. Kimlik No</div><div class="info-val">${tc}</div></div>
     <div class="info-card"><div class="info-label">Sicil No</div><div class="info-val">${sicil}</div></div>
+    <div class="info-card"><div class="info-label">İş Yeri SGK Sicil No</div><div class="info-val">${isYeriSgkSicil}</div></div>
     <div class="info-card"><div class="info-label">İşe Giriş Tarihi</div><div class="info-val">${iseGiris}</div></div>
     <div class="info-card"><div class="info-label">Departman</div><div class="info-val">${departman}</div></div>
     <div class="info-card"><div class="info-label">Pozisyon / Unvan</div><div class="info-val">${pozisyon}</div></div>
@@ -908,6 +910,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
         ad_soyad: selectedEmp.name,
         tc_no: selectedEmp.tc_no ?? '-',
         sicil_no: selectedEmp.sicil_no ?? '-',
+        is_yeri_sgk_sicil_no: selectedEmp.is_yeri_sgk_sicil_no ?? (selectedEmp as any).isYeriSgkSicilNo ?? '-',
         departman: selectedEmp.department,
         pozisyon: selectedEmp.position,
         ise_giris: selectedEmp.join_date,
@@ -1233,6 +1236,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                   <InfoSatiri icon={User} label="Ad Soyad" value={selectedEmp.name} />
                   <InfoSatiri icon={FileBadge} label="TC Kimlik No" value={selectedEmp.tc_no ?? '-'} />
                   <InfoSatiri icon={FileBadge} label="Sicil No" value={selectedEmp.sicil_no ?? '-'} />
+                  <InfoSatiri icon={Building2} label="İş Yeri SGK Sicil No" value={selectedEmp.is_yeri_sgk_sicil_no || (selectedEmp as any).isYeriSgkSicilNo || '-'} />
                   <InfoSatiri icon={Building2} label="Departman" value={selectedEmp.department || '-'} />
                   <InfoSatiri icon={Briefcase} label="Pozisyon / Unvan" value={selectedEmp.position || '-'} />
                    <InfoSatiri

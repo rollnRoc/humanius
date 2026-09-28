@@ -99,6 +99,7 @@ export interface Database {
           name: string
           tc_no: string
           sicil_no: string
+          is_yeri_sgk_sicil_no?: string | null
           department: string
           position: string
           level: 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'Manager'
@@ -125,6 +126,7 @@ export interface Database {
           name: string
           tc_no?: string
           sicil_no?: string
+          is_yeri_sgk_sicil_no?: string | null
           department: string
           position: string
           level?: 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'Manager'
@@ -151,6 +153,7 @@ export interface Database {
           name?: string
           tc_no?: string
           sicil_no?: string
+          is_yeri_sgk_sicil_no?: string | null
           department?: string
           position?: string
           level?: 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'Manager'

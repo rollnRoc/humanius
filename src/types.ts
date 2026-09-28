@@ -49,6 +49,8 @@ export interface Employee {
   tcNo?: string;
   sicil_no?: string;
   sicilNo?: string;
+  is_yeri_sgk_sicil_no?: string;
+  isYeriSgkSicilNo?: string;
   company: string;
   department: string;
   position: string;

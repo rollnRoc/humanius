@@ -101,6 +101,8 @@ export const userManagementService = {
     birthDate?: string | null;
     tc_no?: string;
     sicil_no?: string;
+    is_yeri_sgk_sicil_no?: string;
+    isYeriSgkSicilNo?: string;
     address?: string;
     employee_type?: string;
     employeeType?: string;

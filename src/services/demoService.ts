@@ -6,6 +6,7 @@ export interface DemoEmployee {
   name: string;
   tc_no: string;
   sicil_no: string;
+  is_yeri_sgk_sicil_no?: string;
   department: string;
   position: string;
   level: 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'Manager';
@@ -860,6 +861,7 @@ export const demoService = {
       name: data.name || 'Yeni Çalışan',
       tc_no: data.tc_no || '',
       sicil_no: data.sicil_no || 'SICIL-' + Math.floor(1000 + Math.random() * 9000),
+      is_yeri_sgk_sicil_no: (data as any).is_yeri_sgk_sicil_no || (data as any).isYeriSgkSicilNo || '',
       department: data.department || 'Genel',
       position: data.position || 'Personel',
       level: data.level || '',
@@ -904,6 +906,7 @@ export const demoService = {
         name: updates.name || '',
         tc_no: updates.tc_no || '',
         sicil_no: updates.sicil_no || '',
+        is_yeri_sgk_sicil_no: (updates as any).is_yeri_sgk_sicil_no || (updates as any).isYeriSgkSicilNo || '',
         department: updates.department || '',
         position: updates.position || '',
         level: (updates.level as any) || '',

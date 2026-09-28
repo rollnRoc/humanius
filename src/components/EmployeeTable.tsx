@@ -13,7 +13,7 @@ interface EmployeeTableProps {
   onToggleSort?: () => void;
 }
 
-export type EmployeeSortField = 'name' | 'company' | 'department' | 'position' | 'role' | 'employeeType' | 'status' | 'phone';
+export type EmployeeSortField = 'name' | 'company' | 'department' | 'position' | 'role' | 'isYeriSgkSicilNo' | 'employeeType' | 'status' | 'phone';
 
 const EmployeeTable: React.FC<EmployeeTableProps> = ({
   employees,
@@ -71,6 +71,12 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
           const roleA = a.role || '';
           const roleB = b.role || '';
           cmp = roleA.localeCompare(roleB, 'tr');
+          break;
+        }
+        case 'isYeriSgkSicilNo': {
+          const noA = a.is_yeri_sgk_sicil_no || (a as any).isYeriSgkSicilNo || '';
+          const noB = b.is_yeri_sgk_sicil_no || (b as any).isYeriSgkSicilNo || '';
+          cmp = noA.localeCompare(noB, 'tr');
           break;
         }
         case 'employeeType': {
@@ -183,25 +189,7 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                   )}
                 </div>
               </th>
-              <th
-                onClick={() => handleSort('company')}
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                title={sortField === 'company' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span>{t('table.company')}</span>
-                  {sortField === 'company' ? (
-                    <>
-                      <span className="text-blue-600 font-bold text-xs">{currentSortOrder === 'asc' ? '▲' : '▼'}</span>
-                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                        {currentSortOrder === 'asc' ? 'A-Z' : 'Z-A'}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-gray-300 text-xs">↕</span>
-                  )}
-                </div>
-              </th>
+
               <th
                 onClick={() => handleSort('department')}
                 className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
@@ -260,13 +248,13 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                 </div>
               </th>
               <th
-                onClick={() => handleSort('employeeType')}
+                onClick={() => handleSort('isYeriSgkSicilNo')}
                 className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                title={sortField === 'employeeType' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
+                title={sortField === 'isYeriSgkSicilNo' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
               >
                 <div className="flex items-center gap-1.5">
-                  <span>Çalışan Tipi</span>
-                  {sortField === 'employeeType' ? (
+                  <span>İş Yeri SGK Sicil No</span>
+                  {sortField === 'isYeriSgkSicilNo' ? (
                     <>
                       <span className="text-blue-600 font-bold text-xs">{currentSortOrder === 'asc' ? '▲' : '▼'}</span>
                       <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
@@ -390,21 +378,18 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-600">{employee.company}</td>
                 <td className="px-4 py-3 text-sm text-gray-600">{employee.department || '-'}</td>
                 <td className="px-4 py-3 text-sm text-gray-600">{employee.position || '-'}</td>
                 <td className="px-4 py-3 text-sm text-gray-600">
                   {getSystemRoleBadge(employee.role)}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">
-                  {employee.employeeType === 'emekli' || (employee as any).employee_type === 'emekli' ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      Emekli (SGDP)
+                  {employee.is_yeri_sgk_sicil_no || (employee as any).isYeriSgkSicilNo ? (
+                    <span className="font-mono text-xs text-gray-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                      {employee.is_yeri_sgk_sicil_no || (employee as any).isYeriSgkSicilNo}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                      Normal (SGK)
-                    </span>
+                    <span className="text-gray-400 text-xs">-</span>
                   )}
                 </td>
                 <td className="px-4 py-3">{getStatusBadge(employee.status)}</td>
@@ -438,6 +423,7 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                           employee.company,
                           employee.department,
                           employee.position,
+                          employee.is_yeri_sgk_sicil_no || (employee as any).isYeriSgkSicilNo || '',
                           employee.status,
                           employee.phone || ''
                         ];

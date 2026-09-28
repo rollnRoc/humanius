@@ -6,6 +6,7 @@ import {
   formatAddressWithCity,
   saveEmployeeLocationMeta,
   enrichEmployeeWithLocation,
+  saveEmployeeIsYeriSgkSicil,
 } from '../utils/employeeLocationMeta';
 
 type Employee = Database['public']['Tables']['employees']['Row'];
@@ -58,6 +59,7 @@ const VALID_DB_EMPLOYEE_COLUMNS = new Set([
   'name',
   'tc_no',
   'sicil_no',
+  'is_yeri_sgk_sicil_no',
   'department',
   'position',
   'level',
@@ -138,7 +140,8 @@ export const employeeService = {
       return demoService.createEmployee(employee as any) as any;
     }
     const { contact_email, personal_email, joinDate, employeeType, role, il, ilce, ...rawPayload } = employee as any;
-    const cleanAddress = formatAddressWithCity(rawPayload.address, il, ilce);
+    const targetIsYeriSicil = (rawPayload.is_yeri_sgk_sicil_no || rawPayload.isYeriSgkSicilNo || '').trim();
+    const cleanAddress = formatAddressWithCity(rawPayload.address, il, ilce, targetIsYeriSicil);
     const cleanLevel = sanitizeLevel(rawPayload.level);
     const cleanJoinDate = rawPayload.join_date
       ? String(rawPayload.join_date).split('T')[0]
@@ -150,6 +153,7 @@ export const employeeService = {
     const payload = filterDbEmployeePayload({
       ...rawPayload,
       address: cleanAddress,
+      is_yeri_sgk_sicil_no: targetIsYeriSicil,
       level: cleanLevel ?? undefined,
       join_date: cleanJoinDate,
       birth_date: cleanBirthDate,
@@ -185,27 +189,47 @@ export const employeeService = {
 
     let data: any = null;
     if (existingEmpId) {
-      const { data: updated, error: upErr } = await supabase
+      let upRes = await supabase
         .from('employees')
         .update(payload)
         .eq('id', existingEmpId)
         .select()
         .single();
-      if (upErr) throw upErr;
-      data = updated;
+      if (upRes.error && upRes.error.message?.includes('is_yeri_sgk_sicil_no')) {
+        const { is_yeri_sgk_sicil_no, ...fallbackPayload } = payload;
+        upRes = await supabase
+          .from('employees')
+          .update(fallbackPayload)
+          .eq('id', existingEmpId)
+          .select()
+          .single();
+      }
+      if (upRes.error) throw upRes.error;
+      data = upRes.data;
     } else {
-      const { data: inserted, error: inErr } = await supabase
+      let inRes = await supabase
         .from('employees')
         .insert(payload)
         .select()
         .single();
-      if (inErr) throw inErr;
-      data = inserted;
+      if (inRes.error && inRes.error.message?.includes('is_yeri_sgk_sicil_no')) {
+        const { is_yeri_sgk_sicil_no, ...fallbackPayload } = payload;
+        inRes = await supabase
+          .from('employees')
+          .insert(fallbackPayload)
+          .select()
+          .single();
+      }
+      if (inRes.error) throw inRes.error;
+      data = inRes.data;
     }
 
     if (data?.id) {
       if (il || ilce) {
         saveEmployeeLocationMeta(data.id, data.email, il, ilce);
+      }
+      if (targetIsYeriSicil) {
+        saveEmployeeIsYeriSgkSicil(data.id, data.email, targetIsYeriSicil);
       }
       try {
         const { userManagementService } = await import('./userManagementService');
@@ -244,6 +268,7 @@ export const employeeService = {
           name: emp.name,
           tc_no: emp.tc_no || '',
           sicil_no: emp.sicil_no || '',
+          is_yeri_sgk_sicil_no: emp.is_yeri_sgk_sicil_no || emp.isYeriSgkSicilNo || '',
           department: emp.department || 'Genel Departman',
           position: emp.position || 'Personel',
           level: emp.level || 'Mid',
@@ -373,10 +398,24 @@ export const employeeService = {
     const { contact_email, personal_email, joinDate, employeeType, role, il, ilce, ...rawUpdates } = updates as any;
     const targetIl = il !== undefined ? il : (updates as any).il;
     const targetIlce = ilce !== undefined ? ilce : (updates as any).ilce;
+    const targetIsYeriSicil = rawUpdates.is_yeri_sgk_sicil_no !== undefined || rawUpdates.isYeriSgkSicilNo !== undefined
+      ? String(rawUpdates.is_yeri_sgk_sicil_no ?? rawUpdates.isYeriSgkSicilNo ?? '').trim()
+      : undefined;
 
     if (targetIl !== undefined || targetIlce !== undefined) {
       saveEmployeeLocationMeta(id, updates.email, targetIl, targetIlce);
-      rawUpdates.address = formatAddressWithCity(rawUpdates.address ?? updates.address, targetIl, targetIlce);
+    }
+    if (targetIsYeriSicil !== undefined) {
+      saveEmployeeIsYeriSgkSicil(id, updates.email, targetIsYeriSicil);
+    }
+
+    if (targetIl !== undefined || targetIlce !== undefined || targetIsYeriSicil !== undefined) {
+      rawUpdates.address = formatAddressWithLocationAndSgk(
+        rawUpdates.address ?? updates.address,
+        targetIl,
+        targetIlce,
+        targetIsYeriSicil !== undefined ? targetIsYeriSicil : parseIsYeriSgkFromAddress(rawUpdates.address ?? updates.address)
+      );
     }
 
     const cleanLevel = sanitizeLevel(rawUpdates.level);
@@ -390,6 +429,7 @@ export const employeeService = {
     const payload = filterDbEmployeePayload({
       ...rawUpdates,
       address: rawUpdates.address,
+      is_yeri_sgk_sicil_no: targetIsYeriSicil !== undefined ? targetIsYeriSicil : undefined,
       level: cleanLevel ?? undefined,
       join_date: cleanJoinDate,
       birth_date: cleanBirthDate,
@@ -398,12 +438,24 @@ export const employeeService = {
 
     let updatedRow: Employee | null = null;
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('employees')
         .update(payload)
         .eq('id', id)
         .select()
         .maybeSingle();
+
+      if (error && error.message?.includes('is_yeri_sgk_sicil_no')) {
+        const { is_yeri_sgk_sicil_no, ...fallbackPayload } = payload;
+        const fallbackRes = await supabase
+          .from('employees')
+          .update(fallbackPayload)
+          .eq('id', id)
+          .select()
+          .maybeSingle();
+        data = fallbackRes.data;
+        error = fallbackRes.error;
+      }
 
       if (!error && data) {
         updatedRow = data as Employee;
@@ -428,6 +480,8 @@ export const employeeService = {
         email: updates.email || '',
         phone: updates.phone ?? '',
         address: rawUpdates.address ?? updates.address ?? '',
+        is_yeri_sgk_sicil_no: targetIsYeriSicil,
+        isYeriSgkSicilNo: targetIsYeriSicil,
         join_date: cleanJoinDate,
         birth_date: cleanBirthDate,
         companyId: updates.company_id,
