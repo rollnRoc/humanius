@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { userService } from '../services/userService';
 import iller, { type IlIlceItem } from '../lib/illce';
 import { getEmployeeLocationMeta, parseAddressCity, parseIsYeriSgkFromAddress, getEmployeeIsYeriSgkSicil } from '../utils/employeeLocationMeta';
+import { normalizeDateForInput } from '../utils/dateUtils';
 
 interface EmployeeDrawerProps {
   isOpen: boolean;
@@ -189,9 +190,9 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     if (isOpen) {
       if (employee) {
         const rawJd = employee.joinDate || employee.join_date || (employee as any).ise_giris_tarihi || '';
-        const formattedJd = rawJd ? String(rawJd).split('T')[0] : '';
+        const formattedJd = normalizeDateForInput(rawJd);
         const rawBd = (employee as any).birth_date || (employee as any).birthDate || (employee as any).dogum_tarihi || '';
-        const formattedBd = rawBd ? String(rawBd).split('T')[0] : '';
+        const formattedBd = normalizeDateForInput(rawBd);
         const cEmail = employee.contact_email ?? (employee as any).personal_email ?? '';
 
         const locMeta = getEmployeeLocationMeta(employee.id, employee.email);
@@ -218,6 +219,10 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           il: resolvedIl,
           ilce: resolvedIlce,
           role: employee.role || 'employee',
+          level: employee.level || 'Junior',
+          medeni_durum: (employee as any).medeni_durum || 'bekar',
+          cocuk_sayisi: (employee as any).cocuk_sayisi !== undefined ? Number((employee as any).cocuk_sayisi) : 0,
+          engelli_durumu: (employee as any).engelli_durumu || 'yok',
           is_yeri_sgk_sicil_no: resolvedIsYeriSgk,
           isYeriSgkSicilNo: resolvedIsYeriSgk,
         });
@@ -251,22 +256,30 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           company: initialComp,
           department: '',
           position: '',
-          level: '',
+          level: 'Junior',
           salary: 0,
           status: 'active',
           phone: '',
           email: '',
+          contact_email: '',
+          personal_email: '',
           address: '',
           il: '',
           ilce: '',
           skills: [],
           employeeType: 'normal',
+          employee_type: 'normal',
+          medeni_durum: 'bekar',
+          cocuk_sayisi: 0,
+          engelli_durumu: 'yok',
           tc_no: '',
           sicil_no: '',
           is_yeri_sgk_sicil_no: '',
           isYeriSgkSicilNo: '',
           joinDate: today,
           join_date: today,
+          birthDate: '',
+          birth_date: '',
           approval_passcode: '987654',
           role: 'employee',
         } as any);
@@ -287,15 +300,23 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       .replace(/^\.+/, '')
       .replace(/\.{2,}/g, '.');
 
-    const finalJd = formData.joinDate || formData.join_date || new Date().toISOString().split('T')[0];
-    const isYeriSgk = formData.is_yeri_sgk_sicil_no || (formData as any).isYeriSgkSicilNo || '';
+    const finalJd = normalizeDateForInput(formData.joinDate || formData.join_date) || new Date().toISOString().split('T')[0];
+    const finalBd = normalizeDateForInput((formData as any).birth_date || (formData as any).birthDate) || null;
+    const isYeriSgk = (formData.is_yeri_sgk_sicil_no || (formData as any).isYeriSgkSicilNo || '').trim();
+
     onSave({
       ...formData,
       email: cleanEmail,
       joinDate: finalJd,
       join_date: finalJd,
+      birthDate: finalBd || undefined,
+      birth_date: finalBd || undefined,
+      level: formData.level || 'Junior',
       is_yeri_sgk_sicil_no: isYeriSgk,
       isYeriSgkSicilNo: isYeriSgk,
+      medeni_durum: (formData as any).medeni_durum || 'bekar',
+      cocuk_sayisi: Number((formData as any).cocuk_sayisi) || 0,
+      engelli_durumu: (formData as any).engelli_durumu || 'yok',
       approval_passcode: formData.approval_passcode || '987654',
     });
   };
@@ -314,10 +335,10 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         email: shouldSyncEmail ? newDerivedEmail : prev.email
       } : null);
     } else if (field === 'joinDate' || field === 'join_date') {
-      const cleanValue = value ? String(value).split('T')[0] : '';
+      const cleanValue = normalizeDateForInput(value);
       setFormData(prev => prev ? { ...prev, joinDate: cleanValue, join_date: cleanValue } : null);
     } else if (field === 'birth_date' || field === 'birthDate') {
-      const cleanValue = value ? String(value).split('T')[0] : '';
+      const cleanValue = normalizeDateForInput(value);
       setFormData(prev => prev ? { ...prev, birth_date: cleanValue, birthDate: cleanValue } : null);
     } else if (field === 'contact_email' || field === 'personal_email') {
       setFormData(prev => prev ? { ...prev, contact_email: value, personal_email: value } : null);
@@ -426,9 +447,9 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     <input
                       id="employee-joindate"
                       type="date"
-                      value={formData.joinDate}
+                      value={formData.joinDate || formData.join_date || ''}
                       onChange={(e) => handleInputChange('joinDate', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium"
                     />
                   </div>
                   <div>
@@ -438,7 +459,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       type="date"
                       value={(formData as any).birth_date || (formData as any).birthDate || ''}
                       onChange={(e) => handleInputChange('birth_date' as any, e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium"
                     />
                   </div>
                   <div>
@@ -474,6 +495,43 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       placeholder="İş Yeri SGK Sicil Numarası"
                     />
+                  </div>
+                  <div>
+                    <label htmlFor="employee-medeni" className="block text-sm font-medium text-gray-700 mb-2">Medeni Durum</label>
+                    <select
+                      id="employee-medeni"
+                      value={(formData as any).medeni_durum || 'bekar'}
+                      onChange={(e) => handleInputChange('medeni_durum' as any, e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium"
+                    >
+                      <option value="bekar">Bekar</option>
+                      <option value="evli">Evli</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="employee-cocuk" className="block text-sm font-medium text-gray-700 mb-2">Çocuk Sayısı</label>
+                    <input
+                      id="employee-cocuk"
+                      type="number"
+                      min={0}
+                      value={(formData as any).cocuk_sayisi ?? 0}
+                      onChange={(e) => handleInputChange('cocuk_sayisi' as any, parseInt(e.target.value, 10) || 0)}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="employee-engelli" className="block text-sm font-medium text-gray-700 mb-2">Engelli Durumu</label>
+                    <select
+                      id="employee-engelli"
+                      value={(formData as any).engelli_durumu || 'yok'}
+                      onChange={(e) => handleInputChange('engelli_durumu' as any, e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium"
+                    >
+                      <option value="yok">Engeli Yok</option>
+                      <option value="birinci">1. Derece (%80+)</option>
+                      <option value="ikinci">2. Derece (%60-%79)</option>
+                      <option value="ucuncu">3. Derece (%40-%59)</option>
+                    </select>
                   </div>
                   <div>
                     <label htmlFor="employee-il" className="block text-sm font-medium text-gray-700 mb-2">İkamet İli</label>
@@ -639,6 +697,21 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     />
                   </div>
                   <div>
+                    <label htmlFor="employee-level" className="block text-sm font-medium text-gray-700 mb-2">Kıdem Seviyesi</label>
+                    <select
+                      id="employee-level"
+                      value={formData.level || 'Junior'}
+                      onChange={(e) => handleInputChange('level', e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium"
+                    >
+                      <option value="Junior">Junior</option>
+                      <option value="Mid">Mid</option>
+                      <option value="Senior">Senior</option>
+                      <option value="Lead">Lead</option>
+                      <option value="Manager">Manager</option>
+                    </select>
+                  </div>
+                  <div>
                     <label htmlFor="employee-type" className="block text-sm font-medium text-gray-700 mb-2">Çalışan Tipi</label>
                     <select
                       id="employee-type"
@@ -702,6 +775,17 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       value={formData.phone}
                       onChange={(e) => handleInputChange('phone', e.target.value)}
                       placeholder="05XX XXX XX XX"
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label htmlFor="employee-contact-email" className="block text-sm font-medium text-gray-700 mb-2">Kişisel / İletişim E-postası</label>
+                    <input
+                      id="employee-contact-email"
+                      type="email"
+                      value={formData.contact_email || (formData as any).personal_email || ''}
+                      onChange={(e) => handleInputChange('contact_email' as any, e.target.value)}
+                      placeholder="kisisel.eposta@gmail.com"
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>

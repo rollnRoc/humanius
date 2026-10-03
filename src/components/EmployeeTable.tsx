@@ -4,6 +4,8 @@ import { Employee } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 
+import { formatDisplayDate } from '../utils/dateUtils';
+
 interface EmployeeTableProps {
   employees: Employee[];
   onEmployeeClick: (employee: Employee) => void;
@@ -13,7 +15,7 @@ interface EmployeeTableProps {
   onToggleSort?: () => void;
 }
 
-export type EmployeeSortField = 'name' | 'company' | 'department' | 'position' | 'role' | 'isYeriSgkSicilNo' | 'employeeType' | 'status' | 'phone';
+export type EmployeeSortField = 'name' | 'company' | 'department' | 'position' | 'role' | 'isYeriSgkSicilNo' | 'employeeType' | 'status' | 'phone' | 'joinDate';
 
 const EmployeeTable: React.FC<EmployeeTableProps> = ({
   employees,
@@ -91,6 +93,12 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
         case 'phone':
           cmp = (a.phone || '').localeCompare(b.phone || '', 'tr');
           break;
+        case 'joinDate': {
+          const jdA = a.joinDate || a.join_date || '';
+          const jdB = b.joinDate || b.join_date || '';
+          cmp = jdA.localeCompare(jdB, 'tr');
+          break;
+        }
         default:
           cmp = (a.name || '').localeCompare(b.name || '', 'tr');
       }
@@ -286,6 +294,25 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                 </div>
               </th>
               <th
+                onClick={() => handleSort('joinDate')}
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                title={sortField === 'joinDate' && currentSortOrder === 'asc' ? 'Yeniden Eskiye Sırala' : 'Eskiden Yeniye Sırala'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>İşe Giriş</span>
+                  {sortField === 'joinDate' ? (
+                    <>
+                      <span className="text-blue-600 font-bold text-xs">{currentSortOrder === 'asc' ? '▲' : '▼'}</span>
+                      <span className="text-[10px] lowercase font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {currentSortOrder === 'asc' ? 'eskiden yeniye' : 'yeniden eskiye'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-300 text-xs">↕</span>
+                  )}
+                </div>
+              </th>
+              <th
                 onClick={() => handleSort('phone')}
                 className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                 title={sortField === 'phone' && currentSortOrder === 'asc' ? 'Z → A Sırala' : 'A → Z Sırala'}
@@ -393,6 +420,9 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                   )}
                 </td>
                 <td className="px-4 py-3">{getStatusBadge(employee.status)}</td>
+                <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                  {formatDisplayDate(employee.joinDate || employee.join_date)}
+                </td>
                 <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                   {employee.phone ? (
                     <a 

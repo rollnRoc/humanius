@@ -1239,18 +1239,13 @@ Deno.serve(async (req: Request) => {
       if (email) empUpdates.email = email;
       if (companyId) empUpdates.company_id = companyId;
       if (fullName) empUpdates.name = fullName;
-      if (role) empUpdates.role = role;
       if (department !== undefined) empUpdates.department = department;
       if (position !== undefined) empUpdates.position = position;
       if (level !== undefined) {
         const validCheckLevels = ['Junior', 'Mid', 'Senior', 'Lead', 'Manager'];
-        empUpdates.level = validCheckLevels.includes(level) ? level : (level ? level : null);
+        empUpdates.level = validCheckLevels.includes(level) ? level : 'Junior';
       }
       if (payload.phone !== undefined) empUpdates.phone = String(payload.phone);
-      const contactEmail = payload.contact_email !== undefined ? String(payload.contact_email ?? '').trim()
-        : (payload.personal_email !== undefined ? String(payload.personal_email ?? '').trim()
-        : (payload.contactEmail !== undefined ? String(payload.contactEmail ?? '').trim() : undefined));
-      if (contactEmail !== undefined) empUpdates.personal_email = contactEmail;
       if (payload.salary !== undefined) empUpdates.salary = Number(payload.salary);
       if (payload.status !== undefined) empUpdates.status = String(payload.status);
       if (payload.join_date !== undefined) empUpdates.join_date = payload.join_date || null;
@@ -1269,16 +1264,22 @@ Deno.serve(async (req: Request) => {
       if (Object.keys(empUpdates).length > 0) {
         if (employeeId) {
           const res = await adminClient.from('employees').update(empUpdates).eq('id', employeeId);
-          if (res.error && res.error.message?.includes('is_yeri_sgk_sicil_no')) {
-            const { is_yeri_sgk_sicil_no: _, ...fallback } = empUpdates;
-            await adminClient.from('employees').update(fallback).eq('id', employeeId);
+          if (res.error) {
+            console.warn('Update employee by id warning:', res.error);
+            if (res.error.message?.includes('is_yeri_sgk_sicil_no')) {
+              const { is_yeri_sgk_sicil_no: _, ...fallback } = empUpdates;
+              await adminClient.from('employees').update(fallback).eq('id', employeeId);
+            }
           }
         }
         if (email) {
           const res = await adminClient.from('employees').update(empUpdates).ilike('email', email);
-          if (res.error && res.error.message?.includes('is_yeri_sgk_sicil_no')) {
-            const { is_yeri_sgk_sicil_no: _, ...fallback } = empUpdates;
-            await adminClient.from('employees').update(fallback).ilike('email', email);
+          if (res.error) {
+            console.warn('Update employee by email warning:', res.error);
+            if (res.error.message?.includes('is_yeri_sgk_sicil_no')) {
+              const { is_yeri_sgk_sicil_no: _, ...fallback } = empUpdates;
+              await adminClient.from('employees').update(fallback).ilike('email', email);
+            }
           }
         }
       }

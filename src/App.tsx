@@ -60,6 +60,7 @@ import {
   saveEmployeeIsYeriSgkSicil,
   formatAddressWithLocationAndSgk,
 } from './utils/employeeLocationMeta';
+import { normalizeDateForInput } from './utils/dateUtils';
 
 const PDKSYonetimi = lazyWithRetry(() => import('./components/PDKSYonetimi'));
 const PerformansYonetimi = lazyWithRetry(() => import('./components/PerformansYonetimi'));
@@ -387,10 +388,10 @@ const AppInner: React.FC = () => {
           email: e.email ?? '',
           contact_email: (e as any).contact_email ?? (e as any).personal_email ?? '',
           role: resolvedRole,
-          joinDate: e.join_date,
-          join_date: e.join_date,
-          birthDate: e.birth_date,
-          birth_date: e.birth_date,
+          joinDate: normalizeDateForInput(e.join_date) || '',
+          join_date: normalizeDateForInput(e.join_date) || '',
+          birthDate: normalizeDateForInput(e.birth_date) || '',
+          birth_date: normalizeDateForInput(e.birth_date) || '',
           address: e.address ?? '',
           il: resolvedIl,
           ilce: resolvedIlce,
@@ -895,23 +896,8 @@ const AppInner: React.FC = () => {
         targetEmail = `${slug}@humanius.net`;
       }
 
-      const rawJoinDate = emp.joinDate || emp.join_date || null;
-      let cleanJoinDate: string | null = null;
-      if (rawJoinDate && String(rawJoinDate).trim() !== '' && String(rawJoinDate) !== 'null') {
-        const dateOnly = String(rawJoinDate).split('T')[0].trim();
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
-          cleanJoinDate = dateOnly;
-        }
-      }
-
-      const rawBirthDate = (emp as any).birth_date || (emp as any).birthDate || (emp as any).dogum_tarihi || null;
-      let cleanBirthDate: string | null = null;
-      if (rawBirthDate && String(rawBirthDate).trim() !== '' && String(rawBirthDate) !== 'null') {
-        const dateOnly = String(rawBirthDate).split('T')[0].trim();
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
-          cleanBirthDate = dateOnly;
-        }
-      }
+      const cleanJoinDate = normalizeDateForInput(emp.joinDate || emp.join_date) || null;
+      const cleanBirthDate = normalizeDateForInput((emp as any).birth_date || (emp as any).birthDate || (emp as any).dogum_tarihi) || null;
 
       const oldEmail = selectedEmployee?.email || (emp as any).oldEmail || emp.email;
 
@@ -928,7 +914,7 @@ const AppInner: React.FC = () => {
             companyId: targetCompanyId,
             fullName: emp.name,
             role: emp.role,
-            level: emp.level,
+            level: emp.level || 'Junior',
             position: emp.position,
             department: emp.department,
             phone: emp.phone ?? '',
@@ -942,6 +928,11 @@ const AppInner: React.FC = () => {
             isYeriSgkSicilNo: finalIsYeriSgk,
             employee_type: emp.employeeType ?? emp.employee_type ?? 'normal',
             address: fullAddress,
+            medeni_durum: (emp as any).medeni_durum ?? undefined,
+            cocuk_sayisi: (emp as any).cocuk_sayisi != null ? Number((emp as any).cocuk_sayisi) : undefined,
+            engelli_durumu: (emp as any).engelli_durumu ?? undefined,
+            avatar_url: emp.avatar_url ?? undefined,
+            skills: emp.skills ?? undefined,
           });
         } catch (authErr) {
           console.warn('Oturum detay güncelleme uyarısı:', authErr);
@@ -954,7 +945,7 @@ const AppInner: React.FC = () => {
           name: emp.name,
           department: emp.department,
           position: emp.position,
-          level: emp.level,
+          level: emp.level || 'Junior',
           salary: emp.salary,
           status: emp.status,
           phone: emp.phone ?? '',
@@ -970,6 +961,10 @@ const AppInner: React.FC = () => {
           isYeriSgkSicilNo: finalIsYeriSgk,
           join_date: cleanJoinDate,
           birth_date: cleanBirthDate,
+          medeni_durum: (emp as any).medeni_durum ?? null,
+          cocuk_sayisi: (emp as any).cocuk_sayisi != null ? Number((emp as any).cocuk_sayisi) : null,
+          engelli_durumu: (emp as any).engelli_durumu ?? null,
+          avatar_url: emp.avatar_url ?? null,
           role: emp.role || 'employee',
         };
 
@@ -1013,8 +1008,11 @@ const AppInner: React.FC = () => {
           ilce: emp.ilce || '',
           is_yeri_sgk_sicil_no: finalIsYeriSgk,
           isYeriSgkSicilNo: finalIsYeriSgk,
-          joinDate: cleanJoinDate || emp.joinDate,
-          join_date: cleanJoinDate || emp.join_date,
+          joinDate: cleanJoinDate || '',
+          join_date: cleanJoinDate || '',
+          birthDate: cleanBirthDate || '',
+          birth_date: cleanBirthDate || '',
+          level: emp.level || 'Junior',
         };
         const exists = prev.some(
           item => (fullEmp.id && item.id === fullEmp.id) ||

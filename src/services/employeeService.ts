@@ -8,6 +8,7 @@ import {
   enrichEmployeeWithLocation,
   saveEmployeeIsYeriSgkSicil,
 } from '../utils/employeeLocationMeta';
+import { normalizeDateForInput } from '../utils/dateUtils';
 
 type Employee = Database['public']['Tables']['employees']['Row'];
 type EmployeeInsert = Database['public']['Tables']['employees']['Insert'];
@@ -46,11 +47,11 @@ async function pickSource(): Promise<'employees'> {
 
 const VALID_CHECK_LEVELS = new Set(['Junior', 'Mid', 'Senior', 'Lead', 'Manager']);
 
-function sanitizeLevel(level?: string | null): string | null {
-  if (!level) return null;
+function sanitizeLevel(level?: string | null): string {
+  if (!level) return 'Junior';
   const trimmed = String(level).trim();
   if (VALID_CHECK_LEVELS.has(trimmed)) return trimmed;
-  return null;
+  return 'Junior';
 }
 
 const VALID_DB_EMPLOYEE_COLUMNS = new Set([
@@ -143,18 +144,14 @@ export const employeeService = {
     const targetIsYeriSicil = (rawPayload.is_yeri_sgk_sicil_no || rawPayload.isYeriSgkSicilNo || '').trim();
     const cleanAddress = formatAddressWithCity(rawPayload.address, il, ilce, targetIsYeriSicil);
     const cleanLevel = sanitizeLevel(rawPayload.level);
-    const cleanJoinDate = rawPayload.join_date
-      ? String(rawPayload.join_date).split('T')[0]
-      : (joinDate ? String(joinDate).split('T')[0] : null);
-    const cleanBirthDate = rawPayload.birth_date
-      ? String(rawPayload.birth_date).split('T')[0]
-      : ((rawPayload as any).birthDate ? String((rawPayload as any).birthDate).split('T')[0] : null);
+    const cleanJoinDate = normalizeDateForInput(rawPayload.join_date ?? joinDate) || null;
+    const cleanBirthDate = normalizeDateForInput(rawPayload.birth_date ?? (rawPayload as any).birthDate) || null;
 
     const payload = filterDbEmployeePayload({
       ...rawPayload,
       address: cleanAddress,
       is_yeri_sgk_sicil_no: targetIsYeriSicil,
-      level: cleanLevel ?? undefined,
+      level: cleanLevel,
       join_date: cleanJoinDate,
       birth_date: cleanBirthDate,
       employee_type: rawPayload.employee_type || rawPayload.employeeType || employeeType || 'normal',
@@ -419,18 +416,14 @@ export const employeeService = {
     }
 
     const cleanLevel = sanitizeLevel(rawUpdates.level);
-    const cleanJoinDate = rawUpdates.join_date
-      ? String(rawUpdates.join_date).split('T')[0]
-      : (joinDate ? String(joinDate).split('T')[0] : null);
-    const cleanBirthDate = rawUpdates.birth_date
-      ? String(rawUpdates.birth_date).split('T')[0]
-      : (rawUpdates.birthDate ? String(rawUpdates.birthDate).split('T')[0] : null);
+    const cleanJoinDate = normalizeDateForInput(rawUpdates.join_date ?? joinDate) || null;
+    const cleanBirthDate = normalizeDateForInput(rawUpdates.birth_date ?? (rawUpdates as any).birthDate) || null;
 
     const payload = filterDbEmployeePayload({
       ...rawUpdates,
       address: rawUpdates.address,
       is_yeri_sgk_sicil_no: targetIsYeriSicil !== undefined ? targetIsYeriSicil : undefined,
-      level: cleanLevel ?? undefined,
+      level: cleanLevel,
       join_date: cleanJoinDate,
       birth_date: cleanBirthDate,
       employee_type: rawUpdates.employee_type || rawUpdates.employeeType || undefined,
@@ -489,7 +482,7 @@ export const employeeService = {
         role: updatedRole,
         department: updates.department,
         position: updates.position,
-        level: cleanLevel ?? undefined,
+        level: cleanLevel,
         salary: updates.salary,
         status: updates.status,
         tc_no: updates.tc_no,

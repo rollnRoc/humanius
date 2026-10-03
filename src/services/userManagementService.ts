@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { normalizeDateForInput } from '../utils/dateUtils';
 
 export interface BootstrapSuperAdminPayload {
   email?: string;
@@ -81,7 +82,17 @@ export const userManagementService = {
     return invokeFunction<{ message: string }>('delete_employee_and_user', payload);
   },
 
-  updateEmployeeDetails(payload: {
+  updateUserProfile(payload: {
+    email?: string;
+    userId?: string;
+    companyId?: string | null;
+    role?: string;
+    fullName?: string;
+  }) {
+    return invokeFunction<{ message: string }>('update_user_profile', payload);
+  },
+
+  async updateEmployeeDetails(payload: {
     email: string;
     oldEmail?: string;
     employeeId?: string;
@@ -107,7 +118,53 @@ export const userManagementService = {
     employee_type?: string;
     employeeType?: string;
   }) {
-    return invokeFunction<{ message: string }>('update_employee_details', payload);
+    // 1. Profil ve yetki rolü güncellemesi varsa, profiles tablosunu update_user_profile ile güvenli şekilde güncelle
+    if (payload.role || payload.fullName || payload.companyId) {
+      try {
+        await invokeFunction<{ message: string }>('update_user_profile', {
+          email: payload.email,
+          role: payload.role,
+          companyId: payload.companyId,
+          fullName: payload.fullName,
+        });
+      } catch (profErr) {
+        console.warn('update_user_profile uyarısı:', profErr);
+      }
+    }
+
+    // 2. update_employee_details operasyonu employees tablosunu günceller.
+    const cleanPayload: Record<string, any> = { ...payload };
+
+    // Tarih normalizasyonu
+
+    const rawJd = cleanPayload.join_date !== undefined ? cleanPayload.join_date : cleanPayload.joinDate;
+    if (rawJd !== undefined) {
+      cleanPayload.join_date = normalizeDateForInput(rawJd) || null;
+    }
+    delete cleanPayload.joinDate;
+
+    const rawBd = cleanPayload.birth_date !== undefined ? cleanPayload.birth_date : cleanPayload.birthDate;
+    if (rawBd !== undefined) {
+      cleanPayload.birth_date = normalizeDateForInput(rawBd) || null;
+    }
+    delete cleanPayload.birthDate;
+
+    // Seviye (Level) kontrolü (NOT NULL constraint koruması)
+    if (cleanPayload.level !== undefined) {
+      const validLevels = ['Junior', 'Mid', 'Senior', 'Lead', 'Manager'];
+      if (!validLevels.includes(cleanPayload.level)) {
+        cleanPayload.level = 'Junior';
+      }
+    }
+
+    // employees tablosunda 'role' veya 'personal_email' kolonu bulunmadığından
+    // uzaktaki Edge Function'ın hata verip güncellemeden vazgeçmesini önlemek için bunları tamamen temizliyoruz.
+    delete cleanPayload.role;
+    delete cleanPayload.personal_email;
+    delete cleanPayload.contact_email;
+    delete cleanPayload.contactEmail;
+
+    return invokeFunction<{ message: string }>('update_employee_details', cleanPayload);
   },
 
   resetPasswordWithTcPhone(payload: { email: string; tcNo: string; phone: string }) {
