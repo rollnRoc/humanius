@@ -3013,36 +3013,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   })()}
                 </div>
 
-                <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl p-1">
-                  <button
-                    type="button"
-                    onClick={handlePrevDay}
-                    className="px-2.5 py-1 text-xs font-bold text-gray-700 hover:bg-white hover:shadow-2xs rounded-lg transition-all cursor-pointer"
-                    title="Önceki Gün"
-                  >
-                    ◀ Önceki
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSetToday}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      selectedDate === getTodayYYYYMMDD()
-                        ? 'bg-blue-600 text-white shadow-2xs'
-                        : 'text-gray-700 hover:bg-white hover:shadow-2xs'
-                    }`}
-                  >
-                    Bugün
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNextDay}
-                    className="px-2.5 py-1 text-xs font-bold text-gray-700 hover:bg-white hover:shadow-2xs rounded-lg transition-all cursor-pointer"
-                    title="Sonraki Gün"
-                  >
-                    Sonraki ▶
-                  </button>
-                </div>
-
                 <div className="flex items-center gap-1">
                   <input
                     type="date"
