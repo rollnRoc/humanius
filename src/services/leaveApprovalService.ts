@@ -170,16 +170,25 @@ class LeaveApprovalService {
     }
   }
 
-  public getRequiredRoleLabel(stage: 'manager' | 'hr' | 'admin'): string {
+  public getRequiredRoleLabel(stage: 'manager' | 'hr' | 'admin', config?: LeaveApprovalConfig): string {
+    const isSingle = config ? this.getActiveStagesCount(config) === 1 : false;
     switch (stage) {
-      case 'manager': return 'Birim Amiri';
-      case 'hr': return 'İK Uzmanı';
+      case 'manager': return isSingle ? 'Birim Amiri veya Şirket Yöneticisi' : 'Birim Amiri';
+      case 'hr': return isSingle ? 'İK Uzmanı veya Şirket Yöneticisi' : 'İK Uzmanı';
       case 'admin': return 'Şirket Yöneticisi';
       default: return '';
     }
   }
 
-  public canRoleApproveCurrentStage(effectiveRole: string, currentStage: 'manager' | 'hr' | 'admin'): boolean {
+  public canRoleApproveCurrentStage(effectiveRole: string, currentStage: 'manager' | 'hr' | 'admin', config?: LeaveApprovalConfig): boolean {
+    const isSingle = config ? this.getActiveStagesCount(config) === 1 : false;
+    const isCompanyManager = ['admin', 'superadmin'].includes(effectiveRole);
+
+    // Kural: Eğer süreç tek aşamalı ise şirket yöneticisi de (Birim amiri veya İK yerine) onaylayabilir
+    if (isSingle && isCompanyManager) {
+      return true;
+    }
+
     if (currentStage === 'manager') {
       return effectiveRole === 'manager';
     }
@@ -187,7 +196,7 @@ class LeaveApprovalService {
       return effectiveRole === 'hr';
     }
     if (currentStage === 'admin') {
-      return ['admin', 'superadmin'].includes(effectiveRole);
+      return isCompanyManager;
     }
     return false;
   }

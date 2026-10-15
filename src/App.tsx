@@ -1292,10 +1292,10 @@ const AppInner: React.FC = () => {
       return;
     }
 
-    // Rol Kontrolü: Yalnızca şu anki aşamaya ait rol onay verebilir!
-    const canApproveThisStage = leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage);
+    // Rol Kontrolü: Tek aşamalı onay ise şirket yöneticisi de onaylayabilir, çok aşamalıda ilgili kademe yetkilisi onaylar
+    const canApproveThisStage = leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage, approvalCfg);
     if (!canApproveThisStage) {
-      const requiredRole = leaveApprovalService.getRequiredRoleLabel(currentStage);
+      const requiredRole = leaveApprovalService.getRequiredRoleLabel(currentStage, approvalCfg);
       const stageName = leaveApprovalService.getStageLabel(currentStage);
       showWarning(
         'Onay Yetkisi Kısıtlaması',
@@ -1380,9 +1380,9 @@ const AppInner: React.FC = () => {
     }
 
     const currentStage = leaveApprovalService.getTalepCurrentStage(id, talep.durum, approvalCfg, talep);
-    const canApproveThisStage = currentStage !== 'completed' && leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage);
+    const canApproveThisStage = currentStage !== 'completed' && leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage, approvalCfg);
     if (!canApproveThisStage) {
-      const requiredRole = leaveApprovalService.getRequiredRoleLabel(currentStage);
+      const requiredRole = leaveApprovalService.getRequiredRoleLabel(currentStage, approvalCfg);
       const stageName = leaveApprovalService.getStageLabel(currentStage);
       showWarning(
         'Yetki Kısıtlaması',

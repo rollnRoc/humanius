@@ -196,8 +196,8 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
   // Şu anki aşamaya ait onay yetkisi kontrolü
   const isRoleAuthorizedForThisStage = useMemo(() => {
     if (talep.durum !== 'beklemede' || currentStage === 'completed') return false;
-    return leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage as any);
-  }, [talep.durum, currentStage, effectiveAppRole]);
+    return leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage as any, approvalConfig);
+  }, [talep.durum, currentStage, effectiveAppRole, approvalConfig]);
 
   // Kompakt görünüm (Tablo satırları ve drawer içi küçük durum göstergesi)
   if (compact) {
@@ -478,7 +478,7 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
                 <span>
                   Şu an <b>{leaveApprovalService.getStageLabel(currentStage as any)}</b> Onayında
                   <span className="text-amber-700 font-medium ml-1.5 hidden xs:inline">
-                    (Yalnızca <b>{leaveApprovalService.getRequiredRoleLabel(currentStage as any)}</b> onaylayabilir)
+                    (Yetkili: <b>{leaveApprovalService.getRequiredRoleLabel(currentStage as any, approvalConfig)}</b>)
                   </span>
                 </span>
               </div>
