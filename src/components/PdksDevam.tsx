@@ -2299,26 +2299,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
         {isManagement && (
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={loadShiftHistory}
-              className="flex items-center gap-1.5 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-              title="Tüm personellerin canlı mesai ve vardiya durumunu yenile"
-            >
-              <Clock className="w-3.5 h-3.5 text-indigo-600" />
-              Verileri Yenile
-            </button>
-
-            {isHrOrAdmin && (
-              <button
-                onClick={handlePrintPdf}
-                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-                title="Tüm Personellerin Günlük PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
-              >
-                <Printer className="w-3.5 h-3.5 text-blue-400" />
-                PDKS Raporu Al (PDF)
-              </button>
-            )}
-
             <div className="flex bg-gray-100 p-1 rounded-xl">
               <button
                 onClick={() => setActiveTab('personal')}
