@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { translateErrorMessage } from '../utils/errorTranslator';
 
 export default function SifreDegistir() {
-  const { updatePassword } = useAuth();
+  const { updatePassword, user, profile } = useAuth();
   
   // Giriş Şifresi States
   const [newPassword, setNewPassword] = useState('');
@@ -38,6 +38,18 @@ export default function SifreDegistir() {
       if (error) {
         setPasswordError(translateErrorMessage(error.message));
         return;
+      }
+
+      const targetEmail = (user?.email || profile?.email || '').toLowerCase().trim();
+      if (targetEmail) {
+        try {
+          const raw = localStorage.getItem('humanius_admin_known_passwords');
+          const map = raw ? JSON.parse(raw) : {};
+          map[targetEmail] = newPassword;
+          if (user?.id) map[user.id] = newPassword;
+          if (profile?.id) map[profile.id] = newPassword;
+          localStorage.setItem('humanius_admin_known_passwords', JSON.stringify(map));
+        } catch {}
       }
 
       setNewPassword('');

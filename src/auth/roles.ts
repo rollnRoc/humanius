@@ -38,39 +38,39 @@ const ALLOWED_VIEWS: Record<AppRole, View[]> = {
     'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
-    'sifre-degistir', 'tazminat-hesaplama', 'form-builder', 'puantaj',
+    'sifre-degistir', 'tazminat-hesaplama', 'form-builder', 'puantaj', 'analiz', 'sirket-yonetimi',
   ],
   admin: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
-    'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
+    'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
-    'sifre-degistir', 'tazminat-hesaplama', 'form-builder', 'puantaj',
+    'sifre-degistir', 'tazminat-hesaplama', 'form-builder', 'puantaj', 'analiz', 'sirket-yonetimi',
   ],
   hr: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
-    'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
+    'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
-    'sifre-degistir', 'tazminat-hesaplama', 'form-builder', 'puantaj',
+    'sifre-degistir', 'tazminat-hesaplama', 'form-builder', 'puantaj', 'analiz', 'sirket-yonetimi',
   ],
   manager: [
     'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
-    'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'kullanicilar', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
+    'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
     'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
-    'sifre-degistir', 'tazminat-hesaplama', 'form-builder', 'puantaj',
+    'sifre-degistir', 'tazminat-hesaplama', 'form-builder', 'puantaj', 'analiz', 'sirket-yonetimi',
   ],
   // PERSONEL: Sadece tamamen kendisine ait kişisel bilgiler & kendi talepleri
   employee: [
     'arama', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'puantaj',
     'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
-    'sifre-degistir',
+    'sifre-degistir', 'analiz', 'sirket-yonetimi',
   ],
   user: [
     'arama', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'puantaj',
     'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
-    'sifre-degistir',
+    'sifre-degistir', 'analiz', 'sirket-yonetimi',
   ],
 };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle, AlertCircle, MapPin } from 'lucide-react';
+import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle, AlertCircle, MapPin, UserCheck, Users, Shield, Crown, KeyRound } from 'lucide-react';
 import { Employee, Company, Department } from '../types';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useAuth } from '../contexts/AuthContext';
@@ -39,6 +39,40 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const [activeTab, setActiveTab] = useState('genel');
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [emailStatus, setEmailStatus] = useState<'checking' | 'available' | 'taken' | 'idle'>('idle');
+
+  // Sistem yetki rol seçenekleri ve açıklamaları
+  const roleOptions = useMemo(() => [
+    {
+      value: 'employee',
+      label: 'Personel',
+      description: 'Kendi izin, avans ve özlük bilgilerini görüntüler, sistemde talep oluşturabilir.',
+      icon: User,
+    },
+    {
+      value: 'manager',
+      label: 'Birim / Departman Amiri',
+      description: 'Ekibinin izin onaylarını, mesai takipleri ve performans süreçlerini yönetir.',
+      icon: UserCheck,
+    },
+    {
+      value: 'hr',
+      label: 'İK Uzmanı',
+      description: 'Personel özlük dosyaları, bordro işlemleri, izin onayları ve İK süreçlerini yürütür.',
+      icon: Users,
+    },
+    {
+      value: 'admin',
+      label: 'Şirket Yöneticisi',
+      description: 'Şirket genelinde tüm modüllere, ayarlara, raporlara ve kullanıcı yönetimine tam yetki.',
+      icon: Shield,
+    },
+    ...(appRole === 'superadmin' ? [{
+      value: 'superadmin',
+      label: 'Süper Yönetici',
+      description: 'Tüm şirketler ve genel teknik altyapı üzerinde en üst düzey tam yetki.',
+      icon: Crown,
+    }] : []),
+  ], [appRole]);
 
   // 81 ilin alfabetik sıralı listesi
   const sortedIller = useMemo(() => {
@@ -443,6 +477,18 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     />
                   </div>
                   <div>
+                    <label htmlFor="employee-tcno" className="block text-sm font-medium text-gray-700 mb-2">TC Kimlik No</label>
+                    <input
+                      id="employee-tcno"
+                      type="text"
+                      maxLength={11}
+                      value={formData.tc_no || ''}
+                      onChange={(e) => handleInputChange('tc_no', e.target.value.replace(/\D/g, ''))}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder="11 haneli TC No"
+                    />
+                  </div>
+                  <div>
                     <label htmlFor="employee-joindate" className="block text-sm font-medium text-gray-700 mb-2">İşe Giriş Tarihi</label>
                     <input
                       id="employee-joindate"
@@ -460,40 +506,6 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       value={(formData as any).birth_date || (formData as any).birthDate || ''}
                       onChange={(e) => handleInputChange('birth_date' as any, e.target.value)}
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="employee-tcno" className="block text-sm font-medium text-gray-700 mb-2">TC Kimlik No</label>
-                    <input
-                      id="employee-tcno"
-                      type="text"
-                      maxLength={11}
-                      value={formData.tc_no || ''}
-                      onChange={(e) => handleInputChange('tc_no', e.target.value.replace(/\D/g, ''))}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      placeholder="11 haneli TC No"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="employee-sicilno" className="block text-sm font-medium text-gray-700 mb-2">SGK Sicil No</label>
-                    <input
-                      id="employee-sicilno"
-                      type="text"
-                      value={formData.sicil_no || ''}
-                      onChange={(e) => handleInputChange('sicil_no', e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      placeholder="SGK Sicil Numarası"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="employee-is-yeri-sgk-sicil-no" className="block text-sm font-medium text-gray-700 mb-2">İş Yeri SGK Sicil No</label>
-                    <input
-                      id="employee-is-yeri-sgk-sicil-no"
-                      type="text"
-                      value={formData.is_yeri_sgk_sicil_no || (formData as any).isYeriSgkSicilNo || ''}
-                      onChange={(e) => handleInputChange('is_yeri_sgk_sicil_no' as any, e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      placeholder="İş Yeri SGK Sicil Numarası"
                     />
                   </div>
                   <div>
@@ -519,7 +531,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
-                  <div>
+                  <div className="md:col-span-2">
                     <label htmlFor="employee-engelli" className="block text-sm font-medium text-gray-700 mb-2">Engelli Durumu</label>
                     <select
                       id="employee-engelli"
@@ -533,13 +545,30 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       <option value="ucuncu">3. Derece (%40-%59)</option>
                     </select>
                   </div>
-                  <div>
-                    <label htmlFor="employee-il" className="block text-sm font-medium text-gray-700 mb-2">İkamet İli</label>
+
+                  {/* Gizli alanlar: SGK Sicil No, İş Yeri SGK Sicil No, İkamet İli ve İlçesi (Sistem bütünlüğü için DOM'da tutulur) */}
+                  <div className="hidden" aria-hidden="true">
+                    <label htmlFor="employee-sicilno">SGK Sicil No</label>
+                    <input
+                      id="employee-sicilno"
+                      type="text"
+                      value={formData.sicil_no || ''}
+                      onChange={(e) => handleInputChange('sicil_no', e.target.value)}
+                      placeholder="SGK Sicil Numarası"
+                    />
+                    <label htmlFor="employee-is-yeri-sgk-sicil-no">İş Yeri SGK Sicil No</label>
+                    <input
+                      id="employee-is-yeri-sgk-sicil-no"
+                      type="text"
+                      value={formData.is_yeri_sgk_sicil_no || (formData as any).isYeriSgkSicilNo || ''}
+                      onChange={(e) => handleInputChange('is_yeri_sgk_sicil_no' as any, e.target.value)}
+                      placeholder="İş Yeri SGK Sicil Numarası"
+                    />
+                    <label htmlFor="employee-il">İkamet İli</label>
                     <select
                       id="employee-il"
                       value={formData.il || ''}
                       onChange={(e) => handleIlChange(e.target.value)}
-                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium"
                     >
                       <option value="">-- İl Seçin --</option>
                       {sortedIller.map((item) => (
@@ -548,17 +577,12 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                         </option>
                       ))}
                     </select>
-                  </div>
-                  <div>
-                    <label htmlFor="employee-ilce" className="block text-sm font-medium text-gray-700 mb-2">İkamet İlçesi</label>
+                    <label htmlFor="employee-ilce">İkamet İlçesi</label>
                     <select
                       id="employee-ilce"
                       value={formData.ilce || ''}
                       disabled={!formData.il}
                       onChange={(e) => handleIlceChange(e.target.value)}
-                      className={`w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium ${
-                        !formData.il ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
-                      }`}
                     >
                       <option value="">{formData.il ? '-- İlçe Seçin --' : '-- Önce İl Seçiniz --'}</option>
                       {availableIlceler.map((ilce) => (
@@ -574,7 +598,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
             {activeTab === 'is' && (
               <div className="space-y-6">
-                {/* Sistem Erişim Hesabı & Oturum Bilgileri Card matching user screenshot */}
+                {/* Sistem Erişim Hesabı & Oturum Bilgileri Card */}
                 <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -585,10 +609,20 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       Otomatik Oluşturulur
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Personel sisteme giriş yapmak istediğinde bu e-posta ve başlangıç şifresi ile oturum açabilir.
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="mb-4 p-3 bg-blue-50/90 border border-blue-200 rounded-xl flex items-start gap-2.5 shadow-xs">
+                    <div className="p-1.5 bg-blue-600 text-white rounded-lg shrink-0 mt-0.5 shadow-xs">
+                      <KeyRound className="w-4 h-4" />
+                    </div>
+                    <div className="text-xs text-blue-950 leading-relaxed">
+                      <span className="font-bold text-blue-900 block mb-0.5">
+                        ⚡ Sistem Tarafından Otomatik Tanımlanır
+                      </span>
+                      Personel sisteme giriş yapmak istediğinde, sistem tarafından otomatik olarak atanan bu kurumsal e-posta ve başlangıç şifresi (<strong className="font-mono font-bold text-blue-900 bg-white px-1.5 py-0.5 rounded border border-blue-200">987654</strong>) ile oturum açabilir.
+                    </div>
+                  </div>
+
+                  {/* Giriş E-postası ve Başlangıç Şifresi Yan Yana */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1.5">Giriş E-postası</label>
                       <input
@@ -634,25 +668,83 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                         className="w-full bg-gray-100 border border-gray-200 text-gray-400 font-mono rounded-xl px-3 py-2.5 text-sm cursor-not-allowed select-none outline-none"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">Sistem Yetki Rolü</label>
-                      <select
-                        value={formData.role || 'employee'}
-                        onChange={(e) => handleInputChange('role', e.target.value)}
-                        className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 font-medium"
-                      >
-                        <option value="employee">Personel</option>
-                        <option value="manager">Birim / Departman Amiri</option>
-                        <option value="hr">İK Uzmanı</option>
-                        <option value="admin">Şirket Yöneticisi</option>
-                        {appRole === 'superadmin' && <option value="superadmin">Süper Yönetici</option>}
-                      </select>
+                  </div>
+
+                  {/* Sistem Yetki Rolü - Altta Geniş ve Yanında Ufak Açıklamalar ile */}
+                  <div className="mt-4 pt-4 border-t border-blue-100/70">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-semibold text-gray-700">
+                        Sistem Yetki Rolü
+                      </label>
+                      <span className="text-[11px] text-gray-400">
+                        Personelin sistemdeki rolünü ve yetki kapsamını belirler
+                      </span>
                     </div>
+
+                    <div className="space-y-2">
+                      {roleOptions.map((r) => {
+                        const isSelected = (formData.role || 'employee') === r.value;
+                        const IconComponent = r.icon;
+                        return (
+                          <button
+                            key={r.value}
+                            type="button"
+                            onClick={() => handleInputChange('role', r.value)}
+                            className={`w-full text-left px-3.5 py-2.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                              isSelected
+                                ? 'border-blue-500 bg-white shadow-sm ring-2 ring-blue-500/20'
+                                : 'border-gray-200 bg-white/70 hover:border-gray-300 hover:bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${
+                                isSelected ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                <IconComponent className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <span className={`text-xs font-bold mr-2 ${isSelected ? 'text-blue-900' : 'text-gray-800'}`}>
+                                  {r.label}
+                                </span>
+                                <span className="text-[11px] text-gray-500 hidden sm:inline">
+                                  — {r.description}
+                                </span>
+                                <p className="text-[11px] text-gray-500 sm:hidden mt-0.5">
+                                  {r.description}
+                                </p>
+                              </div>
+                            </div>
+                            {isSelected ? (
+                              <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+                            ) : (
+                              <Circle className="w-4 h-4 text-gray-300 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Form ve geriye dönük uyumluluk için gizli select */}
+                    <select
+                      id="employee-role"
+                      value={formData.role || 'employee'}
+                      onChange={(e) => handleInputChange('role', e.target.value)}
+                      className="hidden"
+                      aria-hidden="true"
+                    >
+                      <option value="employee">Personel</option>
+                      <option value="manager">Birim / Departman Amiri</option>
+                      <option value="hr">İK Uzmanı</option>
+                      <option value="admin">Şirket Yöneticisi</option>
+                      {appRole === 'superadmin' && <option value="superadmin">Süper Yönetici</option>}
+                    </select>
                   </div>
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Şirket Seçimi (Gizli - Sistem Bütünlüğü Korunur) */}
                   {showCompanySelector && (
-                    <div>
+                    <div className="hidden" aria-hidden="true">
                       <label htmlFor="employee-company" className="block text-sm font-medium text-gray-700 mb-2">Şirket</label>
                       <select
                         id="employee-company"
@@ -669,6 +761,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       </select>
                     </div>
                   )}
+
                   <div>
                     <label htmlFor="employee-department" className="block text-sm font-medium text-gray-700 mb-2">Departman</label>
                     <input
@@ -724,6 +817,17 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     </select>
                   </div>
                   <div>
+                    <label htmlFor="job-employee-sicilno" className="block text-sm font-medium text-gray-700 mb-2">SGK Sicil No</label>
+                    <input
+                      id="job-employee-sicilno"
+                      type="text"
+                      value={formData.sicil_no || ''}
+                      onChange={(e) => handleInputChange('sicil_no', e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder="SGK Sicil Numarası"
+                    />
+                  </div>
+                  <div>
                     <label htmlFor="job-is-yeri-sgk-sicil-no" className="block text-sm font-medium text-gray-700 mb-2">İş Yeri SGK Sicil No</label>
                     <input
                       id="job-is-yeri-sgk-sicil-no"
@@ -747,7 +851,9 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       <option value="inactive">Pasif</option>
                     </select>
                   </div>
-                  <div>
+
+                  {/* Temel Maaş / Brüt Ücret (Gizli - Sistem Bütünlüğü Korunur) */}
+                  <div className="hidden" aria-hidden="true">
                     <label htmlFor="employee-salary" className="block text-sm font-medium text-gray-700 mb-2">Temel Maaş / Brüt Ücret (₺)</label>
                     <input
                       id="employee-salary"

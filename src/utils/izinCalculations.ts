@@ -383,6 +383,21 @@ export function validateIzinTuru(
   employee?: Employee | null,
   companyId?: string
 ): { valid: boolean; isValid: boolean; message?: string } {
+  // ── 4857 Sayılı İş Kanunu Madde 53/54 — 1 Yıl Dolum Kontrolü ──
+  if (tur === 'yillik' && employee) {
+    const joinDateStr = employee.joinDate || (employee as any).join_date || (employee as any).ise_giris_tarihi;
+    if (joinDateStr && !hasCompletedOneYear(joinDateStr)) {
+      const hakedisTarihi = getYillikIzinHakEdisTarihi(joinDateStr);
+      const formattedHakedis = hakedisTarihi ? formatDate(hakedisTarihi.toISOString().split('T')[0]) : '';
+      const kalanGun = getYillikIzinKalanGunSayisi(joinDateStr);
+      return {
+        valid: false,
+        isValid: false,
+        message: `4857 Sayılı İş Kanunu (Madde 53/54) uyarınca yıllık ücretli izin hakkı, işe giriş tarihinden itibaren en az 1 tam yıl çalışıldıktan sonra hak edilir. ${employee.name || 'Bu çalışan'} henüz 1 yılını doldurmamıştır.${formattedHakedis ? ` Yıllık izin hak ediş tarihi: ${formattedHakedis} (Kalan: ${kalanGun} gün).` : ''}`,
+      };
+    }
+  }
+
   const maxInfo = getMaxIzinSureleri(tur, companyId);
   if (maxInfo && gunSayisi > maxInfo.max) {
     const labels = getCompanyIzinTuruLabels(companyId);
@@ -491,11 +506,69 @@ export function calculateWorkingDays(
 }
 
 /**
- * Çalışma yılına göre yıllık izin hakkını hesaplar (İş Kanunu Madde 53).
+ * Personelin işe giriş tarihinden itibaren tamamladığı tam çalışma yılını hesaplar.
+ * İşe giriş yıldönümü gelmeden kıdem yılı artışı gerçekleşmez (4857 s.K. Madde 53/54).
  */
-export function calculateYillikIzinHakki(calısmaYili: number): number {
-  if (calısmaYili < 1) return 0;
-  if (calısmaYili < 5) return 14;
-  if (calısmaYili < 15) return 20;
+export function calculateCompletedYears(
+  joinDateInput?: string | Date | null,
+  referenceDate: Date = new Date()
+): number {
+  if (!joinDateInput) return 0;
+  const join = typeof joinDateInput === 'string' ? new Date(joinDateInput) : joinDateInput;
+  if (isNaN(join.getTime())) return 0;
+
+  let years = referenceDate.getFullYear() - join.getFullYear();
+  const m = referenceDate.getMonth() - join.getMonth();
+  if (m < 0 || (m === 0 && referenceDate.getDate() < join.getDate())) {
+    years--;
+  }
+  return Math.max(0, years);
+}
+
+/**
+ * Personelin 1 tam çalışma yılını doldurup doldurmadığını denetler.
+ * 1 yıl dolmadıysa kanuni yıllık ücretli izin hakkı bulunmaz (4857 s.K. Md. 53/54).
+ */
+export function hasCompletedOneYear(
+  joinDateInput?: string | Date | null,
+  referenceDate: Date = new Date()
+): boolean {
+  return calculateCompletedYears(joinDateInput, referenceDate) >= 1;
+}
+
+/**
+ * 1 tam yılın doldurulacağı hak ediş tarihini hesaplar (işe giriş tarihinin 1. yıldönümü).
+ */
+export function getYillikIzinHakEdisTarihi(joinDateInput?: string | Date | null): Date | null {
+  if (!joinDateInput) return null;
+  const join = typeof joinDateInput === 'string' ? new Date(joinDateInput) : new Date(joinDateInput.getTime());
+  if (isNaN(join.getTime())) return null;
+  const hakedis = new Date(join);
+  hakedis.setFullYear(hakedis.getFullYear() + 1);
+  return hakedis;
+}
+
+/**
+ * 1 tam yılın dolmasına kalan gün sayısını hesaplar (eğer henüz 1 yıl dolmadıysa).
+ */
+export function getYillikIzinKalanGunSayisi(
+  joinDateInput?: string | Date | null,
+  referenceDate: Date = new Date()
+): number {
+  const hakedis = getYillikIzinHakEdisTarihi(joinDateInput);
+  if (!hakedis) return 0;
+  const diffTime = hakedis.getTime() - referenceDate.getTime();
+  if (diffTime <= 0) return 0;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Çalışma yılına göre kanuni yıllık izin hakkını hesaplar (İş Kanunu Madde 53).
+ * 1 yılını doldurmayan çalışan için kanuni yıllık izin hak edişi 0 gündür.
+ */
+export function calculateYillikIzinHakki(calismaYili: number): number {
+  if (calismaYili < 1) return 0;
+  if (calismaYili < 5) return 14;
+  if (calismaYili < 15) return 20;
   return 26;
 }

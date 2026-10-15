@@ -224,6 +224,56 @@ export function getCalismaSaati(
   return 8.5; // Standart tam gün çalışma süresi
 }
 
+export function findBestMatchingShift(
+  girisSaati: string,
+  assignedShift: CompanyShift,
+  allShifts?: CompanyShift[]
+): CompanyShift {
+  const [gH, gM] = girisSaati.split(':').map(Number);
+  const gMin = gH * 60 + gM;
+
+  if (allShifts && allShifts.length > 0) {
+    let bestShift: CompanyShift | null = null;
+    let minDiff = Infinity;
+
+    for (const s of allShifts) {
+      if (!s.start_time) continue;
+      const [sH, sM] = s.start_time.split(':').map(Number);
+      if (isNaN(sH) || isNaN(sM)) continue;
+      const sMin = sH * 60 + sM;
+      let diff = Math.abs(gMin - sMin);
+      if (diff > 720) diff = 1440 - diff;
+      if (diff < minDiff) {
+        minDiff = diff;
+        bestShift = s;
+      }
+    }
+
+    // Eğer tanımlı bir vardiya ile yakın eşleşiyorsa (en fazla 45 dk fark), onu kullan
+    if (bestShift && minDiff <= 45) {
+      return bestShift;
+    }
+  }
+
+  // Tanımlı tam eşleşen vardiya yoksa ve gece saatinde giriş yapılmışsa (21:00 - 04:00 arası):
+  // 23:00 - 07:00 veya 00:00 - 08:00 gece vardiyası otomatik oluşturulur
+  if (gH >= 21 || gH <= 4) {
+    const is23Shift = gH === 22 || gH === 23 || (gH === 0 && gM < 30);
+    return {
+      id: 'gece-vardiyasi-auto',
+      name: is23Shift ? 'Gece Vardiyası (23:00 - 07:00)' : 'Gece Vardiyası (00:00 - 08:00)',
+      start_time: is23Shift ? '23:00' : '00:00',
+      end_time: is23Shift ? '07:00' : '08:00',
+      break_minutes: 60,
+      tolerance_minutes: 15,
+      color: '#8b5cf6',
+      is_default: false,
+    };
+  }
+
+  return assignedShift;
+}
+
 /**
  * Tek bir personelin belirli bir ay için tam puantajını hesaplar
  */
@@ -232,6 +282,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
   year: number;
   monthIndex: number;
   shift?: CompanyShift;
+  allShifts?: CompanyShift[];
   vardiyaKayitlari: VardiyaKaydi[];
   izinTalepleri: any[];
   adminOverrides?: Record<string, any>;
@@ -267,19 +318,6 @@ export function hesaplaPersonelAylikPuantaj(params: {
     const isCumartesiCalisma = Boolean(isCumartesi && saturdayConfig?.isSaturdayWork);
     const resmiTatilInfo = checkIsResmiTatil(tarih);
 
-    // Vardiya parametreleri (Cumartesi çalışma aktifse vardiyanın Cumartesi saatleri kullanılır)
-    let activeStartTime = activeShift?.start_time || '08:30';
-    let activeEndTime = activeShift?.end_time || '18:00';
-    let activeMolaDk = shiftMolaDk;
-    let activeTolerance = shiftTolerance;
-
-    if (isCumartesiCalisma) {
-      activeStartTime = activeShift?.saturday_start_time || saturdayConfig?.startTime || '08:30';
-      activeEndTime = activeShift?.saturday_end_time || saturdayConfig?.endTime || '16:00';
-      activeMolaDk = activeShift?.saturday_break_minutes != null ? Number(activeShift.saturday_break_minutes) : Number(saturdayConfig?.breakMinutes ?? 30);
-      activeTolerance = activeShift?.tolerance_minutes || Number(saturdayConfig?.toleranceMinutes ?? 15);
-    }
-
     // 0. Öncelik: Manuel İK Düzeltmesi (Override)
     const empId = employee?.id || '';
     const overrideKey = `${empId}_${tarih}`;
@@ -313,6 +351,24 @@ export function hesaplaPersonelAylikPuantaj(params: {
     }
     if (cikisSaati && cikisSaati.length > 5) {
       cikisSaati = cikisSaati.substring(0, 5);
+    }
+
+    // Vardiya parametreleri (Giriş saatine ve gece vardiyasına göre akıllı eşleşme)
+    let currentDayShift = activeShift;
+    if (girisSaati) {
+      currentDayShift = findBestMatchingShift(girisSaati, activeShift, params.allShifts);
+    }
+
+    let activeStartTime = currentDayShift?.start_time || '08:30';
+    let activeEndTime = currentDayShift?.end_time || '18:00';
+    let activeMolaDk = currentDayShift?.break_minutes || shiftMolaDk;
+    let activeTolerance = currentDayShift?.tolerance_minutes || shiftTolerance;
+
+    if (isCumartesiCalisma) {
+      activeStartTime = currentDayShift?.saturday_start_time || saturdayConfig?.startTime || '08:30';
+      activeEndTime = currentDayShift?.saturday_end_time || saturdayConfig?.endTime || '16:00';
+      activeMolaDk = currentDayShift?.saturday_break_minutes != null ? Number(currentDayShift.saturday_break_minutes) : Number(saturdayConfig?.breakMinutes ?? 30);
+      activeTolerance = currentDayShift?.tolerance_minutes || Number(saturdayConfig?.toleranceMinutes ?? 15);
     }
 
     // Tarih zaman durumu
@@ -352,7 +408,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
       const [cH, cM] = cikisSaati.split(':').map(Number);
       if (!isNaN(gH) && !isNaN(gM) && !isNaN(cH) && !isNaN(cM)) {
         let diffMins = (cH * 60 + cM) - (gH * 60 + gM);
-        if (diffMins < 0) diffMins += 24 * 60; // Gece vardiyası
+        if (diffMins < 0) diffMins += 24 * 60; // Gece vardiyası (ör. 23:00 - 07:00)
         const brutSaatCalc = diffMins / 60;
         brutSureSaat = brutSaatCalc > 0 && brutSaatCalc < 0.1
           ? parseFloat(brutSaatCalc.toFixed(2))
@@ -366,13 +422,14 @@ export function hesaplaPersonelAylikPuantaj(params: {
           ? parseFloat(netSaatCalc.toFixed(2))
           : parseFloat(netSaatCalc.toFixed(1));
 
-        // Geç kalma tespiti
+        // Geç kalma tespiti (gece vardiyası wrap-around destekli)
         const [sH, sM] = activeStartTime.split(':').map(Number);
         if (!isNaN(sH) && !isNaN(sM)) {
-          const shiftStartMin = sH * 60 + sM + activeTolerance;
-          const userGirisMin = gH * 60 + gM;
-          if (userGirisMin > shiftStartMin) {
-            gecikmeDk = userGirisMin - (sH * 60 + sM);
+          let delayMin = (gH * 60 + gM) - (sH * 60 + sM);
+          if (delayMin < -720) delayMin += 1440;
+          if (delayMin > 720) delayMin -= 1440;
+          if (delayMin > activeTolerance) {
+            gecikmeDk = delayMin;
           }
         }
 
@@ -390,66 +447,55 @@ export function hesaplaPersonelAylikPuantaj(params: {
         }
       }
     } else if (girisSaati && !cikisSaati) {
+      // KULLANICI KESİN TALİMATI: Gün bitse bile vardiya ASLA otomatik kapatılmaz!
+      // Gece 23'te başlatılan mesai ya da sabahtan açık unutulan mesai kapatılmaz, personel kendi kapatır.
       const [gH, gM] = girisSaati.split(':').map(Number);
-      let isShiftCompleted = false;
+      isOngoing = true;
+      cikisSaati = null;
 
-      if (isToday) {
-        // KULLANICI KESİN TALİMATI: Bugün için mesai ASLA otomatik kapanmaz!
-        // Çalışan "Mesaiyi Bitir" ile kendisi kapatana kadar mesai her zaman devam ediyor (isOngoing = true).
-        isShiftCompleted = false;
-      } else {
-        // Geçmiş bir günse ve çıkış saati basılmamışsa vardiya saatine göre tamamlanmış kabul edilir
-        isShiftCompleted = true;
-      }
+      if (!isNaN(gH) && !isNaN(gM)) {
+        let workedSoFarMins = 0;
+        const entryDateTime = new Date(`${tarih}T${girisSaati}:00`);
+        if (!isNaN(entryDateTime.getTime())) {
+          const diffMs = now.getTime() - entryDateTime.getTime();
+          const elapsedMins = Math.max(0, Math.floor(diffMs / (1000 * 60)));
+          if (elapsedMins > 0 && elapsedMins <= 16 * 60) {
+            // Son 16 saat içinde başlayan aktif vardiya (bugün veya dünkü gece vardiyası)
+            workedSoFarMins = elapsedMins;
+          } else {
+            // 16 saatten daha eski (açık unutulan mesai): 22 saat basılmaz!
+            // Planlanan standart vardiya süresi baz alınır, çıkış boş (açık) kalır
+            const [sH, sM] = activeStartTime.split(':').map(Number);
+            const [eH, eM] = activeEndTime.split(':').map(Number);
+            let plannedDiff = (eH * 60 + eM) - (sH * 60 + sM);
+            if (plannedDiff < 0) plannedDiff += 1440;
+            workedSoFarMins = plannedDiff > 0 ? plannedDiff : 480;
+          }
+        } else {
+          workedSoFarMins = Math.max(0, currentMinutes - (gH * 60 + gM));
+        }
 
-      if (isShiftCompleted) {
-        // Geçmiş günün vardiya bitiş saatine göre tamamlanma
-        cikisSaati = activeEndTime;
-        isOngoing = false;
-        const [cH, cM] = cikisSaati.split(':').map(Number);
-        if (!isNaN(gH) && !isNaN(gM) && !isNaN(cH) && !isNaN(cM)) {
-          let diffMins = (cH * 60 + cM) - (gH * 60 + gM);
-          if (diffMins < 0) diffMins += 24 * 60;
-          const brutSaatCalc = diffMins / 60;
-          brutSureSaat = brutSaatCalc > 0 && brutSaatCalc < 0.1
-            ? parseFloat(brutSaatCalc.toFixed(2))
-            : parseFloat(brutSaatCalc.toFixed(1));
-          const yasalMola = hesaplaYasalAraDinlenme(brutSaatCalc, activeMolaDk);
-          appliedMolaDk = yasalMola;
-          const netMins = Math.max(0, diffMins - yasalMola);
-          const netSaatCalc = netMins / 60;
-          netSureSaat = netSaatCalc > 0 && netSaatCalc < 0.1
-            ? parseFloat(netSaatCalc.toFixed(2))
-            : parseFloat(netSaatCalc.toFixed(1));
-        }
-      } else {
-        // Bugün: Mesai devam ediyor, asla otomatik çıkış yapılmaz, personel kendisi kapatacak
-        isOngoing = true;
-        cikisSaati = null;
-        if (!isNaN(gH) && !isNaN(gM)) {
-          let workedSoFarMins = currentMinutes - (gH * 60 + gM);
-          if (workedSoFarMins < 0) workedSoFarMins = 0;
-          const brutSaatCalc = workedSoFarMins / 60;
-          brutSureSaat = brutSaatCalc > 0 && brutSaatCalc < 0.1
-            ? parseFloat(brutSaatCalc.toFixed(2))
-            : parseFloat(brutSaatCalc.toFixed(1));
-          const yasalMola = hesaplaYasalAraDinlenme(brutSaatCalc, activeMolaDk);
-          appliedMolaDk = yasalMola;
-          const netMins = Math.max(0, workedSoFarMins - yasalMola);
-          const netSaatCalc = netMins / 60;
-          netSureSaat = netSaatCalc > 0 && netSaatCalc < 0.1
-            ? parseFloat(netSaatCalc.toFixed(2))
-            : parseFloat(netSaatCalc.toFixed(1));
-        }
+        const brutSaatCalc = workedSoFarMins / 60;
+        brutSureSaat = brutSaatCalc > 0 && brutSaatCalc < 0.1
+          ? parseFloat(brutSaatCalc.toFixed(2))
+          : parseFloat(brutSaatCalc.toFixed(1));
+        const yasalMola = hesaplaYasalAraDinlenme(brutSaatCalc, activeMolaDk);
+        appliedMolaDk = yasalMola;
+        const netMins = Math.max(0, workedSoFarMins - yasalMola);
+        const netSaatCalc = netMins / 60;
+        netSureSaat = netSaatCalc > 0 && netSaatCalc < 0.1
+          ? parseFloat(netSaatCalc.toFixed(2))
+          : parseFloat(netSaatCalc.toFixed(1));
       }
 
       // Geç kalma tespiti
       const [sH, sM] = activeStartTime.split(':').map(Number);
       if (!isNaN(sH) && !isNaN(sM) && !isNaN(gH) && !isNaN(gM)) {
-        const shiftStartMin = sH * 60 + sM + activeTolerance;
-        const userGirisMin = gH * 60 + gM;
-        if (userGirisMin > shiftStartMin) {
-          gecikmeDk = userGirisMin - (sH * 60 + sM);
+        let delayMin = (gH * 60 + gM) - (sH * 60 + sM);
+        if (delayMin < -720) delayMin += 1440;
+        if (delayMin > 720) delayMin -= 1440;
+        if (delayMin > activeTolerance) {
+          gecikmeDk = delayMin;
         }
       }
     }
@@ -680,12 +726,12 @@ export function hesaplaPersonelAylikPuantaj(params: {
       }
     } else if (isPazar) {
       // Pazar günü (İzinli değilse): Hafta Tatilidir (HT).
-      if (girisSaati && (cikisSaati || isToday) && (netSureSaat > 0 || (girisSaati && cikisSaati))) {
+      if (girisSaati) {
         kod = 'Ç';
         kodAciklama = 'Pazar Hafta Tatili Çalışması (Fazla Mesai)';
         fiiliCalismaGun += 1;
         fiiliCalismaSaat += netSureSaat;
-        toplamFazlaMesaiSaat += netSureSaat; // Pazar mesaisi doğrudan FM sayılır
+        toplamFazlaMesaiSaat += (netSureSaat > 0 ? netSureSaat : 7.5);
       } else {
         kod = 'HT';
         kodAciklama = 'Hafta Tatili (İş Kanunu Madde 46)';
@@ -693,9 +739,9 @@ export function hesaplaPersonelAylikPuantaj(params: {
       }
     } else if (isCumartesi && isCumartesiCalisma) {
       // 6 Günlük Çalışma Düzeni (Cumartesi normal çalışma günü)
-      if (girisSaati && (cikisSaati || isToday)) {
+      if (girisSaati) {
         kod = 'Ç';
-        if (isOngoing) {
+        if (isOngoing || !cikisSaati) {
           kodAciklama = `Cumartesi Vardiyası Devam Ediyor (Planlanan Bitiş: ${activeEndTime})`;
         } else {
           kodAciklama = `Cumartesi Fiili Çalışma (${netSureSaat} saat)`;
@@ -714,10 +760,10 @@ export function hesaplaPersonelAylikPuantaj(params: {
         kodAciklama = 'Devamsız / Cumartesi Mesaisine Giriş Yapılmadı';
         devamsizGun += 1;
       }
-    } else if (girisSaati && (cikisSaati || isToday)) {
+    } else if (girisSaati) {
       kod = 'Ç';
-      if (isOngoing) {
-        kodAciklama = `Vardiyası Devam Ediyor (Planlanan Bitiş: ${activeEndTime})`;
+      if (isOngoing || !cikisSaati) {
+        kodAciklama = `Vardiyası Devam Ediyor (Giriş: ${girisSaati}${isToday ? ` - Planlanan Bitiş: ${activeEndTime}` : ' - Çıkış Yapılmadı'})`;
       } else {
         kodAciklama = `Fiili Çalışma (${netSureSaat} saat)`;
       }

@@ -12,8 +12,11 @@ import {
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
   Sliders, Navigation, CheckCircle, RefreshCw, Trash2, RotateCcw,
   Building2, Plus, Edit2, Check, X, Bell, BellRing, Users,
-  Printer, FileText, Download, CalendarCheck, ArrowUpDown, ChevronDown
+  Printer, FileText, Download, CalendarCheck, ArrowUpDown, ChevronDown,
+  MessageSquare
 } from 'lucide-react';
+import { VardiyaSmsModal } from './VardiyaSmsModal';
+import { smsService } from '../services/smsService';
 import type { Employee, CompanyOfficeLocation } from '../types';
 import { getDevamKontroluIzinLabel, getDevamKontroluIzinKisaltma } from '../utils/izinCalculations';
 import iller, { type IlIlceItem } from '../lib/illce';
@@ -268,6 +271,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
   // Company Work Hours & Multi-Shift States
   const [showVardiyaModal, setShowVardiyaModal] = useState(false);
+  const [showSmsModal, setShowSmsModal] = useState(false);
+  const [todaySmsCount, setTodaySmsCount] = useState<number>(() => {
+    return smsService.getLogs(getTodayYYYYMMDD()).length;
+  });
+
+  useEffect(() => {
+    const handleSmsUpdate = () => {
+      setTodaySmsCount(smsService.getLogs(getTodayYYYYMMDD()).length);
+    };
+    window.addEventListener('humanius_sms_updated', handleSmsUpdate);
+    return () => window.removeEventListener('humanius_sms_updated', handleSmsUpdate);
+  }, []);
+
   const [allCompanyShifts, setAllCompanyShifts] = useState<CompanyShift[]>(VARSAYILAN_VARDIYALAR);
   const [allShiftAssignments, setAllShiftAssignments] = useState<Record<string, string>>({});
   const [activeUserShift, setActiveUserShift] = useState<CompanyShift>(VARSAYILAN_VARDIYALAR[0]);
@@ -847,33 +863,16 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
     
     if (savedActiveId && savedStart) {
-      const startDate = new Date(savedStart);
-      const now = new Date();
-      const isDifferentDay = startDate.toDateString() !== now.toDateString();
-
-      if (isDifferentDay) {
-        // Eski günden kalan yerel önbellek temizlenir
-        localStorage.removeItem('pdks_active_shift_id');
-        localStorage.removeItem('pdks_active_shift_start');
-        setIsShiftActive(false);
-        setShiftStartTime(null);
-        setActiveShiftRecordId(null);
-      } else {
-        // Bugünün mesaisi devam ediyor
-        setIsShiftActive(true);
-        setShiftStartTime(savedStart);
-        setActiveShiftRecordId(savedActiveId);
-        startWatchingLocation();
-      }
+      // KULLANICI KESİN TALİMATI: Gün aşsa bile (gece vardiyası veya açık kalan mesai)
+      // mesai ASLA otomatik kapatılmaz ve silinmez. Personel kendi kapatana kadar aktif kalır.
+      setIsShiftActive(true);
+      setShiftStartTime(savedStart);
+      setActiveShiftRecordId(savedActiveId);
+      startWatchingLocation();
     } else if (savedStart && !savedActiveId) {
-      const startDate = new Date(savedStart);
-      const now = new Date();
-      const isDifferentDay = startDate.toDateString() !== now.toDateString();
-      if (isDifferentDay) {
-        localStorage.removeItem('pdks_active_shift_start');
-        setIsShiftActive(false);
-        setShiftStartTime(null);
-      }
+      setIsShiftActive(true);
+      setShiftStartTime(savedStart);
+      startWatchingLocation();
     }
 
     // Request initial position
@@ -942,40 +941,43 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         // Filter to only include records for the current employee
         const myVardiyalar = (allVardiyalar || []).filter(v => v.employee_id === currentEmployee.id);
 
-        // Check today's shift status in DB to synchronize with personal screen
-        const todayStr = getTodayYYYYMMDD();
-        const todayRec = myVardiyalar.find(v => v.tarih === todayStr);
+        // KULLANICI KESİN TALİMATI: Gün bitse dahi (gece vardiyası veya açık kalan mesai)
+        // mesai ASLA otomatik kapatılmaz. Personel kendi "Mesaiyi Bitir" ile kapatana kadar mesai açık kalır.
+        // En güncel açık olan vardiyayı bul (tarih ve saate göre sıralı)
+        const openShift = myVardiyalar
+          .filter(v => v.giris_saati && (!v.cikis_saati || v.cikis_saati === '00:00:00' || v.cikis_saati === '00:00' || v.cikis_saati === '-'))
+          .sort((a, b) => (b.tarih || '').localeCompare(a.tarih || '') || (b.giris_saati || '').localeCompare(a.giris_saati || ''))[0];
 
-        // KULLANICI KESİN TALİMATI: Bugün için otomatik çıkışlar iptal edilir, çalışan kendi kapatmalıdır
-        if (todayRec && todayRec.cikis_saati && todayRec.notlar && (todayRec.notlar.includes('Otomatik vardiya sonlandırma') || todayRec.notlar.includes('otomatik sonlandırıldı'))) {
+        // Otomatik vardiya sonlandırma notlarını ve sahte çıkışlarını temizle
+        if (openShift && openShift.cikis_saati && openShift.notlar && (openShift.notlar.includes('Otomatik vardiya sonlandırma') || openShift.notlar.includes('otomatik sonlandırıldı'))) {
           try {
-            await pdksService.updateVardiya(todayRec.id, {
+            await pdksService.updateVardiya(openShift.id, {
               cikis_saati: null,
-              notlar: (todayRec.notlar || '').replace(/Otomatik vardiya sonlandırma[^•\n]*/, '').replace(/\[OFİS:[^\]]+\]\s*\[VARDIYA:[^\]]+\]\s*\[VARDIYA_ID:[^\]]+\]\s*Konumdan uzaklaşıldığı için sistem tarafından otomatik sonlandırıldı[^\n]*/, '').trim()
+              notlar: (openShift.notlar || '').replace(/Otomatik vardiya sonlandırma[^•\n]*/, '').replace(/\[OFİS:[^\]]+\]\s*\[VARDIYA:[^\]]+\]\s*\[VARDIYA_ID:[^\]]+\]\s*Konumdan uzaklaşıldığı için sistem tarafından otomatik sonlandırıldı[^\n]*/, '').trim()
             });
-            todayRec.cikis_saati = null;
+            openShift.cikis_saati = null;
           } catch (e) {
             console.warn('Otomatik çıkış geri alma hatası:', e);
           }
         }
 
-        if (todayRec && todayRec.cikis_saati && todayRec.cikis_saati !== '00:00:00' && todayRec.cikis_saati !== '00:00') {
-          // Exit was completed (by employee manually)
+        if (openShift) {
+          // Açık bir mesai var (bugünden veya dün gece 23:00'ten gelen gece vardiyası veya açık unutulan mesai)
+          const cleanGiris = openShift.giris_saati.substring(0, 5);
+          const startIso = `${openShift.tarih}T${cleanGiris}:00`;
+
+          setActiveShiftRecordId(openShift.id);
+          localStorage.setItem('pdks_active_shift_id', openShift.id);
+          setShiftStartTime(startIso);
+          localStorage.setItem('pdks_active_shift_start', startIso);
+          setIsShiftActive(true);
+        } else {
+          // Açık mesai yok, en son mesai tamamlanmış
           localStorage.removeItem('pdks_active_shift_id');
           localStorage.removeItem('pdks_active_shift_start');
           setIsShiftActive(false);
           setShiftStartTime(null);
           setActiveShiftRecordId(null);
-        } else if (todayRec && todayRec.giris_saati && (!todayRec.cikis_saati || todayRec.cikis_saati === '00:00:00' || todayRec.cikis_saati === '00:00')) {
-          // Personelin mesaisi devam ediyor (otomatik kapatma asla yok, çalışan kendisi bitirecektir)
-          const cleanGiris = todayRec.giris_saati.substring(0, 5);
-          const startIso = `${todayRec.tarih}T${cleanGiris}:00`;
-
-          setActiveShiftRecordId(todayRec.id);
-          localStorage.setItem('pdks_active_shift_id', todayRec.id);
-          setShiftStartTime(startIso);
-          localStorage.setItem('pdks_active_shift_start', startIso);
-          setIsShiftActive(true);
         }
 
         // Map to localHistory format
@@ -990,7 +992,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
             const [cH, cM] = v.cikis_saati.split(':').map(Number);
             const gMinutes = gH * 60 + gM;
             const cMinutes = cH * 60 + cM;
-            const diffMin = cMinutes - gMinutes;
+            let diffMin = cMinutes - gMinutes;
+            if (diffMin < 0) {
+              diffMin += 24 * 60; // Gece vardiyası (ör. 23:00 - 07:00)
+            }
             if (diffMin > 0) {
               totalHoursStr = `${parseFloat((diffMin / 60).toFixed(2))} Saat`;
             }
@@ -1495,7 +1500,17 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         : (activeUserShift?.end_time || '18:00');
       
       const currentHM = timeStr;
-      const isEarlyExit = currentHM < shiftEnd;
+      let isEarlyExit = currentHM < shiftEnd;
+      if (shiftEnd < shiftStart) {
+        // Gece vardiyası (ör. 23:00 - 07:00)
+        if (currentHM >= shiftStart) {
+          isEarlyExit = true;
+        } else if (currentHM < shiftEnd) {
+          isEarlyExit = true;
+        } else {
+          isEarlyExit = false;
+        }
+      }
       
       let formattedDuration = timerText || '00:00:00';
       if (shiftStartTime) {
@@ -1525,10 +1540,21 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     }
 
     try {
-      // 1. Update Database if activeShiftRecordId is valid
-      if (activeShiftRecordId) {
+      // 1. Update Database if activeShiftRecordId is valid (or find most recent unclosed shift)
+      let targetShiftId = activeShiftRecordId || localStorage.getItem('pdks_active_shift_id');
+      if (!targetShiftId && currentEmployee?.id) {
+        const allV = await pdksService.getVardiyalar();
+        const openV = (allV || [])
+          .filter(v => v.employee_id === currentEmployee.id && v.giris_saati && (!v.cikis_saati || v.cikis_saati === '00:00:00' || v.cikis_saati === '00:00' || v.cikis_saati === '-'))
+          .sort((a, b) => (b.tarih || '').localeCompare(a.tarih || '') || (b.giris_saati || '').localeCompare(a.giris_saati || ''))[0];
+        if (openV) {
+          targetShiftId = openV.id;
+        }
+      }
+
+      if (targetShiftId) {
         try {
-          await pdksService.updateVardiya(activeShiftRecordId, {
+          await pdksService.updateVardiya(targetShiftId, {
             cikis_saati: timeStr,
             notlar: wasAutoEnded 
               ? `[OFİS:${officeName}] [VARDIYA:${activeUserShift?.name || 'Vardiya'}] [VARDIYA_ID:${activeUserShift?.id || ''}] Konumdan uzaklaşıldığı için sistem tarafından otomatik sonlandırıldı (${officeName})`
@@ -1555,7 +1581,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               const [cH, cM] = v.cikis_saati.split(':').map(Number);
               const gMinutes = gH * 60 + gM;
               const cMinutes = cH * 60 + cM;
-              const diffMin = cMinutes - gMinutes;
+              let diffMin = cMinutes - gMinutes;
+              if (diffMin < 0) diffMin += 24 * 60; // Gece vardiyası
               if (diffMin > 0) {
                 totalHoursStr = `${parseFloat((diffMin / 60).toFixed(2))} Saat`;
               }
@@ -1584,6 +1611,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       localStorage.removeItem('pdks_active_shift_id');
       localStorage.removeItem('pdks_active_shift_start');
       stopWatchingLocation();
+
+      // Trigger custom events so all components and views update immediately
+      window.dispatchEvent(new Event('humanius_shifts_updated'));
+      window.dispatchEvent(new Event('humanius_puantaj_updated'));
 
       if (wasAutoEnded) {
         showWarning("Mesai Otomatik Sonlandırıldı", "Mesainiz konum sınırından uzaklaştığınız için otomatik olarak sonlandırıldı.");
@@ -1912,22 +1943,18 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           let effectiveCheckOut = checkOut;
 
           if (!checkOut && checkIn) {
-            if (targetDate === todayStr) {
-              // KULLANICI KESİN TALİMATI: Bugün için mesai ASLA otomatik kapanmaz!
-              // Personel kendisi "Mesaiyi Bitir" ile çıkış yapana kadar "Mesai Devam Ediyor" durumundadır.
-              effectiveCheckOut = null;
-              status = 'Mesai Devam Ediyor';
-            } else {
-              // Geçmiş bir günse ve çıkış basılmamışsa vardiya saatine göre tamamlanmış kabul edilir
-              effectiveCheckOut = empShift.end_time || '18:00';
-              status = 'Zamanında';
-            }
+            // KULLANICI KESİN TALİMATI: Gün bitse bile vardiya ASLA otomatik kapatılmaz!
+            // Gece 23'te başlatılan mesai ya da sabahtan açık unutulan mesai kapatılmaz, personel kendi kapatır.
+            effectiveCheckOut = null;
+            status = targetDate === todayStr ? 'Mesai Devam Ediyor' : 'Mesai Kapatılmadı (Açık)';
           } else if (checkIn && checkOut) {
             if (isTimeStr(checkIn)) {
               const [hours, minutes] = checkIn.split(':').map(Number);
               const [sH, sM] = (empShift.start_time || '08:30').split(':').map(Number);
-              const shiftStartTotal = sH * 60 + sM + (empShift.tolerance_minutes ?? 15);
-              if (hours * 60 + minutes > shiftStartTotal) {
+              let delayMin = (hours * 60 + minutes) - (sH * 60 + sM);
+              if (delayMin < -720) delayMin += 1440;
+              const tol = (empShift.tolerance_minutes ?? 15);
+              if (delayMin > tol) {
                 status = 'Geç Kaldı';
               } else {
                 status = 'Zamanında';
@@ -1945,14 +1972,27 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               mesai = parseFloat((diffMins / 60).toFixed(1));
               if (mesai < 0) mesai = 0;
             }
-          } else if (checkIn && isTimeStr(checkIn) && targetDate === todayStr) {
+          } else if (checkIn && isTimeStr(checkIn)) {
+            // Mesai çıkışı henüz yapılmamış (bugün veya dünden devreden mesai)
             const [gH, gM] = checkIn.split(':').map(Number);
             if (!isNaN(gH) && !isNaN(gM)) {
               const now = new Date();
-              const curMin = now.getHours() * 60 + now.getMinutes();
-              const diff = curMin - (gH * 60 + gM);
-              if (diff > 0) {
-                mesai = parseFloat((diff / 60).toFixed(1));
+              const checkInDate = new Date(`${targetDate}T${checkIn.substring(0, 5)}:00`);
+              if (!isNaN(checkInDate.getTime())) {
+                const diffMs = now.getTime() - checkInDate.getTime();
+                const elapsedMins = Math.max(0, Math.floor(diffMs / (1000 * 60)));
+                if (elapsedMins > 0 && elapsedMins <= 16 * 60) {
+                  // Son 16 saatte başlatılmış aktif vardiya (ör. gece vardiyası veya bugünkü mesai)
+                  mesai = parseFloat((elapsedMins / 60).toFixed(1));
+                } else {
+                  // 16 saatten eski açık unutulmuş mesai: 22 saat gösterme, normal vardiya süresi baz alınır
+                  const [sH, sM] = (empShift.start_time || '08:30').split(':').map(Number);
+                  const [eH, eM] = (empShift.end_time || '18:00').split(':').map(Number);
+                  let shiftDiff = (eH * 60 + eM) - (sH * 60 + sM);
+                  if (shiftDiff < 0) shiftDiff += 1440;
+                  const breakM = empShift.break_minutes || 60;
+                  mesai = parseFloat((Math.max(0, shiftDiff - breakM) / 60).toFixed(1));
+                }
               }
             }
           }
@@ -2327,12 +2367,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   {isShiftActive && (
                     <p className="text-[11px] text-gray-500 font-medium mt-1">
                       Başlangıç Saati: <strong className="text-gray-700 font-mono">{(() => {
-                        const todayStr = getTodayYYYYMMDD();
-                        const todayRec = (allShiftRecords || []).find(
-                          (r) => r.employee_id === currentEmployee?.id && r.tarih === todayStr
+                        const openRec = (allShiftRecords || []).find(
+                          (r) => r.id === activeShiftRecordId || (r.employee_id === currentEmployee?.id && r.giris_saati && (!r.cikis_saati || r.cikis_saati === '00:00:00' || r.cikis_saati === '00:00' || r.cikis_saati === '-'))
                         );
-                        if (todayRec?.giris_saati) {
-                          return todayRec.giris_saati.substring(0, 5);
+                        if (openRec?.giris_saati) {
+                          const timePart = openRec.giris_saati.substring(0, 5);
+                          const isYesterday = openRec.tarih !== getTodayYYYYMMDD();
+                          return isYesterday ? `${timePart} (${new Date(openRec.tarih).toLocaleDateString('tr-TR')})` : timePart;
                         }
                         if (shiftStartTime) {
                           if (/^\d{1,2}:\d{2}/.test(shiftStartTime)) return shiftStartTime.substring(0, 5);
@@ -2352,21 +2393,25 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 {/* Today's Completed Shift Summary (if shift is completed) */}
                 {(() => {
                   const todayStr = getTodayYYYYMMDD();
-                  const todayRec = (allShiftRecords || []).find(
-                    (r) => r.employee_id === currentEmployee?.id && r.tarih === todayStr
-                  );
                   const isTimeStr = (s?: string) => Boolean(s && /^\d{1,2}:\d{2}/.test(s));
-                  if (!isShiftActive && todayRec?.giris_saati && todayRec?.cikis_saati && isTimeStr(todayRec.giris_saati) && isTimeStr(todayRec.cikis_saati)) {
-                    const [gH, gM] = todayRec.giris_saati.split(':').map(Number);
-                    const [cH, cM] = todayRec.cikis_saati.split(':').map(Number);
-                    const diffMin = (cH * 60 + cM) - (gH * 60 + gM);
+                  const latestCompletedRec = (allShiftRecords || [])
+                    .filter((r) => r.employee_id === currentEmployee?.id && r.giris_saati && r.cikis_saati && isTimeStr(r.giris_saati) && isTimeStr(r.cikis_saati))
+                    .sort((a, b) => (b.tarih || '').localeCompare(a.tarih || '') || (b.cikis_saati || '').localeCompare(a.cikis_saati || ''))[0];
+
+                  if (!isShiftActive && latestCompletedRec && (latestCompletedRec.tarih === todayStr || Math.abs(new Date().getTime() - new Date(`${latestCompletedRec.tarih}T${latestCompletedRec.cikis_saati.substring(0, 5)}:00`).getTime()) < 24 * 3600 * 1000)) {
+                    const [gH, gM] = latestCompletedRec.giris_saati.split(':').map(Number);
+                    const [cH, cM] = latestCompletedRec.cikis_saati.split(':').map(Number);
+                    let diffMin = (cH * 60 + cM) - (gH * 60 + gM);
+                    if (diffMin < 0) diffMin += 24 * 60;
                     const durationStr = diffMin > 0 ? `${parseFloat((diffMin / 60).toFixed(1))} saat` : '-';
                     return (
                       <div className="w-full max-w-sm bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-2xl p-4 text-left shadow-xs space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            <span className="text-xs font-bold text-emerald-950">Bugünkü Mesainiz Tamamlandı</span>
+                            <span className="text-xs font-bold text-emerald-950">
+                              {latestCompletedRec.tarih === todayStr ? 'Bugünkü Mesainiz Tamamlandı' : 'Vardiyanız Tamamlandı'}
+                            </span>
                           </div>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
                             Çıkış Yapıldı
@@ -2375,11 +2420,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         <div className="grid grid-cols-3 gap-2 text-xs text-gray-700 bg-white/90 p-2.5 rounded-xl border border-emerald-100 text-center">
                           <div>
                             <span className="text-[10px] text-gray-400 block font-medium">Giriş</span>
-                            <span className="font-mono font-bold text-gray-800">{todayRec.giris_saati.substring(0, 5)}</span>
+                            <span className="font-mono font-bold text-gray-800">{latestCompletedRec.giris_saati.substring(0, 5)}</span>
                           </div>
                           <div>
                             <span className="text-[10px] text-emerald-600 block font-medium">Çıkış</span>
-                            <span className="font-mono font-bold text-emerald-700">{todayRec.cikis_saati.substring(0, 5)}</span>
+                            <span className="font-mono font-bold text-emerald-700">{latestCompletedRec.cikis_saati.substring(0, 5)}</span>
                           </div>
                           <div>
                             <span className="text-[10px] text-gray-400 block font-medium">Süre</span>
@@ -2913,13 +2958,28 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               </div>
             </div>
             {isManagement && (
-              <button
-                onClick={() => setShowVardiyaModal(true)}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all"
-              >
-                <Sliders className="w-4 h-4" />
-                Vardiyalar & Personel Atamaları
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowSmsModal(true)}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all"
+                  title="Vardiya SMS Bildirimleri (Verimor Entegrasyonu)"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  SMS Bildirimleri
+                  {todaySmsCount > 0 && (
+                    <span className="bg-emerald-800 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                      {todaySmsCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowVardiyaModal(true)}
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all"
+                >
+                  <Sliders className="w-4 h-4" />
+                  Vardiyalar & Personel Atamaları
+                </button>
+              </div>
             )}
           </div>
 
@@ -3981,6 +4041,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           setAllCompanyShifts(fetchedShifts);
           setAllShiftAssignments(fetchedAssignments);
         }}
+        employees={employees}
+        companyId={resolvedCompanyId}
+      />
+
+      {/* Vardiya SMS Bildirimleri Yönetim Modalı */}
+      <VardiyaSmsModal
+        isOpen={showSmsModal}
+        onClose={() => setShowSmsModal(false)}
         employees={employees}
         companyId={resolvedCompanyId}
       />

@@ -3,6 +3,15 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/api/verimor': {
+        target: 'https://sms.verimor.com.tr',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/verimor/, ''),
+      },
+    },
+  },
   build: {
     chunkSizeWarningLimit: 800,
     rollupOptions: {

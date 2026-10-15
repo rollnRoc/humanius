@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Search, Users, Calendar, FileText, CreditCard, Bell, Edit2, SearchIcon, LogOut, BookOpen, Clock, GraduationCap, Shield, Gift, ChevronDown, UserCircle, Settings, Layout, Lock, Home } from 'lucide-react';
+import { Search, Users, Calendar, FileText, CreditCard, Bell, Edit2, SearchIcon, Clock, Shield, Gift, ChevronDown, UserCircle, Settings, Layout, Home, BarChart3, Building2 } from 'lucide-react';
 import { View } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import LogoEditor, { LogoConfig } from './LogoEditor';
-import { canAccessView, getRoleLabel } from '../auth/roles';
+import { canAccessView } from '../auth/roles';
 import { companyService } from '../services/companyService';
 
 const DEFAULT_LOGO_SRC = '/humanius-original.png';
@@ -54,25 +54,26 @@ interface SidebarProps {
   onSearchChange: (term: string) => void;
 }
 
-const UYGULAMALAR_IDS: View[] = ['kvkk', 'kullanim-kilavuzu'];
+const UYGULAMALAR_IDS: View[] = [];
 
 const RAW_NAV_ITEMS = [
   { id: 'arama' as View, label: 'Ana Sayfa', icon: Home },
   {
-    id: 'personel' as View, label: 'Şirket Yönetimi', icon: Users, children: [
-      { id: 'personel' as View, label: 'Personel Listesi' },
+    id: 'sirket-yonetimi' as View, label: 'Şirket Yönetimi', icon: Building2, children: [
+      { id: 'sirket-bilgileri' as View, label: 'Şirket Bilgileri & Yönetimi' },
       { id: 'org-sema' as View, label: 'Organizasyon Şeması' },
       { id: 'zimmet' as View, label: 'Tüm Zimmetler Listesi' },
-      { id: 'kullanicilar' as View, label: 'Kullanıcılar' },
-      { id: 'sirket-bilgileri' as View, label: 'Şirket Bilgileri & Yönetimi' },
+      { id: 'uyari' as View, label: 'Uyarılar Takvimi' },
       { id: 'ayar' as View, label: 'Kanunlar ve Kurallar' },
+      { id: 'kullanicilar' as View, label: 'Kullanıcılar' },
     ]
   },
   {
-    id: 'ozluk-dosyasi' as View, label: 'Personel Yönetimi', icon: UserCircle, children: [
+    id: 'personel' as View, label: 'Personel Yönetimi', icon: Users, children: [
+      { id: 'personel' as View, label: 'Personel Listesi' },
       { id: 'ozluk-dosyasi' as View, label: 'Personel Kartı ve Özlük' },
       { id: 'gorev-tanimi' as View, label: 'Görev Tanımı' },
-      { id: 'tazminat-hesaplama' as View, label: 'Tazminat & Bilirkişi Hesaplama' },
+      { id: 'egitim' as View, label: 'Eğitim ve Gelişim' },
     ]
   },
   {
@@ -87,31 +88,24 @@ const RAW_NAV_ITEMS = [
       { id: 'izin' as View, label: 'İzin Talepleri' },
       { id: 'izin-cakisma' as View, label: 'İzin Çakışma Kontrolü' },
       { id: 'izin-tanimlari' as View, label: 'İzin Türleri Tanımları' },
-      { id: 'izin-listesi' as View, label: 'İzinli Kişiler Listesi' },
     ]
   },
   {
-    id: 'is-akisi-menu' as View, label: 'İş Akışı ve PDKS', icon: Clock, children: [
-      { id: 'is-akisi' as View, label: 'İş Akışı Panosu' },
-      { id: 'pdks-devam' as View, label: 'Devam Kontrolü' },
+    id: 'is-akisi-menu' as View, label: 'Puantaj ve PDKS', icon: Clock, children: [
       { id: 'puantaj' as View, label: 'Aylık Puantaj Cetveli' },
+      { id: 'pdks-devam' as View, label: 'Devam Kontrolü' },
+    ]
+  },
+  {
+    id: 'analiz' as View, label: 'Analiz', icon: BarChart3, children: [
       { id: 'analitik' as View, label: 'Veri Analitiği' },
-    ]
-  },
-  { id: 'uyari' as View, label: 'Uyarılar Takvimi', icon: Bell },
-  {
-    id: 'egitim' as View, label: 'Eğitim & Gelişim (LMS)', icon: GraduationCap, children: [
-      { id: 'egitim' as View, label: 'Eğitim Kataloğu & LMS' },
-      { id: 'yetkinlik' as View, label: 'Gap Analysis' },
-    ]
-  },
-  {
-    id: 'performans' as View, label: 'Performans Yönetimi', icon: Layout, children: [
+      { id: 'tazminat-hesaplama' as View, label: 'Tazminat & Bilirkişi Hesaplama' },
+      { id: 'kvkk' as View, label: 'KVKK / GDPR Uyumluluk' },
       { id: 'performans' as View, label: 'Performans Değerlendirme' },
-      { id: 'okr' as View, label: 'OKR Hedefler' },
+      { id: 'okr' as View, label: 'OKR Hedef' },
+      { id: 'yetkinlik' as View, label: 'Gap Analizi' },
     ]
   },
-  { id: 'kullanim-kilavuzu' as View, label: 'Kullanım Kılavuzu', icon: BookOpen },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -121,7 +115,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSearchChange
 }) => {
   const { t } = useLanguage();
-  const { user, profile, appRole, signOut } = useAuth();
+  const { user, profile, appRole } = useAuth();
   const effectiveRole = user ? appRole : 'admin';
   const prevViewRef = useRef<View>(currentView);
   const [openSections, setOpenSections] = useState<View[]>(() => {
@@ -263,9 +257,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [companyId, logoSrcKey]);
 
   const mainNavItems = useMemo(() => {
+    const isSuper = appRole === 'superadmin' || effectiveRole === 'superadmin';
     const navItems = RAW_NAV_ITEMS.map(item => {
       if (item.children) {
-        return { ...item, children: item.children.filter(child => canAccessView(effectiveRole, child.id)) };
+        return {
+          ...item,
+          children: item.children.filter(child => {
+            if (child.id === 'kullanicilar' && !isSuper) {
+              return false;
+            }
+            return canAccessView(effectiveRole, child.id);
+          })
+        };
       }
       return item;
     }).filter(item => {
@@ -275,14 +278,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     });
 
     return navItems.filter((item) => !UYGULAMALAR_IDS.includes(item.id));
-  }, [effectiveRole]);
+  }, [effectiveRole, appRole]);
 
   const uygulamalarNavItems = useMemo(() => {
-    return [
-      { id: 'kvkk' as View, label: 'KVKK / GDPR Uyumluluk', icon: Shield },
-      { id: 'kullanim-kilavuzu' as View, label: 'Kullanım Kılavuzu', icon: BookOpen },
-    ].filter((item) => canAccessView(effectiveRole, item.id));
-  }, [effectiveRole]);
+    return [];
+  }, []);
 
   React.useEffect(() => {
     if (prevViewRef.current !== currentView) {
@@ -336,11 +336,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
-        <p className="text-sm font-semibold text-gray-800">{profile?.full_name || user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : 'Kullanıcı')}</p>
-        <p className="mt-0.5 text-xs text-gray-500 font-medium">{companyName || (profile as any)?.company_name || ''}</p>
-        <p className="mt-1 text-xs text-gray-500">{getRoleLabel(effectiveRole)}</p>
-      </div>
+
 
       {showLogoEditor && (
         <LogoEditor
@@ -389,7 +385,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <Icon className="w-4 h-4" />
                 </div>
                 <span className="flex-1 text-left text-sm leading-tight">{item.label}</span>
-                {item.id === 'uyari' && showAlertDot && (
+                {showAlertDot && (item.id === 'uyari' || item.children?.some(c => c.id === 'uyari')) && (
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0 ml-1" />
                 )}
                 {hasChildren && (
@@ -415,6 +411,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <FileText className={`w-3.5 h-3.5 ${isChildActive ? 'text-blue-600' : 'text-gray-400'}`} />
                         </div>
                         <span className="flex-1 text-left leading-snug">{child.label}</span>
+                        {child.id === 'uyari' && showAlertDot && (
+                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0 ml-auto" />
+                        )}
                       </button>
                     );
                   })}
@@ -450,36 +449,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </nav>
 
-      {/* Logout & Settings */}
-      {user && (
-        <div className="mt-3 space-y-1">
-          <button
-            onClick={() => onViewChange('sifre-degistir')}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all border ${currentView === 'sifre-degistir'
-              ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold'
-              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border-transparent hover:border-gray-200'
-              }`}
-          >
-            <div className="w-5 h-5 flex items-center justify-center shrink-0">
-              <Lock className="w-4 h-4" />
-            </div>
-            <span className="font-medium">Şifre Değiştir</span>
-          </button>
-          <button
-            onClick={() => signOut()}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-200"
-          >
-            <div className="w-5 h-5 flex items-center justify-center shrink-0">
-              <LogOut className="w-4 h-4" />
-            </div>
-            <span className="font-medium">Çıkış Yap</span>
-          </button>
-        </div>
-      )}
+
 
       {/* Version */}
       <div className="mt-4 text-xs text-gray-400 text-center font-medium">
-        Humanius 1.0
+        Humanius 1.2
       </div>
     </aside>
   );

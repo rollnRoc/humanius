@@ -21,7 +21,7 @@ interface CompanyRow {
   city?: string;
 }
 
-const DEFAULT_PASSWORD = '123456';
+const DEFAULT_PASSWORD = '987654';
 const DEFAULT_SUPERADMIN_EMAIL = 'superadmin@humanius.local';
 
 export default function UserManagementPanel() {

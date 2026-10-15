@@ -18,8 +18,66 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f9fafb;
-  color: #111827;
+  background-color: #f1f5f9; /* Slate-100: Executive contrast canvas */
+  color: #0f172a;
+}
+
+/* ─── Card Distinction & High-Contrast Elevation ─────────────────────────────*/
+
+/* Canvas background overrides */
+.bg-gray-50,
+main.bg-gray-50 {
+  background-color: #f1f5f9 !important;
+}
+
+/* Crisp, high-contrast borders for cards across the system */
+.border-gray-200,
+.border-slate-200,
+.border-gray-200\/90,
+.border-slate-200\/90,
+.border-slate-200\/70 {
+  border-color: #cbd5e1 !important; /* Slate-300: clearly defined card edges */
+}
+
+/* Distinct card surfaces with multi-layer shadow and edge definition */
+div.bg-white[class*="rounded-"]:not(input):not(textarea):not(select):not(button),
+section.bg-white[class*="rounded-"],
+.bg-white.rounded-xl,
+.bg-white.rounded-2xl,
+.bg-white.rounded-3xl {
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.02);
+}
+
+/* Subtle elevation on hover for cards */
+div.bg-white[class*="rounded-"].transition-all:hover,
+div.bg-white[class*="rounded-"].transition-shadow:hover {
+  border-color: #94a3b8 !important;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.09), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+}
+
+/* Inputs and focusable fields preserve their active focus states */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Crisp inner sub-panels and highlight containers */
+.bg-slate-50,
+.bg-slate-50\/80 {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Enhanced shadow utilities */
+.shadow-xs {
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.06) !important;
+}
+
+.shadow-sm {
+  box-shadow: 0 2px 4px -1px rgba(15, 23, 42, 0.09), 0 1px 2px -1px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.03) !important;
 }
 
 /* ─── Custom scrollbar (light theme) ────────────────────────────────────────*/

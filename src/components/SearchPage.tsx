@@ -11,6 +11,7 @@ import type { BordroItem } from '../types/bordro';
 import { useAuth } from '../contexts/AuthContext';
 import { canAccessView } from '../auth/roles';
 import { formatIzinTuru } from '../utils/izinCalculations';
+import UserNavMenu from './UserNavMenu';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -457,25 +458,10 @@ export const SearchPage: React.FC<SearchPageProps> = ({
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 px-6 py-4 shadow-sm">
         <div className="max-w-3xl mx-auto space-y-3 pt-8">
 
-          {/* Employee Header */}
+          {/* User Header */}
           {appRole && (
             <div className="flex items-center justify-end pb-3 border-b border-gray-100 mb-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onNavigate('sifre-degistir')}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-all shrink-0 font-medium"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Şifre Değiştir</span>
-                </button>
-                <button
-                  onClick={() => signOut()}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-all shrink-0"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Çıkış Yap</span>
-                </button>
-              </div>
+              <UserNavMenu onNavigate={onNavigate} />
             </div>
           )}
 

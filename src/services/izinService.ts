@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 import { demoService } from './demoService';
-import { calculateWorkingDays } from '../utils/izinCalculations';
+import { calculateWorkingDays, calculateCompletedYears, calculateYillikIzinHakki } from '../utils/izinCalculations';
 
 function addDaysToDateStr(dateStr: string, days: number): string {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -241,8 +241,16 @@ export const izinService = {
       .eq('yil', currentYear)
       .maybeSingle();
 
-    let currentToplam = existing?.toplam_hak || 14;
-    let currentMazeret = existing?.mazeret_izin || 5;
+    let currentToplam = existing?.toplam_hak;
+    if (currentToplam == null) {
+      const { data: emp } = await supabase
+        .from('employees')
+        .select('hire_date')
+        .eq('id', params.employeeId)
+        .maybeSingle();
+      currentToplam = emp?.hire_date ? await this.calculateIzinHakki(emp.hire_date) : 0;
+    }
+    let currentMazeret = existing?.mazeret_izin ?? 5;
     const gun = Number(params.gunSayisi) || 0;
 
     if (params.izinTuru === 'yillik') {
@@ -270,14 +278,8 @@ export const izinService = {
   },
 
   async calculateIzinHakki(iseGirisTarihi: string): Promise<number> {
-    const giris = new Date(iseGirisTarihi);
-    const now = new Date();
-    const calismaYili = now.getFullYear() - giris.getFullYear();
-
-    if (calismaYili < 1) return 14;
-    if (calismaYili >= 1 && calismaYili < 5) return 14;
-    if (calismaYili >= 5 && calismaYili < 15) return 20;
-    return 26;
+    const calismaYili = calculateCompletedYears(iseGirisTarihi);
+    return calculateYillikIzinHakki(calismaYili);
   },
 
   /**
@@ -304,7 +306,9 @@ export const izinService = {
 
       const haklar = demoService.getIzinHaklari(currentYear);
       const hak = haklar.find((h) => h.employee_id === employeeId);
-      const toplam = hak?.toplam_hak || 14;
+      const empMatch = demoService.getEmployees().find((e) => e.id === employeeId);
+      const defaultHak = empMatch?.join_date ? calculateYillikIzinHakki(calculateCompletedYears(empMatch.join_date)) : 0;
+      const toplam = hak?.toplam_hak != null ? hak.toplam_hak : defaultHak;
       const kalan = Math.max(0, toplam - approvedAnnualDays);
       if (hak) {
         hak.kullanilan_izin = approvedAnnualDays;
@@ -363,7 +367,7 @@ export const izinService = {
       if (emp?.hire_date) {
         toplamHak = await this.calculateIzinHakki(emp.hire_date);
       } else {
-        toplamHak = 14;
+        toplamHak = 0;
       }
       if (!targetCompanyId && emp?.company_id) {
         targetCompanyId = emp.company_id;

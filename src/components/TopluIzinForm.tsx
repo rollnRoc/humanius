@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, FileText, AlertCircle, MapPin, Upload, CheckCircle } from 'lucide-react';
 import { Employee } from '../types';
 import { IzinTalebi, IzinHakki, IzinTuru } from '../types/izin';
-import { calculateWorkingDays, izinTuruLabels, getCompanyIzinTurleri, getCompanyIzinTuruLabels, getMaxIzinSureleri, validateIzinTuru, isSaturdayWorkActive } from '../utils/izinCalculations';
+import { calculateWorkingDays, izinTuruLabels, getCompanyIzinTurleri, getCompanyIzinTuruLabels, getMaxIzinSureleri, validateIzinTuru, isSaturdayWorkActive, hasCompletedOneYear } from '../utils/izinCalculations';
 import { leaveTypeService } from '../services/leaveTypeService';
 import { useScrollLock } from '../hooks/useScrollLock';
 
@@ -84,7 +84,19 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
       const days = calculateWorkingDays(formData.baslangicTarihi, formData.bitisTarihi);
       setGunSayisi(days);
       
-      // İzin süresi validasyonu
+      // İzin süresi ve 1 yıl kıdem validasyonu
+      if (formData.izinTuru === 'yillik') {
+        const ineligible = employees.filter(
+          (emp) => formData.employeeIds.includes(emp.id) && !hasCompletedOneYear(emp.joinDate || (emp as any).join_date)
+        );
+        if (ineligible.length > 0) {
+          setValidationError(
+            `4857 Sayılı İş Kanunu uyarınca 1 tam yılını doldurmayan çalışanlar yıllık izin kullanamaz. Seçilen personellerden [${ineligible.map((e) => e.name).join(', ')}] henüz 1 yılını doldurmamıştır.`
+          );
+          return;
+        }
+      }
+
       if (days > 0) {
         const toplamGun = days + (formData.yolIzniTalep ? formData.yolIzniGun : 0);
 
@@ -106,7 +118,7 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
       setGunSayisi(0);
       setValidationError('');
     }
-  }, [formData.baslangicTarihi, formData.bitisTarihi, formData.izinTuru, formData.kismiYillik, formData.yolIzniTalep, formData.yolIzniGun]);
+  }, [formData.baslangicTarihi, formData.bitisTarihi, formData.izinTuru, formData.kismiYillik, formData.yolIzniTalep, formData.yolIzniGun, formData.employeeIds, employees]);
 
   useEffect(() => {
     if (!formData.kismiYillik) return;
@@ -166,6 +178,18 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
     if (new Date(formData.baslangicTarihi) > new Date(formData.bitisTarihi)) {
       alert('Başlangıç tarihi bitiş tarihinden sonra olamaz!');
       return;
+    }
+
+    if (formData.izinTuru === 'yillik') {
+      const ineligible = employees.filter(
+        (emp) => formData.employeeIds.includes(emp.id) && !hasCompletedOneYear(emp.joinDate || (emp as any).join_date)
+      );
+      if (ineligible.length > 0) {
+        alert(
+          `4857 Sayılı İş Kanunu uyarınca 1 tam yılını doldurmayan çalışanlar yıllık izin kullanamaz. Seçilen personellerden [${ineligible.map((e) => e.name).join(', ')}] henüz 1 yılını doldurmamıştır.`
+        );
+        return;
+      }
     }
 
     if (formData.izinTuru === 'yillik' && formData.kismiYillik && (gunSayisi < 1 || gunSayisi > 10)) {
@@ -255,23 +279,33 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
                   />
                   <span className="text-sm font-medium text-gray-800">Tümünü Seç</span>
                 </label>
-                {employees.map(employee => (
-                  <label key={employee.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                    <input
-                      type="checkbox"
-                      checked={formData.employeeIds.includes(employee.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setFormData({ ...formData, employeeIds: [...formData.employeeIds, employee.id] });
-                        } else {
-                          setFormData({ ...formData, employeeIds: formData.employeeIds.filter(id => id !== employee.id) });
-                        }
-                      }}
-                      className="w-4 h-4 text-blue-600 rounded border-gray-300"
-                    />
-                    <span className="text-sm text-gray-700">{employee.name} - {employee.department}</span>
-                  </label>
-                ))}
+                {employees.map(employee => {
+                  const has1Year = hasCompletedOneYear(employee.joinDate || (employee as any).join_date);
+                  return (
+                    <label key={employee.id} className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-1.5 rounded">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.employeeIds.includes(employee.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({ ...formData, employeeIds: [...formData.employeeIds, employee.id] });
+                            } else {
+                              setFormData({ ...formData, employeeIds: formData.employeeIds.filter(id => id !== employee.id) });
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300"
+                        />
+                        <span className="text-sm text-gray-700">{employee.name} - {employee.department}</span>
+                      </div>
+                      {!has1Year && (
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shrink-0">
+                          1 Yıl Dolmadı
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>

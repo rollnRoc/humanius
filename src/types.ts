@@ -37,7 +37,9 @@ export type View =
   | 'is-akisi-menu'
   | 'sifre-degistir'
   | 'tazminat-hesaplama'
-  | 'puantaj';
+  | 'puantaj'
+  | 'analiz'
+  | 'sirket-yonetimi';
 
 // ─── Core Entities ───────────────────────────────────────────────────────────
 

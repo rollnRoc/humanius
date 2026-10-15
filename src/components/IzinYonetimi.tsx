@@ -22,13 +22,12 @@ import {
 } from 'lucide-react';
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
-import { formatIzinTuru } from '../utils/izinCalculations';
+import { formatIzinTuru, calculateCompletedYears, calculateYillikIzinHakki, hasCompletedOneYear, getYillikIzinHakEdisTarihi, formatDate } from '../utils/izinCalculations';
 import { IzinWorkflow } from './IzinWorkflow';
 import { canApproveLeave } from '../auth/roles';
 import IzinOzetKartlari from './IzinOzetKartlari';
-import IzinTakvimi from './IzinTakvimi';
 
-export type IzinTabId = 'onay-bekleyen' | 'son-islemler' | 'ozet-paneli' | 'personel-durumu' | 'takvim';
+export type IzinTabId = 'onay-bekleyen' | 'son-islemler' | 'ozet-paneli';
 
 export interface IzinYonetimiProps {
   employees: Employee[];
@@ -243,6 +242,11 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
     return undefined;
   }, [currentEmployeeIzinHakki, currentEmployeeMatch, izinHaklari]);
 
+  const currentEmpJoinDate = currentEmployeeMatch?.joinDate || (currentEmployeeMatch as any)?.join_date || (currentEmployeeMatch as any)?.ise_giris_tarihi;
+  const currentEmpHas1Year = hasCompletedOneYear(currentEmpJoinDate);
+  const currentEmp1YearDate = getYillikIzinHakEdisTarihi(currentEmpJoinDate);
+  const currentEmpDefaultHak = currentEmpHas1Year ? 14 : 0;
+
   // Sekmeler: Normal personel için yalnızca 'Bekleyen Taleplerim' ve 'İzin Geçmişim'
   const tabs: { id: IzinTabId; label: string; icon: React.ReactNode; badge?: number; badgeColor?: string }[] = useMemo(() => {
     if (!isAuthorized) {
@@ -284,20 +288,8 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
         label: 'Özet Paneli',
         icon: <LayoutDashboard className="w-4 h-4" />,
       },
-      {
-        id: 'personel-durumu',
-        label: 'Personel İzin Durumu',
-        icon: <Users className="w-4 h-4" />,
-        badge: employees.filter((e) => e.status === 'active' || e.status === 'onLeave').length,
-        badgeColor: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
-      },
-      {
-        id: 'takvim',
-        label: 'İzin Takvimi',
-        icon: <Calendar className="w-4 h-4" />,
-      },
     ];
-  }, [isAuthorized, bekleyenler.length, sonIslemler.length, employees]);
+  }, [isAuthorized, bekleyenler.length, sonIslemler.length]);
 
   return (
     <div className="space-y-5">
@@ -314,7 +306,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
                 {isAuthorized
-                  ? 'İzin onay süreçleri, çalışan hak edişleri, özet göstergeler ve takvim planlaması'
+                  ? 'İzin onay süreçleri, çalışan hak edişleri ve özet göstergeler'
                   : 'Kişisel izin bakiyeniz, onay sürecindeki talepleriniz ve geçmiş izin kayıtlarınız'}
               </p>
             </div>
@@ -376,7 +368,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
               <div className="rounded-xl bg-white p-3 border border-gray-200/80 shadow-2xs">
                 <p className="text-[11px] font-semibold text-gray-500">Toplam Hak</p>
                 <p className="text-xl font-bold text-gray-900 mt-0.5">
-                  {effectiveHak?.toplamHak ?? 14} <span className="text-xs font-normal text-gray-500">gün</span>
+                  {effectiveHak?.toplamHak ?? currentEmpDefaultHak} <span className="text-xs font-normal text-gray-500">gün</span>
                 </p>
               </div>
               <div className="rounded-xl bg-white p-3 border border-gray-200/80 shadow-2xs">
@@ -388,7 +380,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
               <div className="rounded-xl bg-white p-3 border border-emerald-300 bg-emerald-50/40 shadow-2xs">
                 <p className="text-[11px] font-bold text-emerald-800">Kalan İzin</p>
                 <p className="text-xl font-extrabold text-emerald-700 mt-0.5">
-                  {effectiveHak?.kalanIzin ?? 14} <span className="text-xs font-normal text-emerald-600">gün</span>
+                  {effectiveHak?.kalanIzin ?? currentEmpDefaultHak} <span className="text-xs font-normal text-emerald-600">gün</span>
                 </p>
               </div>
               <div className="rounded-xl bg-white p-3 border border-gray-200/80 shadow-2xs">
@@ -398,6 +390,12 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
                 </p>
               </div>
             </div>
+
+            {!isAuthorized && currentEmployeeMatch && !currentEmpHas1Year && (
+              <div className="w-full mt-2 p-3 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-900">
+                ℹ️ <strong>4857 Sayılı İş Kanunu Madde 53/54:</strong> İşe giriş tarihinizden itibaren 1 tam yılı henüz doldurmadığınız için yıllık ücretli izin hakkınız henüz aktifleşmemiştir (Kanuni Hak: 0 Gün). {currentEmp1YearDate ? `1 Yıl Dolum Tarihiniz: ${formatDate(currentEmp1YearDate.toISOString().split('T')[0])}.` : ''}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -807,58 +805,58 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
       {isAuthorized && activeTab === 'ozet-paneli' && (
         <div className="space-y-5 animate-fade-in">
           {/* Aktif Kullanıcı İzin Özeti Kartı */}
-          <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-5 shadow-xs">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="rounded-2xl border-2 border-indigo-200/90 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/50 p-6 shadow-sm ring-1 ring-indigo-900/[0.04]">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">Aktif Kullanıcı İzin Özeti</p>
-                <h3 className="mt-1 text-lg font-bold text-gray-900">{profile?.full_name || 'Kullanıcı'}</h3>
-                <p className="mt-0.5 text-xs text-gray-600">
+                <h3 className="mt-1 text-lg font-extrabold text-slate-900">{profile?.full_name || 'Kullanıcı'}</h3>
+                <p className="mt-1 text-xs text-slate-600">
                   {currentEmployeeMatch
                     ? `${currentEmployeeMatch.department || 'Departman belirtilmedi'} • ${currentEmployeeMatch.position || 'Pozisyon belirtilmedi'}`
                     : 'Personel kaydı eşleşmedi'}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 min-w-[240px]">
-                <div className="rounded-xl bg-white px-3.5 py-2.5 border border-indigo-100 shadow-xs">
-                  <p className="text-[11px] font-semibold text-gray-500">Kullanılan İzin</p>
-                  <p className="text-xl font-bold text-indigo-900">{effectiveHak?.kullanilanIzin ?? 0} <span className="text-xs font-normal text-gray-500">gün</span></p>
+              <div className="grid grid-cols-2 gap-3.5 min-w-[260px]">
+                <div className="rounded-2xl bg-white px-4 py-3 border-2 border-indigo-100 shadow-2xs">
+                  <p className="text-xs font-semibold text-slate-500">Kullanılan İzin</p>
+                  <p className="text-xl font-black text-indigo-900 mt-0.5">{effectiveHak?.kullanilanIzin ?? 0} <span className="text-xs font-normal text-slate-500">gün</span></p>
                 </div>
-                <div className="rounded-xl bg-white px-3.5 py-2.5 border border-indigo-100 shadow-xs">
-                  <p className="text-[11px] font-semibold text-gray-500">Kalan İzin</p>
-                  <p className="text-xl font-bold text-emerald-700">{effectiveHak?.kalanIzin ?? 0} <span className="text-xs font-normal text-gray-500">gün</span></p>
+                <div className="rounded-2xl bg-white px-4 py-3 border-2 border-indigo-100 shadow-2xs">
+                  <p className="text-xs font-semibold text-slate-500">Kalan İzin</p>
+                  <p className="text-xl font-black text-emerald-700 mt-0.5">{effectiveHak?.kalanIzin ?? currentEmpDefaultHak} <span className="text-xs font-normal text-slate-500">gün</span></p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 rounded-xl bg-white border border-indigo-100 p-3.5">
-              <p className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-indigo-600" />
+            <div className="mt-5 rounded-2xl bg-white border-2 border-indigo-100/90 p-4 shadow-2xs">
+              <p className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
                 <span>Son İzin Talepleriniz</span>
               </p>
               {currentEmployeeIzinTalepleri.length === 0 ? (
-                <p className="text-xs text-gray-400 py-1">Bu kullanıcıya ait izin talebi bulunamadı.</p>
+                <p className="text-xs text-slate-400 py-1.5">Bu kullanıcıya ait izin talebi bulunamadı.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {currentEmployeeIzinTalepleri.slice(0, 4).map((talep) => (
                     <div
                       key={talep.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 text-xs"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-xs"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-800">{formatIzinTuru(talep.izinTuru)}</span>
-                        <span className="text-gray-400">•</span>
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-bold text-slate-800">{formatIzinTuru(talep.izinTuru)}</span>
+                        <span className="text-slate-300">•</span>
                         <span className="font-semibold text-blue-700">{talep.gunSayisi} gün</span>
                       </div>
-                      <div className="flex items-center gap-2 text-gray-500">
+                      <div className="flex items-center gap-2 text-slate-500">
                         <span>{formatDateRange(talep.baslangicTarihi, talep.bitisTarihi)}</span>
                         <span
-                          className={`font-semibold px-2 py-0.5 rounded-full text-[10px] ${
+                          className={`font-bold px-2.5 py-0.5 rounded-full text-[10px] border ${
                             talep.durum === 'onaylandi'
-                              ? 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                               : talep.durum === 'beklemede'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-red-100 text-red-800'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : 'bg-red-50 text-red-800 border-red-200'
                           }`}
                         >
                           {talep.durum}
@@ -879,29 +877,6 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
             viewMode="kpi"
             onNavigateToPending={() => setActiveTab('onay-bekleyen')}
           />
-        </div>
-      )}
-
-      {/* ── Tab 4: Personel İzin Durumu ── */}
-      {isAuthorized && activeTab === 'personel-durumu' && (
-        <div className="space-y-4 animate-fade-in">
-          <IzinOzetKartlari
-            employees={employees}
-            izinTalepleri={izinTalepleri}
-            izinHaklari={izinHaklari}
-            onUpdateHak={onUpdateHak}
-            onOpenHakedisModal={onOpenHakedisModal}
-            onEditIzin={onEdit}
-            onDeleteIzin={onDelete}
-            viewMode="table"
-          />
-        </div>
-      )}
-
-      {/* ── Tab 5: Takvim ── */}
-      {isAuthorized && activeTab === 'takvim' && (
-        <div className="space-y-4 animate-fade-in">
-          <IzinTakvimi izinTalepleri={izinTalepleri} employees={employees} />
         </div>
       )}
     </div>

@@ -54,12 +54,17 @@ const DEMO_IZINLER: IzinKayit[] = [
 ];
 
 function tarihAralik(baslangic: string, bitis: string): string[] {
-  const gunler: string[] = [];
+  if (!baslangic || !bitis) return [];
   const bas = new Date(baslangic);
   const bit = new Date(bitis);
+  if (isNaN(bas.getTime()) || isNaN(bit.getTime())) return [];
+  const gunler: string[] = [];
   const current = new Date(bas);
   while (current <= bit) {
-    gunler.push(current.toISOString().split('T')[0]);
+    const y = current.getFullYear();
+    const m = String(current.getMonth() + 1).padStart(2, '0');
+    const d = String(current.getDate()).padStart(2, '0');
+    gunler.push(`${y}-${m}-${d}`);
     current.setDate(current.getDate() + 1);
   }
   return gunler;
@@ -102,7 +107,7 @@ interface IzinCakismaProps {
 
 const AY_ADLARI = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
-const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees, izinTalepleri }) => {
+const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees = [], izinTalepleri = [] }) => {
   const [izinler, setIzinler] = useState<IzinKayit[]>(DEMO_IZINLER);
   const [yeniIzin, setYeniIzin] = useState<Partial<IzinKayit>>({ tur: 'Yıllık İzin', durum: 'beklemede' });
   const [formAcik, setFormAcik] = useState(false);
@@ -119,7 +124,7 @@ const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees, izinTaleple
       case 'olum': return 'Ölüm İzni';
       case 'askerlik': return 'Askerlik İzni';
       case 'ucretsiz': return 'Ücretsiz İzin';
-      default: return 'Diğer İzin';
+      default: return tur || 'Diğer İzin';
     }
   };
 
@@ -307,24 +312,6 @@ const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees, izinTaleple
             </p>
           </div>
         </div>
-
-        <button
-          onClick={() => {
-            if (seciliGun) {
-              setYeniIzin({
-                baslangic: seciliGun,
-                bitis: seciliGun,
-                tur: 'Yıllık İzin',
-                durum: 'beklemede',
-              });
-            }
-            setFormAcik(true);
-          }}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Yeni İzin Kontrolü / Talebi</span>
-        </button>
       </div>
 
       {/* ── Sekmeler ── */}
@@ -566,23 +553,6 @@ const IzinCakismaKontrol: React.FC<IzinCakismaProps> = ({ employees, izinTaleple
                     <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto" />
                     <p className="text-xs font-bold text-gray-700">Bu tarihte planlı izin bulunmamaktadır.</p>
                     <p className="text-[11px] text-gray-500">Departman personellerinin tümü mesaide görünmektedir. Çakışma riski yoktur.</p>
-                    <button
-                      onClick={() => {
-                        if (seciliGun) {
-                          setYeniIzin({
-                            baslangic: seciliGun,
-                            bitis: seciliGun,
-                            tur: 'Yıllık İzin',
-                            durum: 'beklemede',
-                          });
-                          setFormAcik(true);
-                        }
-                      }}
-                      className="mt-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Bu Güne İzin Talebi Oluştur</span>
-                    </button>
                   </div>
                 ) : (
                   <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">

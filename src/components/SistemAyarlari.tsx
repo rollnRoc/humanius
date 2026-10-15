@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Settings, Shield, Calculator, GraduationCap, FileText, Building, Building2, AlertTriangle, CheckCircle, Clock, Users, Calendar, DollarSign, TrendingUp, Plus, Pencil, Trash2, X, KeyRound, PenTool } from 'lucide-react';
+import { 
+  Settings, Shield, Calculator, GraduationCap, FileText, Building, Building2, 
+  AlertTriangle, CheckCircle, Clock, Users, Calendar, DollarSign, TrendingUp, 
+  Plus, Pencil, Trash2, X, KeyRound, PenTool,
+  MapPin, Phone, Mail, Copy, Check, ExternalLink, ShieldCheck, Globe, Hash, Sparkles,
+  MessageSquare
+} from 'lucide-react';
 import { VARSAYILAN_SISTEM_AYARLARI, SISTEM_PARAMETRELERI } from '../data/sistemAyarlari';
 import { SistemAyarlari as ISistemAyarlari, SistemParametresi, ParametreKategorisi } from '../types/sistemAyarlari';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,6 +14,9 @@ import { companyService } from '../services/companyService';
 import { userService, type UserProfile } from '../services/userService';
 import { userManagementService } from '../services/userManagementService';
 import { demoService } from '../services/demoService';
+import { shiftService, type SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG } from '../services/shiftService';
+import { smsService } from '../services/smsService';
+import { showSuccess, showError } from '../utils/swal';
 
 interface CompanyRow {
   id: string;
@@ -138,6 +147,14 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
   const effectiveDefaultTab = defaultTab || (isSirketMode ? 'sirket_bilgileri' : 'is_kanunu');
 
   const [activeTab, setActiveTab] = useState<ParametreKategorisi>(effectiveDefaultTab);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopy = (text: string, fieldName: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   // Kullanıcı yönetimi: superadmin + admin + hr
   const canManage = appRole === 'superadmin' || appRole === 'admin' || appRole === 'hr';
@@ -175,6 +192,15 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
 
   const [showCompanyForm, setShowCompanyForm] = useState(false);
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
+  const [companySmsActive, setCompanySmsActive] = useState(false);
+  const [smsRefreshKey, setSmsRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const handleSmsChange = () => setSmsRefreshKey(k => k + 1);
+    window.addEventListener('humanius_sms_company_updated', handleSmsChange);
+    return () => window.removeEventListener('humanius_sms_company_updated', handleSmsChange);
+  }, []);
+
   const [companyForm, setCompanyForm] = useState({
     name: '',
     city: '',
@@ -184,6 +210,39 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
     phone: '',
     email: '',
   });
+
+  // Şirket Çalışma Düzeni (Puantaj / Cumartesi Ayarı)
+  const [saturdayConfig, setSaturdayConfig] = useState<SaturdayWorkConfig>(DEFAULT_SATURDAY_CONFIG);
+  const [isSavingSatConfig, setIsSavingSatConfig] = useState(false);
+  const [satConfigSuccess, setSatConfigSuccess] = useState(false);
+
+  useEffect(() => {
+    const targetCompId = profile?.company_id || companies[0]?.id || 'default';
+    shiftService.getSaturdayConfig(targetCompId).then(cfg => {
+      if (cfg) setSaturdayConfig(cfg);
+    }).catch(err => console.error('Error loading saturday config:', err));
+  }, [profile?.company_id, companies]);
+
+  const handleToggleSaturdayWork = async (isSatWork: boolean) => {
+    setIsSavingSatConfig(true);
+    const targetCompId = profile?.company_id || companies[0]?.id || 'default';
+    const nextConfig: SaturdayWorkConfig = {
+      ...saturdayConfig,
+      isSaturdayWork: isSatWork,
+    };
+    try {
+      await shiftService.saveSaturdayConfig(targetCompId, nextConfig);
+      setSaturdayConfig(nextConfig);
+      setSatConfigSuccess(true);
+      window.dispatchEvent(new CustomEvent('humanius_saturday_updated'));
+      window.dispatchEvent(new CustomEvent('humanius_puantaj_updated'));
+      setTimeout(() => setSatConfigSuccess(false), 2500);
+    } catch (err) {
+      console.error('Error saving saturday work config:', err);
+    } finally {
+      setIsSavingSatConfig(false);
+    }
+  };
 
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -197,8 +256,8 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
 
   const kategoriler = isSirketMode
     ? [
-        { id: 'sirket_bilgileri', label: 'Şirket Bilgileri', icon: Building, color: 'cyan' },
-        ...(canManageCompanies ? [{ id: 'sirketler', label: 'Tüm Şirketler & Kiracı Yönetimi', icon: Building2, color: 'purple' }] : [])
+        { id: 'sirket_bilgileri', label: 'Şirket Bilgileri & Profil', icon: Building2, color: 'blue' },
+        ...(canManageCompanies ? [{ id: 'sirketler', label: 'Tüm Şirketler & Kiracı Yönetimi', icon: Building, color: 'purple' }] : [])
       ]
     : [
         { id: 'is_kanunu', label: 'İş Kanunu', icon: Shield, color: 'blue' },
@@ -299,6 +358,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
       phone: '',
       email: '',
     });
+    setCompanySmsActive(false); // Varsayılan: TÜM FİRMALARDA KAPALI
     setEditingCompanyId(null);
   };
 
@@ -396,9 +456,10 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
           phone: companyForm.phone.trim(),
           email: companyForm.email.trim(),
         });
-        setManageMessage('Şirket bilgisi güncellendi.');
+        smsService.setCompanySmsEnabled(editingCompanyId, companySmsActive);
+        setManageMessage('Şirket bilgisi ve SMS ayarı güncellendi.');
       } else {
-        await companyService.create({
+        const createdComp = await companyService.create({
           name: companyForm.name.trim(),
           city: companyForm.city.trim(),
           address: companyForm.address.trim(),
@@ -407,6 +468,9 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
           phone: companyForm.phone.trim(),
           email: companyForm.email.trim(),
         });
+        if (createdComp?.id) {
+          smsService.setCompanySmsEnabled(createdComp.id, companySmsActive);
+        }
         setManageMessage('Yeni şirket eklendi.');
       }
       resetCompanyForm();
@@ -414,6 +478,22 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
       await loadManageData();
     } catch (err: any) {
       setManageError(err.message ?? 'Şirket kaydedilemedi.');
+    }
+  };
+
+  const handleToggleCompanySms = (c: CompanyRow) => {
+    if (!canManageCompanies) {
+      showError('Vardiya SMS servisini yalnızca Süper Yönetici açıp kapatabilir.');
+      return;
+    }
+    const current = smsService.isCompanySmsEnabled(c.id);
+    const next = !current;
+    smsService.setCompanySmsEnabled(c.id, next);
+    setSmsRefreshKey(prev => prev + 1);
+    if (next) {
+      showSuccess(`"${c.name}" firması için Vardiya SMS servisi başarıyla AÇILDI.`);
+    } else {
+      showSuccess(`"${c.name}" firması için Vardiya SMS servisi KAPATILDI.`);
     }
   };
 
@@ -429,6 +509,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
       phone: company.phone ?? '',
       email: company.email ?? '',
     });
+    setCompanySmsActive(smsService.isCompanySmsEnabled(company.id));
     setShowCompanyForm(true);
     setManageTab('sirketler');
   };
@@ -594,19 +675,23 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
       {/* Header */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3.5">
             {isSirketMode ? (
-              <Building className="w-8 h-8 text-cyan-600" />
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md ring-2 ring-blue-100">
+                <Building2 className="w-6 h-6" />
+              </div>
             ) : (
-              <Settings className="w-8 h-8 text-blue-600" />
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md ring-2 ring-blue-100">
+                <Settings className="w-6 h-6" />
+              </div>
             )}
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
                 {isSirketMode ? 'Şirket Bilgileri & Yönetimi' : 'Kanunlar ve Kurallar'}
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-500 text-sm mt-0.5">
                 {isSirketMode
-                  ? 'Kurum profili, iletişim ve vergi/SGK sicil bilgileri'
+                  ? 'Kurumsal profil, genel merkez lokasyonu, vergi ve SGK sicil bilgileri'
                   : '4857 sayılı İş Kanunu parametreleri, çalışma saatleri ve yasal mevzuat kuralları'}
               </p>
             </div>
@@ -618,10 +703,10 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                 resetCompanyForm();
                 setShowCompanyForm(true);
               }}
-              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-md"
+              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-md hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Building2 className="w-5 h-5" />
-              + Yeni Şirket Ekle
+              <Plus className="w-4 h-4" />
+              <span>Yeni Şirket Ekle</span>
             </button>
           )}
         </div>
@@ -645,28 +730,30 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
 
       {/* Tab Navigation */}
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex flex-wrap gap-2">
-            {kategoriler.map(kategori => {
-              const Icon = kategori.icon;
-              const isActive = activeTab === kategori.id;
-              return (
-                <button
-                  key={kategori.id}
-                  onClick={() => setActiveTab(kategori.id as ParametreKategorisi)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-colors ${
-                    isActive
-                      ? getKategoriRengi(kategori.color)
-                      : 'text-gray-600 hover:bg-gray-50 border border-gray-200'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {kategori.label}
-                </button>
-              );
-            })}
+        {kategoriler.length > 1 && (
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex flex-wrap gap-2">
+              {kategoriler.map(kategori => {
+                const Icon = kategori.icon;
+                const isActive = activeTab === kategori.id;
+                return (
+                  <button
+                    key={kategori.id}
+                    onClick={() => setActiveTab(kategori.id as ParametreKategorisi)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-colors ${
+                      isActive
+                        ? getKategoriRengi(kategori.color)
+                        : 'text-gray-600 hover:bg-gray-50 border border-gray-200'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {kategori.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tab Content */}
         <div className="p-6">
@@ -1392,14 +1479,53 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
 
           {/* Şirket Bilgileri */}
           {activeTab === 'sirket_bilgileri' && (
-            <div className="space-y-6">
-              <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-6">
-                <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-                  <div className="flex items-center gap-3">
-                    <Building className="w-6 h-6 text-cyan-600" />
-                    <h3 className="text-lg font-semibold text-cyan-800">Şirket Bilgileri</h3>
+            <div className="space-y-6 animate-in fade-in-50 duration-200">
+              
+              {/* 1. Kurumsal Hero Banner */}
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 text-white p-6 sm:p-8 shadow-xl border border-slate-800">
+                {/* Background Ambient Glows */}
+                <div className="absolute -right-16 -top-16 w-64 h-64 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
+                
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div className="flex items-start sm:items-center gap-4 sm:gap-5">
+                    {/* Logo / Initials Avatar */}
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white font-black text-2xl sm:text-3xl flex items-center justify-center shadow-lg ring-4 ring-white/10 shrink-0">
+                      {sistemAyarlari.sirketBilgileri.ad ? (
+                        sistemAyarlari.sirketBilgileri.ad.slice(0, 2).toUpperCase()
+                      ) : (
+                        <Building2 className="w-10 h-10" />
+                      )}
+                    </div>
+                    
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight truncate">
+                          {sistemAyarlari.sirketBilgileri.ad || 'Şirket Tanımlanmamış'}
+                        </h2>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Aktif Şirket
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 mt-2 text-xs sm:text-sm text-slate-300 flex-wrap">
+                        {sistemAyarlari.sirketBilgileri.bulunduguIl && (
+                          <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-xl">
+                            <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                            <span>{sistemAyarlari.sirketBilgileri.bulunduguIl}, Türkiye</span>
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-xl">
+                          <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Kurumsal Mükellef</span>
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-3 shrink-0">
                     <button
                       onClick={() => {
                         const isDemoSession = demoService.isDemoActive() || profile?.company_id === 'demo-company-id-9999' || !profile?.company_id;
@@ -1413,10 +1539,10 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                           setShowCompanyForm(true);
                         }
                       }}
-                      className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-md"
+                      className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm backdrop-blur-md border border-white/20 transition-all shadow-md hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      <Pencil className="w-4 h-4" />
-                      Şirket Bilgilerini Düzenle
+                      <Pencil className="w-4 h-4 text-blue-300" />
+                      <span>Şirket Bilgilerini Düzenle</span>
                     </button>
                     {canManageCompanies && (
                       <button
@@ -1425,86 +1551,348 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                           setShowCompanyForm(true);
                           setActiveTab('sirketler');
                         }}
-                        className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-md"
+                        className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm transition-all shadow-md hover:scale-[1.02] active:scale-[0.98]"
                       >
                         <Plus className="w-4 h-4" />
-                        Yeni Şirket Ekle
+                        <span>Yeni Şirket</span>
                       </button>
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-4">
-                    <div className="p-3 bg-white rounded-lg">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Şirket Adı</label>
-                      <input
-                        type="text"
-                        value={sistemAyarlari.sirketBilgileri.ad}
-                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-3 py-2 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                        readOnly
-                      />
-                    </div>
-                    <div className="p-3 bg-white rounded-lg">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Vergi Numarası</label>
-                      <input
-                        type="text"
-                        value={sistemAyarlari.sirketBilgileri.vergiNo}
-                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-3 py-2 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                        readOnly
-                      />
-                    </div>
-                    <div className="p-3 bg-white rounded-lg">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">SGK Sicil No</label>
-                      <input
-                        type="text"
-                        value={sistemAyarlari.sirketBilgileri.sgkSicilNo}
-                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-3 py-2 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                        readOnly
-                      />
-                    </div>
+              </div>
+
+              {/* 2. Hızlı Metrik / Kopyalama Şeridi */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Vergi No */}
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:shadow-md transition-shadow relative group">
+                  <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
+                    <span className="flex items-center gap-1.5">
+                      <Hash className="w-3.5 h-3.5 text-blue-600" />
+                      Vergi Numarası
+                    </span>
+                    <button
+                      onClick={() => handleCopy(sistemAyarlari.sirketBilgileri.vergiNo, 'vergiNo')}
+                      className="text-slate-400 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                      title="Kopyala"
+                    >
+                      {copiedField === 'vergiNo' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
                   </div>
-                  <div className="space-y-4">
-                    <div className="p-3 bg-white rounded-lg">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Adres</label>
-                      <textarea
-                        value={sistemAyarlari.sirketBilgileri.adres}
-                        rows={2}
-                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-3 py-2 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 resize-none"
-                        readOnly
-                      />
-                    </div>
-                    <div className="p-3 bg-white rounded-lg">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
-                      <input
-                        type="text"
-                        value={sistemAyarlari.sirketBilgileri.telefon}
-                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-3 py-2 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                        readOnly
-                      />
-                    </div>
-                    <div className="p-3 bg-white rounded-lg">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                      <input
-                        type="email"
-                        value={sistemAyarlari.sirketBilgileri.email}
-                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-3 py-2 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                        readOnly
-                      />
-                    </div>
+                  <div className="text-base font-extrabold text-slate-800 tracking-wide font-mono">
+                    {sistemAyarlari.sirketBilgileri.vergiNo || '—'}
+                  </div>
+                  {copiedField === 'vergiNo' && (
+                    <span className="absolute bottom-2 right-4 text-[10px] text-emerald-600 font-bold animate-in fade-in">
+                      Kopyalandı!
+                    </span>
+                  )}
+                </div>
+
+                {/* SGK Sicil No */}
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:shadow-md transition-shadow relative group">
+                  <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
+                    <span className="flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-indigo-600" />
+                      SGK Sicil Numarası
+                    </span>
+                    <button
+                      onClick={() => handleCopy(sistemAyarlari.sirketBilgileri.sgkSicilNo, 'sgkSicilNo')}
+                      className="text-slate-400 hover:text-indigo-600 p-1 rounded-md hover:bg-indigo-50 transition-colors"
+                      title="Kopyala"
+                    >
+                      {copiedField === 'sgkSicilNo' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <div className="text-base font-extrabold text-slate-800 tracking-wide font-mono truncate">
+                    {sistemAyarlari.sirketBilgileri.sgkSicilNo || '—'}
+                  </div>
+                  {copiedField === 'sgkSicilNo' && (
+                    <span className="absolute bottom-2 right-4 text-[10px] text-emerald-600 font-bold animate-in fade-in">
+                      Kopyalandı!
+                    </span>
+                  )}
+                </div>
+
+                {/* Telefon */}
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
+                    <span className="flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                      Santral Telefon
+                    </span>
+                  </div>
+                  <div className="text-base font-bold text-slate-800">
+                    {sistemAyarlari.sirketBilgileri.telefon ? (
+                      <a href={`tel:${sistemAyarlari.sirketBilgileri.telefon}`} className="hover:text-emerald-600 hover:underline transition-colors">
+                        {sistemAyarlari.sirketBilgileri.telefon}
+                      </a>
+                    ) : (
+                      '—'
+                    )}
                   </div>
                 </div>
-                
-                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                    <span className="text-sm font-medium text-yellow-800">Önemli Not:</span>
+
+                {/* E-Posta */}
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:shadow-md transition-shadow relative group">
+                  <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
+                    <span className="flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-cyan-600" />
+                      Kurumsal E-posta
+                    </span>
+                    <button
+                      onClick={() => handleCopy(sistemAyarlari.sirketBilgileri.email, 'email')}
+                      className="text-slate-400 hover:text-cyan-600 p-1 rounded-md hover:bg-cyan-50 transition-colors"
+                      title="Kopyala"
+                    >
+                      {copiedField === 'email' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
                   </div>
-                  <p className="text-sm text-yellow-700 mt-1">
-                    <strong>Bulunduğu İl:</strong> {sistemAyarlari.sirketBilgileri.bulunduguIl} - 
-                    Bu bilgi yol izni taleplerinde il dışı seyahat kontrolü için kullanılır.
-                  </p>
+                  <div className="text-base font-bold text-slate-800 truncate">
+                    {sistemAyarlari.sirketBilgileri.email ? (
+                      <a href={`mailto:${sistemAyarlari.sirketBilgileri.email}`} className="hover:text-cyan-600 hover:underline transition-colors">
+                        {sistemAyarlari.sirketBilgileri.email}
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                  {copiedField === 'email' && (
+                    <span className="absolute bottom-2 right-4 text-[10px] text-emerald-600 font-bold animate-in fade-in">
+                      Kopyalandı!
+                    </span>
+                  )}
                 </div>
               </div>
+
+              {/* 3. Ana Bilgi Kartları (Bento Grid) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* Sol Kart: Yasal & Resmi Kayıtlar */}
+                <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-xs space-y-5">
+                  <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                      <Building className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-800">Yasal & Resmi Kayıt Bilgileri</h3>
+                      <p className="text-xs text-slate-500">Mevzuat, vergi dairesi ve SGK işyeri kayıtları</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                      <div className="text-xs font-semibold text-slate-500 mb-1">Resmi Şirket Unvanı</div>
+                      <div className="text-sm font-bold text-slate-900 leading-snug">
+                        {sistemAyarlari.sirketBilgileri.ad || 'Belirtilmemiş'}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                        <div className="text-xs font-semibold text-slate-500 mb-1">Vergi Numarası</div>
+                        <div className="text-sm font-bold text-slate-800 font-mono">
+                          {sistemAyarlari.sirketBilgileri.vergiNo || '—'}
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                        <div className="text-xs font-semibold text-slate-500 mb-1">Mükellefiyet Durumu</div>
+                        <div className="text-sm font-bold text-emerald-600 flex items-center gap-1.5">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Faal & Onaylı</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-slate-500">SGK İşyeri Sicil Numarası</span>
+                        <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                          e-Bildirge Aktif
+                        </span>
+                      </div>
+                      <div className="text-sm font-bold text-slate-800 font-mono">
+                        {sistemAyarlari.sirketBilgileri.sgkSicilNo || '—'}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                        Aylık prim ve hizmet bildirgeleri (APHB) ve muhtasar beyanname eşleşmesinde resmi sicil olarak doğrulanır.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sağ Kart: İletişim & Lokasyon */}
+                <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-xs space-y-5">
+                  <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                      <MapPin className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-800">Genel Merkez & İletişim</h3>
+                      <p className="text-xs text-slate-500">Adres, şehir ve resmi iletişim kanalları</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                      <div className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Genel Merkez Adresi</span>
+                      </div>
+                      <div className="text-sm font-medium text-slate-800 leading-relaxed">
+                        {sistemAyarlari.sirketBilgileri.adres || 'Adres bilgisi girilmemiştir.'}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                        <div className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Telefon</span>
+                        </div>
+                        <div className="text-sm font-bold text-slate-800">
+                          {sistemAyarlari.sirketBilgileri.telefon || '—'}
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                        <div className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-slate-400" />
+                          <span>E-posta</span>
+                        </div>
+                        <div className="text-sm font-bold text-slate-800 truncate">
+                          {sistemAyarlari.sirketBilgileri.email || '—'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bulunduğu İl ve Yol İzni Vurgusu */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-amber-900">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                        <h4 className="text-xs font-bold text-amber-950">
+                          Mevzuat Lokasyonu: {sistemAyarlari.sirketBilgileri.bulunduguIl || 'İstanbul'}
+                        </h4>
+                      </div>
+                      <p className="text-xs text-amber-800 leading-relaxed font-medium">
+                        Bu şehir bilgisi, personellerin 4857 sayılı İş Kanunu kapsamındaki 
+                        <strong> yol izni taleplerinde</strong> (il dışı seyahatlerde +4 güne kadar ücretsiz yol izni hakkı) referans lokasyon olarak doğrulanır.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* 4. Şirket Çalışma Düzeni & Mesai Politikası */}
+              <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-xs space-y-5">
+                <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-800">Haftalık Çalışma Düzeni & Mesai Politikası</h3>
+                      <p className="text-xs text-slate-500">
+                        Şirket geneli haftalık çalışma düzeni, Cumartesi statüsü ve puantaj cetveli hesaplama kuralları
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                      saturdayConfig.isSaturdayWork
+                        ? 'bg-amber-50 text-amber-900 border-amber-300'
+                        : 'bg-blue-50 text-blue-900 border-blue-200'
+                    }`}>
+                      {saturdayConfig.isSaturdayWork ? '✓ Aktif: 6 Günlük Düzen' : '✓ Aktif: 5 Günlük Düzen'}
+                    </span>
+                    {satConfigSuccess && (
+                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 animate-in fade-in flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> Kaydedildi!
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 5 Günlük vs 6 Günlük Seçenek Kartları */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 5 Günlük Çalışma Düzeni */}
+                  <div
+                    onClick={() => handleToggleSaturdayWork(false)}
+                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative ${
+                      !saturdayConfig.isSaturdayWork
+                        ? 'border-blue-600 bg-blue-50/40 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-sm text-slate-900">5 Günlük Çalışma Düzeni</span>
+                        <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                          Pazartesi – Cuma
+                        </span>
+                      </div>
+                      <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        !saturdayConfig.isSaturdayWork ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300'
+                      }`}>
+                        {!saturdayConfig.isSaturdayWork && <span className="w-2 h-2 rounded-full bg-white" />}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Cumartesi günü <strong>Akdi Tatil (AT)</strong> kabul edilir. Personeller için hafta tatilidir; çalışıldığında tam gün fazla mesai (%100 zamlı) tahakkuk eder.
+                    </p>
+
+                    <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                      <span>Haftalık Yasal Süre: 45 Saat</span>
+                      <span className="text-blue-700 font-bold">Ofis & Genel Merkez Standardı</span>
+                    </div>
+                  </div>
+
+                  {/* 6 Günlük Çalışma Düzeni */}
+                  <div
+                    onClick={() => handleToggleSaturdayWork(true)}
+                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative ${
+                      saturdayConfig.isSaturdayWork
+                        ? 'border-amber-500 bg-amber-50/40 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-sm text-slate-900">6 Günlük Çalışma Düzeni</span>
+                        <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full">
+                          Pazartesi – Cumartesi
+                        </span>
+                      </div>
+                      <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        saturdayConfig.isSaturdayWork ? 'border-amber-600 bg-amber-600 text-white' : 'border-slate-300'
+                      }`}>
+                        {saturdayConfig.isSaturdayWork && <span className="w-2 h-2 rounded-full bg-white" />}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Cumartesi günü <strong>Fiili Çalışma (Ç)</strong> günüdür. Çalışma saatleri personelin bağlı olduğu vardiyasından otomatik alınır. Gelmeyen personele Devamsız (D) işlenir.
+                    </p>
+
+                    <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                      <span>Haftalık Yasal Süre: 45 Saat (6 Gün)</span>
+                      <span className="text-amber-800 font-bold">Saha, Mağaza & Üretim Düzeni</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bilgilendirme Notu */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between gap-3">
+                  <span className="leading-relaxed">
+                    💡 Burada yapılan düzenleme şirket puantaj cetveline, aylık bordro icmallerine ve mesai hesaplamalarına anında uygulanır.
+                  </span>
+                  {isSavingSatConfig && (
+                    <span className="text-xs font-bold text-indigo-600 shrink-0">Kaydediliyor...</span>
+                  )}
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -1557,46 +1945,74 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                         <th className="px-4 py-3 text-left">SGK Sicil No</th>
                         <th className="px-4 py-3 text-left">Telefon</th>
                         <th className="px-4 py-3 text-left">Email</th>
+                        <th className="px-4 py-3 text-center">Vardiya SMS Servisi</th>
                         <th className="px-4 py-3 text-center">İşlemler</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {companies.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="px-4 py-8 text-center text-gray-400 text-sm">
+                          <td colSpan={9} className="px-4 py-8 text-center text-gray-400 text-sm">
                             Henüz kayıtlı şirket bulunmamaktadır.
                           </td>
                         </tr>
                       ) : (
-                        companies.map((c, idx) => (
-                          <tr key={c.id} className="hover:bg-purple-50/30 transition-colors">
-                            <td className="px-4 py-3 font-medium text-gray-500">{idx + 1}</td>
-                            <td className="px-4 py-3 font-semibold text-gray-900">{c.name}</td>
-                            <td className="px-4 py-3 text-gray-600">{c.city || '-'}</td>
-                            <td className="px-4 py-3 text-gray-600">{c.tax_number || '-'}</td>
-                            <td className="px-4 py-3 text-gray-600">{c.sgk_sicil_no || '-'}</td>
-                            <td className="px-4 py-3 text-gray-600">{c.phone || '-'}</td>
-                            <td className="px-4 py-3 text-gray-600">{c.email || '-'}</td>
-                            <td className="px-4 py-3 text-center">
-                              <div className="flex items-center justify-center gap-1">
+                        companies.map((c, idx) => {
+                          const isSmsOn = smsService.isCompanySmsEnabled(c.id);
+                          return (
+                            <tr key={c.id} className="hover:bg-purple-50/30 transition-colors">
+                              <td className="px-4 py-3 font-medium text-gray-500">{idx + 1}</td>
+                              <td className="px-4 py-3 font-semibold text-gray-900">{c.name}</td>
+                              <td className="px-4 py-3 text-gray-600">{c.city || '-'}</td>
+                              <td className="px-4 py-3 text-gray-600">{c.tax_number || '-'}</td>
+                              <td className="px-4 py-3 text-gray-600">{c.sgk_sicil_no || '-'}</td>
+                              <td className="px-4 py-3 text-gray-600">{c.phone || '-'}</td>
+                              <td className="px-4 py-3 text-gray-600">{c.email || '-'}</td>
+                              <td className="px-4 py-3 text-center">
                                 <button
-                                  onClick={() => startEditCompany(c)}
-                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                  title="Düzenle"
+                                  type="button"
+                                  onClick={() => handleToggleCompanySms(c)}
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition shadow-xs ${
+                                    isSmsOn
+                                      ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300'
+                                  }`}
+                                  title={
+                                    isSmsOn
+                                      ? 'Vardiya SMS Servisini Kapatmak İçin Tıklayın'
+                                      : 'Vardiya SMS Servisini Açmak İçin Tıklayın (Süper Yönetici)'
+                                  }
                                 >
-                                  <Pencil className="w-4 h-4" />
+                                  <MessageSquare className={`w-3.5 h-3.5 ${isSmsOn ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                  <span>{isSmsOn ? 'SMS Açık' : 'SMS Kapalı'}</span>
+                                  <span
+                                    className={`w-2 h-2 rounded-full ${
+                                      isSmsOn ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                                    }`}
+                                  />
                                 </button>
-                                <button
-                                  onClick={() => handleDeleteCompany(c)}
-                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                  title="Sil"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => startEditCompany(c)}
+                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                    title="Düzenle"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCompany(c)}
+                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Sil"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -1779,7 +2195,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                   type="text"
                   value={companyForm.name}
                   onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
-                  placeholder="Örn: Toyota Otomotiv A.Ş."
+                  placeholder="Örn: Humanius Teknoloji A.Ş."
                   className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
                   required
                 />
@@ -1851,6 +2267,41 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                   placeholder="Tam şirket adresi..."
                   className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500 resize-none"
                 />
+              </div>
+
+              {/* Firma Bazlı SMS Servisi Açma / Kapama (Sadece Süper Yönetici) */}
+              <div className="p-3.5 bg-gradient-to-r from-purple-50 to-indigo-50/60 rounded-xl border border-purple-200 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      companySmsActive ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-gray-800 block">Vardiya SMS Servisi</span>
+                    <span className="text-[11px] text-gray-500 block">
+                      Varsayılan: Kapalı. Yalnızca Süper Yönetici açabilir.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCompanySmsActive(!companySmsActive)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs ${
+                    companySmsActive
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      companySmsActive ? 'bg-white animate-pulse' : 'bg-slate-500'
+                    }`}
+                  />
+                  {companySmsActive ? 'SMS Açık' : 'SMS Kapalı'}
+                </button>
               </div>
 
               <div className="flex gap-3 pt-2">

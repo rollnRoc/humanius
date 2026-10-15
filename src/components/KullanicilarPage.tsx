@@ -34,14 +34,27 @@ import { supabase } from '../lib/supabase';
 
 // ─── Password Storage & Helpers ──────────────────────────────────────────────
 
-const DEFAULT_SYSTEM_PASSWORD = '123456';
+const DEFAULT_SYSTEM_PASSWORD = '987654';
 const KNOWN_PASSWORDS_KEY = 'humanius_admin_known_passwords';
 
 function getKnownPasswords(): Record<string, string> {
   try {
     const raw = localStorage.getItem(KNOWN_PASSWORDS_KEY);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      const cleaned: Record<string, string> = {};
+      for (const [k, v] of Object.entries(parsed)) {
+        if (typeof v === 'string') {
+          const lk = k.toLowerCase().trim();
+          // Eski hatalı '123456' varsayılanını temizle ve gerçek sistem şifresi olan 987654'e çevir
+          if (v === '123456' && !lk.startsWith('superadmin@') && lk !== 'superadmin@humanius.net' && lk !== 'superadmin@humanius.local') {
+            cleaned[lk] = '987654';
+          } else {
+            cleaned[lk] = v;
+          }
+        }
+      }
+      return cleaned;
     }
   } catch {}
   return {
@@ -63,11 +76,18 @@ function saveKnownPassword(identifier: string, password: string) {
 
 function resolvePasswordForUser(user: UserProfile, knownMap: Record<string, string>): string {
   const emailKey = (user.email || '').toLowerCase().trim();
-  if (knownMap[emailKey]) return knownMap[emailKey];
-  if (knownMap[user.id]) return knownMap[user.id];
+  const isSuperadminAccount = user.role === 'superadmin' || emailKey.startsWith('superadmin@');
+
   if (emailKey === 'muhammed.gur@humanius.net') return '97370012';
-  if (emailKey.startsWith('superadmin@')) return '123456';
-  return DEFAULT_SYSTEM_PASSWORD;
+  if (isSuperadminAccount) return knownMap[emailKey] || knownMap[user.id] || '123456';
+
+  const knownVal = knownMap[emailKey] || knownMap[user.id];
+  // Kullanıcı için bilinen özel bir şifre varsa ve eski varsayılan 123456 değilse onu döndür
+  if (knownVal && knownVal !== '123456') {
+    return knownVal;
+  }
+
+  return DEFAULT_SYSTEM_PASSWORD; // '987654'
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -738,7 +758,7 @@ const QuickPasswordModal: React.FC<QuickPasswordModalProps> = ({
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span>Mevcut Bilinen Şifre:</span>
               <span className="font-mono font-bold text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded border border-purple-200/60">
-                {currentPassword || '123456'}
+                {currentPassword || '987654'}
               </span>
             </div>
           </div>
@@ -770,10 +790,10 @@ const QuickPasswordModal: React.FC<QuickPasswordModalProps> = ({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setNewPassword('123456')}
+              onClick={() => setNewPassword('987654')}
               className="flex-1 py-1.5 text-xs font-medium border border-gray-200 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200 rounded-lg text-gray-700 transition-colors"
             >
-              Varsayılan (123456)
+              Varsayılan (987654)
             </button>
             <button
               type="button"
@@ -931,6 +951,32 @@ const KullanicilarPage: React.FC = () => {
       setCompanies((companiesData ?? []).map((c: any) => ({ id: c.id, name: c.name })));
       const empCount = empsData?.length ?? 0;
       setTotalEmployeesCount(empCount);
+
+      if (empsData && Array.isArray(empsData)) {
+        setKnownPasswords((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          for (const emp of empsData) {
+            const em = (emp.email || '').toLowerCase().trim();
+            if (emp.approval_passcode && typeof emp.approval_passcode === 'string' && emp.approval_passcode.length < 25 && !emp.approval_passcode.startsWith('$2')) {
+              if (em && next[em] !== emp.approval_passcode) {
+                next[em] = emp.approval_passcode;
+                changed = true;
+              }
+              if (emp.id && next[emp.id] !== emp.approval_passcode) {
+                next[emp.id] = emp.approval_passcode;
+                changed = true;
+              }
+            }
+          }
+          if (changed) {
+            try {
+              localStorage.setItem(KNOWN_PASSWORDS_KEY, JSON.stringify(next));
+            } catch {}
+          }
+          return next;
+        });
+      }
     } catch (err: any) {
       showToast('error', `Veriler yüklenemedi: ${err.message}`);
     } finally {

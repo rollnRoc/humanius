@@ -1,4 +1,5 @@
 // Humanius HRM — Demo Modu Mock Veritabanı ve CRUD Servisi
+import { calculateCompletedYears, calculateYillikIzinHakki } from '../utils/izinCalculations';
 
 export interface DemoEmployee {
   id: string;
@@ -483,7 +484,7 @@ const MOCK_EMPLOYEES: DemoEmployee[] = [
     status: 'active',
     phone: '0555 999 0011',
     email: 'gamze.celik@humanius.net',
-    join_date: '2024-09-10',
+    join_date: new Date(Date.now() - 150 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     address: 'Pendik / İstanbul',
     avatar_url: null,
     skills: ['İşe Alım', 'Oryantasyon', 'Özlük İşleri'],
@@ -1030,13 +1031,15 @@ export const demoService = {
     const result: DemoIzinHakki[] = employees.map(emp => {
       const existing = stored.find(s => s.employee_id === emp.id && s.yil === currentYear);
 
-      const joinDate = emp.join_date ? new Date(emp.join_date) : new Date();
-      const calismaYili = Math.max(0, currentYear - joinDate.getFullYear());
-      let defaultHak = 14;
-      if (calismaYili >= 5 && calismaYili < 15) defaultHak = 20;
-      else if (calismaYili >= 15) defaultHak = 26;
+      const calismaYili = calculateCompletedYears(emp.join_date);
+      const defaultHak = calculateYillikIzinHakki(calismaYili);
 
-      const toplamHak = existing ? existing.toplam_hak : defaultHak;
+      let toplamHak = existing ? existing.toplam_hak : defaultHak;
+      // If employee has calismaYili < 1 and has no custom grant history, ensure standard legal entitlement is 0
+      if (calismaYili < 1 && (!existing?.hakedis_gecmisi || existing.hakedis_gecmisi.length === 0)) {
+        toplamHak = 0;
+      }
+
       const mazeretHak = existing ? existing.mazeret_izin : 5;
       const idariHak = existing?.idari_izin || 0;
       const ekstraHak = existing?.ekstra_izin || 0;
@@ -1080,6 +1083,9 @@ export const demoService = {
     const yil = data.yil || new Date().getFullYear();
     const list = this.getIzinHaklari(yil);
     const idx = list.findIndex(h => h.employee_id === data.employee_id && h.yil === yil);
+    const emp = this.getEmployees().find(e => e.id === data.employee_id);
+    const calismaYili = calculateCompletedYears(data.ise_giris_tarihi || emp?.join_date);
+    const defaultHak = calculateYillikIzinHakki(calismaYili);
 
     const now = new Date().toISOString();
     let updated: DemoIzinHakki;
@@ -1092,16 +1098,18 @@ export const demoService = {
       };
       list[idx] = updated;
     } else {
+      const finalHak = data.toplam_hak !== undefined ? data.toplam_hak : defaultHak;
+      const finalKullanilan = data.kullanilan_izin || 0;
       updated = {
         id: data.id || 'hak-' + data.employee_id + '-' + yil,
         company_id: 'demo-company-id-9999',
         employee_id: data.employee_id || '',
         yil,
-        toplam_hak: data.toplam_hak || 14,
-        kullanilan_izin: data.kullanilan_izin || 0,
-        kalan_izin: Math.max(0, (data.toplam_hak || 14) - (data.kullanilan_izin || 0)),
-        calisma_yili: data.calisma_yili || 1,
-        ise_giris_tarihi: data.ise_giris_tarihi || null,
+        toplam_hak: finalHak,
+        kullanilan_izin: finalKullanilan,
+        kalan_izin: Math.max(0, finalHak - finalKullanilan),
+        calisma_yili: data.calisma_yili !== undefined ? data.calisma_yili : calismaYili,
+        ise_giris_tarihi: data.ise_giris_tarihi || emp?.join_date || null,
         hesaplama_tarihi: now,
         mazeret_izin: data.mazeret_izin || 5,
         hastalik_izin: data.hastalik_izin || 10,
@@ -1130,8 +1138,12 @@ export const demoService = {
     const yil = params.yil || new Date().getFullYear();
     const haklar = this.getIzinHaklari(yil);
     const existing = haklar.find(h => h.employee_id === params.employeeId && h.yil === yil);
+    const employees = this.getEmployees();
+    const emp = employees.find(e => e.id === params.employeeId);
+    const calismaYili = calculateCompletedYears(emp?.join_date);
+    const defaultHak = calculateYillikIzinHakki(calismaYili);
 
-    let currentToplam = existing ? existing.toplam_hak : 14;
+    let currentToplam = existing ? existing.toplam_hak : defaultHak;
     let currentMazeret = existing ? existing.mazeret_izin : 5;
     let currentIdari = existing?.idari_izin || 0;
     let currentEkstra = existing?.ekstra_izin || 0;

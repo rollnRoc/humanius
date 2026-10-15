@@ -50,7 +50,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose, onSta
             'Maaş dönemlerinde size iletilen Bordronuzu şifrenizle onaylayın.',
             'İzin Talebi formu ile saniyeler içinde yeni izin talebi gönderin.',
             'Eğitim & Gelişim alanından size atanan eğitimleri tamamlayın.',
-            'İş Akışı ve PDKS ile günlük mesai giriş-çıkış takibinizi yapın.'
+            'Puantaj ve PDKS ile günlük mesai giriş-çıkış takibinizi yapın.'
           ]
         };
     }

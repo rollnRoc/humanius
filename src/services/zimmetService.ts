@@ -152,14 +152,15 @@ export const zimmetService = {
     if (error) throw error;
   },
 
-  async atamaYap(zimmetId: string, employeeId: string | null): Promise<Zimmet> {
+  async atamaYap(zimmetId: string, employeeId: string | null, islemTarihi?: string | null): Promise<Zimmet> {
     const bugun = new Date().toISOString().split('T')[0];
+    const tarih = islemTarihi || bugun;
     
     const updates: Partial<ZimmetInsert> = {
       atanan_employee_id: employeeId,
       durum: employeeId ? 'aktif' : 'iade-edildi',
-      atanma_tarihi: employeeId ? bugun : null,
-      iade_tarihi: employeeId ? null : bugun
+      atanma_tarihi: employeeId ? tarih : null,
+      iade_tarihi: employeeId ? null : tarih
     };
 
     return this.update(zimmetId, updates);

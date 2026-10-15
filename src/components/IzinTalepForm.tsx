@@ -1,8 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, User, FileText, AlertCircle, MapPin, Upload, CheckCircle } from 'lucide-react';
+import { X, Calendar, User, FileText, AlertCircle, AlertTriangle, MapPin, Upload, CheckCircle } from 'lucide-react';
 import { Employee } from '../types';
 import { IzinTalebi, IzinHakki, IzinTuru } from '../types/izin';
-import { calculateWorkingDays, izinTuruLabels, getCompanyIzinTurleri, getCompanyIzinTuruLabels, getMaxIzinSureleri, validateIzinTuru, formatDate, isSaturdayWorkActive } from '../utils/izinCalculations';
+import {
+  calculateWorkingDays,
+  izinTuruLabels,
+  getCompanyIzinTurleri,
+  getCompanyIzinTuruLabels,
+  getMaxIzinSureleri,
+  validateIzinTuru,
+  formatDate,
+  isSaturdayWorkActive,
+  calculateCompletedYears,
+  hasCompletedOneYear,
+  getYillikIzinHakEdisTarihi,
+  getYillikIzinKalanGunSayisi
+} from '../utils/izinCalculations';
 import { leaveTypeService } from '../services/leaveTypeService';
 import { shiftService } from '../services/shiftService';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -53,6 +66,15 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
     if (!formData.employeeId) return null;
     return izinHaklari.find(h => h.employeeId === formData.employeeId) || null;
   }, [izinHaklari, formData.employeeId]);
+
+  // Kıdem ve 1 yıl dolum durumu (4857 s.K. Madde 53/54)
+  const joinDateStr = selectedEmployee?.joinDate || (selectedEmployee as any)?.join_date || (selectedEmployee as any)?.ise_giris_tarihi;
+  const calismaYili = useMemo(() => calculateCompletedYears(joinDateStr), [joinDateStr]);
+  const employeeHas1Year = useMemo(() => hasCompletedOneYear(joinDateStr), [joinDateStr]);
+  const oneYearCompletionDate = useMemo(() => getYillikIzinHakEdisTarihi(joinDateStr), [joinDateStr]);
+  const kalanGunToOneYear = useMemo(() => getYillikIzinKalanGunSayisi(joinDateStr), [joinDateStr]);
+  const formattedJoinDate = useMemo(() => (joinDateStr ? formatDate(String(joinDateStr).split('T')[0]) : 'Belirtilmedi'), [joinDateStr]);
+  const formattedCompletionDate = useMemo(() => (oneYearCompletionDate ? formatDate(oneYearCompletionDate.toISOString().split('T')[0]) : ''), [oneYearCompletionDate]);
 
   const targetCompanyId = selectedEmployee?.company_id || employees[0]?.company_id;
   const [isSaturdayWork, setIsSaturdayWork] = useState<boolean>(() => isSaturdayWorkActive(targetCompanyId));
@@ -137,6 +159,11 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
 
   // Pure derived validation error
   const validationError = useMemo(() => {
+    // 4857 Sayılı İş Kanunu Madde 53/54 — 1 Yıl Dolum Kontrolü
+    if (selectedEmployee && formData.izinTuru === 'yillik' && !employeeHas1Year) {
+      return `4857 Sayılı İş Kanunu (Madde 53/54) uyarınca yıllık ücretli izin hakkı işe giriş tarihinden itibaren en az 1 tam yıl çalışıldıktan sonra hak edilir. ${selectedEmployee.name} henüz 1 yılını doldurmadığı için yıllık izin kullanamaz.${formattedCompletionDate ? ` (İşe Giriş: ${formattedJoinDate} • 1 Yıl Dolum: ${formattedCompletionDate}${kalanGunToOneYear > 0 ? ` • Kalan: ${kalanGunToOneYear} gün` : ''})` : ''}`;
+    }
+
     if (!formData.baslangicTarihi || !formData.bitisTarihi) {
       return '';
     }
@@ -175,7 +202,7 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
     }
 
     return '';
-  }, [formData.baslangicTarihi, formData.bitisTarihi, formData.izinTuru, formData.kismiYillik, formData.yolIzniTalep, formData.yolIzniGun, gunSayisi, selectedEmployee, izinHakki]);
+  }, [formData.baslangicTarihi, formData.bitisTarihi, formData.izinTuru, formData.kismiYillik, formData.yolIzniTalep, formData.yolIzniGun, gunSayisi, selectedEmployee, izinHakki, employeeHas1Year, formattedCompletionDate, formattedJoinDate, kalanGunToOneYear]);
 
   // Pure derived conflict detection (çakışan izinler)
   const clashingLeaves = useMemo(() => {
@@ -238,6 +265,11 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
 
     if (new Date(formData.baslangicTarihi) > new Date(formData.bitisTarihi)) {
       alert('Başlangıç tarihi bitiş tarihinden sonra olamaz!');
+      return;
+    }
+
+    if (selectedEmployee && formData.izinTuru === 'yillik' && !employeeHas1Year) {
+      alert(`4857 Sayılı İş Kanunu (Madde 53/54) uyarınca yıllık ücretli izin hakkı, işe giriş tarihinden itibaren en az 1 tam yıl çalışıldıktan sonra hak edilir. ${selectedEmployee.name} henüz 1 yılını doldurmadığı için yıllık izin kullanamaz.`);
       return;
     }
 
@@ -415,19 +447,26 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
             {/* İzin Hakkı Bilgisi */}
             {izinHakki && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <h4 className="text-sm font-medium text-blue-800 mb-2">İzin Hakkı Bilgileri</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-blue-900">İzin Hakkı ve Kıdem Bilgileri</h4>
+                  {!employeeHas1Year && (
+                    <span className="text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full">
+                      1 Yılını Doldurmadı
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-blue-600">Toplam Yıllık İzin:</span>
-                    <span className="text-blue-800 ml-2 font-medium">{izinHakki.toplamHak} gün</span>
+                    <span className="text-blue-800 ml-2 font-bold">{!employeeHas1Year ? 0 : izinHakki.toplamHak} gün</span>
                   </div>
                   <div>
                     <span className="text-blue-600">Kalan İzin:</span>
-                    <span className="text-blue-800 ml-2 font-medium">{izinHakki.kalanIzin} gün</span>
+                    <span className="text-blue-800 ml-2 font-bold">{!employeeHas1Year ? 0 : izinHakki.kalanIzin} gün</span>
                   </div>
                   <div>
-                    <span className="text-blue-600">Çalışma Yılı:</span>
-                    <span className="text-blue-800 ml-2 font-medium">{izinHakki.calismaYili} yıl</span>
+                    <span className="text-blue-600">Tamamlanan Kıdem:</span>
+                    <span className="text-blue-800 ml-2 font-medium">{calismaYili} yıl {!employeeHas1Year && '(1 yıldan az)'}</span>
                   </div>
                   <div>
                     <span className="text-blue-600">Mazeret İzni:</span>
@@ -454,9 +493,40 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
                 required
               >
                 {availableLeaveTypes.map((tur) => (
-                  <option key={tur.id} value={tur.id}>{tur.ad}</option>
+                  <option key={tur.id} value={tur.id}>
+                    {tur.id === 'yillik' && selectedEmployee && !employeeHas1Year
+                      ? `${tur.ad} (1 Yıl Dolmadı — Kullanılamaz)`
+                      : tur.ad}
+                  </option>
                 ))}
               </select>
+
+              {/* 1 Yıl Dolmadı Uyarısı */}
+              {selectedEmployee && formData.izinTuru === 'yillik' && !employeeHas1Year && (
+                <div className="mt-3 p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 shadow-2xs">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-amber-950 text-sm">Yıllık İzin Hakkı Henüz Başlamadı</p>
+                    <p className="mt-1 text-amber-800 leading-relaxed">
+                      <strong>4857 Sayılı İş Kanunu (Madde 53/54)</strong> gereğince çalışanlar yıllık ücretli izne ancak işe başladıkları günden itibaren <strong>en az 1 tam yıl</strong> çalıştıktan sonra hak kazanırlar. {selectedEmployee.name} henüz 1 yılını doldurmadığı için yıllık izin kullanamaz.
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-semibold text-[11px] text-amber-900">
+                      <span>İşe Giriş: <b>{formattedJoinDate}</b></span>
+                      <span>•</span>
+                      <span>1 Yıl Dolum Tarihi: <b>{formattedCompletionDate}</b></span>
+                      {kalanGunToOneYear > 0 && (
+                        <>
+                          <span>•</span>
+                          <span className="bg-amber-100/90 text-amber-900 px-2 py-0.5 rounded-md font-bold">1 Yıla Kalan: {kalanGunToOneYear} Gün</span>
+                        </>
+                      )}
+                    </div>
+                    <p className="mt-2 text-[11px] text-amber-700 italic">
+                      💡 Personel için mazeret izni veya ücretsiz izin gibi diğer izin türlerini tercih edebilirsiniz.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Maksimum süre bilgisi */}
               <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">

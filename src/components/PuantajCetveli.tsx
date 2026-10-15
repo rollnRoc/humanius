@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Search,
   Printer,
   Download,
@@ -154,22 +155,26 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
   // Cumartesi Çalışma Yapılandırması
   const [saturdayConfig, setSaturdayConfig] = useState<SaturdayWorkConfig>(DEFAULT_SATURDAY_CONFIG);
-  const [saturdayModalOpen, setSaturdayModalOpen] = useState<boolean>(false);
-  const [isSavingSaturday, setIsSavingSaturday] = useState<boolean>(false);
+
+  // Çıktı Al Dropdown Menüsü
+  const [exportDropdownOpen, setExportDropdownOpen] = useState<boolean>(false);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
+        setExportDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Tanımlı Şirket İzin Türleri
   const [leaveTypes, setLeaveTypes] = useState<IzinTuruKural[]>(() => {
     const compId = profile?.company_id || employees[0]?.company_id;
     return getCompanyIzinTurleri(compId) as any[];
   });
-
-  // Cumartesi Modal Form Değerleri
-  const [modalIsSatWork, setModalIsSatWork] = useState<boolean>(false);
-  const [modalSatStart, setModalSatStart] = useState<string>('08:30');
-  const [modalSatEnd, setModalSatEnd] = useState<string>('13:00');
-  const [modalSatBreak, setModalSatBreak] = useState<number>(0);
-  const [modalSatTolerance, setModalSatTolerance] = useState<number>(15);
-  const [satSaveSuccess, setSatSaveSuccess] = useState<boolean>(false);
 
   // Hücre Düzenleme (Quick Edit) Modalı
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
@@ -273,67 +278,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     };
   }, [profile?.company_id, employees]);
 
-  // Cumartesi Ayarları Modal İşlemleri
-  const handleOpenSaturdayModal = () => {
-    setModalIsSatWork(saturdayConfig.isSaturdayWork);
-    setModalSatStart(saturdayConfig.startTime || '08:30');
-    setModalSatEnd(saturdayConfig.endTime || '16:00');
-    setModalSatBreak(saturdayConfig.breakMinutes ?? 30);
-    setModalSatTolerance(saturdayConfig.toleranceMinutes ?? 15);
-    setSatSaveSuccess(false);
-    setSaturdayModalOpen(true);
-  };
 
-  const handleSaveSaturdayConfig = async () => {
-    setIsSavingSaturday(true);
-    const targetCompanyId = profile?.company_id || employees[0]?.company_id || 'default';
-    const newConfig: SaturdayWorkConfig = {
-      isSaturdayWork: modalIsSatWork,
-      startTime: saturdayConfig.startTime || '08:30',
-      endTime: saturdayConfig.endTime || '16:00',
-      breakMinutes: Number(saturdayConfig.breakMinutes ?? 30),
-      toleranceMinutes: Number(saturdayConfig.toleranceMinutes ?? 15),
-    };
-
-    try {
-      await shiftService.saveSaturdayConfig(targetCompanyId, newConfig);
-      setSaturdayConfig(newConfig);
-      setSatSaveSuccess(true);
-      setTimeout(() => {
-        setSaturdayModalOpen(false);
-        setSatSaveSuccess(false);
-      }, 600);
-    } catch (err) {
-      console.error('Cumartesi ayarı kaydedilirken hata:', err);
-    } finally {
-      setIsSavingSaturday(false);
-    }
-  };
-
-  const applySaturdayPreset = (preset: 'standard16' | 'half1' | 'half2' | 'full') => {
-    setModalIsSatWork(true);
-    if (preset === 'standard16') {
-      setModalSatStart('08:30');
-      setModalSatEnd('16:00');
-      setModalSatBreak(30);
-      setModalSatTolerance(15);
-    } else if (preset === 'half1') {
-      setModalSatStart('08:30');
-      setModalSatEnd('13:00');
-      setModalSatBreak(0);
-      setModalSatTolerance(15);
-    } else if (preset === 'half2') {
-      setModalSatStart('09:00');
-      setModalSatEnd('14:00');
-      setModalSatBreak(0);
-      setModalSatTolerance(15);
-    } else if (preset === 'full') {
-      setModalSatStart('08:30');
-      setModalSatEnd('18:00');
-      setModalSatBreak(60);
-      setModalSatTolerance(15);
-    }
-  };
 
   // Puantaj Hesaplamaları
   const allCalculatedPuantaj: PersonelAylikPuantaj[] = useMemo(() => {
@@ -348,6 +293,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         year: selectedYear,
         monthIndex: selectedMonthIndex,
         shift: empShift,
+        allShifts: companyShifts,
         vardiyaKayitlari,
         izinTalepleri,
         adminOverrides,
@@ -872,32 +818,6 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
         {/* Ay / Yıl Seçici & Aksiyonlar */}
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Cumartesi Çalışma Ayarı Butonu */}
-          <button
-            onClick={handleOpenSaturdayModal}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer border ${
-              saturdayConfig.isSaturdayWork
-                ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 ring-2 ring-amber-400/20'
-                : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200'
-            }`}
-            title="Cumartesi Çalışma Düzeni ve Mesai Saatlerini Ayarla"
-          >
-            <Calendar className={`w-4 h-4 ${saturdayConfig.isSaturdayWork ? 'text-amber-600' : 'text-gray-400'}`} />
-            <div className="text-left leading-tight">
-              <span className="block text-[9px] text-gray-400 font-semibold uppercase tracking-wider">Cumartesi</span>
-              <span>
-                {saturdayConfig.isSaturdayWork
-                  ? '6 Günlük Düzen (Vardiya Bazlı)'
-                  : '5 Günlük Düzen (Cumartesi Tatil)'}
-              </span>
-            </div>
-            {isManagement && (
-              <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${saturdayConfig.isSaturdayWork ? 'bg-amber-200 text-amber-900' : 'bg-gray-100 text-gray-600'}`}>
-                Ayarla
-              </span>
-            )}
-          </button>
-
           {/* Dönem Değiştirme Butonları */}
           <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl p-1 shadow-xs">
             <button
@@ -922,33 +842,70 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
             </button>
           </div>
 
-          {/* Yazdır & Excel / CSV Butonları */}
-          <button
-            onClick={handlePrintPdf}
-            className="flex items-center gap-1.5 bg-slate-900 hover:bg-black text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-            title="Resmi A4 Yatay İmzalı Puantaj Cetveli Yazdır"
-          >
-            <Printer className="w-4 h-4 text-blue-400" />
-            <span>Resmi Puantaj (PDF)</span>
-          </button>
+          {/* Çıktı Al Dropdown Menüsü */}
+          <div className="relative" ref={exportDropdownRef}>
+            <button
+              onClick={() => setExportDropdownOpen(prev => !prev)}
+              className="flex items-center gap-2 bg-slate-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+              title="Puantaj Cetveli Çıktı ve Dışa Aktarma Seçenekleri"
+            >
+              <Download className="w-4 h-4 text-blue-400" />
+              <span>Çıktı Al</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${exportDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-          <button
-            onClick={handleExportExcel}
-            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-            title="Bordro ve Muhasebe Uyumlu Excel (.xlsx) İndir"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-white" />
-            <span>Excel İndir (.xlsx)</span>
-          </button>
+            {exportDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-30 animate-in fade-in zoom-in-95">
+                <button
+                  onClick={() => {
+                    setExportDropdownOpen(false);
+                    handlePrintPdf();
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <Printer className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-900">Resmi Puantaj (PDF)</div>
+                    <div className="text-[10px] text-gray-400">A4 Yatay İmzalı Belge</div>
+                  </div>
+                </button>
 
-          <button
-            onClick={handleExportCsv}
-            className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-            title="Bordro ve Muhasebe Uyumlu CSV (.csv) İndir"
-          >
-            <Download className="w-4 h-4 text-emerald-600" />
-            <span>CSV</span>
-          </button>
+                <button
+                  onClick={() => {
+                    setExportDropdownOpen(false);
+                    handleExportExcel();
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left text-xs font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-900">Excel İndir (.xlsx)</div>
+                    <div className="text-[10px] text-gray-400">Bordro & Muhasebe Uyumlu</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setExportDropdownOpen(false);
+                    handleExportCsv();
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left text-xs font-semibold text-gray-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center shrink-0">
+                    <Download className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-900">CSV İndir (.csv)</div>
+                    <div className="text-[10px] text-gray-400">Virgülle Ayrılmış Metin</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2035,137 +1992,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         </div>
       )}
 
-      {/* CUMARTESİ ÇALIŞMA DÜZENİ VE MESAİ AYARI MODALI */}
-      {saturdayModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-5">
-            {/* Modal Başlık */}
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 text-base">Cumartesi Çalışma Düzeni & Mesai Ayarı</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Haftalık çalışma düzenini ve Cumartesi mesai kurallarını belirleyin.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSaturdayModalOpen(false)}
-                className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-700 cursor-pointer transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Çalışma Düzeni Seçimi (5 Günlük vs 6 Günlük) */}
-            <div className="space-y-2.5">
-              <label className="text-xs font-bold text-gray-700 block">Haftalık Çalışma Sistemi:</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* 5 Günlük Seçenek */}
-                <div
-                  onClick={() => setModalIsSatWork(false)}
-                  className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                    !modalIsSatWork
-                      ? 'border-blue-500 bg-blue-50/50 shadow-xs'
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-bold text-xs text-gray-900">5 Günlük Düzen</span>
-                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${!modalIsSatWork ? 'border-blue-600 bg-blue-600' : 'border-gray-300'}`}>
-                      {!modalIsSatWork && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-gray-500 leading-snug">
-                    Cumartesi <strong>Akdi Tatil (AT)</strong> sayılır. Cumartesi çalışıldığında tam mesai işlenir.
-                  </p>
-                </div>
-
-                {/* 6 Günlük Seçenek */}
-                <div
-                  onClick={() => setModalIsSatWork(true)}
-                  className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                    modalIsSatWork
-                      ? 'border-amber-500 bg-amber-50/50 shadow-xs'
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-bold text-xs text-amber-950">6 Günlük Düzen</span>
-                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${modalIsSatWork ? 'border-amber-600 bg-amber-600' : 'border-gray-300'}`}>
-                      {modalIsSatWork && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-gray-600 leading-snug">
-                    Cumartesi <strong>Fiili Çalışma (Ç)</strong> günüdür. Gelmeyen personele Devamsız (D) yazılır.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* 6 Günlük Çalışma Düzeni Seçiliyken Bilgilendirme Kartı */}
-            {modalIsSatWork && (
-              <div className="space-y-3 p-4 rounded-xl bg-amber-50/70 border border-amber-200/80 text-left">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span className="text-xs font-bold text-amber-950">
-                    Cumartesi Mesai Saatleri Vardiyalardan Alınır
-                  </span>
-                </div>
-                <p className="text-xs text-amber-900 leading-relaxed">
-                  6 Günlük Çalışma Düzeninde personellerin Cumartesi günü çalışma başlangıç, bitiş ve mola saatleri personelin <strong>bağlı olduğu Vardiyasından</strong> otomatik olarak belirlenir.
-                </p>
-                <div className="flex items-start gap-2 text-[11px] text-amber-800/90 bg-white/90 p-3 rounded-lg border border-amber-200/60">
-                  <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <span>
-                    Her şube, ofis veya personel grubunun Cumartesi çalışma saatini (örneğin yarım gün 13:00 veya 16:00) <strong>Vardiya Yönetimi</strong> ekranından her vardiya için ayrı ayrı düzenleyebilirsiniz.
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Bilgi Kutusu */}
-            <div className="text-[11px] text-gray-500 bg-gray-50 p-2.5 rounded-xl border border-gray-200 flex items-start gap-2">
-              <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-              <span>
-                Bu yapılandırma şirket veritabanına anında işlenir. Puantaj çizelgesi, günlük detaylar ve resmi PDF/Excel çıktıları bu ayarlara göre otomatik yeniden hesaplanır.
-              </span>
-            </div>
-
-            {/* Alt Aksiyon Butonları */}
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={() => setSaturdayModalOpen(false)}
-                disabled={isSavingSaturday}
-                className="px-4 py-2 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 text-xs cursor-pointer transition-colors"
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveSaturdayConfig}
-                disabled={isSavingSaturday}
-                className="flex items-center gap-1.5 px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-all disabled:opacity-50"
-              >
-                {satSaveSuccess ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Kaydedildi!</span>
-                  </>
-                ) : isSavingSaturday ? (
-                  <span>Kaydediliyor...</span>
-                ) : (
-                  <span>Ayarları Kaydet</span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <PuantajExportModal
         isOpen={showPuantajExportModal}

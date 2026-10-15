@@ -18,7 +18,7 @@ import BordroList from './BordroList';
 import { bordroService } from '../services/bordroService';
 import { QRCodeSVG } from 'qrcode.react';
 import bcrypt from 'bcryptjs';
-import { formatIzinTuru } from '../utils/izinCalculations';
+import { formatIzinTuru, calculateCompletedYears, calculateYillikIzinHakki, hasCompletedOneYear } from '../utils/izinCalculations';
 
 // Belge kategorileri
 const BELGE_KATEGORILER = [
@@ -488,9 +488,9 @@ export const printOzlukDosyasiPdf = (
 
   <div class="section-header">5. İZİN HAKLARI VE İZİN KULLANIM GEÇMİŞİ</div>
   <div class="stat-row">
-    <div class="stat-box"><div class="stat-title">Toplam İzin Hakkı</div><div class="stat-value">${izinHakki?.toplamHak ?? 14} Gün</div></div>
+    <div class="stat-box"><div class="stat-title">Toplam İzin Hakkı</div><div class="stat-value">${izinHakki?.toplamHak ?? (hasCompletedOneYear(selectedEmp?.join_date) ? 14 : 0)} Gün</div></div>
     <div class="stat-box"><div class="stat-title">Kullanılan İzin</div><div class="stat-value">${izinHakki?.kullanilanIzin ?? 0} Gün</div></div>
-    <div class="stat-box"><div class="stat-title">Kalan İzin Hakkı</div><div class="stat-value">${izinHakki?.kalanIzin ?? 14} Gün</div></div>
+    <div class="stat-box"><div class="stat-title">Kalan İzin Hakkı</div><div class="stat-value">${izinHakki?.kalanIzin ?? (hasCompletedOneYear(selectedEmp?.join_date) ? 14 : 0)} Gün</div></div>
   </div>
   ${izinRows ? `
   <table>
@@ -1005,19 +1005,8 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
     if (!selectedEmp) return undefined;
 
     const joinDateStr = selectedEmp.join_date || (selectedEmp as any).ise_giris_tarihi || (selectedEmp as any).created_at;
-    let calismaYili = 0;
-    let toplamHak = 14;
-
-    if (joinDateStr) {
-      const joinDate = new Date(joinDateStr);
-      if (!isNaN(joinDate.getTime())) {
-        const now = new Date();
-        calismaYili = Math.max(0, now.getFullYear() - joinDate.getFullYear());
-        if (calismaYili < 5) toplamHak = 14;
-        else if (calismaYili < 15) toplamHak = 20;
-        else toplamHak = 26;
-      }
-    }
+    const calismaYili = calculateCompletedYears(joinDateStr);
+    const toplamHak = calculateYillikIzinHakki(calismaYili);
 
     const empTalepleri = izinTalepleri.filter(t => t.employeeId === selectedEmp.id && t.durum === 'onaylandi' && t.izinTuru === 'yillik');
     const kullanilanIzin = empTalepleri.reduce((sum, t) => sum + (t.gunSayisi || 0) + (t.yolIzniTalep ? (t.yolIzniGun || 0) : 0), 0);

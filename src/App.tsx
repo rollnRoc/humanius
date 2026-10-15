@@ -84,6 +84,7 @@ import { userManagementService } from './services/userManagementService';
 import { companyService } from './services/companyService';
 import { izinService } from './services/izinService';
 import { bordroService } from './services/bordroService';
+import { shiftSmsScheduler } from './services/shiftSmsScheduler';
 import { canAccessView, getDefaultViewForRole, canDeleteUsers } from './auth/roles';
 import { supabase } from './lib/supabase';
 import Login from './components/Login';
@@ -723,6 +724,19 @@ const AppInner: React.FC = () => {
       }
     }
   }, [effectiveAppRole, employees, selectedEmployee]);
+
+  // ── Otomatik Vardiya SMS Bildirim Servisi (Zamanlayıcı) ────────────────────
+  useEffect(() => {
+    if (user && employees && employees.length > 0) {
+      shiftSmsScheduler.startShiftSmsWorker(
+        () => employees,
+        () => selectedCompany || profile?.company_id || 'default'
+      );
+    }
+    return () => {
+      shiftSmsScheduler.stopShiftSmsWorker();
+    };
+  }, [user, employees.length, selectedCompany, profile?.company_id]);
 
   // ── Filtered lists ──────────────────────────────────────────────────────────
   const filteredEmployees = employees.filter((emp) => {
@@ -1505,7 +1519,7 @@ const AppInner: React.FC = () => {
   // ── Auth guard ──────────────────────────────────────────────────────────────
   if (authLoading && !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
         <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
       </div>
     );
@@ -1535,7 +1549,7 @@ const AppInner: React.FC = () => {
 
     // ── Tüm diğer görünümler ─────────────────────────────────────────────────
     return (
-      <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-gray-50 relative">
+      <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-slate-100 relative">
         <SmartHeader currentView={currentView} onNavigate={setCurrentView} />
         
         {!isEmployeeOnly && (
@@ -1854,7 +1868,16 @@ const AppInner: React.FC = () => {
         )}
 
         {/* Kullanıcı Yönetimi */}
-        {currentView === 'kullanicilar' && <KullanicilarPage />}
+        {currentView === 'kullanicilar' && (
+          appRole === 'superadmin' ? (
+            <KullanicilarPage />
+          ) : (
+            <div className="p-8 text-center bg-white rounded-2xl border border-gray-200 m-6 shadow-sm">
+              <h3 className="text-lg font-bold text-gray-800">Yetkisiz Erişim</h3>
+              <p className="text-sm text-gray-500 mt-1">Bu sayfa yalnızca Süper Yönetici yetkisine sahip kullanıcılar tarafından görüntülenebilir.</p>
+            </div>
+          )
+        )}
 
         {/* Sistem Ayarları - Kanunlar ve Kurallar */}
         {currentView === 'ayar' && <SistemAyarlari mode="kanunlar" defaultTab="is_kanunu" />}
@@ -1876,7 +1899,7 @@ const AppInner: React.FC = () => {
   return (
     <GuideContextMenu onNavigate={(v) => setCurrentView(v as View)}>
     <ContextualHelp />
-    <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
+    <div className="flex flex-col h-screen overflow-hidden bg-slate-100">
       <DemoBanner />
       <NotificationPermissionBanner />
       <div className="flex flex-1 overflow-hidden">
@@ -1906,7 +1929,7 @@ const AppInner: React.FC = () => {
       <AppSectionErrorBoundary
         resetKey={currentView}
         fallback={(err?: Error) => (
-          <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          <main className="flex-1 overflow-y-auto p-6 bg-slate-100">
             <div className="bg-white border border-red-200 rounded-xl p-6">
               <h2 className="text-lg font-semibold text-red-700">Sayfa yüklenirken bir hata oluştu</h2>
               <p className="text-sm text-gray-600 mt-2">Lütfen başka bir menüye geçin veya tekrar deneyin.</p>

@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { X, PlusCircle, ShieldCheck, UserCheck, Sparkles, Info } from 'lucide-react';
+import { X, PlusCircle, ShieldCheck, UserCheck, Sparkles, Info, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { Employee } from '../types';
 import type { IzinHakki } from '../types/izin';
+import {
+  calculateCompletedYears,
+  calculateYillikIzinHakki,
+  hasCompletedOneYear,
+  getYillikIzinHakEdisTarihi,
+  getYillikIzinKalanGunSayisi,
+  formatDate
+} from '../utils/izinCalculations';
 
 interface IzinHakedisModalProps {
   isOpen: boolean;
@@ -45,15 +53,34 @@ export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
     }
   }, [initialEmployeeId, employees]);
 
-  if (!isOpen) return null;
-
   const activeEmployees = employees.filter((e) => e.status === 'active' || e.status === 'onLeave');
   const selectedEmp = employees.find((e) => e.id === selectedEmpId) || activeEmployees[0];
   const empHak = selectedEmp ? izinHaklari.find((h) => h.employeeId === selectedEmp.id && (h.yil === yil || !h.yil)) : null;
 
-  const currentHak = empHak ? (empHak.toplamHak || 14) : 14;
+  // Kıdem ve 1 yıl kontrolü (4857 s.K. Madde 53/54)
+  const joinDateStr = selectedEmp?.joinDate || (selectedEmp as any)?.join_date || (selectedEmp as any)?.ise_giris_tarihi;
+  const calismaYili = calculateCompletedYears(joinDateStr);
+  const hasCompletedYear = calismaYili >= 1;
+  const standardHak = calculateYillikIzinHakki(calismaYili);
+  const hakedisTarihi = getYillikIzinHakEdisTarihi(joinDateStr);
+  const kalanGun = getYillikIzinKalanGunSayisi(joinDateStr);
+  const formattedJoinDate = joinDateStr ? formatDate(String(joinDateStr).split('T')[0]) : 'Belirtilmedi';
+  const formattedHakedisTarihi = hakedisTarihi ? formatDate(hakedisTarihi.toISOString().split('T')[0]) : 'Hesaplanamadı';
+
+  const currentHak = empHak && typeof empHak.toplamHak === 'number' ? empHak.toplamHak : standardHak;
   const currentUsed = empHak ? (empHak.kullanilanIzin || 0) : 0;
   const currentRemaining = Math.max(0, currentHak - currentUsed);
+
+  // Personel veya işlem tipi değiştiğinde gün sayısını akıllıca uyarla
+  useEffect(() => {
+    if (islemTipi === 'belirle') {
+      setGunSayisi(currentHak);
+    } else {
+      setGunSayisi(hasCompletedYear ? 14 : 1);
+    }
+  }, [selectedEmpId, islemTipi, currentHak, hasCompletedYear]);
+
+  if (!isOpen) return null;
 
   // Calculate new expected hak
   const finalHak = islemTipi === 'ekle' ? currentHak + (Number(gunSayisi) || 0) : (Number(gunSayisi) || 0);
@@ -65,8 +92,12 @@ export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
       setErrorMsg('Lütfen bir personel seçiniz.');
       return;
     }
-    if (gunSayisi <= 0) {
-      setErrorMsg('Lütfen geçerli bir gün sayısı giriniz.');
+    if (islemTipi === 'ekle' && gunSayisi <= 0) {
+      setErrorMsg('Lütfen eklenecek geçerli bir gün sayısı giriniz.');
+      return;
+    }
+    if (islemTipi === 'belirle' && gunSayisi < 0) {
+      setErrorMsg('Belirlenen gün sayısı 0 veya daha büyük olmalıdır.');
       return;
     }
 
@@ -90,7 +121,7 @@ export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
     }
   };
 
-  const quickDays = [1, 2, 3, 5, 10, 14, 20];
+  const quickDays = hasCompletedYear ? [1, 2, 3, 5, 10, 14, 20] : [0, 1, 2, 3, 5, 10, 14];
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -150,7 +181,7 @@ export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
                   <span>{selectedEmp.name}</span>
                 </div>
                 <p className="text-gray-500 mt-0.5">
-                  {selectedEmp.department} · İşe Giriş: {selectedEmp.joinDate || 'Belirtilmedi'}
+                  {selectedEmp.department} · İşe Giriş: {formattedJoinDate}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -168,6 +199,44 @@ export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* 4857 Sayılı İş Kanunu — 1 Yıl Dolum Durum Kartı */}
+          {selectedEmp && (
+            !hasCompletedYear ? (
+              <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 font-bold text-xs uppercase tracking-wider">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>1 Yılını Henüz Doldurmadı — Kanuni Hak: 0 Gün</span>
+                </div>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  <strong>4857 Sayılı İş Kanunu Madde 53/54</strong> uyarınca çalışanlar yıllık ücretli izin hakkını ancak işe başladıkları günden itibaren <strong>en az 1 tam yıl</strong> çalıştıktan sonra kazanırlar.
+                </p>
+                <div className="pt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-amber-900 font-medium">
+                  <span>İşe Giriş: <b>{formattedJoinDate}</b></span>
+                  <span>•</span>
+                  <span>1 Yıl Dolum Tarihi: <b>{formattedHakedisTarihi}</b></span>
+                  {kalanGun > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md font-semibold">1 Yıla Kalan: {kalanGun} Gün</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-emerald-50/90 border border-emerald-200/80 rounded-2xl p-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 text-emerald-950 text-xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    <strong>1 Yılını Doldurdu</strong> ({calismaYili} Çalışma Yılı) • Kanuni Yıllık İzin Hakkı: <b>{standardHak} Gün</b>
+                  </span>
+                </div>
+                <span className="text-[11px] font-bold text-emerald-700 bg-white border border-emerald-200 px-2.5 py-0.5 rounded-lg shadow-2xs">
+                  İzin Kullanabilir
+                </span>
+              </div>
+            )
           )}
 
           {/* İzin Türü Bilgisi */}
@@ -242,10 +311,10 @@ export const IzinHakedisModal: React.FC<IzinHakedisModalProps> = ({
             <div className="flex items-center gap-3">
               <input
                 type="number"
-                min="1"
+                min={islemTipi === 'belirle' ? '0' : '1'}
                 max="120"
                 value={gunSayisi}
-                onChange={(e) => setGunSayisi(Math.max(1, parseInt(e.target.value) || 0))}
+                onChange={(e) => setGunSayisi(Math.max(islemTipi === 'belirle' ? 0 : 1, parseInt(e.target.value) || 0))}
                 className="w-28 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-base font-extrabold text-gray-800 text-center focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
               />
               <div className="flex flex-wrap gap-1.5">
