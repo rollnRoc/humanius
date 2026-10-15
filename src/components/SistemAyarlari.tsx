@@ -249,6 +249,51 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
   const [leaveApprovalConfig, setLeaveApprovalConfig] = useState<LeaveApprovalConfig>(DEFAULT_LEAVE_APPROVAL_CONFIG);
   const [isSavingLeaveApproval, setIsSavingLeaveApproval] = useState(false);
   const [leaveApprovalSuccess, setLeaveApprovalSuccess] = useState(false);
+  const [workflowSimulationStep, setWorkflowSimulationStep] = useState<number>(1);
+
+  // Onay akışı için seçilen aktif aşamalar listesi
+  const activeApprovalSteps = useMemo(() => {
+    const list: {
+      id: 'manager' | 'hr' | 'admin';
+      stepNum: number;
+      label: string;
+      roleTitle: string;
+      desc: string;
+      icon: any;
+    }[] = [];
+    let counter = 1;
+    if (leaveApprovalConfig.stages.manager) {
+      list.push({
+        id: 'manager',
+        stepNum: counter++,
+        label: '1. Aşama: Birim Amiri',
+        roleTitle: 'Departman Sorumlusu',
+        desc: 'İlk değerlendirme ve birim ön onayı',
+        icon: Users,
+      });
+    }
+    if (leaveApprovalConfig.stages.hr) {
+      list.push({
+        id: 'hr',
+        stepNum: counter++,
+        label: '2. Aşama: İK Uzmanı',
+        roleTitle: 'İnsan Kaynakları',
+        desc: 'Mevzuat uygunluğu ve hak ediş denetimi',
+        icon: Award,
+      });
+    }
+    if (leaveApprovalConfig.stages.admin) {
+      list.push({
+        id: 'admin',
+        stepNum: counter++,
+        label: '3. Aşama: Şirket Yöneticisi',
+        roleTitle: 'Genel Müdür / Üst Yönetim',
+        desc: 'Nihai yönetim tasdiki',
+        icon: Briefcase,
+      });
+    }
+    return list;
+  }, [leaveApprovalConfig.stages]);
 
   useEffect(() => {
     const targetCompId = profile?.company_id || companies[0]?.id || 'default';
@@ -2032,49 +2077,238 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                     </div>
                   </div>
 
-                  {/* Görsel Süreç Akış Çizgisi (Stepper) */}
-                  <div className="bg-purple-50/50 border-2 border-purple-200/80 rounded-2xl p-4 shadow-xs">
-                    <div className="text-[11px] font-bold text-purple-900 uppercase tracking-wider mb-2.5">
-                      Aktif Onay Akışı Sıralaması
+                  {/* Görsel Süreç Akış Çizgisi (Stepper & Canlı Aşama Durumu) */}
+                  <div className="bg-gradient-to-br from-purple-50/60 via-indigo-50/40 to-white border-2 border-purple-200/90 rounded-2xl p-5 shadow-xs space-y-4">
+                    {/* Üst Başlık & Simülasyon Durum Seçicisi */}
+                    <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-purple-200/70">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                          <span className="text-xs font-black text-purple-950 uppercase tracking-wider">
+                            Onay Akışı Sıralaması & Canlı Süreç Durumu
+                          </span>
+                          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300">
+                            Seçilen {activeApprovalSteps.length} Kademeli Akış
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          Seçilen kademelere göre izin talebinin geçtiği, bulunduğu ve bekleyen aşamaları görsel olarak aşağıda listelenmiştir.
+                        </p>
+                      </div>
+
+                      {/* Aşama Simülasyonu Seçici */}
+                      <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-purple-200 shadow-2xs">
+                        <span className="text-[10px] font-bold text-slate-500 px-1.5">Örnek Durum:</span>
+                        {activeApprovalSteps.map((step) => (
+                          <button
+                            key={step.id}
+                            type="button"
+                            onClick={() => setWorkflowSimulationStep(step.stepNum)}
+                            className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                              workflowSimulationStep === step.stepNum
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {workflowSimulationStep === step.stepNum && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                            )}
+                            <span>{step.stepNum}. Kademede</span>
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setWorkflowSimulationStep(activeApprovalSteps.length + 1)}
+                          className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            workflowSimulationStep > activeApprovalSteps.length
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {workflowSimulationStep > activeApprovalSteps.length && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          )}
+                          <span>✓ Tamamlandı</span>
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap text-xs font-bold">
-                      {/* 1. Aşama */}
-                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all ${
-                        leaveApprovalConfig.stages.manager
-                          ? 'bg-white border-blue-400 text-blue-900 shadow-xs'
-                          : 'bg-slate-100 border-slate-300 text-slate-400 line-through'
-                      }`}>
-                        <Users className="w-3.5 h-3.5" />
-                        <span>1. Aşama: Birim Amiri</span>
+
+                    {/* Akış Adımları (Grid / Flex) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-stretch">
+                      {/* 0. Adım: Çalışan Talebi (Her zaman Geçilen Aşama) */}
+                      <div className="p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50/90 shadow-sm flex flex-col justify-between transition-all">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
+                              <CheckCircle className="w-3 h-3" /> Geçilen Aşama
+                            </span>
+                            <span className="text-[10px] font-bold text-emerald-800">Başlangıç</span>
+                          </div>
+                          <div className="flex items-center gap-2.5 mb-1.5">
+                            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                              <User className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h5 className="text-xs font-black text-emerald-950">Çalışan Talebi</h5>
+                              <p className="text-[10px] text-emerald-700 font-semibold">Talep Formu Gönderildi</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="pt-2.5 mt-2 border-t border-emerald-200/80 flex items-center justify-between text-[11px] font-bold text-emerald-800">
+                          <span>Durum:</span>
+                          <span className="flex items-center gap-1">✓ Oluşturuldu</span>
+                        </div>
                       </div>
 
-                      <ArrowRight className={`w-3.5 h-3.5 ${leaveApprovalConfig.stages.manager && (leaveApprovalConfig.stages.hr || leaveApprovalConfig.stages.admin) ? 'text-purple-600' : 'text-slate-300'}`} />
+                      {/* Dinamik Aktif Onay Kademeleri */}
+                      {activeApprovalSteps.map((step) => {
+                        const isPassed = step.stepNum < workflowSimulationStep;
+                        const isCurrent = step.stepNum === workflowSimulationStep;
+                        const isPending = step.stepNum > workflowSimulationStep;
+                        const StepIcon = step.icon;
 
-                      {/* 2. Aşama */}
-                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all ${
-                        leaveApprovalConfig.stages.hr
-                          ? 'bg-white border-indigo-400 text-indigo-900 shadow-xs'
-                          : 'bg-slate-100 border-slate-300 text-slate-400 line-through'
-                      }`}>
-                        <Award className="w-3.5 h-3.5" />
-                        <span>2. Aşama: İK Uzmanı</span>
-                      </div>
+                        return (
+                          <div
+                            key={step.id}
+                            className={`p-4 rounded-2xl border-2 flex flex-col justify-between transition-all ${
+                              isPassed
+                                ? 'border-emerald-500 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-400/30'
+                                : isCurrent
+                                ? 'border-blue-600 bg-blue-50/95 shadow-md ring-4 ring-blue-500/25 relative scale-[1.02]'
+                                : 'border-dashed border-slate-300 bg-slate-50/70 text-slate-500 opacity-80'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                {isPassed && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
+                                    <CheckCircle className="w-3 h-3" /> Geçilen Aşama
+                                  </span>
+                                )}
+                                {isCurrent && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-600 text-white shadow-md animate-pulse">
+                                    <Clock className="w-3 h-3" /> Bulunulan Aşama
+                                  </span>
+                                )}
+                                {isPending && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-600">
+                                    ⚪ Henüz İlerlenmedi
+                                  </span>
+                                )}
+                                <span className={`text-[10px] font-bold ${
+                                  isPassed ? 'text-emerald-800' : isCurrent ? 'text-blue-800' : 'text-slate-400'
+                                }`}>
+                                  {step.stepNum}. Kademe
+                                </span>
+                              </div>
 
-                      <ArrowRight className={`w-3.5 h-3.5 ${leaveApprovalConfig.stages.hr && leaveApprovalConfig.stages.admin ? 'text-purple-600' : 'text-slate-300'}`} />
+                              <div className="flex items-center gap-2.5 mb-1.5">
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shadow-xs ${
+                                  isPassed
+                                    ? 'bg-emerald-600 text-white'
+                                    : isCurrent
+                                    ? 'bg-blue-600 text-white shadow-md'
+                                    : 'bg-slate-200 text-slate-400 border border-slate-300'
+                                }`}>
+                                  <StepIcon className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <h5 className={`text-xs font-black ${
+                                    isPassed ? 'text-emerald-950' : isCurrent ? 'text-blue-950' : 'text-slate-600'
+                                  }`}>
+                                    {step.label}
+                                  </h5>
+                                  <p className={`text-[10px] font-semibold ${
+                                    isPassed ? 'text-emerald-700' : isCurrent ? 'text-blue-700' : 'text-slate-400'
+                                  }`}>
+                                    {step.roleTitle}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
 
-                      {/* 3. Aşama */}
-                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all ${
-                        leaveApprovalConfig.stages.admin
-                          ? 'bg-white border-purple-400 text-purple-900 shadow-xs'
-                          : 'bg-slate-100 border-slate-300 text-slate-400 line-through'
-                      }`}>
-                        <Briefcase className="w-3.5 h-3.5" />
-                        <span>3. Aşama: Şirket Yöneticisi</span>
-                      </div>
+                            <div className={`pt-2.5 mt-2 border-t flex items-center justify-between text-[11px] font-bold ${
+                              isPassed
+                                ? 'border-emerald-200/80 text-emerald-800'
+                                : isCurrent
+                                ? 'border-blue-200 text-blue-900'
+                                : 'border-slate-200 text-slate-400'
+                            }`}>
+                              <span>Durum:</span>
+                              <span className="flex items-center gap-1">
+                                {isPassed && '✓ Onaylandı (Geçildi)'}
+                                {isCurrent && '⏳ Onay Bekliyor'}
+                                {isPending && '⚪ Sırada Bekliyor'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
 
-                      <div className="ml-auto text-[11px] font-semibold text-purple-900 bg-white px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs">
-                        {leaveApprovalService.getActiveStagesSummary(leaveApprovalConfig)}
-                      </div>
+                      {/* Son Adım: Bordro & Puantaj İşlendi */}
+                      {(() => {
+                        const isFinished = workflowSimulationStep > activeApprovalSteps.length;
+                        return (
+                          <div className={`p-4 rounded-2xl border-2 flex flex-col justify-between transition-all ${
+                            isFinished
+                              ? 'border-emerald-500 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-400/30'
+                              : 'border-dashed border-slate-300 bg-slate-50/70 text-slate-500 opacity-80'
+                          }`}>
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                {isFinished ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
+                                    <CheckCircle className="w-3 h-3" /> Süreç Tamamlandı
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-600">
+                                    ⚪ Henüz İlerlenmedi
+                                  </span>
+                                )}
+                                <span className={`text-[10px] font-bold ${isFinished ? 'text-emerald-800' : 'text-slate-400'}`}>
+                                  Sonuç
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2.5 mb-1.5">
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shadow-xs ${
+                                  isFinished ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400 border border-slate-300'
+                                }`}>
+                                  <Check className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <h5 className={`text-xs font-black ${isFinished ? 'text-emerald-950' : 'text-slate-600'}`}>
+                                    Bordro & Puantaj
+                                  </h5>
+                                  <p className={`text-[10px] font-semibold ${isFinished ? 'text-emerald-700' : 'text-slate-400'}`}>
+                                    Sisteme Otomatik İşlendi
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className={`pt-2.5 mt-2 border-t flex items-center justify-between text-[11px] font-bold ${
+                              isFinished ? 'border-emerald-200/80 text-emerald-800' : 'border-slate-200 text-slate-400'
+                            }`}>
+                              <span>Durum:</span>
+                              <span>{isFinished ? '✓ İzin Onaylandı' : '⚪ Onaylar Bitince'}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Renk ve Anlam Göstergesi (Legend) */}
+                    <div className="flex items-center gap-3 sm:gap-4 flex-wrap text-[11px] pt-3 border-t border-purple-200/70 text-slate-600">
+                      <span className="font-extrabold text-slate-800">Aşama Renk Göstergeleri:</span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-100/90 text-emerald-900 font-bold border border-emerald-300">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Yeşil: Geçilen Aşama (Onaylandı)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-100/90 text-blue-950 font-black border border-blue-400 shadow-2xs">
+                        <Clock className="w-3.5 h-3.5 text-blue-600 animate-pulse" /> Mavi: Bulunulan Aşama (Şu An Onay Bekliyor)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-bold border border-slate-300">
+                        <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" /> Gri: Henüz İlerlenmemiş Aşama (Sırada Bekliyor)
+                      </span>
                     </div>
                   </div>
 
