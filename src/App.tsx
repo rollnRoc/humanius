@@ -85,6 +85,7 @@ import { companyService } from './services/companyService';
 import { izinService } from './services/izinService';
 import { bordroService } from './services/bordroService';
 import { shiftSmsScheduler } from './services/shiftSmsScheduler';
+import { leaveApprovalService } from './services/leaveApprovalService';
 import { canAccessView, getDefaultViewForRole, canDeleteUsers } from './auth/roles';
 import { supabase } from './lib/supabase';
 import Login from './components/Login';
@@ -1278,8 +1279,14 @@ const AppInner: React.FC = () => {
       alert('Kullanıcı bilgisi bulunamadı.');
       return;
     }
-    if (!canApproveLeave(effectiveAppRole as AppRole)) {
-      alert('İzin onaylama yetkisi sadece İnsan Kaynakları ve Şirket Yöneticilerine aittir. Birim müdürleri izin onaylayamaz.');
+    const targetCompId = profile?.company_id || 'default';
+    const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
+    const isSuperOrAdmin = ['superadmin', 'admin'].includes(effectiveAppRole);
+    const isHrAllowed = effectiveAppRole === 'hr' && approvalCfg.stages.hr;
+    const isManagerAllowed = effectiveAppRole === 'manager' && approvalCfg.stages.manager;
+
+    if (!isSuperOrAdmin && !isHrAllowed && !isManagerAllowed) {
+      alert('İzin onaylama yetkisi şirket onay akış ayarları kapsamında aktif değildir veya rolünüz yetkilendirilmemiştir.');
       return;
     }
     try {
@@ -1330,8 +1337,14 @@ const AppInner: React.FC = () => {
       alert('Kullanıcı bilgisi bulunamadı.');
       return;
     }
-    if (!canApproveLeave(effectiveAppRole as AppRole)) {
-      alert('İzin reddetme yetkisi sadece İnsan Kaynakları ve Şirket Yöneticilerine aittir. Birim müdürleri izin reddedemez.');
+    const targetCompId = profile?.company_id || 'default';
+    const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
+    const isSuperOrAdmin = ['superadmin', 'admin'].includes(effectiveAppRole);
+    const isHrAllowed = effectiveAppRole === 'hr' && approvalCfg.stages.hr;
+    const isManagerAllowed = effectiveAppRole === 'manager' && approvalCfg.stages.manager;
+
+    if (!isSuperOrAdmin && !isHrAllowed && !isManagerAllowed) {
+      alert('İzin reddetme yetkisi şirket onay akış ayarları kapsamında aktif değildir veya rolünüz yetkilendirilmemiştir.');
       return;
     }
     const neden = prompt('Red nedenini giriniz (İsteğe bağlı):');

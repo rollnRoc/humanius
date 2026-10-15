@@ -21,10 +21,10 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import type { Employee } from '../types';
-import type { IzinTalebi, IzinHakki } from '../types/izin';
 import { formatIzinTuru, calculateCompletedYears, calculateYillikIzinHakki, hasCompletedOneYear, getYillikIzinHakEdisTarihi, formatDate } from '../utils/izinCalculations';
 import { IzinWorkflow } from './IzinWorkflow';
 import { canApproveLeave } from '../auth/roles';
+import { leaveApprovalService, type LeaveApprovalConfig, DEFAULT_LEAVE_APPROVAL_CONFIG } from '../services/leaveApprovalService';
 import IzinOzetKartlari from './IzinOzetKartlari';
 
 export type IzinTabId = 'onay-bekleyen' | 'son-islemler' | 'ozet-paneli';
@@ -96,7 +96,35 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
   onUpdateHak,
 }) => {
   const isAuthorized = !['employee', 'user'].includes(effectiveAppRole);
-  const canApprove = canApproveLeave(effectiveAppRole as any);
+  
+  const [approvalConfig, setApprovalConfig] = useState<LeaveApprovalConfig>(DEFAULT_LEAVE_APPROVAL_CONFIG);
+
+  useEffect(() => {
+    const targetCompId = profile?.company_id || 'default';
+    leaveApprovalService.getConfig(targetCompId).then(cfg => {
+      if (cfg) setApprovalConfig(cfg);
+    }).catch(() => {});
+
+    const handleUpdate = (e: any) => {
+      if (e.detail) setApprovalConfig(e.detail);
+    };
+    window.addEventListener('humanius_leave_approval_updated', handleUpdate);
+    return () => window.removeEventListener('humanius_leave_approval_updated', handleUpdate);
+  }, [profile?.company_id]);
+
+  const canApprove = useMemo(() => {
+    if (['superadmin', 'admin'].includes(effectiveAppRole)) {
+      // Şirket Yöneticisi / Süper Yönetici her zaman veya 3. kademe açıksa onaylayabilir
+      return true;
+    }
+    if (effectiveAppRole === 'hr') {
+      return Boolean(approvalConfig.stages.hr);
+    }
+    if (effectiveAppRole === 'manager') {
+      return Boolean(approvalConfig.stages.manager);
+    }
+    return false;
+  }, [effectiveAppRole, approvalConfig]);
 
   // Normal personel sadece kendisine ait talepleri görebilir, yetkili roller tüm şirket taleplerini görebilir
   const userLeaves = useMemo(() => {
@@ -441,7 +469,11 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start sm:items-center gap-3 text-amber-900 text-xs shadow-xs">
               <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5 sm:mt-0" />
               <div>
-                <span className="font-bold text-amber-950">Onay Yetkisi Bilgilendirmesi:</span> İzin onaylama ve reddetme yetkisi şirket politikası gereğince yalnızca <strong>İnsan Kaynakları (İK)</strong> ve <strong>Şirket Yöneticisi</strong> rollerine aittir. Birim müdürleri talepleri yalnızca inceleme yetkisine sahiptir.
+                <span className="font-bold text-amber-950">Onay Yetkisi Bilgilendirmesi:</span> {
+                  effectiveAppRole === 'manager'
+                    ? 'Birim amiri onay kademesi şirket ayarlarında pasif durumdadır. İzin onayları aktif olan İK veya Şirket Yöneticisi kademesinde yürütülmektedir.'
+                    : 'İzin onaylama ve reddetme yetkisi şirket onay akış politikası kapsamında aktif kademelerdeki yetkililere aittir.'
+                }
               </div>
             </div>
           )}

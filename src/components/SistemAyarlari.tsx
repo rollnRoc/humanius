@@ -4,7 +4,7 @@ import {
   AlertTriangle, CheckCircle, Clock, Users, Calendar, DollarSign, TrendingUp, 
   Plus, Pencil, Trash2, X, KeyRound, PenTool,
   MapPin, Phone, Mail, Copy, Check, ExternalLink, ShieldCheck, Globe, Hash, Sparkles,
-  MessageSquare
+  MessageSquare, UserCheck, Award, Briefcase, Layers, ArrowRight
 } from 'lucide-react';
 import { VARSAYILAN_SISTEM_AYARLARI, SISTEM_PARAMETRELERI } from '../data/sistemAyarlari';
 import { SistemAyarlari as ISistemAyarlari, SistemParametresi, ParametreKategorisi } from '../types/sistemAyarlari';
@@ -16,6 +16,7 @@ import { userManagementService } from '../services/userManagementService';
 import { demoService } from '../services/demoService';
 import { shiftService, type SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG } from '../services/shiftService';
 import { smsService } from '../services/smsService';
+import { leaveApprovalService, type LeaveApprovalConfig, DEFAULT_LEAVE_APPROVAL_CONFIG } from '../services/leaveApprovalService';
 import { showSuccess, showError } from '../utils/swal';
 
 interface CompanyRow {
@@ -241,6 +242,52 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
       console.error('Error saving saturday work config:', err);
     } finally {
       setIsSavingSatConfig(false);
+    }
+  };
+
+  // İzin Talebi Onay Aşamaları Ayarı (Birim Amiri, İK, Şirket Yöneticisi)
+  const [leaveApprovalConfig, setLeaveApprovalConfig] = useState<LeaveApprovalConfig>(DEFAULT_LEAVE_APPROVAL_CONFIG);
+  const [isSavingLeaveApproval, setIsSavingLeaveApproval] = useState(false);
+  const [leaveApprovalSuccess, setLeaveApprovalSuccess] = useState(false);
+
+  useEffect(() => {
+    const targetCompId = profile?.company_id || companies[0]?.id || 'default';
+    leaveApprovalService.getConfig(targetCompId).then(cfg => {
+      if (cfg) setLeaveApprovalConfig(cfg);
+    }).catch(err => console.error('Error loading leave approval config:', err));
+  }, [profile?.company_id, companies]);
+
+  const handleToggleApprovalStage = async (stage: 'manager' | 'hr' | 'admin') => {
+    const currentEnabled = leaveApprovalConfig.stages[stage];
+    const newStages = {
+      ...leaveApprovalConfig.stages,
+      [stage]: !currentEnabled,
+    };
+
+    // En az bir aşama açık kalmalı
+    const activeCount = Object.values(newStages).filter(Boolean).length;
+    if (activeCount === 0) {
+      showError('İşlem İptal Edildi', 'İzin onay sürecinde en az bir onay kademesinin açık olması zorunludur. Tüm aşamalar aynı anda kapatılamaz.');
+      return;
+    }
+
+    const nextConfig: LeaveApprovalConfig = {
+      ...leaveApprovalConfig,
+      stages: newStages,
+    };
+
+    setIsSavingLeaveApproval(true);
+    const targetCompId = profile?.company_id || companies[0]?.id || 'default';
+    try {
+      await leaveApprovalService.saveConfig(targetCompId, nextConfig, profile?.email);
+      setLeaveApprovalConfig(nextConfig);
+      setLeaveApprovalSuccess(true);
+      setTimeout(() => setLeaveApprovalSuccess(false), 2500);
+    } catch (err: any) {
+      console.error('Error saving leave approval config:', err);
+      showError('Hata', err?.message || 'Onay aşamaları kaydedilemedi.');
+    } finally {
+      setIsSavingLeaveApproval(false);
     }
   };
 
@@ -1564,7 +1611,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
               {/* 2. Hızlı Metrik / Kopyalama Şeridi */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Vergi No */}
-                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:shadow-md transition-shadow relative group">
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 hover:shadow-md transition-all relative group">
                   <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
                     <span className="flex items-center gap-1.5">
                       <Hash className="w-3.5 h-3.5 text-blue-600" />
@@ -1589,7 +1636,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                 </div>
 
                 {/* SGK Sicil No */}
-                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:shadow-md transition-shadow relative group">
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 hover:shadow-md transition-all relative group">
                   <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
                     <span className="flex items-center gap-1.5">
                       <Shield className="w-3.5 h-3.5 text-indigo-600" />
@@ -1614,7 +1661,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                 </div>
 
                 {/* Telefon */}
-                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:shadow-md transition-shadow">
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 hover:shadow-md transition-all">
                   <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
                     <span className="flex items-center gap-1.5">
                       <Phone className="w-3.5 h-3.5 text-emerald-600" />
@@ -1633,7 +1680,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                 </div>
 
                 {/* E-Posta */}
-                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:shadow-md transition-shadow relative group">
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 hover:shadow-md transition-all relative group">
                   <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
                     <span className="flex items-center gap-1.5">
                       <Mail className="w-3.5 h-3.5 text-cyan-600" />
@@ -1668,7 +1715,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
                 {/* Sol Kart: Yasal & Resmi Kayıtlar */}
-                <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-xs space-y-5">
+                <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:border-slate-300/80 transition-all space-y-5">
                   <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
                     <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
                       <Building className="w-5 h-5" />
@@ -1680,7 +1727,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                   </div>
 
                   <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
                       <div className="text-xs font-semibold text-slate-500 mb-1">Resmi Şirket Unvanı</div>
                       <div className="text-sm font-bold text-slate-900 leading-snug">
                         {sistemAyarlari.sirketBilgileri.ad || 'Belirtilmemiş'}
@@ -1688,13 +1735,13 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
                         <div className="text-xs font-semibold text-slate-500 mb-1">Vergi Numarası</div>
                         <div className="text-sm font-bold text-slate-800 font-mono">
                           {sistemAyarlari.sirketBilgileri.vergiNo || '—'}
                         </div>
                       </div>
-                      <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
                         <div className="text-xs font-semibold text-slate-500 mb-1">Mükellefiyet Durumu</div>
                         <div className="text-sm font-bold text-emerald-600 flex items-center gap-1.5">
                           <CheckCircle className="w-4 h-4" />
@@ -1703,7 +1750,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-semibold text-slate-500">SGK İşyeri Sicil Numarası</span>
                         <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
@@ -1721,7 +1768,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                 </div>
 
                 {/* Sağ Kart: İletişim & Lokasyon */}
-                <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-xs space-y-5">
+                <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:border-slate-300/80 transition-all space-y-5">
                   <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
                     <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
                       <MapPin className="w-5 h-5" />
@@ -1733,7 +1780,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                   </div>
 
                   <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
                       <div className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-slate-400" />
                         <span>Genel Merkez Adresi</span>
@@ -1744,7 +1791,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
                         <div className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
                           <Phone className="w-3.5 h-3.5 text-slate-400" />
                           <span>Telefon</span>
@@ -1753,7 +1800,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                           {sistemAyarlari.sirketBilgileri.telefon || '—'}
                         </div>
                       </div>
-                      <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
                         <div className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
                           <Mail className="w-3.5 h-3.5 text-slate-400" />
                           <span>E-posta</span>
@@ -1765,7 +1812,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                     </div>
 
                     {/* Bulunduğu İl ve Yol İzni Vurgusu */}
-                    <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-amber-900">
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-amber-900 shadow-xs">
                       <div className="flex items-center gap-2 mb-1.5">
                         <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
                         <h4 className="text-xs font-bold text-amber-950">
@@ -1783,7 +1830,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
               </div>
 
               {/* 4. Şirket Çalışma Düzeni & Mesai Politikası */}
-              <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-xs space-y-5">
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:border-slate-300/80 transition-all space-y-5">
                 <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-100">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
@@ -1820,8 +1867,8 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                     onClick={() => handleToggleSaturdayWork(false)}
                     className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative ${
                       !saturdayConfig.isSaturdayWork
-                        ? 'border-blue-600 bg-blue-50/40 shadow-sm'
-                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                        ? 'border-blue-600 bg-blue-50/50 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -1853,8 +1900,8 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                     onClick={() => handleToggleSaturdayWork(true)}
                     className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative ${
                       saturdayConfig.isSaturdayWork
-                        ? 'border-amber-500 bg-amber-50/40 shadow-sm'
-                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                        ? 'border-amber-600 bg-amber-50/50 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -1883,13 +1930,237 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                 </div>
 
                 {/* Bilgilendirme Notu */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between gap-3 shadow-xs">
                   <span className="leading-relaxed">
                     💡 Burada yapılan düzenleme şirket puantaj cetveline, aylık bordro icmallerine ve mesai hesaplamalarına anında uygulanır.
                   </span>
                   {isSavingSatConfig && (
                     <span className="text-xs font-bold text-indigo-600 shrink-0">Kaydediliyor...</span>
                   )}
+                </div>
+              </div>
+
+              {/* 5. İzin Talebi Onay Süreç & Aşama Ayarları */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:border-slate-300/80 transition-all space-y-6">
+                <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                      <Layers className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base font-bold text-slate-800">İzin Talebi Onay Ayarları</h3>
+                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+                          {leaveApprovalService.getActiveStagesCount(leaveApprovalConfig)} Aşamalı Onay
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        İzin taleplerinin kaç aşamalı onaydan geçeceğini belirleyin. İstediğiniz aşamaları açıp kapatabilirsiniz (1, 2 veya 3 kademeli onay).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {leaveApprovalSuccess && (
+                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 animate-in fade-in flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> Ayarlar Kaydedildi!
+                      </span>
+                    )}
+                    {isSavingLeaveApproval && (
+                      <span className="text-xs font-bold text-purple-600">Kaydediliyor...</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Görsel Süreç Akış Çizgisi (Stepper) */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-xs">
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">
+                    Aktif Onay Akışı Sıralaması
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap text-xs font-bold">
+                    {/* 1. Aşama */}
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
+                      leaveApprovalConfig.stages.manager
+                        ? 'bg-white border-blue-300 text-blue-800 shadow-xs'
+                        : 'bg-slate-100 border-slate-200 text-slate-400 line-through'
+                    }`}>
+                      <Users className="w-3.5 h-3.5" />
+                      <span>1. Aşama: Birim Amiri</span>
+                    </div>
+
+                    <ArrowRight className={`w-3.5 h-3.5 ${leaveApprovalConfig.stages.manager && (leaveApprovalConfig.stages.hr || leaveApprovalConfig.stages.admin) ? 'text-slate-400' : 'text-slate-300'}`} />
+
+                    {/* 2. Aşama */}
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
+                      leaveApprovalConfig.stages.hr
+                        ? 'bg-white border-indigo-300 text-indigo-800 shadow-xs'
+                        : 'bg-slate-100 border-slate-200 text-slate-400 line-through'
+                    }`}>
+                      <Award className="w-3.5 h-3.5" />
+                      <span>2. Aşama: İK Uzmanı</span>
+                    </div>
+
+                    <ArrowRight className={`w-3.5 h-3.5 ${leaveApprovalConfig.stages.hr && leaveApprovalConfig.stages.admin ? 'text-slate-400' : 'text-slate-300'}`} />
+
+                    {/* 3. Aşama */}
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
+                      leaveApprovalConfig.stages.admin
+                        ? 'bg-white border-purple-300 text-purple-800 shadow-xs'
+                        : 'bg-slate-100 border-slate-200 text-slate-400 line-through'
+                    }`}>
+                      <Briefcase className="w-3.5 h-3.5" />
+                      <span>3. Aşama: Şirket Yöneticisi</span>
+                    </div>
+
+                    <div className="ml-auto text-[11px] font-semibold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                      {leaveApprovalService.getActiveStagesSummary(leaveApprovalConfig)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3 Onay Aşaması Seçenek Kartları */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  
+                  {/* 1. Aşama: Birim Amiri */}
+                  <div
+                    onClick={() => handleToggleApprovalStage('manager')}
+                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
+                      leaveApprovalConfig.stages.manager
+                        ? 'border-blue-600 bg-blue-50/50 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
+                            leaveApprovalConfig.stages.manager ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          }`}>
+                            1
+                          </div>
+                          <div>
+                            <span className="font-extrabold text-sm text-slate-900 block">1. Aşama: Birim Amiri</span>
+                            <span className="text-[10px] font-semibold text-slate-500">Departman Sorumlusu</span>
+                          </div>
+                        </div>
+
+                        {/* Toggle Pill */}
+                        <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                          leaveApprovalConfig.stages.manager ? 'bg-blue-600 justify-end' : 'bg-slate-200 justify-start'
+                        }`}>
+                          <div className="bg-white w-4 h-4 rounded-full shadow-md" />
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                        Çalışanın bağlı olduğu departmanın birim amiri ilk değerlendirmeyi ve <strong>ön onayı</strong> yapar.
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-200/70 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">Aşama Statüsü:</span>
+                      <span className={`font-bold ${leaveApprovalConfig.stages.manager ? 'text-blue-700' : 'text-slate-400'}`}>
+                        {leaveApprovalConfig.stages.manager ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 2. Aşama: İK Uzmanı */}
+                  <div
+                    onClick={() => handleToggleApprovalStage('hr')}
+                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
+                      leaveApprovalConfig.stages.hr
+                        ? 'border-indigo-600 bg-indigo-50/50 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
+                            leaveApprovalConfig.stages.hr ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          }`}>
+                            2
+                          </div>
+                          <div>
+                            <span className="font-extrabold text-sm text-slate-900 block">2. Aşama: İK Uzmanı</span>
+                            <span className="text-[10px] font-semibold text-slate-500">Mevzuat & Bakiye Denetimi</span>
+                          </div>
+                        </div>
+
+                        {/* Toggle Pill */}
+                        <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                          leaveApprovalConfig.stages.hr ? 'bg-indigo-600 justify-end' : 'bg-slate-200 justify-start'
+                        }`}>
+                          <div className="bg-white w-4 h-4 rounded-full shadow-md" />
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                        İzin hak edişi, 4857 İş Kanunu uygunluğu ve resmi evrak süreci <strong>İK Uzmanı</strong> tarafından denetlenip onaylanır.
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-200/70 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">Aşama Statüsü:</span>
+                      <span className={`font-bold ${leaveApprovalConfig.stages.hr ? 'text-indigo-700' : 'text-slate-400'}`}>
+                        {leaveApprovalConfig.stages.hr ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 3. Aşama: Şirket Yöneticisi */}
+                  <div
+                    onClick={() => handleToggleApprovalStage('admin')}
+                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
+                      leaveApprovalConfig.stages.admin
+                        ? 'border-purple-600 bg-purple-50/50 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
+                            leaveApprovalConfig.stages.admin ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          }`}>
+                            3
+                          </div>
+                          <div>
+                            <span className="font-extrabold text-sm text-slate-900 block">3. Aşama: Şirket Yöneticisi</span>
+                            <span className="text-[10px] font-semibold text-slate-500">Genel Müdür / Üst Yönetim</span>
+                          </div>
+                        </div>
+
+                        {/* Toggle Pill */}
+                        <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                          leaveApprovalConfig.stages.admin ? 'bg-purple-600 justify-end' : 'bg-slate-200 justify-start'
+                        }`}>
+                          <div className="bg-white w-4 h-4 rounded-full shadow-md" />
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                        Üst yönetim veya şirket yöneticisi tarafından verilen <strong>nihai onay</strong> kademesidir.
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-200/70 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">Aşama Statüsü:</span>
+                      <span className={`font-bold ${leaveApprovalConfig.stages.admin ? 'text-purple-700' : 'text-slate-400'}`}>
+                        {leaveApprovalConfig.stages.admin ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Esneklik Kuralı Bilgilendirmesi */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/90 to-purple-50/90 border border-indigo-200 text-xs text-indigo-950 flex items-start sm:items-center gap-3 shadow-xs">
+                  <Sparkles className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5 sm:mt-0" />
+                  <div className="leading-relaxed">
+                    <strong>Esnek Onay Politikası:</strong> Yukarıdaki 3 kademeden herhangi 2 tanesini kapatıp <strong>yalnızca 1 onay</strong> açık bırakabilir, <strong>2 onay</strong> isteyebilir veya <strong>3 aşamalı tam akış</strong> çalıştırabilirsiniz. Kapalı olan kademeler izin onay sürecinde otomatik olarak atlanır.
+                  </div>
                 </div>
               </div>
 
