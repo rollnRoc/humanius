@@ -687,232 +687,6 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
               </div>
             </div>
 
-            {/* Shift Edit / Create Form */}
-            {showShiftForm && (
-              <form
-                onSubmit={handleSaveShift}
-                className="bg-indigo-50/50 border border-indigo-200 rounded-2xl p-5 space-y-4 animate-fadeIn"
-              >
-                <div className="flex items-center justify-between pb-3 border-b border-indigo-100">
-                  <h3 className="text-xs font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-indigo-600" />
-                    {editingShift ? 'Vardiyayı Düzenle' : 'Yeni Vardiya Tanımla'}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setShowShiftForm(false)}
-                    className="text-slate-400 hover:text-slate-700 p-1"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                  <div className="sm:col-span-2">
-                    <label className="block font-semibold text-slate-700 mb-1">Vardiya Adı *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Örn: 1. Vardiya (Sabah), Gece Vardiyası..."
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-medium"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-indigo-600" />
-                      Bağlı Olduğu Ofis / Şube
-                    </label>
-                    <select
-                      value={formOfficeId}
-                      onChange={(e) => setFormOfficeId(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-semibold"
-                    >
-                      <option value="">🏢 Tüm Ofisler (Şirket Geneli)</option>
-                      {offices.map((off) => (
-                        <option key={off.id} value={off.id}>
-                          📍 {off.name} {off.il ? `(${off.il})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Hafta İçi Giriş Saati *</label>
-                    <input
-                      type="time"
-                      required
-                      value={formStart}
-                      onChange={(e) => setFormStart(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-mono font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Hafta İçi Çıkış Saati *</label>
-                    <input
-                      type="time"
-                      required
-                      value={formEnd}
-                      onChange={(e) => setFormEnd(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-mono font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Öğle Molası (Dakika)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="240"
-                      value={formBreak}
-                      onChange={(e) => setFormBreak(Number(e.target.value))}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Tolerans Süresi (Dakika)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="120"
-                      value={formTolerance}
-                      onChange={(e) => setFormTolerance(Number(e.target.value))}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Cumartesi ve Pazar (Hafta Sonu) Ayarları */}
-                <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-amber-700" />
-                      <span className="text-xs font-bold text-amber-950">
-                        Cumartesi & Pazar Çalışma Saatleri (Cmt / Paz - Hafta Sonu Mesaisi)
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormSatStart('08:30');
-                          setFormSatEnd('13:00');
-                          setFormSatBreak(30);
-                        }}
-                        className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition shadow-2xs cursor-pointer"
-                      >
-                        08:30 - 13:00 (Yarım Gün)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormSatStart('08:30');
-                          setFormSatEnd('16:00');
-                          setFormSatBreak(30);
-                        }}
-                        className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition shadow-2xs cursor-pointer"
-                      >
-                        08:30 - 16:00
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormSatStart(formStart);
-                          setFormSatEnd(formEnd);
-                          setFormSatBreak(formBreak);
-                        }}
-                        className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition shadow-2xs cursor-pointer"
-                      >
-                        Hafta İçi İle Aynı
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-amber-900 mb-1">
-                        Cmt / Paz Giriş Saati
-                      </label>
-                      <input
-                        type="time"
-                        value={formSatStart}
-                        onChange={(e) => setFormSatStart(e.target.value)}
-                        className="w-full bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-amber-500 font-mono font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-amber-900 mb-1">
-                        Cmt / Paz Çıkış Saati
-                      </label>
-                      <input
-                        type="time"
-                        value={formSatEnd}
-                        onChange={(e) => setFormSatEnd(e.target.value)}
-                        className="w-full bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-amber-500 font-mono font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-amber-900 mb-1">
-                        Cmt / Paz Mola Süresi (Dk)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="180"
-                        value={formSatBreak}
-                        onChange={(e) => setFormSatBreak(Number(e.target.value))}
-                        className="w-full bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-amber-500 font-mono font-bold"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Form Bottom Row */}
-                <div className="flex items-center justify-between pt-2 border-t border-indigo-100 flex-wrap gap-3">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formIsDefault}
-                        onChange={(e) => setFormIsDefault(e.target.checked)}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
-                      />
-                      Şirketin Varsayılan Vardiyası Olsun
-                    </label>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-600 font-medium">Etiket Rengi:</span>
-                      <input
-                        type="color"
-                        value={formColor}
-                        onChange={(e) => setFormColor(e.target.value)}
-                        className="w-7 h-6 p-0 border-0 rounded cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowShiftForm(false)}
-                      className="px-3.5 py-1.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 hover:bg-white cursor-pointer"
-                    >
-                      İptal
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
-                    >
-                      {editingShift ? 'Güncelle' : 'Kaydet'}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            )}
 
             {/* Shifts Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1684,6 +1458,248 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
         </div>
       )}
 
+      {/* ─── MODAL: VARDIYA EKLE / DÜZENLE MODALI ───────────────────────── */}
+      {showShiftForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/80 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm sm:text-base">
+                    {editingShift ? 'Vardiyayı Düzenle' : 'Yeni Vardiya Tanımla'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {editingShift
+                      ? `"${editingShift.name}" mesai saatleri ve çalışma düzenini güncelleyin.`
+                      : 'Şirket veya ofis bazlı yeni bir mesai vardiyası tanımlayın.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShiftForm(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition cursor-pointer"
+                title="Kapat"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <form onSubmit={handleSaveShift} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block font-semibold text-slate-700 mb-1">Vardiya Adı *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Örn: 1. Vardiya (Sabah), Gece Vardiyası..."
+                      value={formName}
+                      onChange={(e) => setFormName(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-medium"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                      Bağlı Olduğu Ofis / Şube
+                    </label>
+                    <select
+                      value={formOfficeId}
+                      onChange={(e) => setFormOfficeId(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-semibold cursor-pointer"
+                    >
+                      <option value="">🏢 Tüm Ofisler (Şirket Geneli)</option>
+                      {offices.map((off) => (
+                        <option key={off.id} value={off.id}>
+                          📍 {off.name} {off.il ? `(${off.il})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Hafta İçi Giriş Saati *</label>
+                    <input
+                      type="time"
+                      required
+                      value={formStart}
+                      onChange={(e) => setFormStart(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Hafta İçi Çıkış Saati *</label>
+                    <input
+                      type="time"
+                      required
+                      value={formEnd}
+                      onChange={(e) => setFormEnd(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Öğle Molası (Dakika)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="240"
+                      value={formBreak}
+                      onChange={(e) => setFormBreak(Number(e.target.value))}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Tolerans Süresi (Dakika)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="120"
+                      value={formTolerance}
+                      onChange={(e) => setFormTolerance(Number(e.target.value))}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Cumartesi ve Pazar (Hafta Sonu) Ayarları */}
+                <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-amber-700" />
+                      <span className="text-xs font-bold text-amber-950">
+                        Cumartesi & Pazar Çalışma Saatleri (Cmt / Paz - Hafta Sonu Mesaisi)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormSatStart('08:30');
+                          setFormSatEnd('13:00');
+                          setFormSatBreak(30);
+                        }}
+                        className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition shadow-2xs cursor-pointer"
+                      >
+                        08:30 - 13:00 (Yarım Gün)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormSatStart('08:30');
+                          setFormSatEnd('16:00');
+                          setFormSatBreak(30);
+                        }}
+                        className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition shadow-2xs cursor-pointer"
+                      >
+                        08:30 - 16:00
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormSatStart(formStart);
+                          setFormSatEnd(formEnd);
+                          setFormSatBreak(formBreak);
+                        }}
+                        className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition shadow-2xs cursor-pointer"
+                      >
+                        Hafta İçi İle Aynı
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                        Cmt / Paz Giriş Saati
+                      </label>
+                      <input
+                        type="time"
+                        value={formSatStart}
+                        onChange={(e) => setFormSatStart(e.target.value)}
+                        className="w-full bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-amber-500 font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                        Cmt / Paz Çıkış Saati
+                      </label>
+                      <input
+                        type="time"
+                        value={formSatEnd}
+                        onChange={(e) => setFormSatEnd(e.target.value)}
+                        className="w-full bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-amber-500 font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                        Cmt / Paz Mola Süresi (Dk)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="180"
+                        value={formSatBreak}
+                        onChange={(e) => setFormSatBreak(Number(e.target.value))}
+                        className="w-full bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-amber-500 font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Form Bottom Row */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 flex-wrap gap-3">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formIsDefault}
+                      onChange={(e) => setFormIsDefault(e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    Şirketin Varsayılan Vardiyası Olsun
+                  </label>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-600 font-medium">Etiket Rengi:</span>
+                    <input
+                      type="color"
+                      value={formColor}
+                      onChange={(e) => setFormColor(e.target.value)}
+                      className="w-7 h-6 p-0 border-0 rounded cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-200 bg-slate-50/80 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowShiftForm(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 hover:bg-white cursor-pointer transition"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition"
+                >
+                  {editingShift ? 'Değişiklikleri Kaydet' : 'Vardiyayı Kaydet'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
