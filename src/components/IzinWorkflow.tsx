@@ -250,9 +250,9 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
 
   // Geniş & Kompakt Tasarımlı Onay Akışı Kartı
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all space-y-3">
+    <div className="bg-white rounded-2xl border-2 border-slate-300 hover:border-slate-400 p-4 shadow-xs hover:shadow-md transition-all space-y-3">
       {/* Üst Bilgi Barı */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 pb-2.5 border-b border-slate-100">
+      <div className="flex items-center justify-between flex-wrap gap-2.5 pb-2.5 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-black text-slate-900 tracking-wide uppercase">
@@ -418,7 +418,7 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
       })()}
 
       {/* İşlem Butonları (Düzenle, Sil, Onayla, Reddet veya Rol Yetki Bilgisi) */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-100">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-200">
         <div className="flex gap-1.5">
           {onEdit && (
             <button
