@@ -1526,7 +1526,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
 
           {/* Şirket Bilgileri */}
           {activeTab === 'sirket_bilgileri' && (
-            <div className="space-y-6 animate-in fade-in-50 duration-200">
+            <div className="space-y-8 animate-in fade-in-50 duration-200">
               
               {/* 1. Kurumsal Hero Banner */}
               <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 text-white p-6 sm:p-8 shadow-xl border border-slate-800">
@@ -1608,558 +1608,617 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                 </div>
               </div>
 
-              {/* 2. Hızlı Metrik / Kopyalama Şeridi */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Vergi No */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 hover:shadow-md transition-all relative group">
-                  <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
-                    <span className="flex items-center gap-1.5">
-                      <Hash className="w-3.5 h-3.5 text-blue-600" />
-                      Vergi Numarası
-                    </span>
-                    <button
-                      onClick={() => handleCopy(sistemAyarlari.sirketBilgileri.vergiNo, 'vergiNo')}
-                      className="text-slate-400 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50 transition-colors"
-                      title="Kopyala"
-                    >
-                      {copiedField === 'vergiNo' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                  <div className="text-base font-extrabold text-slate-800 tracking-wide font-mono">
-                    {sistemAyarlari.sirketBilgileri.vergiNo || '—'}
-                  </div>
-                  {copiedField === 'vergiNo' && (
-                    <span className="absolute bottom-2 right-4 text-[10px] text-emerald-600 font-bold animate-in fade-in">
-                      Kopyalandı!
-                    </span>
-                  )}
-                </div>
-
-                {/* SGK Sicil No */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 hover:shadow-md transition-all relative group">
-                  <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
-                    <span className="flex items-center gap-1.5">
-                      <Shield className="w-3.5 h-3.5 text-indigo-600" />
-                      SGK Sicil Numarası
-                    </span>
-                    <button
-                      onClick={() => handleCopy(sistemAyarlari.sirketBilgileri.sgkSicilNo, 'sgkSicilNo')}
-                      className="text-slate-400 hover:text-indigo-600 p-1 rounded-md hover:bg-indigo-50 transition-colors"
-                      title="Kopyala"
-                    >
-                      {copiedField === 'sgkSicilNo' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                  <div className="text-base font-extrabold text-slate-800 tracking-wide font-mono truncate">
-                    {sistemAyarlari.sirketBilgileri.sgkSicilNo || '—'}
-                  </div>
-                  {copiedField === 'sgkSicilNo' && (
-                    <span className="absolute bottom-2 right-4 text-[10px] text-emerald-600 font-bold animate-in fade-in">
-                      Kopyalandı!
-                    </span>
-                  )}
-                </div>
-
-                {/* Telefon */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 hover:shadow-md transition-all">
-                  <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
-                    <span className="flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                      Santral Telefon
-                    </span>
-                  </div>
-                  <div className="text-base font-bold text-slate-800">
-                    {sistemAyarlari.sirketBilgileri.telefon ? (
-                      <a href={`tel:${sistemAyarlari.sirketBilgileri.telefon}`} className="hover:text-emerald-600 hover:underline transition-colors">
-                        {sistemAyarlari.sirketBilgileri.telefon}
-                      </a>
-                    ) : (
-                      '—'
-                    )}
-                  </div>
-                </div>
-
-                {/* E-Posta */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 hover:shadow-md transition-all relative group">
-                  <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
-                    <span className="flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 text-cyan-600" />
-                      Kurumsal E-posta
-                    </span>
-                    <button
-                      onClick={() => handleCopy(sistemAyarlari.sirketBilgileri.email, 'email')}
-                      className="text-slate-400 hover:text-cyan-600 p-1 rounded-md hover:bg-cyan-50 transition-colors"
-                      title="Kopyala"
-                    >
-                      {copiedField === 'email' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                  <div className="text-base font-bold text-slate-800 truncate">
-                    {sistemAyarlari.sirketBilgileri.email ? (
-                      <a href={`mailto:${sistemAyarlari.sirketBilgileri.email}`} className="hover:text-cyan-600 hover:underline transition-colors">
-                        {sistemAyarlari.sirketBilgileri.email}
-                      </a>
-                    ) : (
-                      '—'
-                    )}
-                  </div>
-                  {copiedField === 'email' && (
-                    <span className="absolute bottom-2 right-4 text-[10px] text-emerald-600 font-bold animate-in fade-in">
-                      Kopyalandı!
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* 3. Ana Bilgi Kartları (Bento Grid) */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* ========================================================================= */}
+              {/* 1. AYAR KARTI: RESMİ ŞİRKET BİLGİLERİ (KURUMSAL MAVİ TEMA)                */}
+              {/* ========================================================================= */}
+              <div className="bg-white rounded-3xl border-2 border-blue-200/90 shadow-md hover:shadow-lg transition-all overflow-hidden">
+                {/* Üst Renk Vurgu Şeridi */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500" />
                 
-                {/* Sol Kart: Yasal & Resmi Kayıtlar */}
-                <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:border-slate-300/80 transition-all space-y-5">
-                  <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                      <Building className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-800">Yasal & Resmi Kayıt Bilgileri</h3>
-                      <p className="text-xs text-slate-500">Mevzuat, vergi dairesi ve SGK işyeri kayıtları</p>
+                <div className="p-6 sm:p-7 space-y-6">
+                  {/* Başlık & Kimlik Alanı */}
+                  <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-blue-100">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shadow-xs border border-blue-200/80">
+                        <Building2 className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200 tracking-wide uppercase">
+                            1. Ayar: Şirket Bilgileri
+                          </span>
+                          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Resmi Kayıtlar Faal & Onaylı
+                          </span>
+                        </div>
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                          Resmi Şirket Bilgileri & Kurumsal Kayıtlar
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Vergi dairesi kayıtları, SGK işyeri sicil numarası, genel merkez adresi ve resmi iletişim kanalları
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
-                      <div className="text-xs font-semibold text-slate-500 mb-1">Resmi Şirket Unvanı</div>
-                      <div className="text-sm font-bold text-slate-900 leading-snug">
-                        {sistemAyarlari.sirketBilgileri.ad || 'Belirtilmemiş'}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
-                        <div className="text-xs font-semibold text-slate-500 mb-1">Vergi Numarası</div>
-                        <div className="text-sm font-bold text-slate-800 font-mono">
-                          {sistemAyarlari.sirketBilgileri.vergiNo || '—'}
-                        </div>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
-                        <div className="text-xs font-semibold text-slate-500 mb-1">Mükellefiyet Durumu</div>
-                        <div className="text-sm font-bold text-emerald-600 flex items-center gap-1.5">
-                          <CheckCircle className="w-4 h-4" />
-                          <span>Faal & Onaylı</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-slate-500">SGK İşyeri Sicil Numarası</span>
-                        <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                          e-Bildirge Aktif
+                  {/* Hızlı Metrik / Kopyalama Şeridi */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    {/* Vergi No */}
+                    <div className="bg-slate-50/70 rounded-2xl border-2 border-slate-200 hover:border-blue-400 p-4 shadow-2xs hover:shadow-xs transition-all relative group">
+                      <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
+                        <span className="flex items-center gap-1.5">
+                          <Hash className="w-3.5 h-3.5 text-blue-600" />
+                          Vergi Numarası
                         </span>
+                        <button
+                          onClick={() => handleCopy(sistemAyarlari.sirketBilgileri.vergiNo, 'vergiNo')}
+                          className="text-slate-400 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                          title="Kopyala"
+                        >
+                          {copiedField === 'vergiNo' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
                       </div>
-                      <div className="text-sm font-bold text-slate-800 font-mono">
+                      <div className="text-base font-extrabold text-slate-800 tracking-wide font-mono">
+                        {sistemAyarlari.sirketBilgileri.vergiNo || '—'}
+                      </div>
+                      {copiedField === 'vergiNo' && (
+                        <span className="absolute bottom-2 right-4 text-[10px] text-emerald-600 font-bold animate-in fade-in">
+                          Kopyalandı!
+                        </span>
+                      )}
+                    </div>
+
+                    {/* SGK Sicil No */}
+                    <div className="bg-slate-50/70 rounded-2xl border-2 border-slate-200 hover:border-indigo-400 p-4 shadow-2xs hover:shadow-xs transition-all relative group">
+                      <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
+                        <span className="flex items-center gap-1.5">
+                          <Shield className="w-3.5 h-3.5 text-indigo-600" />
+                          SGK Sicil Numarası
+                        </span>
+                        <button
+                          onClick={() => handleCopy(sistemAyarlari.sirketBilgileri.sgkSicilNo, 'sgkSicilNo')}
+                          className="text-slate-400 hover:text-indigo-600 p-1 rounded-md hover:bg-indigo-50 transition-colors"
+                          title="Kopyala"
+                        >
+                          {copiedField === 'sgkSicilNo' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                      <div className="text-base font-extrabold text-slate-800 tracking-wide font-mono truncate">
                         {sistemAyarlari.sirketBilgileri.sgkSicilNo || '—'}
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
-                        Aylık prim ve hizmet bildirgeleri (APHB) ve muhtasar beyanname eşleşmesinde resmi sicil olarak doğrulanır.
-                      </p>
+                      {copiedField === 'sgkSicilNo' && (
+                        <span className="absolute bottom-2 right-4 text-[10px] text-emerald-600 font-bold animate-in fade-in">
+                          Kopyalandı!
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Telefon */}
+                    <div className="bg-slate-50/70 rounded-2xl border-2 border-slate-200 hover:border-emerald-400 p-4 shadow-2xs hover:shadow-xs transition-all">
+                      <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
+                        <span className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                          Santral Telefon
+                        </span>
+                      </div>
+                      <div className="text-base font-bold text-slate-800 truncate">
+                        {sistemAyarlari.sirketBilgileri.telefon ? (
+                          <a href={`tel:${sistemAyarlari.sirketBilgileri.telefon}`} className="hover:text-emerald-600 hover:underline transition-colors">
+                            {sistemAyarlari.sirketBilgileri.telefon}
+                          </a>
+                        ) : (
+                          '—'
+                        )}
+                      </div>
+                    </div>
+
+                    {/* E-Posta */}
+                    <div className="bg-slate-50/70 rounded-2xl border-2 border-slate-200 hover:border-cyan-400 p-4 shadow-2xs hover:shadow-xs transition-all relative group">
+                      <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1.5">
+                        <span className="flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-cyan-600" />
+                          Kurumsal E-posta
+                        </span>
+                        <button
+                          onClick={() => handleCopy(sistemAyarlari.sirketBilgileri.email, 'email')}
+                          className="text-slate-400 hover:text-cyan-600 p-1 rounded-md hover:bg-cyan-50 transition-colors"
+                          title="Kopyala"
+                        >
+                          {copiedField === 'email' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                      <div className="text-base font-bold text-slate-800 truncate">
+                        {sistemAyarlari.sirketBilgileri.email ? (
+                          <a href={`mailto:${sistemAyarlari.sirketBilgileri.email}`} className="hover:text-cyan-600 hover:underline transition-colors">
+                            {sistemAyarlari.sirketBilgileri.email}
+                          </a>
+                        ) : (
+                          '—'
+                        )}
+                      </div>
+                      {copiedField === 'email' && (
+                        <span className="absolute bottom-2 right-4 text-[10px] text-emerald-600 font-bold animate-in fade-in">
+                          Kopyalandı!
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bento Grid: Sol Yasal Kayıtlar & Sağ Genel Merkez */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    {/* Sol Kart: Yasal & Resmi Kayıtlar */}
+                    <div className="bg-slate-50/70 rounded-2xl border-2 border-slate-200 p-5 shadow-xs hover:border-blue-300 transition-all space-y-4">
+                      <div className="flex items-center gap-3 pb-3 border-b border-slate-200/80">
+                        <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                          <Building className="w-4.5 h-4.5" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-800">Yasal & Resmi Kayıt Bilgileri</h4>
+                          <p className="text-[11px] text-slate-500">Mevzuat, vergi dairesi ve SGK işyeri kayıtları</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="p-3.5 rounded-xl bg-white border border-slate-300/80 shadow-xs">
+                          <div className="text-[11px] font-semibold text-slate-500 mb-1">Resmi Şirket Unvanı</div>
+                          <div className="text-sm font-bold text-slate-900 leading-snug">
+                            {sistemAyarlari.sirketBilgileri.ad || 'Belirtilmemiş'}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="p-3.5 rounded-xl bg-white border border-slate-300/80 shadow-xs">
+                            <div className="text-[11px] font-semibold text-slate-500 mb-1">Vergi Numarası</div>
+                            <div className="text-sm font-bold text-slate-800 font-mono">
+                              {sistemAyarlari.sirketBilgileri.vergiNo || '—'}
+                            </div>
+                          </div>
+                          <div className="p-3.5 rounded-xl bg-white border border-slate-300/80 shadow-xs">
+                            <div className="text-[11px] font-semibold text-slate-500 mb-1">Mükellefiyet Durumu</div>
+                            <div className="text-sm font-bold text-emerald-600 flex items-center gap-1.5">
+                              <CheckCircle className="w-4 h-4" />
+                              <span>Faal & Onaylı</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-3.5 rounded-xl bg-white border border-slate-300/80 shadow-xs">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-semibold text-slate-500">SGK İşyeri Sicil Numarası</span>
+                            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                              e-Bildirge Aktif
+                            </span>
+                          </div>
+                          <div className="text-sm font-bold text-slate-800 font-mono">
+                            {sistemAyarlari.sirketBilgileri.sgkSicilNo || '—'}
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                            Aylık prim ve hizmet bildirgeleri (APHB) ve muhtasar beyanname eşleşmesinde resmi sicil olarak doğrulanır.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sağ Kart: İletişim & Lokasyon */}
+                    <div className="bg-slate-50/70 rounded-2xl border-2 border-slate-200 p-5 shadow-xs hover:border-emerald-300 transition-all space-y-4">
+                      <div className="flex items-center gap-3 pb-3 border-b border-slate-200/80">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                          <MapPin className="w-4.5 h-4.5" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-800">Genel Merkez & İletişim</h4>
+                          <p className="text-[11px] text-slate-500">Adres, şehir ve resmi iletişim kanalları</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="p-3.5 rounded-xl bg-white border border-slate-300/80 shadow-xs">
+                          <div className="text-[11px] font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Genel Merkez Adresi</span>
+                          </div>
+                          <div className="text-sm font-medium text-slate-800 leading-relaxed">
+                            {sistemAyarlari.sirketBilgileri.adres || 'Adres bilgisi girilmemiştir.'}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="p-3.5 rounded-xl bg-white border border-slate-300/80 shadow-xs">
+                            <div className="text-[11px] font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
+                              <Phone className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Telefon</span>
+                            </div>
+                            <div className="text-sm font-bold text-slate-800">
+                              {sistemAyarlari.sirketBilgileri.telefon || '—'}
+                            </div>
+                          </div>
+                          <div className="p-3.5 rounded-xl bg-white border border-slate-300/80 shadow-xs">
+                            <div className="text-[11px] font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
+                              <Mail className="w-3.5 h-3.5 text-slate-400" />
+                              <span>E-posta</span>
+                            </div>
+                            <div className="text-sm font-bold text-slate-800 truncate">
+                              {sistemAyarlari.sirketBilgileri.email || '—'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Bulunduğu İl ve Yol İzni Vurgusu */}
+                        <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 text-amber-900 shadow-xs">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                            <h5 className="text-xs font-bold text-amber-950">
+                              Mevzuat Lokasyonu: {sistemAyarlari.sirketBilgileri.bulunduguIl || 'İstanbul'}
+                            </h5>
+                          </div>
+                          <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                            Bu şehir bilgisi, personellerin 4857 sayılı İş Kanunu kapsamındaki 
+                            <strong> yol izni taleplerinde</strong> (il dışı seyahatlerde +4 güne kadar ücretsiz yol izni hakkı) referans lokasyon olarak doğrulanır.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                {/* Sağ Kart: İletişim & Lokasyon */}
-                <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:border-slate-300/80 transition-all space-y-5">
-                  <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                      <MapPin className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-800">Genel Merkez & İletişim</h3>
-                      <p className="text-xs text-slate-500">Adres, şehir ve resmi iletişim kanalları</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
-                      <div className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Genel Merkez Adresi</span>
-                      </div>
-                      <div className="text-sm font-medium text-slate-800 leading-relaxed">
-                        {sistemAyarlari.sirketBilgileri.adres || 'Adres bilgisi girilmemiştir.'}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
-                        <div className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Telefon</span>
-                        </div>
-                        <div className="text-sm font-bold text-slate-800">
-                          {sistemAyarlari.sirketBilgileri.telefon || '—'}
-                        </div>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 shadow-xs">
-                        <div className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
-                          <Mail className="w-3.5 h-3.5 text-slate-400" />
-                          <span>E-posta</span>
-                        </div>
-                        <div className="text-sm font-bold text-slate-800 truncate">
-                          {sistemAyarlari.sirketBilgileri.email || '—'}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bulunduğu İl ve Yol İzni Vurgusu */}
-                    <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-amber-900 shadow-xs">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                        <h4 className="text-xs font-bold text-amber-950">
-                          Mevzuat Lokasyonu: {sistemAyarlari.sirketBilgileri.bulunduguIl || 'İstanbul'}
-                        </h4>
-                      </div>
-                      <p className="text-xs text-amber-800 leading-relaxed font-medium">
-                        Bu şehir bilgisi, personellerin 4857 sayılı İş Kanunu kapsamındaki 
-                        <strong> yol izni taleplerinde</strong> (il dışı seyahatlerde +4 güne kadar ücretsiz yol izni hakkı) referans lokasyon olarak doğrulanır.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
               </div>
 
-              {/* 4. Şirket Çalışma Düzeni & Mesai Politikası */}
-              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:border-slate-300/80 transition-all space-y-5">
-                <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-                      <Clock className="w-5 h-5" />
+              {/* ========================================================================= */}
+              {/* 2. AYAR KARTI: ÇALIŞMA DÜZENİ & MESAİ POLİTİKASI (ZÜMRÜT / TEAL TEMA)     */}
+              {/* ========================================================================= */}
+              <div className="bg-white rounded-3xl border-2 border-emerald-200/90 shadow-md hover:shadow-lg transition-all overflow-hidden">
+                {/* Üst Renk Vurgu Şeridi */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-teal-400" />
+                
+                <div className="p-6 sm:p-7 space-y-6">
+                  {/* Başlık & Kimlik Alanı */}
+                  <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-emerald-100">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shadow-xs border border-emerald-200/80">
+                        <Clock className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 tracking-wide uppercase">
+                            2. Ayar: Çalışma Düzeni
+                          </span>
+                          <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                            saturdayConfig.isSaturdayWork
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                          }`}>
+                            {saturdayConfig.isSaturdayWork ? '✓ Aktif: 6 Günlük Düzen (Pzt-Cmt)' : '✓ Aktif: 5 Günlük Düzen (Pzt-Cum)'}
+                          </span>
+                        </div>
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                          Haftalık Çalışma Düzeni & Mesai Politikası
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Şirket geneli haftalık çalışma düzeni (5 gün / 6 gün), Cumartesi mesai statüsü ve puantaj cetveli hesaplama kuralları
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-800">Haftalık Çalışma Düzeni & Mesai Politikası</h3>
-                      <p className="text-xs text-slate-500">
-                        Şirket geneli haftalık çalışma düzeni, Cumartesi statüsü ve puantaj cetveli hesaplama kuralları
-                      </p>
+
+                    <div className="flex items-center gap-2">
+                      {satConfigSuccess && (
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 animate-in fade-in flex items-center gap-1.5 shadow-xs">
+                          <Check className="w-3.5 h-3.5 text-emerald-600" /> Ayarlar Kaydedildi!
+                        </span>
+                      )}
+                      {isSavingSatConfig && (
+                        <span className="text-xs font-bold text-emerald-700">Kaydediliyor...</span>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
-                      saturdayConfig.isSaturdayWork
-                        ? 'bg-amber-50 text-amber-900 border-amber-300'
-                        : 'bg-blue-50 text-blue-900 border-blue-200'
-                    }`}>
-                      {saturdayConfig.isSaturdayWork ? '✓ Aktif: 6 Günlük Düzen' : '✓ Aktif: 5 Günlük Düzen'}
+                  {/* 5 Günlük vs 6 Günlük Seçenek Kartları */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* 5 Günlük Çalışma Düzeni */}
+                    <div
+                      onClick={() => handleToggleSaturdayWork(false)}
+                      className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative ${
+                        !saturdayConfig.isSaturdayWork
+                          ? 'border-emerald-600 bg-emerald-50/40 shadow-md ring-2 ring-emerald-500/20'
+                          : 'border-slate-300 hover:border-emerald-400 bg-slate-50/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm text-slate-900">5 Günlük Çalışma Düzeni</span>
+                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                            Pazartesi – Cuma
+                          </span>
+                        </div>
+                        <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                          !saturdayConfig.isSaturdayWork ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-400 bg-white'
+                        }`}>
+                          {!saturdayConfig.isSaturdayWork && <span className="w-2 h-2 rounded-full bg-white" />}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Cumartesi günü <strong>Akdi Tatil (AT)</strong> kabul edilir. Personeller için hafta tatilidir; çalışıldığında tam gün fazla mesai (%100 zamlı) tahakkuk eder.
+                      </p>
+
+                      <div className="mt-3.5 pt-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                        <span>Haftalık Yasal Süre: 45 Saat</span>
+                        <span className="text-emerald-800 font-bold">Ofis & Genel Merkez Standardı</span>
+                      </div>
+                    </div>
+
+                    {/* 6 Günlük Çalışma Düzeni */}
+                    <div
+                      onClick={() => handleToggleSaturdayWork(true)}
+                      className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative ${
+                        saturdayConfig.isSaturdayWork
+                          ? 'border-amber-600 bg-amber-50/40 shadow-md ring-2 ring-amber-500/20'
+                          : 'border-slate-300 hover:border-amber-400 bg-slate-50/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm text-slate-900">6 Günlük Çalışma Düzeni</span>
+                          <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full border border-amber-200">
+                            Pazartesi – Cumartesi
+                          </span>
+                        </div>
+                        <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                          saturdayConfig.isSaturdayWork ? 'border-amber-600 bg-amber-600 text-white' : 'border-slate-400 bg-white'
+                        }`}>
+                          {saturdayConfig.isSaturdayWork && <span className="w-2 h-2 rounded-full bg-white" />}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Cumartesi günü <strong>Fiili Çalışma (Ç)</strong> günüdür. Çalışma saatleri personelin bağlı olduğu vardiyasından otomatik alınır. Gelmeyen personele Devamsız (D) işlenir.
+                      </p>
+
+                      <div className="mt-3.5 pt-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                        <span>Haftalık Yasal Süre: 45 Saat (6 Gün)</span>
+                        <span className="text-amber-900 font-bold">Saha, Mağaza & Üretim Düzeni</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bilgilendirme Notu */}
+                  <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-300/80 text-xs text-emerald-950 flex items-center justify-between gap-3 shadow-xs">
+                    <span className="leading-relaxed font-medium">
+                      💡 Burada yapılan düzenleme şirket puantaj cetveline, aylık bordro icmallerine ve mesai hesaplamalarına anında uygulanır.
                     </span>
-                    {satConfigSuccess && (
-                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 animate-in fade-in flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5" /> Kaydedildi!
-                      </span>
-                    )}
                   </div>
-                </div>
-
-                {/* 5 Günlük vs 6 Günlük Seçenek Kartları */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* 5 Günlük Çalışma Düzeni */}
-                  <div
-                    onClick={() => handleToggleSaturdayWork(false)}
-                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative ${
-                      !saturdayConfig.isSaturdayWork
-                        ? 'border-blue-600 bg-blue-50/50 shadow-sm'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-sm text-slate-900">5 Günlük Çalışma Düzeni</span>
-                        <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                          Pazartesi – Cuma
-                        </span>
-                      </div>
-                      <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        !saturdayConfig.isSaturdayWork ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300'
-                      }`}>
-                        {!saturdayConfig.isSaturdayWork && <span className="w-2 h-2 rounded-full bg-white" />}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Cumartesi günü <strong>Akdi Tatil (AT)</strong> kabul edilir. Personeller için hafta tatilidir; çalışıldığında tam gün fazla mesai (%100 zamlı) tahakkuk eder.
-                    </p>
-
-                    <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                      <span>Haftalık Yasal Süre: 45 Saat</span>
-                      <span className="text-blue-700 font-bold">Ofis & Genel Merkez Standardı</span>
-                    </div>
-                  </div>
-
-                  {/* 6 Günlük Çalışma Düzeni */}
-                  <div
-                    onClick={() => handleToggleSaturdayWork(true)}
-                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative ${
-                      saturdayConfig.isSaturdayWork
-                        ? 'border-amber-600 bg-amber-50/50 shadow-sm'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-sm text-slate-900">6 Günlük Çalışma Düzeni</span>
-                        <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full">
-                          Pazartesi – Cumartesi
-                        </span>
-                      </div>
-                      <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        saturdayConfig.isSaturdayWork ? 'border-amber-600 bg-amber-600 text-white' : 'border-slate-300'
-                      }`}>
-                        {saturdayConfig.isSaturdayWork && <span className="w-2 h-2 rounded-full bg-white" />}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Cumartesi günü <strong>Fiili Çalışma (Ç)</strong> günüdür. Çalışma saatleri personelin bağlı olduğu vardiyasından otomatik alınır. Gelmeyen personele Devamsız (D) işlenir.
-                    </p>
-
-                    <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                      <span>Haftalık Yasal Süre: 45 Saat (6 Gün)</span>
-                      <span className="text-amber-800 font-bold">Saha, Mağaza & Üretim Düzeni</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bilgilendirme Notu */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between gap-3 shadow-xs">
-                  <span className="leading-relaxed">
-                    💡 Burada yapılan düzenleme şirket puantaj cetveline, aylık bordro icmallerine ve mesai hesaplamalarına anında uygulanır.
-                  </span>
-                  {isSavingSatConfig && (
-                    <span className="text-xs font-bold text-indigo-600 shrink-0">Kaydediliyor...</span>
-                  )}
                 </div>
               </div>
 
-              {/* 5. İzin Talebi Onay Süreç & Aşama Ayarları */}
-              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:border-slate-300/80 transition-all space-y-6">
-                <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-                      <Layers className="w-5 h-5" />
+              {/* ========================================================================= */}
+              {/* 3. AYAR KARTI: İZİN TALEBİ ONAY SÜRECİ & AŞAMA AYARLARI (MOR / VIOLET)     */}
+              {/* ========================================================================= */}
+              <div className="bg-white rounded-3xl border-2 border-purple-200/90 shadow-md hover:shadow-lg transition-all overflow-hidden">
+                {/* Üst Renk Vurgu Şeridi */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-500" />
+                
+                <div className="p-6 sm:p-7 space-y-6">
+                  {/* Başlık & Kimlik Alanı */}
+                  <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-purple-100">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold shadow-xs border border-purple-200/80">
+                        <Layers className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200 tracking-wide uppercase">
+                            3. Ayar: İzin Talep Onayı
+                          </span>
+                          <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300">
+                            {leaveApprovalService.getActiveStagesCount(leaveApprovalConfig)} Kademeli Onay Aktif
+                          </span>
+                        </div>
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                          İzin Talebi Onay Süreç & Aşama Ayarları
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          İzin taleplerinin kaç aşamalı onaydan geçeceğini belirleyin. İstediğiniz aşamaları açıp kapatabilirsiniz (1, 2 veya 3 kademeli onay).
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-base font-bold text-slate-800">İzin Talebi Onay Ayarları</h3>
-                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
-                          {leaveApprovalService.getActiveStagesCount(leaveApprovalConfig)} Aşamalı Onay
+
+                    <div className="flex items-center gap-2">
+                      {leaveApprovalSuccess && (
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 animate-in fade-in flex items-center gap-1.5 shadow-xs">
+                          <Check className="w-3.5 h-3.5 text-emerald-600" /> Ayarlar Kaydedildi!
+                        </span>
+                      )}
+                      {isSavingLeaveApproval && (
+                        <span className="text-xs font-bold text-purple-600">Kaydediliyor...</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Görsel Süreç Akış Çizgisi (Stepper) */}
+                  <div className="bg-purple-50/50 border-2 border-purple-200/80 rounded-2xl p-4 shadow-xs">
+                    <div className="text-[11px] font-bold text-purple-900 uppercase tracking-wider mb-2.5">
+                      Aktif Onay Akışı Sıralaması
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap text-xs font-bold">
+                      {/* 1. Aşama */}
+                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all ${
+                        leaveApprovalConfig.stages.manager
+                          ? 'bg-white border-blue-400 text-blue-900 shadow-xs'
+                          : 'bg-slate-100 border-slate-300 text-slate-400 line-through'
+                      }`}>
+                        <Users className="w-3.5 h-3.5" />
+                        <span>1. Aşama: Birim Amiri</span>
+                      </div>
+
+                      <ArrowRight className={`w-3.5 h-3.5 ${leaveApprovalConfig.stages.manager && (leaveApprovalConfig.stages.hr || leaveApprovalConfig.stages.admin) ? 'text-purple-600' : 'text-slate-300'}`} />
+
+                      {/* 2. Aşama */}
+                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all ${
+                        leaveApprovalConfig.stages.hr
+                          ? 'bg-white border-indigo-400 text-indigo-900 shadow-xs'
+                          : 'bg-slate-100 border-slate-300 text-slate-400 line-through'
+                      }`}>
+                        <Award className="w-3.5 h-3.5" />
+                        <span>2. Aşama: İK Uzmanı</span>
+                      </div>
+
+                      <ArrowRight className={`w-3.5 h-3.5 ${leaveApprovalConfig.stages.hr && leaveApprovalConfig.stages.admin ? 'text-purple-600' : 'text-slate-300'}`} />
+
+                      {/* 3. Aşama */}
+                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all ${
+                        leaveApprovalConfig.stages.admin
+                          ? 'bg-white border-purple-400 text-purple-900 shadow-xs'
+                          : 'bg-slate-100 border-slate-300 text-slate-400 line-through'
+                      }`}>
+                        <Briefcase className="w-3.5 h-3.5" />
+                        <span>3. Aşama: Şirket Yöneticisi</span>
+                      </div>
+
+                      <div className="ml-auto text-[11px] font-semibold text-purple-900 bg-white px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs">
+                        {leaveApprovalService.getActiveStagesSummary(leaveApprovalConfig)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3 Onay Aşaması Seçenek Kartları */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* 1. Aşama: Birim Amiri */}
+                    <div
+                      onClick={() => handleToggleApprovalStage('manager')}
+                      className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
+                        leaveApprovalConfig.stages.manager
+                          ? 'border-blue-600 bg-blue-50/50 shadow-md ring-2 ring-blue-500/20'
+                          : 'border-slate-300 hover:border-blue-300 bg-slate-50/50 opacity-75'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
+                              leaveApprovalConfig.stages.manager ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500 border border-slate-300'
+                            }`}>
+                              1
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-sm text-slate-900 block">1. Aşama: Birim Amiri</span>
+                              <span className="text-[10px] font-semibold text-slate-500">Departman Sorumlusu</span>
+                            </div>
+                          </div>
+
+                          {/* Toggle Pill */}
+                          <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                            leaveApprovalConfig.stages.manager ? 'bg-blue-600 justify-end' : 'bg-slate-300 justify-start'
+                          }`}>
+                            <div className="bg-white w-4 h-4 rounded-full shadow-md" />
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                          Çalışanın bağlı olduğu departmanın birim amiri ilk değerlendirmeyi ve <strong>ön onayı</strong> yapar.
+                        </p>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-500">Aşama Statüsü:</span>
+                        <span className={`font-bold ${leaveApprovalConfig.stages.manager ? 'text-blue-700' : 'text-slate-400'}`}>
+                          {leaveApprovalConfig.stages.manager ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        İzin taleplerinin kaç aşamalı onaydan geçeceğini belirleyin. İstediğiniz aşamaları açıp kapatabilirsiniz (1, 2 veya 3 kademeli onay).
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {leaveApprovalSuccess && (
-                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 animate-in fade-in flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5" /> Ayarlar Kaydedildi!
-                      </span>
-                    )}
-                    {isSavingLeaveApproval && (
-                      <span className="text-xs font-bold text-purple-600">Kaydediliyor...</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Görsel Süreç Akış Çizgisi (Stepper) */}
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-xs">
-                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">
-                    Aktif Onay Akışı Sıralaması
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap text-xs font-bold">
-                    {/* 1. Aşama */}
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
-                      leaveApprovalConfig.stages.manager
-                        ? 'bg-white border-blue-300 text-blue-800 shadow-xs'
-                        : 'bg-slate-100 border-slate-200 text-slate-400 line-through'
-                    }`}>
-                      <Users className="w-3.5 h-3.5" />
-                      <span>1. Aşama: Birim Amiri</span>
                     </div>
 
-                    <ArrowRight className={`w-3.5 h-3.5 ${leaveApprovalConfig.stages.manager && (leaveApprovalConfig.stages.hr || leaveApprovalConfig.stages.admin) ? 'text-slate-400' : 'text-slate-300'}`} />
+                    {/* 2. Aşama: İK Uzmanı */}
+                    <div
+                      onClick={() => handleToggleApprovalStage('hr')}
+                      className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
+                        leaveApprovalConfig.stages.hr
+                          ? 'border-indigo-600 bg-indigo-50/50 shadow-md ring-2 ring-indigo-500/20'
+                          : 'border-slate-300 hover:border-indigo-300 bg-slate-50/50 opacity-75'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
+                              leaveApprovalConfig.stages.hr ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500 border border-slate-300'
+                            }`}>
+                              2
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-sm text-slate-900 block">2. Aşama: İK Uzmanı</span>
+                              <span className="text-[10px] font-semibold text-slate-500">Mevzuat & Bakiye Denetimi</span>
+                            </div>
+                          </div>
 
-                    {/* 2. Aşama */}
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
-                      leaveApprovalConfig.stages.hr
-                        ? 'bg-white border-indigo-300 text-indigo-800 shadow-xs'
-                        : 'bg-slate-100 border-slate-200 text-slate-400 line-through'
-                    }`}>
-                      <Award className="w-3.5 h-3.5" />
-                      <span>2. Aşama: İK Uzmanı</span>
-                    </div>
-
-                    <ArrowRight className={`w-3.5 h-3.5 ${leaveApprovalConfig.stages.hr && leaveApprovalConfig.stages.admin ? 'text-slate-400' : 'text-slate-300'}`} />
-
-                    {/* 3. Aşama */}
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
-                      leaveApprovalConfig.stages.admin
-                        ? 'bg-white border-purple-300 text-purple-800 shadow-xs'
-                        : 'bg-slate-100 border-slate-200 text-slate-400 line-through'
-                    }`}>
-                      <Briefcase className="w-3.5 h-3.5" />
-                      <span>3. Aşama: Şirket Yöneticisi</span>
-                    </div>
-
-                    <div className="ml-auto text-[11px] font-semibold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                      {leaveApprovalService.getActiveStagesSummary(leaveApprovalConfig)}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3 Onay Aşaması Seçenek Kartları */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  
-                  {/* 1. Aşama: Birim Amiri */}
-                  <div
-                    onClick={() => handleToggleApprovalStage('manager')}
-                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
-                      leaveApprovalConfig.stages.manager
-                        ? 'border-blue-600 bg-blue-50/50 shadow-sm'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
-                            leaveApprovalConfig.stages.manager ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          {/* Toggle Pill */}
+                          <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                            leaveApprovalConfig.stages.hr ? 'bg-indigo-600 justify-end' : 'bg-slate-300 justify-start'
                           }`}>
-                            1
-                          </div>
-                          <div>
-                            <span className="font-extrabold text-sm text-slate-900 block">1. Aşama: Birim Amiri</span>
-                            <span className="text-[10px] font-semibold text-slate-500">Departman Sorumlusu</span>
+                            <div className="bg-white w-4 h-4 rounded-full shadow-md" />
                           </div>
                         </div>
 
-                        {/* Toggle Pill */}
-                        <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
-                          leaveApprovalConfig.stages.manager ? 'bg-blue-600 justify-end' : 'bg-slate-200 justify-start'
-                        }`}>
-                          <div className="bg-white w-4 h-4 rounded-full shadow-md" />
-                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                          İzin hak edişi, 4857 İş Kanunu uygunluğu ve resmi evrak süreci <strong>İK Uzmanı</strong> tarafından denetlenip onaylanır.
+                        </p>
                       </div>
 
-                      <p className="text-xs text-slate-600 leading-relaxed mb-3">
-                        Çalışanın bağlı olduğu departmanın birim amiri ilk değerlendirmeyi ve <strong>ön onayı</strong> yapar.
-                      </p>
+                      <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-500">Aşama Statüsü:</span>
+                        <span className={`font-bold ${leaveApprovalConfig.stages.hr ? 'text-indigo-700' : 'text-slate-400'}`}>
+                          {leaveApprovalConfig.stages.hr ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-200/70 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">Aşama Statüsü:</span>
-                      <span className={`font-bold ${leaveApprovalConfig.stages.manager ? 'text-blue-700' : 'text-slate-400'}`}>
-                        {leaveApprovalConfig.stages.manager ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
-                      </span>
-                    </div>
-                  </div>
+                    {/* 3. Aşama: Şirket Yöneticisi */}
+                    <div
+                      onClick={() => handleToggleApprovalStage('admin')}
+                      className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
+                        leaveApprovalConfig.stages.admin
+                          ? 'border-purple-600 bg-purple-50/50 shadow-md ring-2 ring-purple-500/20'
+                          : 'border-slate-300 hover:border-purple-300 bg-slate-50/50 opacity-75'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
+                              leaveApprovalConfig.stages.admin ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-500 border border-slate-300'
+                            }`}>
+                              3
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-sm text-slate-900 block">3. Aşama: Şirket Yöneticisi</span>
+                              <span className="text-[10px] font-semibold text-slate-500">Genel Müdür / Üst Yönetim</span>
+                            </div>
+                          </div>
 
-                  {/* 2. Aşama: İK Uzmanı */}
-                  <div
-                    onClick={() => handleToggleApprovalStage('hr')}
-                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
-                      leaveApprovalConfig.stages.hr
-                        ? 'border-indigo-600 bg-indigo-50/50 shadow-sm'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
-                            leaveApprovalConfig.stages.hr ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          {/* Toggle Pill */}
+                          <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                            leaveApprovalConfig.stages.admin ? 'bg-purple-600 justify-end' : 'bg-slate-300 justify-start'
                           }`}>
-                            2
-                          </div>
-                          <div>
-                            <span className="font-extrabold text-sm text-slate-900 block">2. Aşama: İK Uzmanı</span>
-                            <span className="text-[10px] font-semibold text-slate-500">Mevzuat & Bakiye Denetimi</span>
+                            <div className="bg-white w-4 h-4 rounded-full shadow-md" />
                           </div>
                         </div>
 
-                        {/* Toggle Pill */}
-                        <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
-                          leaveApprovalConfig.stages.hr ? 'bg-indigo-600 justify-end' : 'bg-slate-200 justify-start'
-                        }`}>
-                          <div className="bg-white w-4 h-4 rounded-full shadow-md" />
-                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                          Üst yönetim veya şirket yöneticisi tarafından verilen <strong>nihai onay</strong> kademesidir.
+                        </p>
                       </div>
 
-                      <p className="text-xs text-slate-600 leading-relaxed mb-3">
-                        İzin hak edişi, 4857 İş Kanunu uygunluğu ve resmi evrak süreci <strong>İK Uzmanı</strong> tarafından denetlenip onaylanır.
-                      </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-slate-200/70 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">Aşama Statüsü:</span>
-                      <span className={`font-bold ${leaveApprovalConfig.stages.hr ? 'text-indigo-700' : 'text-slate-400'}`}>
-                        {leaveApprovalConfig.stages.hr ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 3. Aşama: Şirket Yöneticisi */}
-                  <div
-                    onClick={() => handleToggleApprovalStage('admin')}
-                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
-                      leaveApprovalConfig.stages.admin
-                        ? 'border-purple-600 bg-purple-50/50 shadow-sm'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
-                            leaveApprovalConfig.stages.admin ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200'
-                          }`}>
-                            3
-                          </div>
-                          <div>
-                            <span className="font-extrabold text-sm text-slate-900 block">3. Aşama: Şirket Yöneticisi</span>
-                            <span className="text-[10px] font-semibold text-slate-500">Genel Müdür / Üst Yönetim</span>
-                          </div>
-                        </div>
-
-                        {/* Toggle Pill */}
-                        <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
-                          leaveApprovalConfig.stages.admin ? 'bg-purple-600 justify-end' : 'bg-slate-200 justify-start'
-                        }`}>
-                          <div className="bg-white w-4 h-4 rounded-full shadow-md" />
-                        </div>
+                      <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-500">Aşama Statüsü:</span>
+                        <span className={`font-bold ${leaveApprovalConfig.stages.admin ? 'text-purple-700' : 'text-slate-400'}`}>
+                          {leaveApprovalConfig.stages.admin ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
+                        </span>
                       </div>
-
-                      <p className="text-xs text-slate-600 leading-relaxed mb-3">
-                        Üst yönetim veya şirket yöneticisi tarafından verilen <strong>nihai onay</strong> kademesidir.
-                      </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-slate-200/70 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">Aşama Statüsü:</span>
-                      <span className={`font-bold ${leaveApprovalConfig.stages.admin ? 'text-purple-700' : 'text-slate-400'}`}>
-                        {leaveApprovalConfig.stages.admin ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
-                      </span>
                     </div>
                   </div>
 
-                </div>
-
-                {/* Esneklik Kuralı Bilgilendirmesi */}
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/90 to-purple-50/90 border border-indigo-200 text-xs text-indigo-950 flex items-start sm:items-center gap-3 shadow-xs">
-                  <Sparkles className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5 sm:mt-0" />
-                  <div className="leading-relaxed">
-                    <strong>Esnek Onay Politikası:</strong> Yukarıdaki 3 kademeden herhangi 2 tanesini kapatıp <strong>yalnızca 1 onay</strong> açık bırakabilir, <strong>2 onay</strong> isteyebilir veya <strong>3 aşamalı tam akış</strong> çalıştırabilirsiniz. Kapalı olan kademeler izin onay sürecinde otomatik olarak atlanır.
+                  {/* Esneklik Kuralı Bilgilendirmesi */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border-2 border-purple-200/90 text-xs text-purple-950 flex items-start sm:items-center gap-3 shadow-xs">
+                    <Sparkles className="w-5 h-5 text-purple-600 shrink-0 mt-0.5 sm:mt-0" />
+                    <div className="leading-relaxed font-medium">
+                      <strong>Esnek Onay Politikası:</strong> Yukarıdaki 3 kademeden herhangi 2 tanesini kapatıp <strong>yalnızca 1 onay</strong> açık bırakabilir, <strong>2 onay</strong> isteyebilir veya <strong>3 aşamalı tam akış</strong> çalıştırabilirsiniz. Kapalı olan kademeler izin onay sürecinde otomatik olarak atlanır.
+                    </div>
                   </div>
                 </div>
               </div>
