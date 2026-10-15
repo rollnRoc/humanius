@@ -606,6 +606,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
                   onEdit={onEdit}
                   onDelete={onDelete}
                   talepleri={userLeaves}
+                  effectiveAppRole={effectiveAppRole}
                 />
               ))}
             </div>

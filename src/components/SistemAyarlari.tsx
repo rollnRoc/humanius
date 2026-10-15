@@ -2132,30 +2132,30 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                       </div>
                     </div>
 
-                    {/* Akış Adımları (Grid / Flex) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-stretch">
+                    {/* Akış Adımları (Grid / Flex - Kompakt Tasarım) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-stretch">
                       {/* 0. Adım: Çalışan Talebi (Her zaman Geçilen Aşama) */}
-                      <div className="p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50/90 shadow-sm flex flex-col justify-between transition-all">
+                      <div className="p-3 rounded-xl border-2 border-emerald-500 bg-emerald-50/90 shadow-2xs flex flex-col justify-between transition-all">
                         <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
-                              <CheckCircle className="w-3 h-3" /> Geçilen Aşama
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-600 text-white">
+                              <CheckCircle className="w-2.5 h-2.5" /> Geçildi
                             </span>
                             <span className="text-[10px] font-bold text-emerald-800">Başlangıç</span>
                           </div>
-                          <div className="flex items-center gap-2.5 mb-1.5">
-                            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                              <User className="w-4 h-4" />
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                              <User className="w-3.5 h-3.5" />
                             </div>
-                            <div>
-                              <h5 className="text-xs font-black text-emerald-950">Çalışan Talebi</h5>
-                              <p className="text-[10px] text-emerald-700 font-semibold">Talep Formu Gönderildi</p>
+                            <div className="min-w-0">
+                              <h5 className="text-[11px] font-bold text-emerald-950 truncate">Çalışan Talebi</h5>
+                              <p className="text-[10px] text-emerald-700 truncate">Talep Oluşturuldu</p>
                             </div>
                           </div>
                         </div>
-                        <div className="pt-2.5 mt-2 border-t border-emerald-200/80 flex items-center justify-between text-[11px] font-bold text-emerald-800">
+                        <div className="pt-1.5 mt-1 border-t border-emerald-200/80 flex items-center justify-between text-[10px] font-bold text-emerald-800">
                           <span>Durum:</span>
-                          <span className="flex items-center gap-1">✓ Oluşturuldu</span>
+                          <span>✓ Oluşturuldu</span>
                         </div>
                       </div>
 
@@ -2169,29 +2169,29 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                         return (
                           <div
                             key={step.id}
-                            className={`p-4 rounded-2xl border-2 flex flex-col justify-between transition-all ${
+                            className={`p-3 rounded-xl border-2 flex flex-col justify-between transition-all ${
                               isPassed
-                                ? 'border-emerald-500 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-400/30'
+                                ? 'border-emerald-500 bg-emerald-50/90 shadow-2xs'
                                 : isCurrent
-                                ? 'border-blue-600 bg-blue-50/95 shadow-md ring-4 ring-blue-500/25 relative scale-[1.02]'
-                                : 'border-dashed border-slate-300 bg-slate-50/70 text-slate-500 opacity-80'
+                                ? 'border-blue-600 bg-blue-50/95 shadow-sm ring-2 ring-blue-500/25 relative scale-[1.01]'
+                                : 'border-dashed border-slate-300 bg-slate-50/60 text-slate-500 opacity-70'
                             }`}
                           >
                             <div>
-                              <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center justify-between mb-1.5">
                                 {isPassed && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
-                                    <CheckCircle className="w-3 h-3" /> Geçilen Aşama
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-600 text-white">
+                                    <CheckCircle className="w-2.5 h-2.5" /> Geçildi
                                   </span>
                                 )}
                                 {isCurrent && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-600 text-white shadow-md animate-pulse">
-                                    <Clock className="w-3 h-3" /> Bulunulan Aşama
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-600 text-white shadow-xs animate-pulse">
+                                    <Clock className="w-2.5 h-2.5" /> Şu Anki Aşama
                                   </span>
                                 )}
                                 {isPending && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-600">
-                                    ⚪ Henüz İlerlenmedi
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-slate-200 text-slate-600">
+                                    ⚪ Sırada
                                   </span>
                                 )}
                                 <span className={`text-[10px] font-bold ${
@@ -2201,24 +2201,24 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                                 </span>
                               </div>
 
-                              <div className="flex items-center gap-2.5 mb-1.5">
-                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shadow-xs ${
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
                                   isPassed
                                     ? 'bg-emerald-600 text-white'
                                     : isCurrent
-                                    ? 'bg-blue-600 text-white shadow-md'
+                                    ? 'bg-blue-600 text-white shadow-xs'
                                     : 'bg-slate-200 text-slate-400 border border-slate-300'
                                 }`}>
-                                  <StepIcon className="w-4 h-4" />
+                                  <StepIcon className="w-3.5 h-3.5" />
                                 </div>
-                                <div>
-                                  <h5 className={`text-xs font-black ${
-                                    isPassed ? 'text-emerald-950' : isCurrent ? 'text-blue-950' : 'text-slate-600'
+                                <div className="min-w-0">
+                                  <h5 className={`text-[11px] font-bold truncate leading-snug ${
+                                    isPassed ? 'text-emerald-950' : isCurrent ? 'text-blue-950 font-black' : 'text-slate-600'
                                   }`}>
                                     {step.label}
                                   </h5>
-                                  <p className={`text-[10px] font-semibold ${
-                                    isPassed ? 'text-emerald-700' : isCurrent ? 'text-blue-700' : 'text-slate-400'
+                                  <p className={`text-[10px] truncate ${
+                                    isPassed ? 'text-emerald-700' : isCurrent ? 'text-blue-700 font-semibold' : 'text-slate-400'
                                   }`}>
                                     {step.roleTitle}
                                   </p>
@@ -2226,7 +2226,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                               </div>
                             </div>
 
-                            <div className={`pt-2.5 mt-2 border-t flex items-center justify-between text-[11px] font-bold ${
+                            <div className={`pt-1.5 mt-1 border-t flex items-center justify-between text-[10px] font-bold ${
                               isPassed
                                 ? 'border-emerald-200/80 text-emerald-800'
                                 : isCurrent
@@ -2235,9 +2235,9 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                             }`}>
                               <span>Durum:</span>
                               <span className="flex items-center gap-1">
-                                {isPassed && '✓ Onaylandı (Geçildi)'}
+                                {isPassed && '✓ Onaylandı'}
                                 {isCurrent && '⏳ Onay Bekliyor'}
-                                {isPending && '⚪ Sırada Bekliyor'}
+                                {isPending && '⚪ Sırada'}
                               </span>
                             </div>
                           </div>
@@ -2248,20 +2248,20 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                       {(() => {
                         const isFinished = workflowSimulationStep > activeApprovalSteps.length;
                         return (
-                          <div className={`p-4 rounded-2xl border-2 flex flex-col justify-between transition-all ${
+                          <div className={`p-3 rounded-xl border-2 flex flex-col justify-between transition-all ${
                             isFinished
-                              ? 'border-emerald-500 bg-emerald-50/90 shadow-sm ring-1 ring-emerald-400/30'
-                              : 'border-dashed border-slate-300 bg-slate-50/70 text-slate-500 opacity-80'
+                              ? 'border-emerald-500 bg-emerald-50/90 shadow-2xs'
+                              : 'border-dashed border-slate-300 bg-slate-50/60 text-slate-500 opacity-70'
                           }`}>
                             <div>
-                              <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center justify-between mb-1.5">
                                 {isFinished ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
-                                    <CheckCircle className="w-3 h-3" /> Süreç Tamamlandı
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-600 text-white">
+                                    <CheckCircle className="w-2.5 h-2.5" /> Tamamlandı
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-600">
-                                    ⚪ Henüz İlerlenmedi
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-slate-200 text-slate-600">
+                                    ⚪ Sırada
                                   </span>
                                 )}
                                 <span className={`text-[10px] font-bold ${isFinished ? 'text-emerald-800' : 'text-slate-400'}`}>
@@ -2269,24 +2269,24 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                                 </span>
                               </div>
 
-                              <div className="flex items-center gap-2.5 mb-1.5">
-                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shadow-xs ${
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
                                   isFinished ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400 border border-slate-300'
                                 }`}>
-                                  <Check className="w-4 h-4" />
+                                  <Check className="w-3.5 h-3.5" />
                                 </div>
-                                <div>
-                                  <h5 className={`text-xs font-black ${isFinished ? 'text-emerald-950' : 'text-slate-600'}`}>
+                                <div className="min-w-0">
+                                  <h5 className={`text-[11px] font-bold truncate leading-snug ${isFinished ? 'text-emerald-950' : 'text-slate-600'}`}>
                                     Bordro & Puantaj
                                   </h5>
-                                  <p className={`text-[10px] font-semibold ${isFinished ? 'text-emerald-700' : 'text-slate-400'}`}>
-                                    Sisteme Otomatik İşlendi
+                                  <p className={`text-[10px] truncate ${isFinished ? 'text-emerald-700' : 'text-slate-400'}`}>
+                                    Sisteme İşlendi
                                   </p>
                                 </div>
                               </div>
                             </div>
 
-                            <div className={`pt-2.5 mt-2 border-t flex items-center justify-between text-[11px] font-bold ${
+                            <div className={`pt-1.5 mt-1 border-t flex items-center justify-between text-[10px] font-bold ${
                               isFinished ? 'border-emerald-200/80 text-emerald-800' : 'border-slate-200 text-slate-400'
                             }`}>
                               <span>Durum:</span>
@@ -2296,61 +2296,47 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                         );
                       })()}
                     </div>
-
-                    {/* Renk ve Anlam Göstergesi (Legend) */}
-                    <div className="flex items-center gap-3 sm:gap-4 flex-wrap text-[11px] pt-3 border-t border-purple-200/70 text-slate-600">
-                      <span className="font-extrabold text-slate-800">Aşama Renk Göstergeleri:</span>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-100/90 text-emerald-900 font-bold border border-emerald-300">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Yeşil: Geçilen Aşama (Onaylandı)
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-100/90 text-blue-950 font-black border border-blue-400 shadow-2xs">
-                        <Clock className="w-3.5 h-3.5 text-blue-600 animate-pulse" /> Mavi: Bulunulan Aşama (Şu An Onay Bekliyor)
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-bold border border-slate-300">
-                        <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" /> Gri: Henüz İlerlenmemiş Aşama (Sırada Bekliyor)
-                      </span>
-                    </div>
                   </div>
 
-                  {/* 3 Onay Aşaması Seçenek Kartları */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* 3 Onay Aşaması Seçenek Kartları (Kompakt Tasarım) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                     {/* 1. Aşama: Birim Amiri */}
                     <div
                       onClick={() => handleToggleApprovalStage('manager')}
-                      className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
+                      className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
                         leaveApprovalConfig.stages.manager
-                          ? 'border-blue-600 bg-blue-50/50 shadow-md ring-2 ring-blue-500/20'
+                          ? 'border-blue-600 bg-blue-50/50 shadow-sm ring-1 ring-blue-500/20'
                           : 'border-slate-300 hover:border-blue-300 bg-slate-50/50 opacity-75'
                       }`}
                     >
                       <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs shadow-xs ${
                               leaveApprovalConfig.stages.manager ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500 border border-slate-300'
                             }`}>
                               1
                             </div>
                             <div>
-                              <span className="font-extrabold text-sm text-slate-900 block">1. Aşama: Birim Amiri</span>
+                              <span className="font-extrabold text-xs text-slate-900 block">1. Aşama: Birim Amiri</span>
                               <span className="text-[10px] font-semibold text-slate-500">Departman Sorumlusu</span>
                             </div>
                           </div>
 
                           {/* Toggle Pill */}
-                          <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${
                             leaveApprovalConfig.stages.manager ? 'bg-blue-600 justify-end' : 'bg-slate-300 justify-start'
                           }`}>
                             <div className="bg-white w-4 h-4 rounded-full shadow-md" />
                           </div>
                         </div>
 
-                        <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                        <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
                           Çalışanın bağlı olduğu departmanın birim amiri ilk değerlendirmeyi ve <strong>ön onayı</strong> yapar.
                         </p>
                       </div>
 
-                      <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[10px]">
                         <span className="text-slate-500">Aşama Statüsü:</span>
                         <span className={`font-bold ${leaveApprovalConfig.stages.manager ? 'text-blue-700' : 'text-slate-400'}`}>
                           {leaveApprovalConfig.stages.manager ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
@@ -2361,40 +2347,40 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                     {/* 2. Aşama: İK Uzmanı */}
                     <div
                       onClick={() => handleToggleApprovalStage('hr')}
-                      className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
+                      className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
                         leaveApprovalConfig.stages.hr
-                          ? 'border-indigo-600 bg-indigo-50/50 shadow-md ring-2 ring-indigo-500/20'
+                          ? 'border-indigo-600 bg-indigo-50/50 shadow-sm ring-1 ring-indigo-500/20'
                           : 'border-slate-300 hover:border-indigo-300 bg-slate-50/50 opacity-75'
                       }`}
                     >
                       <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs shadow-xs ${
                               leaveApprovalConfig.stages.hr ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500 border border-slate-300'
                             }`}>
                               2
                             </div>
                             <div>
-                              <span className="font-extrabold text-sm text-slate-900 block">2. Aşama: İK Uzmanı</span>
+                              <span className="font-extrabold text-xs text-slate-900 block">2. Aşama: İK Uzmanı</span>
                               <span className="text-[10px] font-semibold text-slate-500">Mevzuat & Bakiye Denetimi</span>
                             </div>
                           </div>
 
                           {/* Toggle Pill */}
-                          <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${
                             leaveApprovalConfig.stages.hr ? 'bg-indigo-600 justify-end' : 'bg-slate-300 justify-start'
                           }`}>
                             <div className="bg-white w-4 h-4 rounded-full shadow-md" />
                           </div>
                         </div>
 
-                        <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                        <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
                           İzin hak edişi, 4857 İş Kanunu uygunluğu ve resmi evrak süreci <strong>İK Uzmanı</strong> tarafından denetlenip onaylanır.
                         </p>
                       </div>
 
-                      <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[10px]">
                         <span className="text-slate-500">Aşama Statüsü:</span>
                         <span className={`font-bold ${leaveApprovalConfig.stages.hr ? 'text-indigo-700' : 'text-slate-400'}`}>
                           {leaveApprovalConfig.stages.hr ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
@@ -2405,40 +2391,40 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                     {/* 3. Aşama: Şirket Yöneticisi */}
                     <div
                       onClick={() => handleToggleApprovalStage('admin')}
-                      className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
+                      className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
                         leaveApprovalConfig.stages.admin
-                          ? 'border-purple-600 bg-purple-50/50 shadow-md ring-2 ring-purple-500/20'
+                          ? 'border-purple-600 bg-purple-50/50 shadow-sm ring-1 ring-purple-500/20'
                           : 'border-slate-300 hover:border-purple-300 bg-slate-50/50 opacity-75'
                       }`}
                     >
                       <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs shadow-xs ${
                               leaveApprovalConfig.stages.admin ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-500 border border-slate-300'
                             }`}>
                               3
                             </div>
                             <div>
-                              <span className="font-extrabold text-sm text-slate-900 block">3. Aşama: Şirket Yöneticisi</span>
+                              <span className="font-extrabold text-xs text-slate-900 block">3. Aşama: Şirket Yöneticisi</span>
                               <span className="text-[10px] font-semibold text-slate-500">Genel Müdür / Üst Yönetim</span>
                             </div>
                           </div>
 
                           {/* Toggle Pill */}
-                          <div className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${
                             leaveApprovalConfig.stages.admin ? 'bg-purple-600 justify-end' : 'bg-slate-300 justify-start'
                           }`}>
                             <div className="bg-white w-4 h-4 rounded-full shadow-md" />
                           </div>
                         </div>
 
-                        <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                        <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
                           Üst yönetim veya şirket yöneticisi tarafından verilen <strong>nihai onay</strong> kademesidir.
                         </p>
                       </div>
 
-                      <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[10px]">
                         <span className="text-slate-500">Aşama Statüsü:</span>
                         <span className={`font-bold ${leaveApprovalConfig.stages.admin ? 'text-purple-700' : 'text-slate-400'}`}>
                           {leaveApprovalConfig.stages.admin ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}

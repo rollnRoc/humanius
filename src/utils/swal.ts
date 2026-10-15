@@ -101,6 +101,46 @@ export const showConfirm = async (options: {
 };
 
 /**
+ * Modern Input/Prompt Dialog replacing window.prompt
+ */
+export const showPromptDialog = async (options: {
+  title: string;
+  text?: string;
+  inputPlaceholder?: string;
+  inputValue?: string;
+  confirmButtonText?: string;
+  cancelButtonText?: string;
+  isDanger?: boolean;
+}): Promise<string | null> => {
+  const result = await HumaniusSwal.fire({
+    title: options.title,
+    text: options.text,
+    input: 'textarea',
+    inputValue: options.inputValue || '',
+    inputPlaceholder: options.inputPlaceholder || 'Açıklama giriniz...',
+    inputAttributes: {
+      'aria-label': 'Açıklama',
+      rows: '3',
+    },
+    showCancelButton: true,
+    confirmButtonText: options.confirmButtonText || 'Gönder',
+    cancelButtonText: options.cancelButtonText || 'Vazgeç',
+    customClass: {
+      popup: 'humanius-swal-popup',
+      title: 'humanius-swal-title',
+      confirmButton: options.isDanger ? 'humanius-swal-danger-btn' : 'humanius-swal-confirm-btn',
+      cancelButton: 'humanius-swal-cancel-btn',
+      actions: 'humanius-swal-actions',
+    }
+  });
+
+  if (result.isConfirmed) {
+    return (result.value as string) ?? '';
+  }
+  return null;
+};
+
+/**
  * Toast notification for quick messages
  */
 export const showToast = (title: string, icon: 'success' | 'warning' | 'error' | 'info' = 'success') => {

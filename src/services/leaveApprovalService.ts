@@ -103,6 +103,94 @@ class LeaveApprovalService {
     if (activeNames.length === 3) return '3 Aşamalı Onay (Tam Akış: Birim Amiri ➔ İK ➔ Şirket Yöneticisi)';
     return `${activeNames.length} Aşamalı Onay (${activeNames.join(' ➔ ')})`;
   }
+
+  public getActiveStageSequence(config: LeaveApprovalConfig): ('manager' | 'hr' | 'admin')[] {
+    const list: ('manager' | 'hr' | 'admin')[] = [];
+    if (config.stages.manager) list.push('manager');
+    if (config.stages.hr) list.push('hr');
+    if (config.stages.admin) list.push('admin');
+    return list;
+  }
+
+  public getInitialStage(config: LeaveApprovalConfig): 'manager' | 'hr' | 'admin' {
+    const seq = this.getActiveStageSequence(config);
+    return seq[0] || 'manager';
+  }
+
+  public getNextStage(config: LeaveApprovalConfig, currentStage: 'manager' | 'hr' | 'admin'): ('manager' | 'hr' | 'admin') | null {
+    const seq = this.getActiveStageSequence(config);
+    const currentIndex = seq.indexOf(currentStage);
+    if (currentIndex >= 0 && currentIndex < seq.length - 1) {
+      return seq[currentIndex + 1];
+    }
+    return null; // Son onay kademesi tamamlandı
+  }
+
+  public getStageStorageKey(): string {
+    return 'humanius_leave_request_stages';
+  }
+
+  public getStoredStages(): Record<string, 'manager' | 'hr' | 'admin' | 'completed'> {
+    try {
+      const data = localStorage.getItem(this.getStageStorageKey());
+      return data ? JSON.parse(data) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  public getTalepCurrentStage(talepId: string, talepDurum: string, config: LeaveApprovalConfig, talepObj?: any): 'manager' | 'hr' | 'admin' | 'completed' {
+    if (talepDurum === 'onaylandi') return 'completed';
+    if (talepObj?.currentStage) return talepObj.currentStage;
+    const stored = this.getStoredStages();
+    if (stored[talepId]) return stored[talepId];
+    return this.getInitialStage(config);
+  }
+
+  public setTalepCurrentStage(talepId: string, nextStage: 'manager' | 'hr' | 'admin' | 'completed'): void {
+    const stored = this.getStoredStages();
+    stored[talepId] = nextStage;
+    try {
+      localStorage.setItem(this.getStageStorageKey(), JSON.stringify(stored));
+    } catch (e) {
+      console.warn('Error saving talep stage:', e);
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('humanius_leave_request_stage_updated', { detail: { talepId, nextStage } }));
+    }
+  }
+
+  public getStageLabel(stage: 'manager' | 'hr' | 'admin' | 'completed'): string {
+    switch (stage) {
+      case 'manager': return '1. Aşama: Birim Amiri';
+      case 'hr': return '2. Aşama: İK Uzmanı';
+      case 'admin': return '3. Aşama: Şirket Yöneticisi';
+      case 'completed': return 'Tamamlandı';
+      default: return stage;
+    }
+  }
+
+  public getRequiredRoleLabel(stage: 'manager' | 'hr' | 'admin'): string {
+    switch (stage) {
+      case 'manager': return 'Birim Amiri';
+      case 'hr': return 'İK Uzmanı';
+      case 'admin': return 'Şirket Yöneticisi';
+      default: return '';
+    }
+  }
+
+  public canRoleApproveCurrentStage(effectiveRole: string, currentStage: 'manager' | 'hr' | 'admin'): boolean {
+    if (currentStage === 'manager') {
+      return effectiveRole === 'manager';
+    }
+    if (currentStage === 'hr') {
+      return effectiveRole === 'hr';
+    }
+    if (currentStage === 'admin') {
+      return ['admin', 'superadmin'].includes(effectiveRole);
+    }
+    return false;
+  }
 }
 
 export const leaveApprovalService = new LeaveApprovalService();

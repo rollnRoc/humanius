@@ -41,8 +41,7 @@ import { notificationService } from './services/notificationService';
 import ExcelImportModal from './components/ExcelImportModal';
 import EmployeeExportModal from './components/EmployeeExportModal';
 import { userService } from './services/userService';
-import * as XLSX from 'xlsx';
-import { showConfirm, showSuccess, showError } from './utils/swal';
+import { showConfirm, showSuccess, showError, showWarning, showPromptDialog } from './utils/swal';
 
 import { Suspense } from 'react';
 import { lazyWithRetry } from './utils/lazyWithRetry';
@@ -1276,27 +1275,62 @@ const AppInner: React.FC = () => {
 
   const handleIzinOnay = async (id: string) => {
     if (!profile?.id) {
-      alert('Kullanıcı bilgisi bulunamadı.');
+      showError('Hata', 'Kullanıcı bilgisi bulunamadı.');
       return;
     }
     const targetCompId = profile?.company_id || 'default';
     const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
-    const isSuperOrAdmin = ['superadmin', 'admin'].includes(effectiveAppRole);
-    const isHrAllowed = effectiveAppRole === 'hr' && approvalCfg.stages.hr;
-    const isManagerAllowed = effectiveAppRole === 'manager' && approvalCfg.stages.manager;
-
-    if (!isSuperOrAdmin && !isHrAllowed && !isManagerAllowed) {
-      alert('İzin onaylama yetkisi şirket onay akış ayarları kapsamında aktif değildir veya rolünüz yetkilendirilmemiştir.');
+    const talep = izinTalepleri.find((t) => t.id === id);
+    if (!talep) {
+      showError('Hata', 'İzin talebi bulunamadı.');
       return;
     }
-    try {
-      await izinService.approveTalep(id, profile.id);
-      setIzinTalepleri((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, durum: 'onaylandi', onaylayanId: profile.id } : t))
+
+    const currentStage = leaveApprovalService.getTalepCurrentStage(id, talep.durum, approvalCfg, talep);
+    if (currentStage === 'completed') {
+      showSuccess('Bilgi', 'Bu izin talebi zaten onaylanmış.');
+      return;
+    }
+
+    // Rol Kontrolü: Yalnızca şu anki aşamaya ait rol onay verebilir!
+    const canApproveThisStage = leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage);
+    if (!canApproveThisStage) {
+      const requiredRole = leaveApprovalService.getRequiredRoleLabel(currentStage);
+      const stageName = leaveApprovalService.getStageLabel(currentStage);
+      showWarning(
+        'Onay Yetkisi Kısıtlaması',
+        `Bu izin talebi şu an <b>${stageName}</b> kademesindedir.<br/><br/>Onay akışı kurallarına göre yalnızca <b>${requiredRole}</b> rolüne sahip yetkili bu aşamada onay verebilir.`
       );
+      return;
+    }
+
+    const nextStage = leaveApprovalService.getNextStage(approvalCfg, currentStage);
+
+    try {
+      if (nextStage) {
+        // Son aşama değil: Bir sonraki aşamaya devret!
+        leaveApprovalService.setTalepCurrentStage(id, nextStage);
+        setIzinTalepleri((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, currentStage: nextStage } : t))
+        );
+        const stageLabel = leaveApprovalService.getStageLabel(currentStage);
+        const nextStageLabel = leaveApprovalService.getStageLabel(nextStage);
+        showSuccess(
+          'Kademe Onaylandı',
+          `<b>${stageLabel}</b> tamamlandı.<br/>Talep bir sonraki onay kademesine (<b>${nextStageLabel}</b>) iletildi.`
+        );
+      } else {
+        // Son onay kademesi: İzni tamamen onayla!
+        await izinService.approveTalep(id, profile.id);
+        leaveApprovalService.setTalepCurrentStage(id, 'completed');
+        setIzinTalepleri((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, durum: 'onaylandi', onaylayanId: profile.id, currentStage: 'completed' } : t))
+        );
+        showSuccess('İzin Onaylandı', 'Tüm onay aşamaları başarıyla tamamlandı. İzin kaydı puantaj cetveline ve bordroya işlendi.');
+      }
     } catch (error: any) {
       console.error('İzin onaylanamadı:', error);
-      alert(`İzin onaylanırken bir hata oluştu: ${error?.message || ''}`);
+      showError('Hata', `İzin onaylanırken bir hata oluştu: ${error?.message || ''}`);
     }
   };
 
@@ -1325,38 +1359,59 @@ const AppInner: React.FC = () => {
 
       setIzinTalepleri(prev => [...newTalepler, ...prev]);
       setShowTopluIzinForm(false);
-      alert(`${newTalepler.length} personelin izin talebi başarıyla eklendi.`);
+      showSuccess('Toplu İzin Başarılı', `${newTalepler.length} personelin izin talebi başarıyla eklendi.`);
     } catch (err: any) {
       console.error('Toplu izin talebi eklenemedi:', err);
-      alert('Toplu izin eklenirken bir hata oluştu.');
+      showError('Hata', 'Toplu izin eklenirken bir hata oluştu.');
     }
   };
 
   const handleIzinRed = async (id: string) => {
     if (!profile?.id) {
-      alert('Kullanıcı bilgisi bulunamadı.');
+      showError('Hata', 'Kullanıcı bilgisi bulunamadı.');
       return;
     }
     const targetCompId = profile?.company_id || 'default';
     const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
-    const isSuperOrAdmin = ['superadmin', 'admin'].includes(effectiveAppRole);
-    const isHrAllowed = effectiveAppRole === 'hr' && approvalCfg.stages.hr;
-    const isManagerAllowed = effectiveAppRole === 'manager' && approvalCfg.stages.manager;
-
-    if (!isSuperOrAdmin && !isHrAllowed && !isManagerAllowed) {
-      alert('İzin reddetme yetkisi şirket onay akış ayarları kapsamında aktif değildir veya rolünüz yetkilendirilmemiştir.');
+    const talep = izinTalepleri.find((t) => t.id === id);
+    if (!talep) {
+      showError('Hata', 'İzin talebi bulunamadı.');
       return;
     }
-    const neden = prompt('Red nedenini giriniz (İsteğe bağlı):');
+
+    const currentStage = leaveApprovalService.getTalepCurrentStage(id, talep.durum, approvalCfg, talep);
+    const canApproveThisStage = currentStage !== 'completed' && leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage);
+    if (!canApproveThisStage) {
+      const requiredRole = leaveApprovalService.getRequiredRoleLabel(currentStage);
+      const stageName = leaveApprovalService.getStageLabel(currentStage);
+      showWarning(
+        'Yetki Kısıtlaması',
+        `Bu izin talebi şu an <b>${stageName}</b> kademesindedir.<br/><br/>Yalnızca <b>${requiredRole}</b> rolü bu aşamada işlem yapabilir.`
+      );
+      return;
+    }
+
+    // Şık SweetAlert2 ile red gerekçesi alma
+    const neden = await showPromptDialog({
+      title: 'İzin Talebini Reddet',
+      text: `${talep.employeeName ? talep.employeeName + ' adlı personelin' : ''} izin talebini reddetmek üzeresiniz. Lütfen gerekçenizi belirtiniz:`,
+      inputPlaceholder: 'Red gerekçesini yazınız (örn: İlgili tarihlerde nöbet / vardiya yoğunluğu)...',
+      confirmButtonText: 'Talebi Reddet',
+      cancelButtonText: 'Vazgeç',
+      isDanger: true,
+    });
+
     if (neden === null) return; // İptal edildi
+
     try {
       await izinService.rejectTalep(id, profile.id, neden);
       setIzinTalepleri((prev) =>
         prev.map((t) => (t.id === id ? { ...t, durum: 'reddedildi', onaylayanId: profile.id, redNedeni: neden } : t))
       );
+      showSuccess('Talep Reddedildi', 'İzin talebi red gerekçesiyle birlikte işlendi.');
     } catch (error: any) {
       console.error('İzin reddedilemedi:', error);
-      alert(`İzin reddedilirken bir hata oluştu: ${error?.message || ''}`);
+      showError('Hata', `İzin reddedilirken bir hata oluştu: ${error?.message || ''}`);
     }
   };
 
