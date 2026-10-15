@@ -116,14 +116,6 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
   const [testNote, setTestNote] = useState('Humanius Vardiya SMS Testi');
   const [isSendingTest, setIsSendingTest] = useState(false);
 
-  // SMS Configuration Modal State
-  const [showConfigModal, setShowConfigModal] = useState(false);
-  const [editUsername, setEditUsername] = useState(smsConfig.username);
-  const [editPassword, setEditPassword] = useState(smsConfig.password);
-  const [editSourceAddr, setEditSourceAddr] = useState(smsConfig.source_addr);
-  const [editStartDelay, setEditStartDelay] = useState(smsConfig.start_delay_minutes);
-  const [editEndDelay, setEditEndDelay] = useState(smsConfig.end_delay_minutes);
-  const [editLoginUrl, setEditLoginUrl] = useState(smsConfig.login_url);
 
   // Effective company ID
   const effectiveCompanyId = useMemo(() => {
@@ -206,12 +198,6 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
   useEffect(() => {
     const currentCfg = smsService.getConfig(effectiveCompanyId);
     setSmsConfig(currentCfg);
-    setEditUsername(currentCfg.username);
-    setEditPassword(currentCfg.password);
-    setEditSourceAddr(currentCfg.source_addr);
-    setEditStartDelay(currentCfg.start_delay_minutes);
-    setEditEndDelay(currentCfg.end_delay_minutes);
-    setEditLoginUrl(currentCfg.login_url);
     loadSmsLogs();
   }, [effectiveCompanyId, dateFilterMode, customDate]);
 
@@ -469,19 +455,6 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
     }
   };
 
-  const handleSaveSmsConfig = () => {
-    const updated = smsService.saveConfig(effectiveCompanyId, {
-      username: editUsername,
-      password: editPassword,
-      source_addr: editSourceAddr,
-      start_delay_minutes: Number(editStartDelay) || 15,
-      end_delay_minutes: Number(editEndDelay) || 15,
-      login_url: editLoginUrl.trim() || 'https://humanius.net',
-    });
-    setSmsConfig(updated);
-    setShowConfigModal(false);
-    showSuccess('Ayarlar Kaydedildi', 'Verimor SMS entegrasyon ayarları başarıyla kaydedildi.');
-  };
 
   const handleManualSmsCheck = async () => {
     setIsCheckingSms(true);
@@ -612,13 +585,6 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
             >
               <Smartphone className="w-3.5 h-3.5 text-blue-600" />
               Test SMS Gönder
-            </button>
-            <button
-              onClick={() => setShowConfigModal(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
-            >
-              <Sliders className="w-3.5 h-3.5 text-slate-600" />
-              SMS Ayarları
             </button>
             {isSuperAdmin && (
               <button
@@ -1718,138 +1684,6 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
         </div>
       )}
 
-      {/* ─── MODAL: VERIMOR SMS CONFIG ──────────────────────────────────────── */}
-      {showConfigModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-indigo-600" />
-                <div>
-                  <h3 className="font-bold text-slate-800 text-sm">Verimor SMS Entegrasyon Ayarları</h3>
-                  <p className="text-[11px] text-slate-500">API kimlik bilgileri ve vardiya bildirim süreleri</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowConfigModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3.5 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Verimor Kullanıcı Adı
-                  </label>
-                  <input
-                    type="text"
-                    value={editUsername}
-                    onChange={(e) => setEditUsername(e.target.value)}
-                    placeholder="908502428910"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Verimor Şifre / API Key
-                  </label>
-                  <input
-                    type="password"
-                    value={editPassword}
-                    onChange={(e) => setEditPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    SMS Başlığı (Source Addr)
-                  </label>
-                  <input
-                    type="text"
-                    value={editSourceAddr}
-                    onChange={(e) => setEditSourceAddr(e.target.value)}
-                    placeholder="Boş (Varsayılan)"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    SMS Altı Giriş Linki
-                  </label>
-                  <input
-                    type="text"
-                    value={editLoginUrl}
-                    onChange={(e) => setEditLoginUrl(e.target.value)}
-                    placeholder="https://humanius.net"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Başlatma Gecikmesi (Dk)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="120"
-                    value={editStartDelay}
-                    onChange={(e) => setEditStartDelay(Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
-                  />
-                  <span className="text-[10px] text-slate-400">08:30 vardiyası için 08:45</span>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Bitirme Gecikmesi (Dk)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="120"
-                    value={editEndDelay}
-                    onChange={(e) => setEditEndDelay(Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
-                  />
-                  <span className="text-[10px] text-slate-400">18:00 vardiyası için 18:15</span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
-                <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <div className="text-[11px] leading-relaxed">
-                  <strong>Verimor IP Güvenlik Uyarısı:</strong> Verimor hesabınızda IP kısıtlaması aktifse, sunucu IP adresinizin Verimor panelinden (<strong>Güvenlik &gt; İzinli IP'ler</strong>) listeye eklenmiş olması gerekmektedir. İzinli olmayan IP'lerde Verimor <code>403 İzinsiz IP</code> yanıtı verir.
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowConfigModal(false)}
-                className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
-              >
-                İptal
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveSmsConfig}
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
-              >
-                Ayarları Kaydet
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
