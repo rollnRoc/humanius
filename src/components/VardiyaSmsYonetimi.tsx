@@ -820,13 +820,13 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                   </div>
                 </div>
 
-                {/* Cumartesi Ayarları */}
-                <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3.5 space-y-2.5">
+                {/* Cumartesi ve Pazar (Hafta Sonu) Ayarları */}
+                <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-amber-700" />
                       <span className="text-xs font-bold text-amber-950">
-                        Cumartesi Çalışma Saatleri (6 Günlük Düzen İçin)
+                        Cumartesi & Pazar Çalışma Saatleri (Cmt / Paz - Hafta Sonu Mesaisi)
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -837,7 +837,7 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                           setFormSatEnd('13:00');
                           setFormSatBreak(30);
                         }}
-                        className="text-[10px] font-bold px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-md transition"
+                        className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition shadow-2xs cursor-pointer"
                       >
                         08:30 - 13:00 (Yarım Gün)
                       </button>
@@ -848,9 +848,20 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                           setFormSatEnd('16:00');
                           setFormSatBreak(30);
                         }}
-                        className="text-[10px] font-bold px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-md transition"
+                        className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition shadow-2xs cursor-pointer"
                       >
                         08:30 - 16:00
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormSatStart(formStart);
+                          setFormSatEnd(formEnd);
+                          setFormSatBreak(formBreak);
+                        }}
+                        className="text-[10px] font-bold px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition shadow-2xs cursor-pointer"
+                      >
+                        Hafta İçi İle Aynı
                       </button>
                     </div>
                   </div>
@@ -858,7 +869,7 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[11px] font-semibold text-amber-900 mb-1">
-                        Cmt Giriş Saati
+                        Cmt / Paz Giriş Saati
                       </label>
                       <input
                         type="time"
@@ -869,7 +880,7 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                     </div>
                     <div>
                       <label className="block text-[11px] font-semibold text-amber-900 mb-1">
-                        Cmt Çıkış Saati
+                        Cmt / Paz Çıkış Saati
                       </label>
                       <input
                         type="time"
@@ -880,7 +891,7 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                     </div>
                     <div>
                       <label className="block text-[11px] font-semibold text-amber-900 mb-1">
-                        Cmt Mola (Dk)
+                        Cmt / Paz Mola Süresi (Dk)
                       </label>
                       <input
                         type="number"
@@ -948,75 +959,86 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                 return (
                   <div
                     key={shift.id}
-                    className="bg-slate-50/50 border border-slate-200/90 rounded-2xl p-4.5 shadow-2xs hover:shadow-xs transition relative group"
-                    style={{ borderLeftWidth: '5px', borderLeftColor: shift.color || '#3b82f6' }}
+                    className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs hover:shadow-md transition-all relative group"
+                    style={{ borderLeftWidth: '6px', borderLeftColor: shift.color || '#3b82f6' }}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="font-bold text-slate-900 text-sm">{shift.name}</h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-slate-900 text-sm tracking-tight">{shift.name}</h4>
                           {isDefault && (
-                            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                              Varsayılan
+                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
+                              ✓ Varsayılan
                             </span>
                           )}
                         </div>
                         {officeBadgeName ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-indigo-700 font-semibold mt-1">
+                          <span className="inline-flex items-center gap-1 text-[11px] text-indigo-700 font-semibold mt-1.5 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
                             <MapPin className="w-3 h-3 text-indigo-500" />
                             {officeBadgeName}
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 font-medium mt-1">
+                          <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 font-medium mt-1.5 bg-slate-100 px-2 py-0.5 rounded-md">
                             <Building2 className="w-3 h-3 text-slate-400" />
                             Tüm Ofisler
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1">
+                      {/* Prominent, colored, clickable action buttons */}
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
+                          type="button"
                           onClick={() => handleOpenEditShift(shift)}
-                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition cursor-pointer"
-                          title="Düzenle"
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 border border-blue-200/90 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                          title="Vardiyayı Düzenle"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Düzenle</span>
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDeleteShift(shift.id, shift.name)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition cursor-pointer"
-                          title="Sil"
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-200/90 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                          title="Bu Vardiyayı Sil"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Sil</span>
                         </button>
                       </div>
                     </div>
 
-                    <div className="mt-3 pt-3 border-t border-slate-200/70 space-y-1.5 text-xs">
+                    <div className="mt-4 pt-3.5 border-t border-slate-100 space-y-2 text-xs">
                       <div className="flex items-center justify-between text-slate-700">
-                        <span className="text-slate-500">Hafta İçi:</span>
-                        <span className="font-mono font-bold text-slate-900">
+                        <span className="text-slate-500 font-medium flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                          Hafta İçi:
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 bg-slate-50 px-2.5 py-0.5 rounded-lg border border-slate-200/60">
                           {shift.start_time} - {shift.end_time}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-slate-700">
-                        <span className="text-slate-500">Cumartesi:</span>
-                        <span className="font-mono font-medium text-amber-800">
+                        <span className="text-slate-500 font-medium flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                          Cmt / Paz (Hafta Sonu):
+                        </span>
+                        <span className="font-mono font-bold text-amber-900 bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200/80">
                           {shift.saturday_start_time || '08:30'} - {shift.saturday_end_time || '13:00'}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-slate-500 text-[11px]">
-                        <span>Mola: {shift.break_minutes} dk</span>
-                        <span>Tolerans: {shift.tolerance_minutes} dk</span>
+                      <div className="flex items-center justify-between text-slate-500 text-[11px] pt-1">
+                        <span>☕ Öğle Molası: <strong>{shift.break_minutes} dk</strong></span>
+                        <span>⏱️ Tolerans: <strong>{shift.tolerance_minutes} dk</strong></span>
                       </div>
                     </div>
 
-                    <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500 flex items-center gap-1">
-                        <Users className="w-3 h-3 text-slate-400" />
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                      <span className="text-slate-500 flex items-center gap-1.5 font-medium">
+                        <Users className="w-3.5 h-3.5 text-slate-400" />
                         Atanan Personel:
                       </span>
-                      <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md">
+                      <span className="font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-lg">
                         {assignedCount} Kişi
                       </span>
                     </div>
