@@ -4,7 +4,7 @@ import {
   AlertTriangle, CheckCircle, Clock, Users, Calendar, DollarSign, TrendingUp, 
   Plus, Pencil, Trash2, X, KeyRound, PenTool,
   MapPin, Phone, Mail, Copy, Check, ExternalLink, ShieldCheck, Globe, Hash, Sparkles,
-  MessageSquare, UserCheck, Award, Briefcase, Layers, ArrowRight
+  MessageSquare, UserCheck, Award, Briefcase, Layers, ArrowRight, User
 } from 'lucide-react';
 import { VARSAYILAN_SISTEM_AYARLARI, SISTEM_PARAMETRELERI } from '../data/sistemAyarlari';
 import { SistemAyarlari as ISistemAyarlari, SistemParametresi, ParametreKategorisi } from '../types/sistemAyarlari';
