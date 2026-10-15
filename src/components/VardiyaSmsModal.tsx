@@ -152,7 +152,7 @@ export const VardiyaSmsModal: React.FC<VardiyaSmsModalProps> = ({
 
     setIsSendingTest(true);
     try {
-      const res = await smsService.sendTestSms(testPhone, testNote);
+      const res = await smsService.sendTestSms(testPhone, testNote, companyId);
       loadLogs();
       if (res.success) {
         showSuccess(`Test SMS'i ${testPhone} numarasına başarıyla iletildi.`);

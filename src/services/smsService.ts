@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { getTodayYYYYMMDD } from '../utils/sanitize';
+import { normalizeCompanyId } from './companyService';
 
 export interface SmsConfig {
   enabled: boolean;
@@ -44,49 +45,142 @@ export const smsService = {
    * Belirtilen firma için Vardiya SMS servisinin açık olup olmadığını kontrol eder.
    * Tüm firmalarda varsayılan olarak KAPALI (false) gelir.
    * Yalnızca Süper Yönetici tarafından açık hale getirilebilir.
+   * @param companyId Firma ID, UUID veya firma adı
+   * @param exactCompanyOnly Eğer true ise (örn: Sistem Ayarları tablosunda) genel 'all' durumuna bakmaz, doğrudan bu firmanın durumunu verir.
    */
-  isCompanySmsEnabled(companyId?: string | null): boolean {
-    if (!companyId) return false;
+  isCompanySmsEnabled(companyId?: string | null, exactCompanyOnly: boolean = false): boolean {
     try {
-      // 1. Şirket bazlı açık/kapalı özel bayrağını kontrol et
-      const flag = localStorage.getItem(`humanius_company_sms_enabled_${companyId}`);
-      if (flag !== null) {
-        return flag === 'true';
-      }
-      // 2. Şirkete özel kaydedilmiş yapılandırma nesnesini kontrol et
-      const saved = localStorage.getItem(`${SMS_CONFIG_KEY}_${companyId}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed.enabled === 'boolean') {
-          return parsed.enabled;
+      let registry: Record<string, boolean> = {};
+      try {
+        const raw = localStorage.getItem('humanius_company_sms_registry');
+        if (raw) registry = JSON.parse(raw);
+      } catch {}
+
+      // Parametre 'all', 'default' veya tanımsız ise:
+      if (!companyId || companyId === 'all' || companyId === 'default') {
+        const globalFlag = localStorage.getItem('humanius_company_sms_enabled_all');
+        if (globalFlag === 'true') return true;
+        if (registry['all'] === true) return true;
+        // Registry veya localStorage içinde açık olan herhangi bir firma var mı?
+        const hasAnyEnabled = Object.values(registry).some((v) => v === true);
+        if (hasAnyEnabled) return true;
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('humanius_company_sms_enabled_') && k !== 'humanius_company_sms_enabled_all') {
+            if (localStorage.getItem(k) === 'true') return true;
+          }
         }
+        return false;
+      }
+
+      const cleanCompId = normalizeCompanyId(companyId);
+      const candidates = Array.from(
+        new Set([
+          companyId,
+          companyId.trim().toLowerCase(),
+          cleanCompId,
+          cleanCompId ? cleanCompId.trim().toLowerCase() : '',
+        ])
+      ).filter(Boolean);
+
+      // 1. Registry'de bu firma için doğrudan bir kayıt var mı?
+      for (const id of candidates) {
+        if (registry[id] !== undefined) {
+          if (registry[id] === true) return true;
+        }
+      }
+
+      // 2. localStorage doğrudan anahtarlarında var mı?
+      for (const id of candidates) {
+        const flag = localStorage.getItem(`humanius_company_sms_enabled_${id}`);
+        if (flag !== null) {
+          if (flag === 'true') return true;
+        }
+        const saved = localStorage.getItem(`${SMS_CONFIG_KEY}_${id}`);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed.enabled === true) return true;
+          } catch {}
+        }
+      }
+
+      // 3. exactCompanyOnly false ise genel all veya registry['all'] kontrolü
+      if (!exactCompanyOnly) {
+        const globalAll = localStorage.getItem('humanius_company_sms_enabled_all');
+        if (globalAll === 'true') return true;
+        if (registry['all'] === true) return true;
       }
     } catch (e) {
       console.warn('isCompanySmsEnabled okuma hatası:', e);
     }
-    // Varsayılan: TÜM FİRMALARDA OTOMATİK KAPALI
     return false;
   },
 
   /**
    * Süper Yönetici tarafından bir firma için SMS servisini açar veya kapatır.
    */
-  setCompanySmsEnabled(companyId: string, enabled: boolean): boolean {
-    if (!companyId) return false;
+  setCompanySmsEnabled(companyId: string, enabled: boolean, companyName?: string): boolean {
+    if (!companyId && !companyName) return false;
     try {
-      localStorage.setItem(`humanius_company_sms_enabled_${companyId}`, String(enabled));
-      const current = this.getConfig(companyId);
-      current.enabled = enabled;
-      localStorage.setItem(`${SMS_CONFIG_KEY}_${companyId}`, JSON.stringify(current));
+      const targetIds = new Set<string>();
+      if (companyId) {
+        targetIds.add(companyId);
+        targetIds.add(companyId.trim().toLowerCase());
+        const clean = normalizeCompanyId(companyId);
+        if (clean) {
+          targetIds.add(clean);
+          targetIds.add(clean.trim().toLowerCase());
+        }
+      }
+      if (companyName) {
+        targetIds.add(companyName);
+        targetIds.add(companyName.trim().toLowerCase());
+        const cleanFromName = normalizeCompanyId(companyName);
+        if (cleanFromName) {
+          targetIds.add(cleanFromName);
+          targetIds.add(cleanFromName.trim().toLowerCase());
+        }
+      }
+
+      let registry: Record<string, boolean> = {};
+      try {
+        const raw = localStorage.getItem('humanius_company_sms_registry');
+        if (raw) registry = JSON.parse(raw);
+      } catch {}
+
+      targetIds.forEach((id) => {
+        registry[id] = enabled;
+        localStorage.setItem(`humanius_company_sms_enabled_${id}`, String(enabled));
+        const cur = this.getConfig(id);
+        cur.enabled = enabled;
+        localStorage.setItem(`${SMS_CONFIG_KEY}_${id}`, JSON.stringify(cur));
+      });
+
+      if (companyId === 'all') {
+        localStorage.setItem('humanius_company_sms_enabled_all', String(enabled));
+        registry['all'] = enabled;
+      } else if (enabled) {
+        localStorage.setItem('humanius_company_sms_enabled_all', 'true');
+        registry['all'] = true;
+      } else {
+        const anyRemaining = Object.entries(registry).some(([k, v]) => k !== 'all' && v === true);
+        if (!anyRemaining) {
+          localStorage.setItem('humanius_company_sms_enabled_all', 'false');
+          registry['all'] = false;
+        }
+      }
+
+      localStorage.setItem('humanius_company_sms_registry', JSON.stringify(registry));
 
       window.dispatchEvent(
         new CustomEvent('humanius_sms_company_updated', {
-          detail: { companyId, enabled },
+          detail: { companyId, companyName, enabled },
         })
       );
       window.dispatchEvent(
         new CustomEvent('humanius_sms_config_updated', {
-          detail: current,
+          detail: this.getConfig(companyId),
         })
       );
       return true;
@@ -101,15 +195,23 @@ export const smsService = {
    */
   getConfig(companyId?: string): SmsConfig {
     try {
-      const isEnabled = companyId ? this.isCompanySmsEnabled(companyId) : false;
-      if (companyId) {
-        const key = `${SMS_CONFIG_KEY}_${companyId}`;
+      const isEnabled = this.isCompanySmsEnabled(companyId);
+      const cleanCompId = companyId ? normalizeCompanyId(companyId) : undefined;
+      const candidateKeys = [
+        companyId ? `${SMS_CONFIG_KEY}_${companyId}` : null,
+        companyId ? `${SMS_CONFIG_KEY}_${companyId.trim().toLowerCase()}` : null,
+        cleanCompId ? `${SMS_CONFIG_KEY}_${cleanCompId}` : null,
+        `${SMS_CONFIG_KEY}_all`,
+        SMS_CONFIG_KEY,
+      ].filter(Boolean) as string[];
+
+      for (const key of candidateKeys) {
         const saved = localStorage.getItem(key);
         if (saved) {
           return { ...DEFAULT_SMS_CONFIG, ...JSON.parse(saved), enabled: isEnabled };
         }
-        return { ...DEFAULT_SMS_CONFIG, enabled: isEnabled };
       }
+      return { ...DEFAULT_SMS_CONFIG, enabled: isEnabled };
     } catch (e) {
       console.warn('SMS config okuma hatası:', e);
     }
@@ -119,25 +221,35 @@ export const smsService = {
   /**
    * SMS Ayarlarını kaydet
    */
-  saveConfig(companyId: string | undefined, updates: Partial<SmsConfig>): SmsConfig {
+  saveConfig(companyId: string | undefined, updates: Partial<SmsConfig>, companyName?: string): SmsConfig {
     const current = this.getConfig(companyId);
     const updated: SmsConfig = { ...current, ...updates };
     try {
-      if (companyId) {
-        const key = `${SMS_CONFIG_KEY}_${companyId}`;
-        localStorage.setItem(key, JSON.stringify(updated));
+      const targetId = companyId || 'all';
+      const cleanCompId = normalizeCompanyId(targetId);
+      const keysToSave = Array.from(
+        new Set([
+          targetId,
+          targetId.trim().toLowerCase(),
+          cleanCompId,
+          companyName || '',
+          companyName ? companyName.trim().toLowerCase() : '',
+          targetId === 'all' ? 'all' : '',
+        ])
+      ).filter(Boolean);
+
+      for (const id of keysToSave) {
+        localStorage.setItem(`${SMS_CONFIG_KEY}_${id}`, JSON.stringify(updated));
         if (typeof updates.enabled === 'boolean') {
-          localStorage.setItem(`humanius_company_sms_enabled_${companyId}`, String(updates.enabled));
+          localStorage.setItem(`humanius_company_sms_enabled_${id}`, String(updates.enabled));
         }
       }
-      window.dispatchEvent(new CustomEvent('humanius_sms_config_updated', { detail: updated }));
-      if (companyId && typeof updates.enabled === 'boolean') {
-        window.dispatchEvent(
-          new CustomEvent('humanius_sms_company_updated', {
-            detail: { companyId, enabled: updates.enabled },
-          })
-        );
+
+      if (typeof updates.enabled === 'boolean') {
+        this.setCompanySmsEnabled(targetId, updates.enabled, companyName);
       }
+
+      window.dispatchEvent(new CustomEvent('humanius_sms_config_updated', { detail: updated }));
     } catch (e) {
       console.error('SMS config kaydetme hatası:', e);
     }
@@ -186,7 +298,8 @@ export const smsService = {
   ): Promise<{ success: boolean; error?: string; rawResponse?: any }> {
     const config = { ...this.getConfig(companyId), ...(customConfig || {}) };
 
-    if (!config.enabled) {
+    const isOverrideOrTest = customConfig?.enabled === true;
+    if (!config.enabled && !isOverrideOrTest) {
       return { success: false, error: 'SMS gönderimi bu firma için ayarlardan devre dışı bırakılmıştır.' };
     }
 
@@ -373,9 +486,10 @@ export const smsService = {
    */
   async sendTestSms(
     destPhone: string,
-    testNote: string = 'Test Bildirimi'
+    testNote: string = 'Test Bildirimi',
+    companyId?: string
   ): Promise<{ success: boolean; error?: string }> {
-    const config = this.getConfig();
+    const config = this.getConfig(companyId);
     const today = getTodayYYYYMMDD();
 
     const smsMessage =
@@ -383,7 +497,10 @@ export const smsService = {
       `Sistem bağlantısı başarıyla çalışmaktadır.\n` +
       `${config.login_url || 'https://humanius.net'}`;
 
-    const res = await this.sendVerimorSms(destPhone, smsMessage, config);
+    // Manuel Test SMS: Yetkili kullanıcı doğrudan test gönderimi yaptığında
+    // zamanlayıcı kapalı olsa bile test bağlantısının denenmesini sağlar.
+    const testConfig: Partial<SmsConfig> = { ...config, enabled: true };
+    const res = await this.sendVerimorSms(destPhone, smsMessage, testConfig, companyId);
 
     this.addLog({
       employee_id: 'test',

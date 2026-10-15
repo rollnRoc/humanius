@@ -1282,7 +1282,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                       showError('Lütfen geçerli bir telefon numarası giriniz.');
                       return;
                     }
-                    const res = await smsService.sendTestSms(smsTestPhone, smsTestNote);
+                    const res = await smsService.sendTestSms(smsTestPhone, smsTestNote, effectiveCompanyId);
                     setSmsLogs(smsService.getLogs(smsFilterDate === 'today' ? getTodayYYYYMMDD() : undefined));
                     if (res.success) {
                       showSuccess(`Test SMS'i ${smsTestPhone} numarasına iletildi.`);

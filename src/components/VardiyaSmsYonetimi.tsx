@@ -117,11 +117,16 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
   const [isSendingTest, setIsSendingTest] = useState(false);
 
 
-  // Effective company ID
+  // Effective company ID & Name
   const effectiveCompanyId = useMemo(() => {
-    if (companyId && companyId !== 'default' && !companyId.includes('demo')) return companyId;
-    const foundEmp = employees.find((e) => e.company_id);
-    return foundEmp?.company_id || companyId || 'default';
+    if (companyId && companyId !== 'default' && companyId !== 'all' && !companyId.includes('demo')) return companyId;
+    const foundEmp = employees.find((e) => e.company_id || e.company);
+    return foundEmp?.company_id || (foundEmp?.company ? normalizeCompanyId(foundEmp.company) : '') || companyId || 'default';
+  }, [companyId, employees]);
+
+  const effectiveCompanyName = useMemo(() => {
+    const foundEmp = employees.find((e) => e.company);
+    return foundEmp?.company || (companyId !== 'all' && companyId !== 'default' ? companyId : '');
   }, [companyId, employees]);
 
   // Departments list
@@ -199,6 +204,19 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
     const currentCfg = smsService.getConfig(effectiveCompanyId);
     setSmsConfig(currentCfg);
     loadSmsLogs();
+
+    const handleSmsCompanyUpdate = () => {
+      const updatedCfg = smsService.getConfig(effectiveCompanyId);
+      setSmsConfig(updatedCfg);
+      loadSmsLogs();
+    };
+
+    window.addEventListener('humanius_sms_company_updated', handleSmsCompanyUpdate);
+    window.addEventListener('humanius_sms_config_updated', handleSmsCompanyUpdate);
+    return () => {
+      window.removeEventListener('humanius_sms_company_updated', handleSmsCompanyUpdate);
+      window.removeEventListener('humanius_sms_config_updated', handleSmsCompanyUpdate);
+    };
   }, [effectiveCompanyId, dateFilterMode, customDate]);
 
   useEffect(() => {
@@ -446,12 +464,24 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
       return;
     }
     const nextState = !smsConfig.enabled;
-    const updated = smsService.saveConfig(effectiveCompanyId, { enabled: nextState });
-    setSmsConfig(updated);
+    const targetComp = effectiveCompanyId;
+    smsService.setCompanySmsEnabled(targetComp, nextState, effectiveCompanyName);
+    if (companyId === 'all' || targetComp === 'all') {
+      smsService.setCompanySmsEnabled('all', nextState);
+    }
+    // Ayrıca çalışanların ait olduğu şirketleri de eş zamanla
+    employees.forEach((emp) => {
+      if (emp.company_id) {
+        smsService.setCompanySmsEnabled(emp.company_id, nextState, emp.company);
+      }
+    });
+
+    const updated = smsService.saveConfig(targetComp, { enabled: nextState }, effectiveCompanyName);
+    setSmsConfig({ ...updated, enabled: nextState });
     if (nextState) {
-      showSuccess('SMS Servisi Açıldı', 'Vardiya SMS servisi bu firma için aktif edildi.');
+      showSuccess('SMS Servisi Açıldı', 'Vardiya SMS servisi başarıyla aktif edildi.');
     } else {
-      showSuccess('SMS Servisi Duraklatıldı', 'Vardiya SMS servisi bu firma için duraklatıldı.');
+      showSuccess('SMS Servisi Duraklatıldı', 'Vardiya SMS servisi duraklatıldı.');
     }
   };
 
@@ -498,7 +528,7 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
 
     setIsSendingTest(true);
     try {
-      const res = await smsService.sendTestSms(testPhone, testNote);
+      const res = await smsService.sendTestSms(testPhone, testNote, effectiveCompanyId);
       loadSmsLogs();
       if (res.success) {
         showSuccess('Test SMS İletildi', `Test SMS'i ${testPhone} numarasına başarıyla gönderildi.`);

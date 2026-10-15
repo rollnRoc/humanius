@@ -548,7 +548,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
           phone: companyForm.phone.trim(),
           email: companyForm.email.trim(),
         });
-        smsService.setCompanySmsEnabled(editingCompanyId, companySmsActive);
+        smsService.setCompanySmsEnabled(editingCompanyId, companySmsActive, companyForm.name.trim());
         setManageMessage('Şirket bilgisi ve SMS ayarı güncellendi.');
       } else {
         const createdComp = await companyService.create({
@@ -561,7 +561,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
           email: companyForm.email.trim(),
         });
         if (createdComp?.id) {
-          smsService.setCompanySmsEnabled(createdComp.id, companySmsActive);
+          smsService.setCompanySmsEnabled(createdComp.id, companySmsActive, companyForm.name.trim());
         }
         setManageMessage('Yeni şirket eklendi.');
       }
@@ -578,9 +578,9 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
       showError('Vardiya SMS servisini yalnızca Süper Yönetici açıp kapatabilir.');
       return;
     }
-    const current = smsService.isCompanySmsEnabled(c.id);
+    const current = smsService.isCompanySmsEnabled(c.id, true);
     const next = !current;
-    smsService.setCompanySmsEnabled(c.id, next);
+    smsService.setCompanySmsEnabled(c.id, next, c.name);
     setSmsRefreshKey(prev => prev + 1);
     if (next) {
       showSuccess(`"${c.name}" firması için Vardiya SMS servisi başarıyla AÇILDI.`);
@@ -601,7 +601,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
       phone: company.phone ?? '',
       email: company.email ?? '',
     });
-    setCompanySmsActive(smsService.isCompanySmsEnabled(company.id));
+    setCompanySmsActive(smsService.isCompanySmsEnabled(company.id, true));
     setShowCompanyForm(true);
     setManageTab('sirketler');
   };
@@ -2508,7 +2508,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                         </tr>
                       ) : (
                         companies.map((c, idx) => {
-                          const isSmsOn = smsService.isCompanySmsEnabled(c.id);
+                          const isSmsOn = smsService.isCompanySmsEnabled(c.id, true);
                           return (
                             <tr key={c.id} className="hover:bg-purple-50/30 transition-colors">
                               <td className="px-4 py-3 font-medium text-gray-500">{idx + 1}</td>
