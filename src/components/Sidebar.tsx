@@ -272,9 +272,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       }
       return item;
     }).filter(item => {
-      const explicitlyAccessible = canAccessView(effectiveRole, item.id);
-      const hasVisibleChildren = item.children && item.children.length > 0;
-      return explicitlyAccessible || hasVisibleChildren;
+      if (item.children) {
+        return item.children.length > 0;
+      }
+      return canAccessView(effectiveRole, item.id);
     });
 
     return navItems.filter((item) => !UYGULAMALAR_IDS.includes(item.id));
@@ -366,6 +367,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 aria-expanded={hasChildren ? isSectionOpen : undefined}
                 onClick={() => {
                   if (hasChildren) {
+                    if (item.children.length === 1) {
+                      onViewChange(item.children[0].id);
+                    }
                     setOpenSections((prev) =>
                       prev.includes(item.id)
                         ? prev.filter((sectionId) => sectionId !== item.id)

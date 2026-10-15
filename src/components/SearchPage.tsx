@@ -259,30 +259,32 @@ export const SearchPage: React.FC<SearchPageProps> = ({
     });
 
     // ── Bordro ────────────────────────────────────────────────────────────────
-    bordrolar.forEach(b => {
-      const empName = safe(b.employees?.name) || 'Personel';
-      const allFields = [
-        { label: 'Çalışan',   value: empName },
-        { label: 'Dönem',     value: safe(b.period) },
-        { label: 'Sicil No',  value: safe(b.sicil_no) },
-        { label: 'TC No',     value: safe(b.tc_no) },
-        { label: 'Net Maaş',  value: b.net_maas  ? `${b.net_maas.toLocaleString('tr-TR')} ₺`  : '' },
-        { label: 'Brüt Maaş', value: b.brut_maas ? `${b.brut_maas.toLocaleString('tr-TR')} ₺` : '' },
-        { label: 'Departman', value: safe(b.employees?.department) },
-      ].filter(f => f.value.length > 0);
+    if (canAccessView(effectiveRole, 'bordro')) {
+      bordrolar.forEach(b => {
+        const empName = safe(b.employees?.name) || 'Personel';
+        const allFields = [
+          { label: 'Çalışan',   value: empName },
+          { label: 'Dönem',     value: safe(b.period) },
+          { label: 'Sicil No',  value: safe(b.sicil_no) },
+          { label: 'TC No',     value: safe(b.tc_no) },
+          { label: 'Net Maaş',  value: b.net_maas  ? `${b.net_maas.toLocaleString('tr-TR')} ₺`  : '' },
+          { label: 'Brüt Maaş', value: b.brut_maas ? `${b.brut_maas.toLocaleString('tr-TR')} ₺` : '' },
+          { label: 'Departman', value: safe(b.employees?.department) },
+        ].filter(f => f.value.length > 0);
 
-      const allText = allFields.map(f => f.value).join(' ');
-      results.push({
-        id: `bordro-${b.id}`,
-        title: empName,
-        subtitle: safe(b.period),
-        category: 'bordro',
-        matchedFields: allFields,
-        allText,
-        score: 0,
-        navigateTo: 'bordro',
+        const allText = allFields.map(f => f.value).join(' ');
+        results.push({
+          id: `bordro-${b.id}`,
+          title: empName,
+          subtitle: safe(b.period),
+          category: 'bordro',
+          matchedFields: allFields,
+          allText,
+          score: 0,
+          navigateTo: 'bordro',
+        });
       });
-    });
+    }
 
     // ── Sayfalar ──────────────────────────────────────────────────────────────
     PAGES.forEach(page => {
@@ -330,13 +332,20 @@ export const SearchPage: React.FC<SearchPageProps> = ({
   }, [words, entityIndex]);
 
   // ── Category tab counts ───────────────────────────────────────────────────
+  const effectiveCatOrder = useMemo(() => {
+    return CAT_ORDER.filter(cat => {
+      if (cat === 'bordro') return canAccessView(effectiveRole, 'bordro');
+      return true;
+    });
+  }, [effectiveRole]);
+
   const catCounts = useMemo(() => {
     const c: Partial<Record<Category | 'all', number>> = { all: searchResults.length };
-    CAT_ORDER.forEach(cat => {
+    effectiveCatOrder.forEach(cat => {
       c[cat] = searchResults.filter(r => r.category === cat).length;
     });
     return c;
-  }, [searchResults]);
+  }, [searchResults, effectiveCatOrder]);
 
   const visibleResults = useMemo(
     () => activeTab === 'all' ? searchResults : searchResults.filter(r => r.category === activeTab),
@@ -533,7 +542,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
           {/* Category tabs */}
           {words.length > 0 && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-              {(['all', ...CAT_ORDER] as const).map(tab => {
+              {(['all', ...effectiveCatOrder] as (Category | 'all')[]).map(tab => {
                 const count = catCounts[tab] ?? 0;
                 const isActive = activeTab === tab;
                 const cs = tab !== 'all' ? CAT_STYLE[tab as Category] : null;
@@ -621,21 +630,22 @@ export const SearchPage: React.FC<SearchPageProps> = ({
             </section>
 
             {['superadmin', 'admin', 'hr', 'manager'].includes(effectiveRole) ? (
-              <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {[
-                  { label: 'Personel', count: employees.length, cat: 'personel' as Category },
+                  { label: 'Personel', count: employees.length, cat: 'personel' as Category, view: 'personel' as View },
                   {
                     label: 'Bekleyen İzin Talebi',
                     count: (izinTalepleri || []).filter(t => t.durum === 'beklemede' || (t as any).durum === 'onay-bekliyor').length,
-                    cat: 'izin' as Category
+                    cat: 'izin' as Category,
+                    view: 'izin' as View
                   },
-                  { label: 'Bordro', count: bordrolar.length, cat: 'bordro' as Category },
-                ].map(item => {
+                  { label: 'Bordro', count: bordrolar.length, cat: 'bordro' as Category, view: 'bordro' as View },
+                ].filter(item => canAccessView(effectiveRole, item.view)).map(item => {
                   const cs = CAT_STYLE[item.cat];
                   return (
                     <button
                       key={item.label}
-                      onClick={() => onNavigate(item.cat === 'izin' ? 'izin' : item.cat === 'bordro' ? 'bordro' : 'personel')}
+                      onClick={() => onNavigate(item.view)}
                       className={`${cs.bg} border ${cs.border} rounded-2xl px-4 py-4 text-center ${cs.hoverBg} transition-all cursor-pointer shadow-sm hover:shadow-md`}
                     >
                       <p className={`text-3xl font-extrabold ${cs.text}`}>{item.count}</p>

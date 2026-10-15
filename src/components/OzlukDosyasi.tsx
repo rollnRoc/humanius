@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   FolderOpen, Upload, Download, Trash2, FileText, User, Calendar,
   AlertTriangle, Briefcase, Clock, RefreshCw, Plus, X, ChevronDown, Lock,
@@ -6,6 +6,7 @@ import {
   BookOpen, Award, Printer, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { canAccessView, canViewSalariesAndBordro } from '../auth/roles';
 import { ozlukDosyasiService, OzlukDosya } from '../services/ozlukDosyasiService';
 import { gorevTanimiService, type GorevTanimi } from '../services/gorevTanimiService';
 import { employeeService } from '../services/employeeService';
@@ -685,6 +686,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   onSelectEmployee,
 }) => {
   const { profile, appRole } = useAuth();
+  const effectiveRole = profile?.role || appRole || 'employee';
   const DEMO_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
   const effectiveCompanyId = profile?.company_id ?? DEMO_COMPANY_ID;
   const storageEnabled = import.meta.env.VITE_SUPABASE_STORAGE_ENABLED !== 'false';
@@ -694,7 +696,25 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
     .filter((e) => !profile?.company_id || e.company_id === profile.company_id)
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
 
+  const visibleTabs = useMemo(() => {
+    return TABS.filter(tab => {
+      if (tab.id === 'gorev-tanimi' && !canAccessView(effectiveRole, 'gorev-tanimi')) {
+        return false;
+      }
+      if (tab.id === 'bordro' && (!canAccessView(effectiveRole, 'bordro') || !canViewSalariesAndBordro(effectiveRole))) {
+        return false;
+      }
+      return true;
+    });
+  }, [effectiveRole]);
+
   const [activeTab, setActiveTab] = useState<TabId>('genel');
+
+  useEffect(() => {
+    if (!visibleTabs.some(t => t.id === activeTab)) {
+      setActiveTab('genel');
+    }
+  }, [visibleTabs, activeTab]);
 
   // Belgeler
   const [dosyalar, setDosyalar] = useState<OzlukDosya[]>([]);
@@ -1202,7 +1222,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
         <div className="animate-fade-in">
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               <div className="flex overflow-x-auto border-b border-gray-100 scrollbar-hide">
-              {TABS.map((tab) => (
+              {visibleTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}

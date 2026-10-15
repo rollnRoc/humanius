@@ -54,12 +54,26 @@ const ALLOWED_VIEWS: Record<AppRole, View[]> = {
     'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
     'sifre-degistir', 'tazminat-hesaplama', 'form-builder', 'puantaj', 'analiz', 'sirket-yonetimi',
   ],
+  // BİRİM / DEPARTMAN AMİRİ:
+  // - Şirket Yönetimi: Tamamen kapalı
+  // - Personel Yönetimi: Personel listesi, özlük ve eğitim açık (Görev Tanımı kapalı)
+  // - Bordro ve İcmal: Tamamen kapalı
+  // - İzin Yönetimi: Yalnızca İzin Talepleri açık
+  // - Puantaj ve PDKS: Açık
+  // - Analiz: Tamamen kapalı
   manager: [
-    'arama', 'personel', 'bordro', 'izin', 'izin-tanimlari', 'izin-cakisma', 'izin-listesi',
-    'raporlar', 'analitik', 'uyari', 'ayar', 'sirket-bilgileri', 'gorev-tanimi', 'gorev-tanimi-kayitlari',
-    'ozluk-dosyasi', 'pdks', 'pdks-devam', 'is-akisi', 'performans', 'egitim', 'kvkk', 'org-sema', 'zimmet',
-    'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'bordro-icmal', 'is-akisi-menu',
-    'sifre-degistir', 'tazminat-hesaplama', 'form-builder', 'puantaj', 'analiz', 'sirket-yonetimi',
+    'arama',
+    'personel',
+    'ozluk-dosyasi',
+    'egitim',
+    'izin',
+    'is-akisi-menu',
+    'puantaj',
+    'pdks-devam',
+    'pdks',
+    'is-akisi',
+    'sifre-degistir',
+    'kullanim-kilavuzu',
   ],
   // PERSONEL: Sadece tamamen kendisine ait kişisel bilgiler & kendi talepleri
   employee: [

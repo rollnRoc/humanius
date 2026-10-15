@@ -1086,9 +1086,9 @@ const AppInner: React.FC = () => {
 
   const handleEmployeeActionSelect = (emp: Employee, action: 'gorev' | 'bordro' | 'izin') => {
     setSelectedEmployee(emp);
-    if (action === 'gorev') setCurrentView('gorev-tanimi');
-    else if (action === 'bordro') setCurrentView('bordro');
-    else if (action === 'izin') setCurrentView('izin');
+    if (action === 'gorev' && canAccessView(effectiveAppRole, 'gorev-tanimi')) setCurrentView('gorev-tanimi');
+    else if (action === 'bordro' && canAccessView(effectiveAppRole, 'bordro')) setCurrentView('bordro');
+    else if (action === 'izin' && canAccessView(effectiveAppRole, 'izin')) setCurrentView('izin');
   };
 
   const handleExportCSV = () => {

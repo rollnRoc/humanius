@@ -3,6 +3,7 @@ import { CreditCard as Edit, Trash2, Phone, Eye, FileDown, ChevronDown } from 'l
 import { Employee } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { canAccessView } from '../auth/roles';
 
 import { formatDisplayDate } from '../utils/dateUtils';
 
@@ -374,24 +375,28 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                         >
                           <Eye className="w-3.5 h-3.5" /> Özlük Kartını Gör
                         </button>
-                        <button
-                          onClick={() => {
-                            onEmployeeActionSelect?.(employee, 'gorev');
-                            setOpenMenuId(null);
-                          }}
-                          className="w-full px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
-                        >
-                          ✏️ Görev Tanımı Oluştur
-                        </button>
-                        <button
-                          onClick={() => {
-                            onEmployeeActionSelect?.(employee, 'bordro');
-                            setOpenMenuId(null);
-                          }}
-                          className="w-full px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
-                        >
-                          💰 Bordro Hesapla
-                        </button>
+                        {canAccessView(appRole || 'employee', 'gorev-tanimi') && (
+                          <button
+                            onClick={() => {
+                              onEmployeeActionSelect?.(employee, 'gorev');
+                              setOpenMenuId(null);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
+                          >
+                            ✏️ Görev Tanımı Oluştur
+                          </button>
+                        )}
+                        {canAccessView(appRole || 'employee', 'bordro') && (
+                          <button
+                            onClick={() => {
+                              onEmployeeActionSelect?.(employee, 'bordro');
+                              setOpenMenuId(null);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
+                          >
+                            💰 Bordro Hesapla
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             onEmployeeActionSelect?.(employee, 'izin');

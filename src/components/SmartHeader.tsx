@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Star, Clock, Zap, Search as SearchIcon, ArrowLeft } from 'lucide-react';
 import type { View } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { canAccessView } from '../auth/roles';
 import UserNavMenu from './UserNavMenu';
 
 interface SmartHeaderProps {
@@ -11,12 +12,15 @@ interface SmartHeaderProps {
 
 const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) => {
   const { appRole } = useAuth();
-  const isEmployeeOnly = ['employee', 'user'].includes(appRole || 'employee');
+  const effectiveRole = appRole || 'employee';
+  const isEmployeeOnly = ['employee', 'user'].includes(effectiveRole);
 
   const [favorites, setFavorites] = useState<View[]>(() => {
     const saved = localStorage.getItem('humanius_favorites');
     return saved ? JSON.parse(saved) : ['personel', 'izin', 'bordro'];
   });
+
+  const visibleFavorites = favorites.filter(v => canAccessView(effectiveRole, v));
 
   const [recent, setRecent] = useState<View[]>(() => {
     const saved = localStorage.getItem('humanius_recent');
@@ -114,7 +118,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) =>
       {/* Favoriler (Sık Kullanılanlar) */}
       <div className="flex items-center gap-2 overflow-x-auto py-1 flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          {favorites.map((view, i) => (
+          {visibleFavorites.map((view, i) => (
             <div key={`fav-${view}-${i}`} className="group relative flex items-center">
               <button
                 onClick={() => onNavigate(view)}
@@ -130,7 +134,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) =>
               </button>
             </div>
           ))}
-          {!favorites.includes(currentView) && (
+          {!visibleFavorites.includes(currentView) && canAccessView(effectiveRole, currentView) && (
             <button 
               onClick={() => toggleFavorite(currentView)}
               className="text-xs px-2 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-1 font-medium whitespace-nowrap"
