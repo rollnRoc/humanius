@@ -127,6 +127,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const isSuperAdmin = appRole === 'superadmin' || profile?.role === 'superadmin';
   const isManagement = ['superadmin', 'admin', 'hr', 'manager'].includes(appRole);
   const isHrOrAdmin = ['superadmin', 'admin', 'hr'].includes(appRole);
+  const isManager = appRole === 'manager';
 
   const [activeTab, setActiveTab] = useState<'personal' | 'team'>(isManagement ? 'team' : 'personal');
   const [searchTerm, setSearchTerm] = useState('');
@@ -2307,14 +2308,16 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               Verileri Yenile
             </button>
 
-            <button
-              onClick={handlePrintPdf}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs"
-              title="Tüm Personellerin Günlük PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
-            >
-              <Printer className="w-3.5 h-3.5 text-blue-400" />
-              PDKS Raporu Al (PDF)
-            </button>
+            {isHrOrAdmin && (
+              <button
+                onClick={handlePrintPdf}
+                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                title="Tüm Personellerin Günlük PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
+              >
+                <Printer className="w-3.5 h-3.5 text-blue-400" />
+                PDKS Raporu Al (PDF)
+              </button>
+            )}
 
             <div className="flex bg-gray-100 p-1 rounded-xl">
               <button
@@ -2323,7 +2326,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   activeTab === 'personal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
-                Kişisel Mesai Paneli
+                {isManager ? 'Kişisel Mesai Başlat' : 'Kişisel Mesai Paneli'}
               </button>
               <button
                 onClick={() => setActiveTab('team')}
@@ -2331,7 +2334,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   activeTab === 'team' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
-                Tüm Çalışanların Durumu
+                {isManager ? 'Personel Giriş / Çıkış Listesi' : 'Tüm Çalışanların Durumu'}
               </button>
             </div>
           </div>
@@ -2815,8 +2818,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               )}
             </div>
 
-            {/* Şirket Ofis & Şube Konumları Paneli (Sadece Yönetici / İK personeli görebilir, normal personele gözükmez) */}
-            {isManagement && (
+            {/* Şirket Ofis & Şube Konumları Paneli (Sadece Süper Admin / Şirket Yöneticisi / İK personeli görebilir) */}
+            {isHrOrAdmin && (
               <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 rounded-2xl p-5 text-white space-y-4 shadow-md">
                 <div className="flex items-center justify-between border-b border-indigo-800/80 pb-3">
                   <div className="flex items-center gap-2">
@@ -2935,33 +2938,33 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       ) : (
         /* Team Monitoring Tab (Only visible to Management) */
         <div className="space-y-4">
-          {/* Company Shift Config Banner */}
-          <div className="bg-gradient-to-r from-indigo-50/90 to-blue-50/90 border border-indigo-200 rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4 shadow-xs">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-xs shrink-0">
-                ⏰
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-indigo-950">Vardiya & Çalışma Saatleri</h4>
-                  <span className="bg-indigo-100 text-indigo-800 text-[11px] font-extrabold px-2 py-0.5 rounded-md">
-                    {allCompanyShifts.length} Tanımlı Vardiya
-                  </span>
+          {/* Company Shift Config Banner (Sadece Süper Admin / Şirket Yöneticisi / İK) */}
+          {isHrOrAdmin && (
+            <div className="bg-gradient-to-r from-indigo-50/90 to-blue-50/90 border border-indigo-200 rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4 shadow-xs">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-xs shrink-0">
+                  ⏰
                 </div>
-                <p className="text-xs text-indigo-700 mt-1 flex items-center gap-2 flex-wrap">
-                  <span>Varsayılan: <strong>{activeUserShift.name} ({activeUserShift.start_time} - {activeUserShift.end_time})</strong></span>
-                  <span>•</span>
-                  <span>Mola: <strong>{activeUserShift.break_minutes} dk</strong></span>
-                  <span>•</span>
-                  <span>Tolerans: <strong>{activeUserShift.tolerance_minutes} dk</strong></span>
-                </p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-indigo-950">Vardiya & Çalışma Saatleri</h4>
+                    <span className="bg-indigo-100 text-indigo-800 text-[11px] font-extrabold px-2 py-0.5 rounded-md">
+                      {allCompanyShifts.length} Tanımlı Vardiya
+                    </span>
+                  </div>
+                  <p className="text-xs text-indigo-700 mt-1 flex items-center gap-2 flex-wrap">
+                    <span>Varsayılan: <strong>{activeUserShift.name} ({activeUserShift.start_time} - {activeUserShift.end_time})</strong></span>
+                    <span>•</span>
+                    <span>Mola: <strong>{activeUserShift.break_minutes} dk</strong></span>
+                    <span>•</span>
+                    <span>Tolerans: <strong>{activeUserShift.tolerance_minutes} dk</strong></span>
+                  </p>
+                </div>
               </div>
-            </div>
-            {isManagement && (
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setShowSmsModal(true)}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all"
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
                   title="Vardiya SMS Bildirimleri (Verimor Entegrasyonu)"
                 >
                   <MessageSquare className="w-4 h-4" />
@@ -2974,14 +2977,73 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 </button>
                 <button
                   onClick={() => setShowVardiyaModal(true)}
-                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all"
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
                 >
                   <Sliders className="w-4 h-4" />
                   Vardiyalar & Personel Atamaları
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Birim Amiri İçin Kişisel Mesai Hızlı Başlat / Bitir Kartı */}
+          {isManager && (
+            <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/80 to-slate-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white shadow-xs ${
+                  isShiftActive ? 'bg-emerald-600 animate-pulse' : 'bg-blue-600'
+                }`}>
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-gray-800">Kişisel Mesai Durumunuz:</span>
+                    {isShiftActive ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                        <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping"></span>
+                        Mesai Devam Ediyor ({timerText})
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                        Henüz Mesai Başlatılmadı
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    {isShiftActive
+                      ? `Bugün ${shiftStartTime ? (/^\d{1,2}:\d{2}/.test(shiftStartTime) ? shiftStartTime.substring(0, 5) : 'başlangıç saatinde') : '08:30'} mesaiye başladınız. Mesainizi bitirmek için aşağıdaki butona tıklayabilirsiniz.`
+                      : 'Gününüzü başlatmak için mesaiyi başlatabilir veya detaylı terminal sekmesine geçebilirsiniz.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isShiftActive ? (
+                  <button
+                    onClick={handleEndShift}
+                    className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer"
+                  >
+                    <Square className="w-4 h-4 fill-current" />
+                    Mesaiyi Bitir
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStartShift}
+                    className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer"
+                  >
+                    <Play className="w-4 h-4 fill-current" />
+                    Mesaiyi Başlat
+                  </button>
+                )}
+                <button
+                  onClick={() => setActiveTab('personal')}
+                  className="flex items-center gap-1 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-semibold text-xs px-3.5 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer"
+                >
+                  Kişisel Terminal ➡️
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Tarih Seçimi ve Denetim Kontrol Çubuğu */}
           <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs space-y-3.5">
@@ -3059,35 +3121,37 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 </div>
               </div>
 
-              {/* Hızlı Kısayollar ve Çıktı Butonları */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {onNavigateToPuantaj && (
+              {/* Hızlı Kısayollar ve Çıktı Butonları (Sadece Süper Admin / Şirket Yöneticisi / İK) */}
+              {isHrOrAdmin && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {onNavigateToPuantaj && (
+                    <button
+                      onClick={onNavigateToPuantaj}
+                      className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                      title="Aylık Personel Puantaj ve Çalışma Cetveline Git"
+                    >
+                      <CalendarCheck className="w-3.5 h-3.5 text-blue-200" />
+                      Aylık Puantaj Cetveli ➡️
+                    </button>
+                  )}
                   <button
-                    onClick={onNavigateToPuantaj}
-                    className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                    title="Aylık Personel Puantaj ve Çalışma Cetveline Git"
+                    onClick={handlePrintPdf}
+                    className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                    title="Seçili Günün PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
                   >
-                    <CalendarCheck className="w-3.5 h-3.5 text-blue-200" />
-                    Aylık Puantaj Cetveli ➡️
+                    <Printer className="w-3.5 h-3.5 text-blue-400" />
+                    PDF Çıktısı Al
                   </button>
-                )}
-                <button
-                  onClick={handlePrintPdf}
-                  className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                  title="Seçili Günün PDKS Devam ve Vardiya Çizelgesini PDF Olarak Çıktı Al"
-                >
-                  <Printer className="w-3.5 h-3.5 text-blue-400" />
-                  PDF Çıktısı Al
-                </button>
-                <button
-                  onClick={handleExportCsv}
-                  className="flex items-center gap-1.5 border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-                  title="PDKS Çizelgesini Excel / CSV Olarak İndir"
-                >
-                  <Download className="w-3.5 h-3.5 text-emerald-600" />
-                  Excel / CSV
-                </button>
-              </div>
+                  <button
+                    onClick={handleExportCsv}
+                    className="flex items-center gap-1.5 border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                    title="PDKS Çizelgesini Excel / CSV Olarak İndir"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-600" />
+                    Excel / CSV
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Durum KPI Hızlı Filtre Sayaçları (Haftalık Tatil & İzin Vurgulu) */}
@@ -3398,7 +3462,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       )}
                     </div>
                   </th>
-                  {isManagement && (
+                  {isHrOrAdmin && (
                     <th
                       onClick={() => handleSort('mesai')}
                       className="px-6 py-4 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
@@ -3438,7 +3502,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       )}
                     </div>
                   </th>
-                  {isManagement && <th className="px-6 py-4 text-right">İşlemler</th>}
+                  {isHrOrAdmin && <th className="px-6 py-4 text-right">İşlemler</th>}
                 </tr>
               </thead>
               <tbody>
@@ -3507,7 +3571,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         <span className="text-xs text-gray-400 font-medium">-</span>
                       )}
                     </td>
-                    {isManagement && (
+                    {isHrOrAdmin && (
                       <td className="px-6 py-4 text-center">
                         {(() => {
                           const now = new Date();
@@ -3574,7 +3638,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         {d.durum === 'Fiili Çalışma' || d.durum.includes('Fiili Çalışma') ? 'Zamanında' : d.durum}
                       </span>
                     </td>
-                    {isManagement && (
+                    {isHrOrAdmin && (
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => {
@@ -3596,7 +3660,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 ))}
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">Kayıt bulunamadı.</td>
+                    <td colSpan={isHrOrAdmin ? 7 : 5} className="px-6 py-8 text-center text-gray-500">Kayıt bulunamadı.</td>
                   </tr>
                 )}
               </tbody>
