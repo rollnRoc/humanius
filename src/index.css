@@ -18,66 +18,250 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f1f5f9; /* Slate-100: Executive contrast canvas */
+  background-color: #f8fafc; /* Crisp, luminous modern canvas */
   color: #0f172a;
+  letter-spacing: -0.011em;
 }
 
-/* ─── Card Distinction & High-Contrast Elevation ─────────────────────────────*/
+/* ─── Modern Card Surfaces (Soft, Layered, Elevated) ──────────────────────────*/
 
-/* Canvas background overrides */
-.bg-gray-50,
-main.bg-gray-50 {
-  background-color: #f1f5f9 !important;
+/* Soft background tone for canvas areas without harsh dark gray */
+.bg-gray-50 {
+  background-color: #f8fafc;
 }
 
-/* Crisp, high-contrast borders for cards across the system */
+/* Subtle, refined borders - replaces harsh gray outlines with high-precision modern lines */
+.border-gray-100 {
+  border-color: rgba(241, 245, 249, 0.9);
+}
+
 .border-gray-200,
-.border-slate-200,
-.border-gray-200\/90,
-.border-slate-200\/90,
-.border-slate-200\/70 {
-  border-color: #cbd5e1 !important; /* Slate-300: clearly defined card edges */
+.border-slate-200 {
+  border-color: rgba(226, 232, 240, 0.85);
 }
 
-/* Distinct card surfaces with multi-layer shadow and edge definition */
-div.bg-white[class*="rounded-"]:not(input):not(textarea):not(select):not(button),
+/* Modern Card Surfaces: Clean pure white, delicate edge, natural multi-stop shadow */
+div.bg-white[class*="rounded-"]:not(input):not(textarea):not(select):not(button):not(.swal2-popup):not([class*="w-5"]):not([class*="w-6"]):not([class*="w-7"]):not([class*="w-8"]):not([class*="w-9"]):not([class*="w-10"]):not([class*="w-12"]),
 section.bg-white[class*="rounded-"],
 .bg-white.rounded-xl,
 .bg-white.rounded-2xl,
 .bg-white.rounded-3xl {
-  border-color: #cbd5e1;
-  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.02);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 
+    0 1px 3px 0 rgba(15, 23, 42, 0.03),
+    0 4px 14px -2px rgba(15, 23, 42, 0.04),
+    0 0 0 1px rgba(15, 23, 42, 0.02);
+  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Subtle elevation on hover for cards */
+/* Interactive Card Surfaces: Delicate lift and glow on hover */
 div.bg-white[class*="rounded-"].transition-all:hover,
-div.bg-white[class*="rounded-"].transition-shadow:hover {
-  border-color: #94a3b8 !important;
-  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.09), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+div.bg-white[class*="rounded-"].transition-shadow:hover,
+div.bg-white[class*="rounded-"][class*="hover:shadow"]:hover {
+  border-color: rgba(203, 213, 225, 0.95);
+  box-shadow: 
+    0 8px 24px -4px rgba(15, 23, 42, 0.08),
+    0 2px 6px -1px rgba(15, 23, 42, 0.04),
+    0 0 0 1px rgba(15, 23, 42, 0.03);
 }
 
-/* Inputs and focusable fields preserve their active focus states */
+/* Sub-panels and inner accent boxes (soft, calm, clean) */
+.bg-slate-50,
+.bg-slate-50\/80,
+.bg-slate-50\/70 {
+  background-color: #f8fafc !important;
+  border-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+/* ─── Tab Paneler & Segmented Controls (tap pane kısımları) ──────────────────*/
+
+/* Segmented control track (outer container for tabs) */
+div[class*="bg-gray-100"][class*="rounded-"]:has(> button),
+div[class*="bg-slate-100"][class*="rounded-"]:has(> button),
+div[class*="bg-gray-50"][class*="p-1"][class*="rounded-"]:has(> button),
+div[class*="bg-slate-50"][class*="p-1"][class*="rounded-"]:has(> button) {
+  background: #f1f5f9 !important;
+  border: 1px solid rgba(203, 213, 225, 0.7) !important;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  padding: 3.5px !important;
+}
+
+/* Active Tab Pill Highlight */
+div[class*="bg-gray-100"] > button.bg-white,
+div[class*="bg-slate-100"] > button.bg-white,
+div[class*="bg-gray-50"] > button.bg-white,
+div[class*="bg-slate-50"] > button.bg-white,
+button.tab-active,
+button[role="tab"][aria-selected="true"] {
+  background-color: #ffffff !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(203, 213, 225, 0.8) !important;
+  box-shadow: 
+    0 2px 6px -1px rgba(15, 23, 42, 0.09), 
+    0 1px 3px -1px rgba(15, 23, 42, 0.05) !important;
+  border-radius: 9px !important;
+  transform: translateY(0) !important;
+}
+
+/* Inactive Tab Pill */
+div[class*="bg-gray-100"] > button:not(.bg-white):not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="bg-emerald-"]):not([class*="bg-purple-"]),
+div[class*="bg-slate-100"] > button:not(.bg-white):not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="bg-emerald-"]):not([class*="bg-purple-"]),
+div[class*="bg-gray-50"] > button:not(.bg-white):not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="bg-emerald-"]):not([class*="bg-purple-"]) {
+  color: #64748b;
+  font-weight: 600;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+div[class*="bg-gray-100"] > button:not(.bg-white):not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="bg-emerald-"]):hover,
+div[class*="bg-slate-100"] > button:not(.bg-white):not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="bg-emerald-"]):hover,
+div[class*="bg-gray-50"] > button:not(.bg-white):not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="bg-emerald-"]):hover {
+  color: #0f172a !important;
+  background-color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* Underline Navigation Tabs (border-b-2) */
+button[class*="border-b-2"] {
+  transition: all 0.15s ease;
+}
+
+button[class*="border-b-2"][class*="border-transparent"]:hover {
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* ─── Tıklanılabilir Alanlar & Butonlar (Tactile, Responsive Interaction) ─────*/
+
+button,
+[role="button"],
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Tactile micro-motion on buttons */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  transition: 
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button:not(:disabled):hover:not(.no-hover-lift):not([class*="p-0"]):not([class*="p-0.5"]):not([class*="p-1"]):not(.group-hover),
+[role="button"]:not([aria-disabled="true"]):hover:not(.no-hover-lift) {
+  transform: translateY(-1px);
+}
+
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: translateY(0.5px) scale(0.985);
+}
+
+/* Secondary / White Buttons: crisp modern definition with distinct tactile feel */
+button.bg-white:not(:disabled):not([class*="text-white"]):not([class*="hover:bg-blue"]):not([class*="hover:bg-indigo"]) {
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+}
+
+button.bg-white:not(:disabled):hover {
+  border-color: rgba(148, 163, 184, 0.95);
+  box-shadow: 0 3px 10px -1px rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+}
+
+/* Primary Action Buttons: Soft ambient glow & specular bevel */
+button[class*="bg-blue-600"]:not(:disabled),
+button[class*="bg-indigo-600"]:not(:disabled),
+button[class*="bg-purple-600"]:not(:disabled),
+button[class*="bg-emerald-600"]:not(:disabled),
+button[class*="from-blue-600"]:not(:disabled),
+button[class*="from-purple-600"]:not(:disabled) {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 2px 6px -1px rgba(37, 99, 235, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+button[class*="bg-blue-600"]:not(:disabled):hover,
+button[class*="from-blue-600"]:not(:disabled):hover {
+  box-shadow: 0 4px 14px -1px rgba(37, 99, 235, 0.4), 0 2px 4px -1px rgba(37, 99, 235, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+button[class*="bg-indigo-600"]:not(:disabled):hover,
+button[class*="from-indigo-600"]:not(:disabled):hover {
+  box-shadow: 0 4px 14px -1px rgba(79, 70, 229, 0.4), 0 2px 4px -1px rgba(79, 70, 229, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+button[class*="bg-purple-600"]:not(:disabled):hover,
+button[class*="from-purple-600"]:not(:disabled):hover {
+  box-shadow: 0 4px 14px -1px rgba(147, 51, 234, 0.4), 0 2px 4px -1px rgba(147, 51, 234, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+button[class*="bg-emerald-600"]:not(:disabled):hover {
+  box-shadow: 0 4px 14px -1px rgba(16, 185, 129, 0.4), 0 2px 4px -1px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+button[class*="bg-slate-900"]:not(:disabled),
+button[class*="bg-gray-900"]:not(:disabled),
+button[class*="bg-slate-800"]:not(:disabled) {
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+button[class*="bg-slate-900"]:not(:disabled):hover,
+button[class*="bg-gray-900"]:not(:disabled):hover,
+button[class*="bg-slate-800"]:not(:disabled):hover {
+  box-shadow: 0 4px 14px -1px rgba(15, 23, 42, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Badge & Pill Buttons */
+button[class*="rounded-full"]:not(:disabled) {
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button.bg-white[class*="rounded-full"]:not(:disabled) {
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+}
+
+button.bg-white[class*="rounded-full"]:not(:disabled):hover {
+  border-color: rgba(148, 163, 184, 0.95);
+  box-shadow: 0 2px 6px -1px rgba(15, 23, 42, 0.08);
+}
+
+/* ─── Modern Tables & Interactive Rows ───────────────────────────────────────*/
+
+tr[class*="hover:"]:hover,
+tbody tr:hover {
+  background-color: rgba(241, 245, 249, 0.5) !important;
+}
+
+/* ─── Form Inputs: Clean, refined focus ───────────────────────────────────────*/
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+textarea,
+select {
+  border-color: #cbd5e1;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
 input:focus,
 textarea:focus,
 select:focus {
   border-color: #3b82f6 !important;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
-}
-
-/* Crisp inner sub-panels and highlight containers */
-.bg-slate-50,
-.bg-slate-50\/80 {
-  background-color: #f8fafc !important;
-  border-color: #cbd5e1 !important;
+  outline: none !important;
 }
 
 /* Enhanced shadow utilities */
 .shadow-xs {
-  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.06) !important;
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04) !important;
 }
 
 .shadow-sm {
-  box-shadow: 0 2px 4px -1px rgba(15, 23, 42, 0.09), 0 1px 2px -1px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.03) !important;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.03) !important;
 }
 
 /* ─── Custom scrollbar (light theme) ────────────────────────────────────────*/

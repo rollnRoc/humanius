@@ -272,14 +272,14 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
 
   const getKategoriRengi = (color: string) => {
     const renkler = {
-      blue: 'bg-blue-50 border-blue-200 text-blue-700',
-      green: 'bg-green-50 border-green-200 text-green-700',
-      teal: 'bg-teal-50 border-teal-200 text-teal-700',
-      orange: 'bg-orange-50 border-orange-200 text-orange-700',
-      red: 'bg-red-50 border-red-200 text-red-700',
-      gray: 'bg-gray-50 border-gray-200 text-gray-700',
-      cyan: 'bg-cyan-50 border-cyan-200 text-cyan-700',
-      purple: 'bg-purple-50 border-purple-200 text-purple-700',
+      blue: 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-xs ring-1 ring-blue-500/20',
+      green: 'bg-emerald-50 border-emerald-300 text-emerald-700 font-bold shadow-xs ring-1 ring-emerald-500/20',
+      teal: 'bg-teal-50 border-teal-300 text-teal-700 font-bold shadow-xs ring-1 ring-teal-500/20',
+      orange: 'bg-amber-50 border-amber-300 text-amber-700 font-bold shadow-xs ring-1 ring-amber-500/20',
+      red: 'bg-rose-50 border-rose-300 text-rose-700 font-bold shadow-xs ring-1 ring-rose-500/20',
+      gray: 'bg-slate-100 border-slate-300 text-slate-800 font-bold shadow-xs ring-1 ring-slate-400/20',
+      cyan: 'bg-cyan-50 border-cyan-300 text-cyan-700 font-bold shadow-xs ring-1 ring-cyan-500/20',
+      purple: 'bg-purple-50 border-purple-300 text-purple-700 font-bold shadow-xs ring-1 ring-purple-500/20',
     };
     return renkler[color as keyof typeof renkler] || renkler.gray;
   };
@@ -740,10 +740,10 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                   <button
                     key={kategori.id}
                     onClick={() => setActiveTab(kategori.id as ParametreKategorisi)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-colors ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all cursor-pointer ${
                       isActive
                         ? getKategoriRengi(kategori.color)
-                        : 'text-gray-600 hover:bg-gray-50 border border-gray-200'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 bg-white shadow-xs'
                     }`}
                   >
                     <Icon className="w-4 h-4" />

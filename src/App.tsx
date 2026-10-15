@@ -1519,7 +1519,7 @@ const AppInner: React.FC = () => {
   // ── Auth guard ──────────────────────────────────────────────────────────────
   if (authLoading && !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
         <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
       </div>
     );
@@ -1549,7 +1549,7 @@ const AppInner: React.FC = () => {
 
     // ── Tüm diğer görünümler ─────────────────────────────────────────────────
     return (
-      <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-slate-100 relative">
+      <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-[#f8fafc] relative">
         <SmartHeader currentView={currentView} onNavigate={setCurrentView} />
         
         {!isEmployeeOnly && (
@@ -1899,7 +1899,7 @@ const AppInner: React.FC = () => {
   return (
     <GuideContextMenu onNavigate={(v) => setCurrentView(v as View)}>
     <ContextualHelp />
-    <div className="flex flex-col h-screen overflow-hidden bg-slate-100">
+    <div className="flex flex-col h-screen overflow-hidden bg-[#f8fafc]">
       <DemoBanner />
       <NotificationPermissionBanner />
       <div className="flex flex-1 overflow-hidden">
@@ -1929,7 +1929,7 @@ const AppInner: React.FC = () => {
       <AppSectionErrorBoundary
         resetKey={currentView}
         fallback={(err?: Error) => (
-          <main className="flex-1 overflow-y-auto p-6 bg-slate-100">
+          <main className="flex-1 overflow-y-auto p-6 bg-[#f8fafc]">
             <div className="bg-white border border-red-200 rounded-xl p-6">
               <h2 className="text-lg font-semibold text-red-700">Sayfa yüklenirken bir hata oluştu</h2>
               <p className="text-sm text-gray-600 mt-2">Lütfen başka bir menüye geçin veya tekrar deneyin.</p>
