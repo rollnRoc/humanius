@@ -14,6 +14,14 @@ const path = require('path');
 const PORT = process.env.WORKER_PORT || 3001;
 const STATE_FILE = process.env.STATE_FILE || path.join(__dirname, 'data', 'shift-sms-state.json');
 
+process.on('uncaughtException', (err) => {
+  console.error('[ShiftSmsWorker] CRITICAL Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[ShiftSmsWorker] CRITICAL Unhandled Rejection:', reason);
+});
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://gfbtjdedaoleqhrlebof.supabase.co';
 const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_wxlAHN7E63-NbwFiVhJBeA_F3PYc3w-';
 const AUTH_EMAIL = 'gonulunlu@humanius.net'; // Admin auth to query PDKS records
@@ -78,15 +86,39 @@ function saveState() {
 // ── Türkiye Saati ve Tarihi Yardımcısı ────────────────────────────────────
 function getTurkeyTime(customDate) {
   const now = customDate || new Date();
-  const trDateStr = now.toLocaleDateString('tr-TR', { timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit' });
-  const trTimeStr = now.toLocaleTimeString('tr-TR', { timeZone: 'Europe/Istanbul', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-  const [d, m, y] = trDateStr.split('.');
-  const todayStr = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-  const [h, min] = trTimeStr.split(':').map(Number);
-  const currentMinutes = h * 60 + min;
-  const dayOfWeek = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Istanbul' })).getDay();
-  const isSaturday = dayOfWeek === 6;
-  const isSunday = dayOfWeek === 0;
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Istanbul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(now);
+  const map = {};
+  for (const p of parts) map[p.type] = p.value;
+
+  const year = map.year || '2026';
+  const month = (map.month || '01').padStart(2, '0');
+  const day = (map.day || '01').padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+
+  const hour = parseInt(map.hour || '0', 10);
+  const min = parseInt(map.minute || '0', 10);
+  const sec = parseInt(map.second || '0', 10);
+  const trTimeStr = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  const currentMinutes = hour * 60 + min;
+
+  const dayFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Istanbul',
+    weekday: 'short'
+  });
+  const weekday = dayFormatter.format(now);
+  const isSaturday = weekday === 'Sat';
+  const isSunday = weekday === 'Sun';
+
   return { todayStr, trTimeStr, currentMinutes, isSaturday, isSunday };
 }
 
