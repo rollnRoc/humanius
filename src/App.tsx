@@ -34,6 +34,7 @@ import IzinOzetKartlari from './components/IzinOzetKartlari';
 import IzinYonetimi from './components/IzinYonetimi';
 import IzinliKisiler from './components/IzinliKisiler';
 import PdksDevam from './components/PdksDevam';
+import { VardiyaSmsYonetimi } from './components/VardiyaSmsYonetimi';
 import IsAkisi from './components/IsAkisi';
 import DemoBanner from './components/DemoBanner';
 import { NotificationPermissionBanner } from './components/NotificationPermissionBanner';
@@ -1846,6 +1847,12 @@ const AppInner: React.FC = () => {
             izinTalepleri={izinTalepleri}
             departments={departments}
             onNavigateToPdks={() => setCurrentView('pdks-devam')}
+          />
+        )}
+        {currentView === 'vardiya-sms' && (
+          <VardiyaSmsYonetimi
+            employees={employees}
+            companyId={profile?.company_id || selectedCompany || 'default'}
           />
         )}
         {currentView === 'is-akisi' && <IsAkisi companyId={profile?.company_id} />}

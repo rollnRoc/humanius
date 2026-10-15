@@ -94,6 +94,7 @@ const RAW_NAV_ITEMS = [
     id: 'is-akisi-menu' as View, label: 'Puantaj ve PDKS', icon: Clock, children: [
       { id: 'puantaj' as View, label: 'Aylık Puantaj Cetveli' },
       { id: 'pdks-devam' as View, label: 'Devam Kontrolü' },
+      { id: 'vardiya-sms' as View, label: 'Vardiya ve SMS Yönetimi' },
     ]
   },
   {

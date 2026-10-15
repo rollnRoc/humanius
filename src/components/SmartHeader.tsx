@@ -56,6 +56,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) =>
       'izin': 'İzin Talepleri',
       'izin-cakisma': 'İzin Çakışma',
       'pdks-devam': 'Devam Kontrolü',
+      'vardiya-sms': 'Vardiya ve SMS Yönetimi',
       'egitim-girisi': 'Eğitim Girişi',
       'raporlar': 'Raporlar',
       'is-akisi': 'İş Akışı',

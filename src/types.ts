@@ -31,6 +31,7 @@ export type View =
   | 'form-builder'
   | 'bordro-icmal'
   | 'pdks-devam'
+  | 'vardiya-sms'
   | 'is-akisi'
   | 'egitim-girisi'
   | 'izin-listesi'

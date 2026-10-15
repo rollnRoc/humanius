@@ -2938,53 +2938,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       ) : (
         /* Team Monitoring Tab (Only visible to Management) */
         <div className="space-y-4">
-          {/* Company Shift Config Banner (Sadece Süper Admin / Şirket Yöneticisi / İK) */}
-          {isHrOrAdmin && (
-            <div className="bg-gradient-to-r from-indigo-50/90 to-blue-50/90 border border-indigo-200 rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4 shadow-xs">
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-xs shrink-0">
-                  ⏰
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-bold text-indigo-950">Vardiya & Çalışma Saatleri</h4>
-                    <span className="bg-indigo-100 text-indigo-800 text-[11px] font-extrabold px-2 py-0.5 rounded-md">
-                      {allCompanyShifts.length} Tanımlı Vardiya
-                    </span>
-                  </div>
-                  <p className="text-xs text-indigo-700 mt-1 flex items-center gap-2 flex-wrap">
-                    <span>Varsayılan: <strong>{activeUserShift.name} ({activeUserShift.start_time} - {activeUserShift.end_time})</strong></span>
-                    <span>•</span>
-                    <span>Mola: <strong>{activeUserShift.break_minutes} dk</strong></span>
-                    <span>•</span>
-                    <span>Tolerans: <strong>{activeUserShift.tolerance_minutes} dk</strong></span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => setShowSmsModal(true)}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                  title="Vardiya SMS Bildirimleri (Verimor Entegrasyonu)"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  SMS Bildirimleri
-                  {todaySmsCount > 0 && (
-                    <span className="bg-emerald-800 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                      {todaySmsCount}
-                    </span>
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowVardiyaModal(true)}
-                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                >
-                  <Sliders className="w-4 h-4" />
-                  Vardiyalar & Personel Atamaları
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Birim Amiri İçin Kişisel Mesai Hızlı Başlat / Bitir Kartı */}
           {isManager && (
@@ -3124,16 +3077,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               {/* Hızlı Kısayollar ve Çıktı Butonları (Sadece Süper Admin / Şirket Yöneticisi / İK) */}
               {isHrOrAdmin && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  {onNavigateToPuantaj && (
-                    <button
-                      onClick={onNavigateToPuantaj}
-                      className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                      title="Aylık Personel Puantaj ve Çalışma Cetveline Git"
-                    >
-                      <CalendarCheck className="w-3.5 h-3.5 text-blue-200" />
-                      Aylık Puantaj Cetveli ➡️
-                    </button>
-                  )}
                   <button
                     onClick={handlePrintPdf}
                     className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
