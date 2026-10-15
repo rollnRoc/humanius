@@ -33,7 +33,6 @@ export const shiftSmsScheduler = {
     companyId?: string;
     targetDate?: Date;
   }): Promise<ShiftSmsCheckResult> {
-    const config = smsService.getConfig(params.companyId);
     const now = params.targetDate || new Date();
     const todayStr = getTodayYYYYMMDD(now);
     const isSaturday = now.getDay() === 6;
@@ -48,46 +47,70 @@ export const shiftSmsScheduler = {
       errors: [],
     };
 
-    if (!config.enabled) {
+    const activeEmployees = params.employees.filter(
+      (e) => e.status !== 'inactive' && e.status !== 'onLeave'
+    );
+    result.checkedEmployeesCount = activeEmployees.length;
+
+    // Herhangi bir firma için SMS açık mı?
+    const hasAnySmsPermission =
+      smsService.isCompanySmsEnabled(params.companyId) ||
+      activeEmployees.some((e) => smsService.isCompanySmsEnabled(e.company_id || e.company));
+
+    if (!hasAnySmsPermission) {
       return result;
     }
 
     try {
-      const activeEmployees = params.employees.filter(
-        (e) => e.status !== 'inactive' && e.status !== 'onLeave'
-      );
-      result.checkedEmployeesCount = activeEmployees.length;
+      // 1. İlgili tüm şirketlerin vardiyalarını, atamalarını ve bugünkü PDKS kayıtlarını yükle
+      const companyIds = Array.from(
+        new Set(activeEmployees.map((e) => e.company_id || params.companyId).filter(Boolean))
+      ) as string[];
+      const targetCompanies = companyIds.length > 0 ? companyIds : [params.companyId || 'default'];
 
-      // 1. Şirket vardiyalarını ve çalışan atamalarını yükle
-      const [shifts, assignments, todayVardiyalar] = await Promise.all([
-        shiftService.getShifts(params.companyId),
-        shiftService.getAssignments(params.companyId),
-        pdksService.getVardiyalar(params.companyId),
-      ]);
-
-      const defaultShift = shifts.find((s) => s.is_default) || shifts[0];
+      const shiftsByComp = new Map<string, CompanyShift[]>();
+      const assignsByComp = new Map<string, Record<string, string>>();
       const todayVardiyaMap = new Map<string, any>();
-      (todayVardiyalar || []).forEach((v) => {
-        const vDate = String(v.tarih).split('T')[0];
-        if (vDate === todayStr) {
-          todayVardiyaMap.set(v.employee_id, v);
-        }
-      });
+
+      await Promise.all(
+        targetCompanies.map(async (cid) => {
+          try {
+            const [cShifts, cAssigns, cVardiyalar] = await Promise.all([
+              shiftService.getShifts(cid),
+              shiftService.getAssignments(cid),
+              pdksService.getVardiyalar(cid),
+            ]);
+            shiftsByComp.set(cid, cShifts || []);
+            assignsByComp.set(cid, cAssigns || {});
+            (cVardiyalar || []).forEach((v) => {
+              const vDate = String(v.tarih).split('T')[0];
+              if (vDate === todayStr) {
+                todayVardiyaMap.set(v.employee_id, v);
+              }
+            });
+          } catch (e) {
+            console.warn(`Vardiya SMS verileri yüklenirken hata (${cid}):`, e);
+          }
+        })
+      );
 
       // 2. Her çalışan için vardiya ve PDKS saatlerini analiz et
       for (const emp of activeEmployees) {
         const empCompanyId = emp.company_id || params.companyId;
 
         // Firma bazlı SMS kontrolü: Bu firma için SMS kapalıysa kesinlikle SMS gönderme
-        if (!smsService.isCompanySmsEnabled(empCompanyId)) {
+        if (!smsService.isCompanySmsEnabled(empCompanyId) && !smsService.isCompanySmsEnabled(emp.company)) {
           continue;
         }
 
         const empConfig = smsService.getConfig(empCompanyId);
+        const compShifts = shiftsByComp.get(empCompanyId) || shiftsByComp.get('default') || [];
+        const compAssigns = assignsByComp.get(empCompanyId) || assignsByComp.get('default') || {};
+        const defaultShift = compShifts.find((s) => s.is_default) || compShifts[0];
 
         // Çalışanın atanmış vardiyasını bul
-        const assignedShiftId = assignments[emp.id];
-        let shift: CompanyShift = shifts.find((s) => s.id === assignedShiftId) || defaultShift;
+        const assignedShiftId = compAssigns[emp.id];
+        let shift: CompanyShift = compShifts.find((s) => s.id === assignedShiftId) || defaultShift;
 
         if (!shift) continue;
 
@@ -131,11 +154,16 @@ export const shiftSmsScheduler = {
           end_time: endTimeStr,
         };
 
+        // Gece vardiyası toleransı (örn: 22:00 - 06:00)
+        const isNightShift = endMinutes < startMinutes;
+        const isWithinShiftHours = isNightShift
+          ? currentMinutes >= startTriggerMinutes || currentMinutes < endMinutes
+          : currentMinutes >= startTriggerMinutes && currentMinutes < endMinutes;
+
         // ── DURUM 1: VARDIYA BAŞLATMA HATIRLATMASI ───────────────────────────
         // Örn: 08:30 vardiyası için 08:45 ve sonrasında, vardiya henüz bitmeden önce
         if (
-          currentMinutes >= startTriggerMinutes &&
-          currentMinutes < endMinutes &&
+          isWithinShiftHours &&
           !hasGiris
         ) {
           const alreadySent = smsService.hasSentToday(emp.id, 'start_reminder', todayStr);
