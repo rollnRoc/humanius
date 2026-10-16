@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle, AlertCircle, MapPin, UserCheck, Users, Shield, Crown, KeyRound } from 'lucide-react';
+import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle, AlertCircle, MapPin, UserCheck, Users, Shield, Crown, KeyRound, Building2, Building } from 'lucide-react';
 import { Employee, Company, Department } from '../types';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useAuth } from '../contexts/AuthContext';
 import { canDeleteUsers } from '../auth/roles';
 import { supabase } from '../lib/supabase';
 import { userService } from '../services/userService';
+import { companyService } from '../services/companyService';
 import iller, { type IlIlceItem } from '../lib/illce';
 import { getEmployeeLocationMeta, parseAddressCity, parseIsYeriSgkFromAddress, getEmployeeIsYeriSgkSicil } from '../utils/employeeLocationMeta';
 import { normalizeDateForInput } from '../utils/dateUtils';
@@ -19,6 +20,7 @@ interface EmployeeDrawerProps {
   onDelete: (id: string) => void;
   companies: Company[];
   departments: Department[];
+  isSuperAdmin?: boolean;
 }
 
 const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
@@ -29,11 +31,53 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   onSave,
   onDelete,
   companies,
-  departments
+  departments,
+  isSuperAdmin: isSuperAdminProp
 }) => {
   useScrollLock(isOpen);
-  const { appRole } = useAuth();
+  const { appRole, isSuperAdmin: authIsSuper, profile } = useAuth();
+  const isSuperUser = Boolean(isSuperAdminProp || authIsSuper || appRole === 'superadmin' || profile?.role === 'superadmin');
   const showCompanySelector = true;
+
+  const [allCompanies, setAllCompanies] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    companyService.getCompanies().then((comps) => {
+      if (isMounted && comps && comps.length > 0) {
+        setAllCompanies(comps.map(c => ({ id: c.id, name: c.name })));
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, [isOpen]);
+
+  const companyOptions = useMemo(() => {
+    const list: { id: string; name: string }[] = [...allCompanies];
+    if (companies && Array.isArray(companies)) {
+      companies.forEach((comp: any) => {
+        const cName = typeof comp === 'string' ? comp : comp?.name;
+        const cId = typeof comp === 'string' ? '' : comp?.id;
+        if (cName && !list.some(x => x.name.toLowerCase() === cName.toLowerCase())) {
+          list.push({ id: cId || cName, name: cName });
+        }
+      });
+    }
+    return list;
+  }, [allCompanies, companies]);
+
+  const handleCompanySelect = (compNameOrId: string) => {
+    const matched = companyOptions.find(c => c.name === compNameOrId || c.id === compNameOrId);
+    const chosenName = matched ? matched.name : compNameOrId;
+    const chosenId = matched ? matched.id : '';
+    setFormData(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        company: chosenName,
+        company_id: chosenId || prev.company_id,
+      };
+    });
+  };
 
   const [formData, setFormData] = useState<Employee | null>(null);
   const [activeTab, setActiveTab] = useState('genel');
@@ -284,10 +328,13 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         }
       } else {
         const today = new Date().toISOString().split('T')[0];
-        const initialComp = (companies && companies.length > 0) ? companies[0] : '';
+        const defaultCompName = employee?.company || (companyOptions.length > 0 ? companyOptions[0].name : ((companies && companies.length > 0) ? (typeof companies[0] === 'string' ? companies[0] : (companies[0] as any).name) : ''));
+        const matchedComp = companyOptions.find(c => c.name === defaultCompName);
+        const defaultCompId = employee?.company_id || matchedComp?.id || (profile?.company_id && !isSuperUser ? profile.company_id : '');
         setFormData({
           name: '',
-          company: initialComp,
+          company: defaultCompName,
+          company_id: defaultCompId,
           department: '',
           position: '',
           level: 'Junior',
@@ -338,8 +385,14 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     const finalBd = normalizeDateForInput((formData as any).birth_date || (formData as any).birthDate) || null;
     const isYeriSgk = (formData.is_yeri_sgk_sicil_no || (formData as any).isYeriSgkSicilNo || '').trim();
 
+    const matchedComp = companyOptions.find(c => c.name === formData.company || c.id === formData.company_id);
+    const resolvedCompName = matchedComp?.name || formData.company || 'Şirket';
+    const resolvedCompId = matchedComp?.id || formData.company_id || '';
+
     onSave({
       ...formData,
+      company: resolvedCompName,
+      company_id: resolvedCompId,
       email: cleanEmail,
       joinDate: finalJd,
       join_date: finalJd,
@@ -464,6 +517,43 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           <div className="flex-1 p-6 overflow-y-auto">
             {activeTab === 'genel' && (
               <div className="space-y-6">
+                {/* Süper Yönetici Şirket Seçim Kartı */}
+                {isSuperUser && (
+                  <div className="p-4 bg-gradient-to-r from-blue-50/95 via-indigo-50/85 to-purple-50/70 border-2 border-blue-200/90 rounded-2xl shadow-xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                          <Building2 className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <label htmlFor="employee-company-superadmin" className="text-xs font-bold text-blue-950 block">
+                            Bağlı Olduğu Şirket *
+                          </label>
+                          <span className="text-[11px] text-blue-700 font-medium">
+                            Süper Yönetici: Personelin ait olduğu / atanacağı şirketi seçin
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wider">
+                        Süper Yönetici
+                      </span>
+                    </div>
+                    <select
+                      id="employee-company-superadmin"
+                      value={formData.company || ''}
+                      onChange={(e) => handleCompanySelect(e.target.value)}
+                      className="w-full bg-white border-2 border-blue-400 text-gray-900 font-bold rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 transition-all text-sm cursor-pointer shadow-xs"
+                    >
+                      <option value="">-- Lütfen Şirket Seçin --</option>
+                      {companyOptions.map((c) => (
+                        <option key={c.id || c.name} value={c.name}>
+                          🏢 {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="employee-name" className="block text-sm font-medium text-gray-700 mb-2">Ad Soyad *</label>
@@ -742,25 +832,43 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Şirket Seçimi (Gizli - Sistem Bütünlüğü Korunur) */}
-                  {showCompanySelector && (
-                    <div className="hidden" aria-hidden="true">
-                      <label htmlFor="employee-company" className="block text-sm font-medium text-gray-700 mb-2">Şirket</label>
+                  {/* Şirket Seçimi */}
+                  <div>
+                    <label htmlFor="employee-company" className="block text-sm font-medium text-gray-700 mb-2 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 font-bold">
+                        <Building2 className="w-4 h-4 text-blue-600" />
+                        Şirket {isSuperUser ? '*' : ''}
+                      </span>
+                      {isSuperUser && (
+                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
+                          Süper Yönetici Seçimi
+                        </span>
+                      )}
+                    </label>
+                    {isSuperUser ? (
                       <select
                         id="employee-company"
                         value={formData.company || ''}
-                        onChange={(e) => handleInputChange('company', e.target.value)}
-                        className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        onChange={(e) => handleCompanySelect(e.target.value)}
+                        className="w-full bg-white border-2 border-blue-400 text-gray-900 font-bold rounded-xl px-3.5 py-2.5 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-sm cursor-pointer shadow-xs"
                       >
                         <option value="">-- Şirket Seçin --</option>
-                        {companies.map(company => (
-                          <option key={company} value={company}>
-                            {company}
+                        {companyOptions.map((c) => (
+                          <option key={c.id || c.name} value={c.name}>
+                            🏢 {c.name}
                           </option>
                         ))}
                       </select>
-                    </div>
-                  )}
+                    ) : (
+                      <input
+                        type="text"
+                        readOnly
+                        disabled
+                        value={formData.company || 'Şirket'}
+                        className="w-full bg-gray-100 border border-gray-200 text-gray-600 rounded-xl px-3 py-2.5 text-sm cursor-not-allowed select-none font-medium"
+                      />
+                    )}
+                  </div>
 
                   <div>
                     <label htmlFor="employee-department" className="block text-sm font-medium text-gray-700 mb-2">Departman</label>

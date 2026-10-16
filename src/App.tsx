@@ -869,12 +869,15 @@ const AppInner: React.FC = () => {
   };
 
   const handleNewEmployee = () => {
-    const defaultCompanyName = (companies && companies.length > 0) ? (typeof companies[0] === 'string' ? companies[0] : (companies[0] as any).name) : '';
+    const isSuper = effectiveAppRole === 'superadmin' || isSuperAdmin;
+    const defaultCompanyName = (selectedCompany && selectedCompany !== 'all')
+      ? selectedCompany
+      : ((companies && companies.length > 0) ? (typeof companies[0] === 'string' ? companies[0] : (companies[0] as any).name) : '');
     setSelectedEmployee({
       id: '',
       name: '',
       company: defaultCompanyName,
-      company_id: profile?.company_id || '',
+      company_id: (profile?.company_id && !isSuper) ? profile.company_id : '',
       department: '',
       position: '',
       level: '',
@@ -2075,6 +2078,7 @@ const AppInner: React.FC = () => {
         onDelete={handleDeleteEmployee}
         companies={companies}
         departments={departments}
+        isSuperAdmin={effectiveAppRole === 'superadmin' || isSuperAdmin}
       />
 
       <ExcelImportModal
