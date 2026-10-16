@@ -265,6 +265,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (isEmp && item.id === 'personel') {
         itemLabel = 'Personel Bilgilerim';
       }
+      if (isEmp && item.id === 'sirket-yonetimi') {
+        itemLabel = 'Zimmet Yönetimi';
+      }
       if (item.children) {
         const filteredChildren = item.children.filter(child => {
           if (child.id === 'kullanicilar' && !isSuper) {
@@ -273,10 +276,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           return canAccessView(effectiveRole, child.id);
         }).map(child => {
           if (isEmp && child.id === 'personel') {
-            return { ...child, label: 'Kişisel Bilgilerim' };
+            return { ...child, label: 'Personel Bilgilerim' };
           }
           if (isEmp && child.id === 'ozluk-dosyasi') {
-            return { ...child, label: 'Özlük Dosyam' };
+            return { ...child, label: 'Özlük Dosyam ve Evraklar' };
+          }
+          if (isEmp && child.id === 'zimmet') {
+            return { ...child, label: 'Zimmetlerim' };
           }
           if (isEmp && child.id === 'bordro') {
             return { ...child, label: 'Bordrom' };

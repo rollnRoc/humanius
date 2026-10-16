@@ -77,7 +77,7 @@ const BordroList: React.FC<BordroListProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-gray-200">
         <div className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-blue-600" />
-          <h3 className="font-bold text-gray-800">Bordro Kayıtları</h3>
+          <h3 className="font-bold text-gray-800">{isEmployeeView ? 'Bordrolarım' : 'Bordro Kayıtları'}</h3>
           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
             {filtered.length} kayıt
           </span>
@@ -131,7 +131,9 @@ const BordroList: React.FC<BordroListProps> = ({
       {filtered.length === 0 ? (
         <div className="py-16 text-center">
           <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">Bu dönem için henüz bordro kaydı bulunmuyor.</p>
+          <p className="text-gray-500 text-sm">
+            {isEmployeeView ? 'Henüz adınıza düzenlenmiş bir bordro kaydı bulunmuyor.' : 'Bu dönem için henüz bordro kaydı bulunmuyor.'}
+          </p>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -308,7 +310,7 @@ const BordroList: React.FC<BordroListProps> = ({
                 <td className="px-4 py-3 text-right text-red-600">
                   {fmt(filtered.reduce((s, b) => s + (b.toplam_kesinti ?? 0), 0))} ₺
                 </td>
-                {!isEmployeeView && <td />}
+                <td />
               </tr>
             </tfoot>
           </table>

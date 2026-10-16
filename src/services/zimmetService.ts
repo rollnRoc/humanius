@@ -32,7 +32,7 @@ export interface Zimmet {
 export type ZimmetInsert = Omit<Zimmet, 'id' | 'created_at' | 'updated_at'>;
 
 export const zimmetService = {
-  async getAll(): Promise<Zimmet[]> {
+  async getAll(employeeId?: string): Promise<Zimmet[]> {
     if (demoService.isDemoActive()) {
       const records = localStorage.getItem('humanius_demo_zimmetler');
       if (!records) {
@@ -73,14 +73,21 @@ export const zimmetService = {
           }
         ];
         localStorage.setItem('humanius_demo_zimmetler', JSON.stringify(initial));
-        return initial;
+        return employeeId ? initial.filter(z => z.atanan_employee_id === employeeId) : initial;
       }
-      return JSON.parse(records);
+      const parsed: Zimmet[] = JSON.parse(records);
+      return employeeId ? parsed.filter(z => z.atanan_employee_id === employeeId) : parsed;
     }
-    const { data, error } = await supabase
+    let query = supabase
       .from('zimmetler')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (employeeId) {
+      query = query.eq('atanan_employee_id', employeeId);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     return data as Zimmet[];

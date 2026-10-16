@@ -122,8 +122,15 @@ interface ZimmetYonetimiProps {
 }
 
 const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
-  const { profile, appRole, isAdmin, isHr } = useAuth();
+  const { profile, appRole, user } = useAuth();
   const isAdminOrHR = appRole === 'superadmin' || appRole === 'admin' || appRole === 'hr';
+
+  const currentEmployee = employees.find(e => 
+    (profile?.email && e.email?.toLowerCase().trim() === profile.email.toLowerCase().trim()) ||
+    (user?.email && e.email?.toLowerCase().trim() === user.email.toLowerCase().trim()) ||
+    e.id === profile?.id
+  ) || (employees.length === 1 ? employees[0] : null);
+  const currentEmployeeId = currentEmployee?.id;
 
   const [zimmetler, setZimmetler] = useState<Zimmet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,8 +175,16 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const data = await zimmetService.getAll();
-      setZimmetler(data);
+      const data = await zimmetService.getAll(isAdminOrHR ? undefined : (currentEmployeeId || undefined));
+      if (!isAdminOrHR) {
+        // Normal personel yalnızca kendi üstüne kayıtlı zimmetleri görebilir
+        const userZimmetler = (data || []).filter(z => 
+          currentEmployeeId && z.atanan_employee_id === currentEmployeeId
+        );
+        setZimmetler(userZimmetler);
+      } else {
+        setZimmetler(data || []);
+      }
     } catch (error) {
       console.error("Zimmetler yüklenirken hata:", error);
     } finally {
@@ -179,9 +194,12 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentEmployeeId, isAdminOrHR]);
 
   const filtrelenmis = zimmetler.filter((z) => {
+    if (!isAdminOrHR && currentEmployeeId && z.atanan_employee_id !== currentEmployeeId) {
+      return false;
+    }
     const eslesti =
       z.ad.toLowerCase().includes(aramaMetni.toLowerCase()) ||
       z.seri_no.toLowerCase().includes(aramaMetni.toLowerCase()) ||
@@ -809,7 +827,7 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
             title="Personele atanmış zimmetlerin detaylı teslimat listesini yazdır / PDF olarak kaydet"
           >
             <Printer className="w-4 h-4 text-indigo-600" />
-            Atanan Zimmetler Çıktısı
+            {isAdminOrHR ? 'Atanan Zimmetler Çıktısı' : 'Zimmetlerim Çıktısı'}
           </button>
           {isAdminOrHR && (
             <button

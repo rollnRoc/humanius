@@ -73,14 +73,15 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) =>
 
   if (isEmployeeOnly) {
     const employeeTitleMap: Record<string, string> = {
+      'personel': 'Personel Bilgilerim',
       'bordro': 'Bordrolarım',
       'izin': 'İzin Taleplerim',
       'uyari': 'Duyurular & Uyarılar Takvimi',
-      'ozluk-dosyasi': 'Özlük Dosyam',
+      'ozluk-dosyasi': 'Özlük Dosyam ve Evraklarım',
       'pdks-devam': 'Devam Kontrolü (PDKS)',
       'performans': 'Performans Değerlendirmelerim',
       'egitim': 'Eğitim ve Gelişim',
-      'zimmet': 'Zimmetli Envanterlerim',
+      'zimmet': 'Zimmetlerim',
       'okr': 'OKR Hedeflerim',
       'yetkinlik': 'Gap Analizi',
       'yan-haklar': 'Esnek Yan Haklarım',

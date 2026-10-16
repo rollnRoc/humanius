@@ -687,6 +687,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
 }) => {
   const { profile, appRole } = useAuth();
   const effectiveRole = profile?.role || appRole || 'employee';
+  const isEmployeeRole = ['employee', 'user'].includes(effectiveRole) || ['employee', 'user'].includes(appRole);
   const DEMO_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
   const effectiveCompanyId = profile?.company_id ?? DEMO_COMPANY_ID;
   const storageEnabled = import.meta.env.VITE_SUPABASE_STORAGE_ENABLED !== 'false';
@@ -738,22 +739,23 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
 
   const [showBordroOnay, setShowBordroOnay] = useState<BordroItem | null>(null);
 
-  const selectedEmp = companyEmployees.find((e) => e.id === selectedEmpId) ?? null;
+  const effectiveSelectedEmpId = selectedEmpId || companyEmployees[0]?.id || null;
+  const selectedEmp = companyEmployees.find((e) => e.id === effectiveSelectedEmpId) ?? (companyEmployees[0] ?? null);
 
   const currentEmployeeMatch = React.useMemo(() => {
     return employees.find(e => e.email?.toLowerCase() === profile?.email?.toLowerCase());
   }, [employees, profile]);
 
-  const isSelf = selectedEmpId === currentEmployeeMatch?.id;
+  const isSelf = effectiveSelectedEmpId === currentEmployeeMatch?.id || ['employee', 'user'].includes(appRole);
 
   const loadGorevTanimlari = () => {
-    if (!selectedEmpId) { setGorevTanimlari([]); return; }
+    if (!effectiveSelectedEmpId) { setGorevTanimlari([]); return; }
     setGorevTanimiLoading(true);
     gorevTanimiService
       .getGorevTanimlari(selectedEmp?.company_id || effectiveCompanyId || undefined)
       .then((data) => {
         const filtrelenmis = (data ?? []).filter(
-          (g: GorevTanimi) => g.employee_id === selectedEmpId && 
+          (g: GorevTanimi) => g.employee_id === effectiveSelectedEmpId && 
             (g.onay_durumu === 'onaylandi' || g.onay_durumu === 'beklemede' || !g.onay_durumu)
         );
         setGorevTanimlari(filtrelenmis);
@@ -765,18 +767,18 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   // Görev tanımlarını yükle
   useEffect(() => {
     loadGorevTanimlari();
-  }, [selectedEmpId, selectedEmp?.company_id, effectiveCompanyId]);
+  }, [effectiveSelectedEmpId, selectedEmp?.company_id, effectiveCompanyId]);
 
   // PDKS Kayıtları
   const [pdksKayitlari, setPdksKayitlari] = useState<VardiyaKaydi[]>([]);
   const [pdksLoading, setPdksLoading] = useState(false);
 
   useEffect(() => {
-    if (!selectedEmpId) { setPdksKayitlari([]); return; }
+    if (!effectiveSelectedEmpId) { setPdksKayitlari([]); return; }
     setPdksLoading(true);
     pdksService.getVardiyalar()
       .then((all) => {
-        const userPdks = (all || []).filter(v => v.employee_id === selectedEmpId);
+        const userPdks = (all || []).filter(v => v.employee_id === effectiveSelectedEmpId);
         if (userPdks.length === 0) {
           const today = new Date();
           const demoPdks: VardiyaKaydi[] = [];
@@ -787,9 +789,9 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
             const isWeekend = d.getDay() === 0 || d.getDay() === 6;
             if (isWeekend) continue;
             demoPdks.push({
-              id: `v-demo-${selectedEmpId}-${i}`,
+              id: `v-demo-${effectiveSelectedEmpId}-${i}`,
               company_id: effectiveCompanyId,
-              employee_id: selectedEmpId,
+              employee_id: effectiveSelectedEmpId,
               tarih: dateStr,
               vardiya_tipi: 'sabah',
               giris_saati: i % 3 === 0 ? '09:15' : '08:50',
@@ -807,33 +809,33 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
       })
       .catch(() => setPdksKayitlari([]))
       .finally(() => setPdksLoading(false));
-  }, [selectedEmpId, effectiveCompanyId]);
+  }, [effectiveSelectedEmpId, effectiveCompanyId]);
 
 
 
   // Belge yükle
   useEffect(() => {
-    if (!selectedEmpId) { setDosyalar([]); return; }
+    if (!effectiveSelectedEmpId) { setDosyalar([]); return; }
     setDosyaLoading(true);
     setDosyaError(null);
     ozlukDosyasiService
-      .getDosyalar(selectedEmpId)
+      .getDosyalar(effectiveSelectedEmpId)
       .then((items) => {
         setDosyalar(items);
         setDosyaError(null);
       })
       .catch((err) => setDosyaError(err?.message ?? 'Belgeler yüklenemedi'))
       .finally(() => setDosyaLoading(false));
-  }, [selectedEmpId]);
+  }, [effectiveSelectedEmpId]);
 
 
 
   const reloadDosyalar = async () => {
-    if (!selectedEmpId) return;
+    if (!effectiveSelectedEmpId) return;
     setDosyaLoading(true);
     setDosyaError(null);
     try {
-      setDosyalar(await ozlukDosyasiService.getDosyalar(selectedEmpId));
+      setDosyalar(await ozlukDosyasiService.getDosyalar(effectiveSelectedEmpId));
       setDosyaError(null);
     } catch (err: any) {
       setDosyaError(err?.message ?? 'Belgeler yüklenemedi');
@@ -1094,42 +1096,47 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Baxlık */}
       {/* Başlık */}
       <div className="flex items-center gap-3">
         <div className="p-2 bg-blue-100 rounded-xl">
           <FolderOpen className="w-6 h-6 text-blue-600" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Çalışan Özlük Dosyası</h1>
-          <p className="text-sm text-gray-500">Personel belgeleri, izin geçmişi ve bordro özeti</p>
+          <h1 className="text-xl font-bold text-gray-900">
+            {isSelf || ['employee', 'user'].includes(appRole) ? 'Personel Bilgilerim ve Özlük Dosyası' : 'Çalışan Özlük Dosyası'}
+          </h1>
+          <p className="text-sm text-gray-500">
+            {isSelf || ['employee', 'user'].includes(appRole) ? 'Kişisel bilgileriniz, belgeleriniz, izin ve bordro dökümleriniz' : 'Personel belgeleri, izin geçmişi ve bordro özeti'}
+          </p>
         </div>
       </div>
 
       {/* Personel seçimi */}
       <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-wrap items-center gap-4">
-        <div className="flex-1 min-w-[260px]">
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Personel Seçin</label>
-          <div className="relative">
-            <select
-              value={selectedEmpId || ''}
-              onChange={(e) => {
-                if (onSelectEmployee) onSelectEmployee(e.target.value);
-                setActiveTab('genel');
-              }}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 pr-9 text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">  Personel seçin  </option>
-              {companyEmployees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name}
-                  {emp.department ? `   ${emp.department}` : ''}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        {!isEmployeeRole && companyEmployees.length > 1 && (
+          <div className="flex-1 min-w-[260px]">
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Personel Seçin</label>
+            <div className="relative">
+              <select
+                value={effectiveSelectedEmpId || ''}
+                onChange={(e) => {
+                  if (onSelectEmployee) onSelectEmployee(e.target.value);
+                  setActiveTab('genel');
+                }}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 pr-9 text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">  Personel seçin  </option>
+                {companyEmployees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name}
+                    {emp.department ? `   ${emp.department}` : ''}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            </div>
           </div>
-        </div>
+        )}
         {selectedEmp && (
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3 bg-blue-50 rounded-xl px-4 py-2">
@@ -1184,7 +1191,7 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
         )}
       </div>
 
-      {!selectedEmpId && (
+      {!effectiveSelectedEmpId && !isEmployeeRole && (
         <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-8 text-center">
           <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">Özlük dosyasını görüntülemek için personel seçin</p>

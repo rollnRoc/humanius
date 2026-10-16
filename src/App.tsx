@@ -713,10 +713,31 @@ const AppInner: React.FC = () => {
             return bRole !== 'superadmin' && !bName.includes('süper admin') && !bName.includes('bhv test') && !bName.includes('muhammed gür');
           });
         }
-        if (isEmployeeRole && currentUserEmpId) {
-          bordroData = bordroData.filter(b => b.employee_id === currentUserEmpId && b.approval_status !== 'taslak' && b.approval_status != null);
-        } else if (isEmployeeRole && !currentUserEmpId) {
-          bordroData = [];
+        if (isEmployeeRole) {
+          if (currentUserEmpId || currentUserEmp) {
+            const userTc = currentUserEmp?.tc_no ? String(currentUserEmp.tc_no).trim() : null;
+            const userSicil = currentUserEmp?.sicil_no ? String(currentUserEmp.sicil_no).trim() : null;
+            const userName = (currentUserEmp?.name || profile?.full_name || '').toLocaleLowerCase('tr-TR').trim();
+
+            bordroData = bordroData.filter(b => {
+              const bEmpId = b.employee_id;
+              const bTc = b.tc_no ? String(b.tc_no).trim() : null;
+              const bSicil = b.sicil_no ? String(b.sicil_no).trim() : null;
+              const bEmpName = String((b as any).employeeName || (b as any).employees?.name || '').toLocaleLowerCase('tr-TR').trim();
+
+              const matchesId = currentUserEmpId && bEmpId === currentUserEmpId;
+              const matchesTc = Boolean(userTc && bTc && bTc === userTc);
+              const matchesSicil = Boolean(userSicil && bSicil && bSicil === userSicil);
+              const matchesName = Boolean(userName && bEmpName && userName === bEmpName);
+
+              const isOwnBordro = Boolean(matchesId || matchesTc || matchesSicil || matchesName);
+              const isNotDraft = (b as any).approval_status !== 'taslak' && (b as any).durum !== 'taslak';
+
+              return isOwnBordro && isNotDraft;
+            });
+          } else {
+            bordroData = [];
+          }
         } else if (isManagerRole && managerDepartment) {
           bordroData = bordroData.filter(b => {
             const bEmp = mapped.find(e => e.id === b.employee_id);
@@ -1810,40 +1831,58 @@ const AppInner: React.FC = () => {
 
           {/* Personel listesi */}
         {currentView === 'personel' && (
-          <>
-            <Toolbar
-              selectedDepartment={selectedDepartment}
-              onDepartmentChange={setSelectedDepartment}
-              selectedCompany={selectedCompany}
-              onCompanyChange={setSelectedCompany}
-              onNewEmployee={handleNewEmployee}
-              onExportCSV={() => setShowEmployeeExportModal(true)}
-              onImportExcel={() => setShowExcelImportModal(true)}
-              companies={companies}
-              departments={departments}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              totalResultCount={filteredEmployees.length}
-              sortOrder={employeeSortOrder}
-              onToggleSort={() => setEmployeeSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-            />
-            <StatsCards stats={dynamicStats} />
-            <EmployeeTable
-              employees={filteredEmployees}
-              totalCount={employees.length}
-              onResetFilters={() => {
-                setSelectedCompany('all');
-                setSelectedDepartment('all');
-                setSearchTerm('');
+          isEmployeeOnly ? (
+            <OzlukDosyasi
+              employees={employees}
+              selectedEmpId={selectedEmployee?.id || employees[0]?.id}
+              isAccessGranted={true}
+              izinTalepleri={izinTalepleri}
+              izinHaklari={izinHaklari}
+              bordrolar={bordrolar}
+              onSelectEmployee={(empId) => {
+                const emp = employees.find(e => e.id === empId);
+                if (emp) {
+                  setSelectedEmployee(emp);
+                  setIsNewEmployee(false);
+                  setGlobalAccessGranted(true);
+                }
               }}
-              onEmployeeClick={handleEmployeeClick}
-              onDeleteEmployee={handleDeleteEmployee}
-              onEmployeeActionSelect={handleEmployeeActionSelect}
-              sortOrder={employeeSortOrder}
-              onToggleSort={() => setEmployeeSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
             />
-
-          </>
+          ) : (
+            <>
+              <Toolbar
+                selectedDepartment={selectedDepartment}
+                onDepartmentChange={setSelectedDepartment}
+                selectedCompany={selectedCompany}
+                onCompanyChange={setSelectedCompany}
+                onNewEmployee={handleNewEmployee}
+                onExportCSV={() => setShowEmployeeExportModal(true)}
+                onImportExcel={() => setShowExcelImportModal(true)}
+                companies={companies}
+                departments={departments}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                totalResultCount={filteredEmployees.length}
+                sortOrder={employeeSortOrder}
+                onToggleSort={() => setEmployeeSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              />
+              <StatsCards stats={dynamicStats} />
+              <EmployeeTable
+                employees={filteredEmployees}
+                totalCount={employees.length}
+                onResetFilters={() => {
+                  setSelectedCompany('all');
+                  setSelectedDepartment('all');
+                  setSearchTerm('');
+                }}
+                onEmployeeClick={handleEmployeeClick}
+                onDeleteEmployee={handleDeleteEmployee}
+                onEmployeeActionSelect={handleEmployeeActionSelect}
+                sortOrder={employeeSortOrder}
+                onToggleSort={() => setEmployeeSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              />
+            </>
+          )
         )}
 
         {/* Görev Tanımı */}
@@ -1875,6 +1914,7 @@ const AppInner: React.FC = () => {
             <div className="space-y-6">
               <BordroList
                 bordrolar={bordrolar}
+                employees={employees}
                 onView={setSelectedBordro}
                 isEmployeeView={true}
                 onEdit={() => {}}

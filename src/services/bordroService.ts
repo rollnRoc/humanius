@@ -24,9 +24,13 @@ export interface BordroApproval {
 }
 
 export const bordroService = {
-  async getAll(companyId?: string) {
+  async getAll(companyId?: string, employeeId?: string) {
     if (demoService.isDemoActive()) {
-      return demoService.getBordrolar();
+      const all = demoService.getBordrolar();
+      if (employeeId) {
+        return all.filter(b => b.employee_id === employeeId);
+      }
+      return all;
     }
     let query = supabase
       .from('bordro_items')
@@ -35,6 +39,9 @@ export const bordroService = {
 
     if (companyId) {
       query = query.eq('company_id', companyId);
+    }
+    if (employeeId) {
+      query = query.eq('employee_id', employeeId);
     }
 
     const { data, error } = await query;
