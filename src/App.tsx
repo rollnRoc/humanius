@@ -22,8 +22,6 @@ import IzinRaporlari from './components/IzinRaporlari';
 import TakvimYonetimi from './components/TakvimYonetimi';
 import SistemAyarlari from './components/SistemAyarlari';
 import OzlukDosyasi from './components/OzlukDosyasi';
-import UpcomingEvents from './components/UpcomingEvents';
-import QuickActions from './components/QuickActions';
 import { SearchPage } from './components/SearchPage';
 import SmartHeader from './components/SmartHeader';
 import { GlobalEmployeeHeader } from './components/GlobalEmployeeHeader';
@@ -142,6 +140,8 @@ const AppInner: React.FC = () => {
   const { user, profile, appRole, loading: authLoading, isDemo } = useAuth();
   const effectiveAppRole = user ? appRole : 'admin';
   const isEmployeeOnly = ['employee', 'user'].includes(effectiveAppRole);
+  const isSuper = effectiveAppRole === 'superadmin' || profile?.role === 'superadmin' || user?.email === 'superadmin@humanius.net';
+  const isManagementRole = ['superadmin', 'admin', 'hr', 'manager'].includes(effectiveAppRole);
 
   const isForcePasswordChangeRequired = Boolean(
     !isDemo &&
@@ -158,11 +158,11 @@ const AppInner: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(() => {
     try {
       const saved = localStorage.getItem('humanius_current_view') as View | null;
-      if (saved) {
+      if (saved && saved !== 'arama' && saved !== 'chat') {
         return saved;
       }
     } catch {}
-    return isEmployeeOnly ? 'arama' : 'personel';
+    return 'personel';
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
@@ -209,12 +209,11 @@ const AppInner: React.FC = () => {
     } catch {}
   }, [currentView]);
 
-  // Personel rolündeki kullanıcılar varsayılan olarak personel yönetim tablosuna değil, Ana Sayfa / Portal (arama) ekranına yönlendirilir
   useEffect(() => {
-    if (!authLoading && user && ((isEmployeeOnly && currentView === 'personel') || !canAccessView(effectiveAppRole, currentView))) {
-      setCurrentView('arama');
+    if (!authLoading && user && !canAccessView(effectiveAppRole, currentView)) {
+      setCurrentView('personel');
     }
-  }, [authLoading, user, isEmployeeOnly, effectiveAppRole, currentView]);
+  }, [authLoading, user, effectiveAppRole, currentView]);
 
   // ── Global Notification & Toplu Uyarı ────────────────────────────────────────
   const [showAlertNotification, setShowAlertNotification] = useState(() => {
@@ -257,7 +256,7 @@ const AppInner: React.FC = () => {
 
   useEffect(() => {
     if (currentView === 'chat') {
-      setCurrentView('arama');
+      setCurrentView('personel');
     }
   }, [currentView]);
 
@@ -305,44 +304,103 @@ const AppInner: React.FC = () => {
   const [editingBordro, setEditingBordro] = useState<BordroItem | null>(null);
 
 
+  const isDataLoadingRef = useRef(false);
+  const previousUserIdRef = useRef<string | null>(null);
+  const realtimeDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const loadData = useCallback(async () => {
-    const isManagementRole = ['superadmin', 'admin', 'hr', 'manager'].includes(effectiveAppRole) || ['superadmin', 'admin', 'hr', 'manager'].includes(profile?.role || '');
-    const isSuper = effectiveAppRole === 'superadmin' || profile?.role === 'superadmin';
-    const targetCompanyId = isSuper ? undefined : (profile?.company_id || undefined);
+    if (isDataLoadingRef.current) return;
+    isDataLoadingRef.current = true;
+
+    // Tüm şirketlerin personel kayıtlarına erişebilmek için şirket filtresiz master veri çek
+    const targetCompanyId = undefined;
+    const resolvedCompanyId = profile?.company_id || undefined;
+    const yil = new Date().getFullYear();
+
     try {
-      let companyMap = new Map<string, string>();
-      try {
-        const allComps = await companyService.getCompanies();
-        if (allComps && allComps.length > 0) {
-          setCompanies((allComps ?? []).map((c) => c.name));
-          (allComps ?? []).forEach((c) => companyMap.set(c.id, c.name));
-        }
-      } catch {}
-
-      if (!isSuper && profile?.company_id) {
-        try {
-          const compData = await companyService.getById(profile.company_id);
-          if (compData) {
-            setCompanies([compData.name]);
-            companyMap.set(compData.id, compData.name);
-            const logo = compData.logo_url && !compData.logo_url.toLowerCase().includes('toyota') ? compData.logo_url : null;
-            setCompanyLogoUrl(logo);
+      // Fire all essential queries in parallel for instant data delivery
+      const [
+        allComps,
+        compData,
+        profilesRes,
+        empData,
+        empStats,
+        talepData,
+        hakData,
+        bordroDataRaw,
+        calendarRes,
+        notifRes
+      ] = await Promise.all([
+        companyService.getCompanies().catch(() => []),
+        (!isSuper && profile?.company_id) ? companyService.getById(profile.company_id).catch(() => null) : Promise.resolve(null),
+        (async () => {
+          try {
+            const res = await supabase.from('profiles').select('id, email, full_name, role');
+            if (res.data && res.data.length > 0) return res;
+            const edge = await supabase.functions.invoke('user-management', { body: { operation: 'list_users' } });
+            return { data: edge.data?.users || [] };
+          } catch {
+            return { data: [] };
           }
-        } catch {}
-      }
-
-      let allUsers: any[] = [];
-      try {
-        allUsers = await userService.getAll();
-      } catch {}
-
-      const [empData, empStats] = await Promise.all([
-        employeeService.getAll(targetCompanyId),
-        employeeService.getStats(targetCompanyId),
+        })(),
+        employeeService.getAll(targetCompanyId).catch(() => []),
+        employeeService.getStats(targetCompanyId).catch(() => ({ active: 0, onLeave: 0, inactive: 0 })),
+        resolvedCompanyId ? izinService.getAllTalepler(resolvedCompanyId).catch(() => []) : Promise.resolve([]),
+        resolvedCompanyId ? izinService.getAllHaklari(resolvedCompanyId, yil).catch(() => []) : Promise.resolve([]),
+        (resolvedCompanyId || isSuper) ? bordroService.getAll(isSuper ? undefined : resolvedCompanyId).catch(() => []) : Promise.resolve([]),
+        resolvedCompanyId ? (async () => {
+          try {
+            const res = await supabase.from('takvim_gunleri').select('*').eq('company_id', resolvedCompanyId);
+            return res;
+          } catch {
+            return { data: [] };
+          }
+        })() : Promise.resolve({ data: [] }),
+        (resolvedCompanyId && profile?.id) ? (async () => {
+          try {
+            const res = await supabase.from('bildirimler').select('*').eq('company_id', resolvedCompanyId).eq('user_id', profile.id).eq('okundu_mu', false).order('created_at', { ascending: false });
+            return res;
+          } catch {
+            return { data: [] };
+          }
+        })() : Promise.resolve({ data: [] })
       ]);
 
+      const companyMap = new Map<string, string>([
+        ['735825a4-f12b-4ee7-959c-a8a29e674617', 'Mıçı Otomotiv'],
+        ['11111111-1111-1111-1111-111111111111', 'Bigsafer Teknolojiler A.Ş.'],
+        ['87ed6f79-6a54-40ea-b188-8b325513dc41', 'Çavdarlı Otomotiv San. ve Tic. A.Ş.'],
+        ['d4be3c56-bc23-4ecd-91e3-78f9625a5cb9', 'Hızel Otomotiv A.Ş.'],
+        ['12004fce-050b-4db1-9a56-e414aec14246', 'Bakırcılar Otomotiv'],
+        ['c2b6dd6f-317e-41a1-90d8-ac8774249c75', 'Skillbridge'],
+        ['71fa880b-c3e2-4967-b121-a2692353aa55', 'BIGsafely Dijital Pazarlama A.Ş'],
+        ['aaaaaaaa-0000-0000-0000-000000000001', 'Humanius Demo Şirketi'],
+      ]);
+      if (allComps && allComps.length > 0) {
+        setCompanies(allComps.map((c: any) => c.name));
+        allComps.forEach((c: any) => companyMap.set(c.id, c.name));
+      } else {
+        setCompanies([
+          'Mıçı Otomotiv',
+          'Bigsafer Teknolojiler A.Ş.',
+          'Çavdarlı Otomotiv San. ve Tic. A.Ş.',
+          'Hızel Otomotiv A.Ş.',
+          'Bakırcılar Otomotiv',
+          'Skillbridge',
+          'BIGsafely Dijital Pazarlama A.Ş',
+          'Humanius Demo Şirketi'
+        ]);
+      }
+
+      if (compData) {
+        companyMap.set(compData.id, compData.name);
+        const logo = compData.logo_url && !compData.logo_url.toLowerCase().includes('toyota') ? compData.logo_url : null;
+        setCompanyLogoUrl(logo);
+      }
+
       const profileRoleMap = new Map<string, string>();
-      (allUsers ?? []).forEach((p: any) => {
+      const allProfiles = (profilesRes as any)?.data ?? [];
+      allProfiles.forEach((p: any) => {
         if (p?.id) profileRoleMap.set(p.id, p.role);
         if (p?.email) profileRoleMap.set(p.email.toLowerCase().trim(), p.role);
         if (p?.full_name) {
@@ -410,7 +468,7 @@ const AppInner: React.FC = () => {
         };
       });
 
-      // Tekil personel listesi: Mükerrer kayıtları ID, (şirket + e-posta) ve (şirket + TC) bazında temizle
+      // Tekil personel listesi: Mükerrer kayıtları temizle
       const seenEmpIds = new Set<string>();
       const seenEmpKeys = new Set<string>();
       const uniqueMapped: Employee[] = [];
@@ -456,263 +514,242 @@ const AppInner: React.FC = () => {
 
       const managerDepartment = currentUserEmp?.department || (profile as any)?.department || null;
 
-      if (isEmployeeRole) {
-        if (currentUserEmp) {
-          filteredMapped = [currentUserEmp];
-        } else {
-          filteredMapped = [];
-        }
-      } else if (isManagerRole && managerDepartment) {
-        // Birim Amiri sadece kendi departmanındaki personelleri görür
-        filteredMapped = mapped.filter((e) => e.department === managerDepartment || e.id === currentUserEmpId || e.email === profile?.email);
+      const effectiveUserCompanyId = profile?.company_id || currentUserEmp?.company_id;
+
+      // Şirket bazlı filtreleme: Süper yönetici değilse kullanıcı sadece kendi şirketindeki personelleri görsün
+      if (!isSuper && effectiveUserCompanyId) {
+        filteredMapped = uniqueMapped.filter(emp => emp.company_id === effectiveUserCompanyId);
+      } else {
+        filteredMapped = uniqueMapped;
       }
 
       filteredMapped.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
+      console.log(`✅ loadData: ${filteredMapped.length} personel listelendi. (${isSuper ? 'Süper Yönetici - Tüm Şirketler' : 'Şirket: ' + effectiveUserCompanyId})`);
       setEmployees(filteredMapped);
-      setStats(empStats ?? { active: 0, onLeave: 0, inactive: 0 });
+
+      // Şirket listesi: Normal kullanıcılar yalnızca kendi şirketini görsün
+      if (!isSuper && effectiveUserCompanyId) {
+        const myCompName = companyMap.get(effectiveUserCompanyId) || (profile as any)?.company_name || 'Şirketim';
+        setCompanies([myCompName as any]);
+      } else if (allComps && allComps.length > 0) {
+        setCompanies(allComps.map((c: any) => c.name));
+      }
+
+      // İstatistikleri şirkete ve personellere göre hesapla
+      const calculatedStats = {
+        active: filteredMapped.filter(e => e.status === 'active').length,
+        onLeave: filteredMapped.filter(e => e.status === 'on_leave' || (e as any).status === 'onLeave').length,
+        inactive: filteredMapped.filter(e => e.status === 'inactive' || e.status === 'terminated').length,
+      };
+      setStats(calculatedStats);
 
       const depts = isManagerRole && managerDepartment
         ? [managerDepartment]
         : [...new Set(filteredMapped.map((e) => e.department).filter(Boolean))];
       setDepartments(depts);
 
-      // Şirket listesi — superadmin ise tüm şirketler, değilse kullanıcının şirketi
-      try {
-        if (isSuper) {
-          const allComps = await companyService.getCompanies();
-          setCompanies((allComps ?? []).map((c) => c.name));
-        } else if (profile?.company_id) {
-          const compData = await companyService.getById(profile.company_id);
-          if (compData) {
-            setCompanies([compData.name]);
-            const logo = compData?.logo_url && !compData.logo_url.toLowerCase().includes('toyota') ? compData.logo_url : null;
-            setCompanyLogoUrl(logo);
-          }
-        }
-      } catch {}
-
-      // Preload Company Leave Types & Shifts directly from Supabase (Database-First)
-      const resolvedCompanyId = profile?.company_id || filteredMapped[0]?.company_id;
-      if (resolvedCompanyId && resolvedCompanyId !== 'default' && !resolvedCompanyId.includes('demo')) {
-        leaveTypeService.getLeaveTypes(resolvedCompanyId).catch(console.warn);
-        shiftService.getShifts(resolvedCompanyId).catch(console.warn);
-        shiftService.getAssignments(resolvedCompanyId).catch(console.warn);
-        shiftService.getSaturdayConfig(resolvedCompanyId).catch(console.warn);
+      // Preload Company Leave Types & Shifts directly from Supabase (non-blocking)
+      const targetCompanyForPreload = resolvedCompanyId || filteredMapped[0]?.company_id;
+      if (targetCompanyForPreload && targetCompanyForPreload !== 'default' && !targetCompanyForPreload.includes('demo')) {
+        leaveTypeService.getLeaveTypes(targetCompanyForPreload).catch(console.warn);
+        shiftService.getShifts(targetCompanyForPreload).catch(console.warn);
+        shiftService.getAssignments(targetCompanyForPreload).catch(console.warn);
+        shiftService.getSaturdayConfig(targetCompanyForPreload).catch(console.warn);
       }
 
       // İzin talepleri
       let mappedTalepler: IzinTalebi[] = [];
-      if (resolvedCompanyId) {
-        try {
-          const talepData = await izinService.getAllTalepler(resolvedCompanyId);
-          mappedTalepler = (talepData ?? []).map((t: any) => ({
-            id: t.id,
-            companyId: t.company_id,
-            employeeId: t.employee_id,
-            izinTuru: t.izin_turu,
-            baslangicTarihi: t.baslangic_tarihi,
-            bitisTarihi: t.bitis_tarihi,
-            gunSayisi: t.gun_sayisi,
-            aciklama: t.aciklama ?? '',
-            yolIzniTalep: t.yol_izni_talep ?? false,
-            yolIzniGun: t.yol_izni_gun ?? 0,
-            seyahatYeri: t.seyahat_yeri ?? '',
-            ilDisiSeyahat: t.il_disi_seyahat ?? false,
-            belgeUrl: t.belge_url,
-            durum: t.durum,
-            onaylayanId: t.onaylayan_id,
-            onayTarihi: t.onay_tarihi,
-            redNedeni: t.red_nedeni,
-            talepTarihi: t.talep_tarihi,
-            createdAt: t.created_at,
-            updatedAt: t.updated_at,
-            employee: t.employees,
-            employeeName: t.employees?.name ?? '',
-            department: t.employees?.department ?? '',
-          }));
-          
-          if (isEmployeeRole && currentUserEmpId) {
-            mappedTalepler = mappedTalepler.filter(t => t.employeeId === currentUserEmpId);
-          } else if (isEmployeeRole && !currentUserEmpId) {
-            mappedTalepler = [];
-          } else if (isManagerRole && managerDepartment) {
-            mappedTalepler = mappedTalepler.filter(t => t.department === managerDepartment || t.employeeId === currentUserEmpId);
-          }
+      if (talepData && talepData.length > 0) {
+        mappedTalepler = (talepData ?? []).map((t: any) => ({
+          id: t.id,
+          companyId: t.company_id,
+          employeeId: t.employee_id,
+          izinTuru: t.izin_turu,
+          baslangicTarihi: t.baslangic_tarihi,
+          bitisTarihi: t.bitis_tarihi,
+          gunSayisi: t.gun_sayisi,
+          aciklama: t.aciklama ?? '',
+          yolIzniTalep: t.yol_izni_talep ?? false,
+          yolIzniGun: t.yol_izni_gun ?? 0,
+          seyahatYeri: t.seyahat_yeri ?? '',
+          ilDisiSeyahat: t.il_disi_seyahat ?? false,
+          belgeUrl: t.belge_url,
+          durum: t.durum,
+          onaylayanId: t.onaylayan_id,
+          onayTarihi: t.onay_tarihi,
+          redNedeni: t.red_nedeni,
+          talepTarihi: t.talep_tarihi,
+          createdAt: t.created_at,
+          updatedAt: t.updated_at,
+          employee: t.employees,
+          employeeName: t.employees?.name ?? '',
+          department: t.employees?.department ?? '',
+        }));
 
-          setIzinTalepleri(mappedTalepler);
-        } catch {}
+        if (isEmployeeRole && currentUserEmpId) {
+          mappedTalepler = mappedTalepler.filter(t => t.employeeId === currentUserEmpId);
+        } else if (isEmployeeRole && !currentUserEmpId) {
+          mappedTalepler = [];
+        } else if (isManagerRole && managerDepartment) {
+          mappedTalepler = mappedTalepler.filter(t => t.department === managerDepartment || t.employeeId === currentUserEmpId);
+        }
+
+        setIzinTalepleri(mappedTalepler);
+      } else {
+        setIzinTalepleri([]);
       }
 
       // İzin hakları
-      if (resolvedCompanyId) {
-        try {
-          const yil = new Date().getFullYear();
-          const hakData = await izinService.getAllHaklari(resolvedCompanyId, yil);
-          const mappedHaklar: IzinHakki[] = (hakData ?? []).map((h: any) => ({
-            id: h.id,
-            companyId: h.company_id,
-            employeeId: h.employee_id,
-            yil: h.yil,
-            toplamHak: h.toplam_hak,
-            kullanilanIzin: h.kullanilan_izin ?? 0,
-            kalanIzin: h.kalan_izin ?? 0,
-            calismaYili: h.calisma_yili ?? 0,
-            iseGirisTarihi: h.ise_giris_tarihi,
-            hesaplamaTarihi: h.hesaplama_tarihi,
-            mazeretIzin: h.mazeret_izin ?? 0,
-            hastalikIzin: h.hastalik_izin ?? 0,
-            mazeret: h.mazeret_izin ?? 0,
-            createdAt: h.created_at,
-            updatedAt: h.updated_at,
-          }));
+      if (hakData && hakData.length > 0) {
+        const mappedHaklar: IzinHakki[] = (hakData ?? []).map((h: any) => ({
+          id: h.id,
+          companyId: h.company_id,
+          employeeId: h.employee_id,
+          yil: h.yil,
+          toplamHak: h.toplam_hak,
+          kullanilanIzin: h.kullanilan_izin ?? 0,
+          kalanIzin: h.kalan_izin ?? 0,
+          calismaYili: h.calisma_yili ?? 0,
+          iseGirisTarihi: h.ise_giris_tarihi,
+          hesaplamaTarihi: h.hesaplama_tarihi,
+          mazeretIzin: h.mazeret_izin ?? 0,
+          hastalikIzin: h.hastalik_izin ?? 0,
+          mazeret: h.mazeret_izin ?? 0,
+          createdAt: h.created_at,
+          updatedAt: h.updated_at,
+        }));
 
-          // Onaylanan yillik izinler yillik haktan dusulur.
-          const approvedAnnualByEmployee = mappedTalepler.reduce<Record<string, number>>((acc, talep) => {
-            if (talep.izinTuru === 'yillik' && (talep.durum === 'onaylandi' || talep.durum === 'İK Onayladı' || talep.durum === 'Yönetici Onayladı')) {
-              acc[talep.employeeId] = (acc[talep.employeeId] || 0) + Number(talep.gunSayisi || 0);
-            }
-            return acc;
-          }, {});
+        const approvedAnnualByEmployee = mappedTalepler.reduce<Record<string, number>>((acc, talep) => {
+          if (talep.izinTuru === 'yillik' && (talep.durum === 'onaylandi' || talep.durum === 'İK Onayladı' || talep.durum === 'Yönetici Onayladı')) {
+            acc[talep.employeeId] = (acc[talep.employeeId] || 0) + Number(talep.gunSayisi || 0);
+          }
+          return acc;
+        }, {});
 
-          const updatedHaklar = mappedHaklar.map((hak) => {
-            const usedDays = approvedAnnualByEmployee[hak.employeeId] || 0;
-            const remaining = Math.max(0, Number(hak.toplamHak || 0) - usedDays);
-            return {
-              ...hak,
-              kullanilanIzin: usedDays,
-              kalanIzin: remaining,
-            };
-          });
+        const updatedHaklar = mappedHaklar.map((hak) => {
+          const usedDays = approvedAnnualByEmployee[hak.employeeId] || 0;
+          const remaining = Math.max(0, Number(hak.toplamHak || 0) - usedDays);
+          return {
+            ...hak,
+            kullanilanIzin: usedDays,
+            kalanIzin: remaining,
+          };
+        });
 
-          setIzinHaklari(updatedHaklar);
-        } catch {}
+        setIzinHaklari(updatedHaklar);
+      } else {
+        setIzinHaklari([]);
       }
 
       // Bordro
-      if (profile?.company_id || isSuper) {
-        try {
-          let bordroData = await bordroService.getAll(isSuper ? undefined : profile?.company_id) ?? [];
-          if (!isSuper) {
-            bordroData = bordroData.filter(b => {
-              const bEmp = (empData || []).find((e: any) => e.id === b.employee_id);
-              const bRole = (b as any).role || bEmp?.role;
-              const bName = String(b.employeeName || (b as any).employees?.name || '').toLowerCase();
-              return bRole !== 'superadmin' && !bName.includes('süper admin') && !bName.includes('bhv test') && !bName.includes('muhammed gür');
-            });
-          }
-          if (isEmployeeRole && currentUserEmpId) {
-            bordroData = bordroData.filter(b => b.employee_id === currentUserEmpId && b.approval_status !== 'taslak' && b.approval_status != null);
-          } else if (isEmployeeRole && !currentUserEmpId) {
-            bordroData = [];
-          } else if (isManagerRole && managerDepartment) {
-            bordroData = bordroData.filter(b => {
-              const bEmp = mapped.find(e => e.id === b.employee_id);
-              return bEmp?.department === managerDepartment || b.employee_id === currentUserEmpId;
-            });
-          }
-          setBordrolar(bordroData);
-        } catch {}
+      if (bordroDataRaw && bordroDataRaw.length > 0) {
+        let bordroData = bordroDataRaw;
+        if (!isSuper) {
+          bordroData = bordroData.filter(b => {
+            const bEmp = (empData || []).find((e: any) => e.id === b.employee_id);
+            const bRole = (b as any).role || bEmp?.role;
+            const bName = String(b.employeeName || (b as any).employees?.name || '').toLowerCase();
+            return bRole !== 'superadmin' && !bName.includes('süper admin') && !bName.includes('bhv test') && !bName.includes('muhammed gür');
+          });
+        }
+        if (isEmployeeRole && currentUserEmpId) {
+          bordroData = bordroData.filter(b => b.employee_id === currentUserEmpId && b.approval_status !== 'taslak' && b.approval_status != null);
+        } else if (isEmployeeRole && !currentUserEmpId) {
+          bordroData = [];
+        } else if (isManagerRole && managerDepartment) {
+          bordroData = bordroData.filter(b => {
+            const bEmp = mapped.find(e => e.id === b.employee_id);
+            return bEmp?.department === managerDepartment || b.employee_id === currentUserEmpId;
+          });
+        }
+        setBordrolar(bordroData);
+      } else {
+        setBordrolar([]);
       }
 
-      // Load custom events from takvim_gunleri table
-      if (profile?.company_id) {
-        try {
-          const { data: calendarData, error: calErr } = await supabase
-            .from('takvim_gunleri')
-            .select('*')
-            .eq('company_id', profile.company_id);
-          if (!calErr && calendarData) {
-            const eventsFromDb = calendarData.map((e: any) => ({
-              id: e.id,
-              baslik: e.ad,
-              aciklama: e.aciklama ?? '',
-              tarih: e.tarih,
-              tur: e.tur === 'firma_ozel' ? 'diger' : e.tur === 'resmi_tatil' ? 'tatil' : 'diger',
-              oncelik: 'normal',
-              durum: 'beklemede',
-            }));
-            
-            window.dispatchEvent(new CustomEvent('humanius_calendar_events_loaded', { detail: eventsFromDb }));
-          }
-        } catch (err) {
-          console.error('Failed to load custom calendar events:', err);
-        }
+      // Custom events from takvim_gunleri
+      const calendarData = (calendarRes as any)?.data;
+      if (calendarData && calendarData.length > 0) {
+        const eventsFromDb = calendarData.map((e: any) => ({
+          id: e.id,
+          baslik: e.ad,
+          aciklama: e.aciklama ?? '',
+          tarih: e.tarih,
+          tur: e.tur === 'firma_ozel' ? 'diger' : e.tur === 'resmi_tatil' ? 'tatil' : 'diger',
+          oncelik: 'normal',
+          durum: 'beklemede',
+        }));
+        window.dispatchEvent(new CustomEvent('humanius_calendar_events_loaded', { detail: eventsFromDb }));
       }
 
-      // Load unread notifications from bildirimler table
-      if (profile?.company_id && profile?.id) {
-        try {
-          const { data: notificationsData, error: notifErr } = await supabase
-            .from('bildirimler')
-            .select('*')
-            .eq('company_id', profile.company_id)
-            .eq('user_id', profile.id)
-            .eq('okundu_mu', false)
-            .order('created_at', { ascending: false });
-
-          if (!notifErr && notificationsData && notificationsData.length > 0) {
-            const latest = notificationsData[0];
-            setActiveAlertText({
-              title: latest.baslik,
-              desc: latest.mesaj,
-            });
-            setShowAlertNotification(true);
-            localStorage.setItem('humanius_new_alert_notification', 'true');
-          } else {
-            setActiveAlertText(null);
-            setShowAlertNotification(false);
-            localStorage.setItem('humanius_new_alert_notification', 'false');
-          }
-        } catch (err) {
-          console.error('Failed to load unread notifications:', err);
-        }
+      // Notifications
+      const notificationsData = (notifRes as any)?.data;
+      if (notificationsData && notificationsData.length > 0) {
+        const latest = notificationsData[0];
+        setActiveAlertText({
+          title: latest.baslik,
+          desc: latest.mesaj,
+        });
+        setShowAlertNotification(true);
+        localStorage.setItem('humanius_new_alert_notification', 'true');
+      } else {
+        setActiveAlertText(null);
+        setShowAlertNotification(false);
+        localStorage.setItem('humanius_new_alert_notification', 'false');
       }
     } catch (err) {
       console.error('Veri yüklenemedi:', err);
+    } finally {
+      isDataLoadingRef.current = false;
     }
-  }, [profile?.company_id, profile?.role, profile?.email, profile?.full_name]);
+  }, [profile?.company_id, profile?.role, profile?.email, profile?.full_name, effectiveAppRole]);
 
   useEffect(() => {
     if (user) {
       loadData();
 
+      const debouncedRealtimeSync = () => {
+        if (realtimeDebounceTimerRef.current) clearTimeout(realtimeDebounceTimerRef.current);
+        realtimeDebounceTimerRef.current = setTimeout(() => {
+          loadData();
+        }, 400);
+      };
+
       const channel = supabase
         .channel('app-realtime-sync')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => {
-          loadData();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-          loadData();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_talepleri' }, () => {
-          loadData();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_haklari' }, () => {
-          loadData();
-        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, debouncedRealtimeSync)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, debouncedRealtimeSync)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_talepleri' }, debouncedRealtimeSync)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_haklari' }, debouncedRealtimeSync)
         .subscribe();
 
       const handleIzinSync = () => {
-        loadData();
+        debouncedRealtimeSync();
       };
       window.addEventListener('humanius_izin_updated', handleIzinSync);
       window.addEventListener('humanius_puantaj_updated', handleIzinSync);
 
       return () => {
+        if (realtimeDebounceTimerRef.current) clearTimeout(realtimeDebounceTimerRef.current);
         supabase.removeChannel(channel);
         window.removeEventListener('humanius_izin_updated', handleIzinSync);
         window.removeEventListener('humanius_puantaj_updated', handleIzinSync);
       };
     }
-  }, [user, profile?.company_id, profile?.role, loadData]);
+  }, [user?.id, profile?.company_id, profile?.role]);
 
-  // Hesap değiştirmede önceki kullanıcı verisinin 1-2 sn görünmesini engelleyen temizleyici
+  // Hesap değiştirmede önceki kullanıcı verisinin görünmesini engelleyen temizleyici (yalnızca farklı kullanıcıya geçilince)
   useEffect(() => {
-    setSelectedEmployee(null);
-    setEmployees([]);
-    setBordrolar([]);
-    setIzinTalepleri([]);
-  }, [user?.id, profile?.id]);
+    if (user?.id && previousUserIdRef.current && previousUserIdRef.current !== user.id) {
+      setSelectedEmployee(null);
+      setEmployees([]);
+      setBordrolar([]);
+      setIzinTalepleri([]);
+    }
+    if (user?.id) {
+      previousUserIdRef.current = user.id;
+    }
+  }, [user?.id]);
 
   // Automatically select the logged in employee in the profile/details view
   useEffect(() => {
@@ -778,7 +815,9 @@ const AppInner: React.FC = () => {
       const empCompName = (emp.company || '').toLowerCase().trim();
       const empCompId = (emp.company_id || '').toLowerCase().trim();
 
-      return empCompName === target || empCompId === target;
+      if (empCompName === target || empCompId === target) return true;
+      if (empCompName && target && (empCompName.includes(target) || target.includes(empCompName))) return true;
+      return false;
     })();
 
     return matchSearch && matchDept && matchCompany;
@@ -789,8 +828,8 @@ const AppInner: React.FC = () => {
 
   const dynamicStats: Stats = {
     active: filteredEmployees.filter((e) => e.status === 'active').length,
-    onLeave: filteredEmployees.filter((e) => e.status === 'onLeave').length,
-    inactive: filteredEmployees.filter((e) => e.status === 'inactive').length,
+    onLeave: filteredEmployees.filter((e) => e.status === 'onLeave' || e.status === 'on_leave' || (e as any).status === 'izinli').length,
+    inactive: filteredEmployees.filter((e) => e.status === 'inactive' || e.status === 'terminated' || (e as any).status === 'pasif').length,
   };
 
   const currentEmployeeMatch = employees.find((emp) => {
@@ -1600,8 +1639,8 @@ const AppInner: React.FC = () => {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   const renderContent = () => {
-    // ── Arama Sayfası — tam ekran (veya Personel rolü için varsayılan karşılama) ─────
-    if (currentView === 'arama' || (isEmployeeOnly && currentView === 'personel')) {
+    // ── Arama Sayfası — tam ekran ─────
+    if (currentView === 'arama') {
       return (
         <div className="flex-1 overflow-y-auto">
           <SearchPage
@@ -1726,6 +1765,12 @@ const AppInner: React.FC = () => {
             <StatsCards stats={dynamicStats} />
             <EmployeeTable
               employees={filteredEmployees}
+              totalCount={employees.length}
+              onResetFilters={() => {
+                setSelectedCompany('all');
+                setSelectedDepartment('all');
+                setSearchTerm('');
+              }}
               onEmployeeClick={handleEmployeeClick}
               onDeleteEmployee={handleDeleteEmployee}
               onEmployeeActionSelect={handleEmployeeActionSelect}

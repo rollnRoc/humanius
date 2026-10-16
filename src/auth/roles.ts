@@ -25,9 +25,6 @@ export function getRoleLabel(role: AppRole): string {
 }
 
 export function getDefaultViewForRole(role: AppRole): View {
-  if (role === 'employee' || role === 'user') {
-    return 'arama';
-  }
   return 'personel';
 }
 
@@ -71,18 +68,19 @@ const ALLOWED_VIEWS: Record<AppRole, View[]> = {
     'puantaj',
     'pdks-devam',
     'pdks',
+    'vardiya-sms',
     'is-akisi',
     'sifre-degistir',
     'kullanim-kilavuzu',
   ],
   // PERSONEL: Sadece tamamen kendisine ait kişisel bilgiler & kendi talepleri
   employee: [
-    'arama', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'puantaj',
+    'arama', 'personel', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'puantaj',
     'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
     'sifre-degistir', 'analiz', 'sirket-yonetimi',
   ],
   user: [
-    'arama', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'puantaj',
+    'arama', 'personel', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'puantaj',
     'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
     'sifre-degistir', 'analiz', 'sirket-yonetimi',
   ],

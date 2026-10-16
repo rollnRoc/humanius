@@ -45,7 +45,7 @@ interface EntityResult {
 // ─── Static page index ───────────────────────────────────────────────────────
 
 const PAGES: { id: View; label: string; icon: string; keywords: string[] }[] = [
-  { id: 'personel',               label: 'Şirket ve Personel',      icon: '👥', keywords: ['personel', 'çalışan', 'liste', 'yönetim', 'kadro', 'employee', 'şirket', 'kullanıcı'] },
+  { id: 'personel',               label: 'Personel Listesi',        icon: '👥', keywords: ['personel', 'çalışan', 'liste', 'personel listesi', 'yönetim', 'kadro', 'employee', 'şirket', 'kullanıcı'] },
   { id: 'bordro',                 label: 'Bordro',        icon: '💳', keywords: ['bordro', 'maaş', 'hesaplama', 'ücret', 'net', 'brüt', 'payroll'] },
   { id: 'izin',                   label: 'İzin Yönetimi',           icon: '📅', keywords: ['izin', 'talep', 'takvim', 'yıllık', 'mazeret', 'leave'] },
   { id: 'raporlar',               label: 'Raporlar',                icon: '📊', keywords: ['rapor', 'istatistik', 'analiz', 'report'] },

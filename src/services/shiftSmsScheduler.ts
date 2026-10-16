@@ -128,9 +128,9 @@ export const shiftSmsScheduler = {
 
         if (startMinutes === null || endMinutes === null) continue;
 
-        // Tolerans / gecikme dakikaları (varsayılan 15 dk: 08:30 için 08:45, 18:00 için 18:15)
-        const startDelay = empConfig.start_delay_minutes ?? 15;
-        const endDelay = empConfig.end_delay_minutes ?? 15;
+        // Tolerans / gecikme dakikaları (Kullanıcı talimatı: 10 dk: 08:30 için 08:40, 18:00 için 18:10)
+        const startDelay = empConfig.start_delay_minutes ?? 10;
+        const endDelay = empConfig.end_delay_minutes ?? 10;
 
         const startTriggerMinutes = startMinutes + startDelay;
         const endTriggerMinutes = endMinutes + endDelay;
@@ -161,15 +161,17 @@ export const shiftSmsScheduler = {
           : currentMinutes >= startTriggerMinutes && currentMinutes < endMinutes;
 
         // ── DURUM 1: VARDIYA BAŞLATMA HATIRLATMASI ───────────────────────────
-        // Örn: 08:30 vardiyası için 08:45 ve sonrasında, vardiya henüz bitmeden önce
+        // Örn: 08:30 vardiyası için 08:40 ve sonrasında, vardiya henüz bitmeden önce
+        // KULLANICI KESİN TALİMATI: Sadece vardiyası başlamış ama hala vardiyasını başlatmamış kişilere GÜNDE SADECE 1 KERE
         if (
           isWithinShiftHours &&
           !hasGiris
         ) {
-          const alreadySent = smsService.hasSentToday(emp.id, 'start_reminder', todayStr);
+          const alreadySent = smsService.hasSentToday(emp.id, 'start_reminder', todayStr, empCompanyId);
           if (alreadySent) {
             result.alreadySentCount++;
           } else {
+            smsService.markSentToday(emp.id, 'start_reminder', todayStr);
             const sendRes = await smsService.sendShiftStartReminder(emp, shiftInfo, empConfig, empCompanyId);
             if (sendRes.success) {
               result.startSmsSent++;
@@ -180,17 +182,19 @@ export const shiftSmsScheduler = {
         }
 
         // ── DURUM 2: VARDIYA BİTİRME HATIRLATMASI ────────────────────────────
-        // Örn: 18:00 vardiyası için 18:15 ve sonrasında (en fazla +180 dk içerisinde)
+        // Örn: 18:00 vardiyası için 18:10 ve sonrasında (en fazla +180 dk içerisinde)
+        // KULLANICI KESİN TALİMATI: Mesaiye girmiş ama vardiya saati dolduğu halde vardiyasını bitirmemiş kişilere GÜNDE SADECE 1 KERE
         if (
           currentMinutes >= endTriggerMinutes &&
           currentMinutes <= endTriggerMinutes + 180 &&
           hasGiris &&
           !hasCikis
         ) {
-          const alreadySent = smsService.hasSentToday(emp.id, 'end_reminder', todayStr);
+          const alreadySent = smsService.hasSentToday(emp.id, 'end_reminder', todayStr, empCompanyId);
           if (alreadySent) {
             result.alreadySentCount++;
           } else {
+            smsService.markSentToday(emp.id, 'end_reminder', todayStr);
             const sendRes = await smsService.sendShiftEndReminder(emp, shiftInfo, empConfig, empCompanyId);
             if (sendRes.success) {
               result.endSmsSent++;

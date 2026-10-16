@@ -488,7 +488,8 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
   }, [canManage, loadManageData]);
 
   useEffect(() => {
-    if (demoService.isDemoActive() || profile?.company_id === 'demo-company-id-9999' || !profile?.company_id) {
+    const isPureDemo = (demoService.isDemoActive() && localStorage.getItem('humanius_superadmin_session') !== 'true') || profile?.company_id === 'demo-company-id-9999';
+    if (isPureDemo) {
       setSistemAyarlari(prev => ({
         ...prev,
         sirketBilgileri: {
@@ -1620,7 +1621,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                   <div className="flex items-center gap-3 shrink-0">
                     <button
                       onClick={() => {
-                        const isDemoSession = demoService.isDemoActive() || profile?.company_id === 'demo-company-id-9999' || !profile?.company_id;
+                        const isDemoSession = (demoService.isDemoActive() && localStorage.getItem('humanius_superadmin_session') !== 'true') || profile?.company_id === 'demo-company-id-9999';
                         const myCompany = isDemoSession
                           ? { id: 'demo-company-id-9999', name: 'Humanius Demo Şirketi', address: '', tax_number: '', sgk_sicil_no: '', phone: '', email: 'demo@humanius.net', city: 'İstanbul' } as CompanyRow
                           : (companies.find(c => c.id === profile?.company_id) || companies[0]);

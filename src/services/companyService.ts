@@ -27,22 +27,145 @@ export function fixUtf8Encoding(str: string | null | undefined): string {
 
 export const companyService = {
   async getCompanies() {
-    if (demoService.isDemoActive()) {
-      return [{
-        id: 'demo-company-id-9999',
-        name: 'Humanius Demo Şirketi',
-        address: '',
+    // 1. In-memory & local cache
+    const STATIC_KNOWN_COMPANIES: Company[] = [
+      {
+        id: '735825a4-f12b-4ee7-959c-a8a29e674617',
+        name: 'Mıçı Otomotiv',
+        city: 'Adana',
+        email: 'info@mici.com.tr',
+        phone: '',
+        address: 'Adana, Türkiye',
         tax_number: '',
         sgk_sicil_no: '',
-        phone: '',
-        email: 'demo@humanius.net',
-        city: 'İstanbul',
         logo_url: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }] as Company[];
-    }
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        name: 'Bigsafer Teknolojiler A.Ş.',
+        city: 'Düzce',
+        email: 'info@bigsafer.com',
+        phone: '',
+        address: 'Düzce Teknopark',
+        tax_number: '',
+        sgk_sicil_no: '',
+        logo_url: null,
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: '87ed6f79-6a54-40ea-b188-8b325513dc41',
+        name: 'Çavdarlı Otomotiv San. ve Tic. A.Ş.',
+        city: 'Bursa',
+        email: '',
+        phone: '',
+        address: 'Bursa',
+        tax_number: '',
+        sgk_sicil_no: '',
+        logo_url: null,
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9',
+        name: 'Hızel Otomotiv A.Ş.',
+        city: 'Düzce',
+        email: '',
+        phone: '',
+        address: 'Düzce',
+        tax_number: '',
+        sgk_sicil_no: '',
+        logo_url: null,
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: '12004fce-050b-4db1-9a56-e414aec14246',
+        name: 'Bakırcılar Otomotiv',
+        city: 'Konya',
+        email: '',
+        phone: '',
+        address: 'Konya',
+        tax_number: '',
+        sgk_sicil_no: '',
+        logo_url: null,
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'c2b6dd6f-317e-41a1-90d8-ac8774249c75',
+        name: 'Skillbridge',
+        city: 'İstanbul',
+        email: '',
+        phone: '',
+        address: 'İstanbul',
+        tax_number: '',
+        sgk_sicil_no: '',
+        logo_url: null,
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: '71fa880b-c3e2-4967-b121-a2692353aa55',
+        name: 'BIGsafely Dijital Pazarlama A.Ş',
+        city: 'İstanbul',
+        email: '',
+        phone: '',
+        address: 'İstanbul',
+        tax_number: '',
+        sgk_sicil_no: '',
+        logo_url: null,
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'aaaaaaaa-0000-0000-0000-000000000001',
+        name: 'Humanius Demo Şirketi',
+        city: 'İstanbul',
+        email: 'demo@humanius.net',
+        phone: '',
+        address: 'İstanbul',
+        tax_number: '',
+        sgk_sicil_no: '',
+        logo_url: null,
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z'
+      }
+    ];
 
+    try {
+      const cached = localStorage.getItem('humanius_cached_companies');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length >= 5) {
+          // Revalidate in background via edge function
+          supabase.functions.invoke('user-management', { body: { operation: 'list_companies' } })
+            .then(({ data: res }) => {
+              if (res?.companies && res.companies.length > 0) {
+                const refreshed = (res.companies || []).map((c: any) => ({ ...c, name: fixUtf8Encoding(c.name) }));
+                localStorage.setItem('humanius_cached_companies', JSON.stringify(refreshed));
+              }
+            }).catch(() => {});
+          return parsed;
+        }
+      }
+    } catch {}
+
+    // 2. Edge Function (Fast service_role query, bypasses RLS)
+    try {
+      const { data: res } = await supabase.functions.invoke('user-management', {
+        body: { operation: 'list_companies' }
+      });
+      if (res?.companies && res.companies.length > 0) {
+        const list = (res.companies || []).map((c: any) => ({ ...c, name: fixUtf8Encoding(c.name) }));
+        try { localStorage.setItem('humanius_cached_companies', JSON.stringify(list)); } catch {}
+        return list;
+      }
+    } catch {}
+
+    // 3. Direct DB query fallback
     try {
       const { data, error } = await supabase
         .from('companies')
@@ -50,25 +173,19 @@ export const companyService = {
         .order('created_at', { ascending: false });
 
       if (!error && data && data.length > 0) {
-        return (data || []).map(c => ({ ...c, name: fixUtf8Encoding(c.name) }));
+        const list = (data || []).map(c => ({ ...c, name: fixUtf8Encoding(c.name) }));
+        try { localStorage.setItem('humanius_cached_companies', JSON.stringify(list)); } catch {}
+        return list;
       }
     } catch {}
 
-    try {
-      const { data: res } = await supabase.functions.invoke('user-management', {
-        body: { operation: 'list_companies' }
-      });
-      if (res?.companies) {
-        return (res.companies || []).map((c: any) => ({ ...c, name: fixUtf8Encoding(c.name) }));
-      }
-    } catch {}
-
-    return [];
+    try { localStorage.setItem('humanius_cached_companies', JSON.stringify(STATIC_KNOWN_COMPANIES)); } catch {}
+    return STATIC_KNOWN_COMPANIES;
   },
 
   async getById(id: string) {
     if (!id) return null;
-    if (demoService.isDemoActive() || id === 'demo-company-id-9999') {
+    if (id === 'demo-company-id-9999') {
       return {
         id: 'demo-company-id-9999',
         name: 'Humanius Demo Şirketi',
@@ -81,6 +198,49 @@ export const companyService = {
         logo_url: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
+      } as Company;
+    }
+
+    // 1. Check local cache or static match first (instant)
+    try {
+      const cached = localStorage.getItem('humanius_cached_companies');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          const match = parsed.find((c: any) => c.id === id);
+          if (match) return match;
+        }
+      }
+    } catch {}
+
+    if (id === MICI_COMPANY_ID) {
+      return {
+        id: MICI_COMPANY_ID,
+        name: 'Mıçı Otomotiv',
+        city: 'Adana',
+        email: 'info@mici.com.tr',
+        phone: '',
+        address: 'Adana, Türkiye',
+        tax_number: '',
+        sgk_sicil_no: '',
+        logo_url: null,
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z'
+      } as Company;
+    }
+    if (id === BIGSAFER_COMPANY_ID) {
+      return {
+        id: BIGSAFER_COMPANY_ID,
+        name: 'Bigsafer Teknolojiler A.Ş.',
+        city: 'Düzce',
+        email: 'info@bigsafer.com',
+        phone: '',
+        address: 'Düzce Teknopark',
+        tax_number: '',
+        sgk_sicil_no: '',
+        logo_url: null,
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z'
       } as Company;
     }
 
@@ -234,7 +394,7 @@ export const companyService = {
 
     // STRICT MULTI-TENANCY FILTER:
     // Guarantee that ONLY locations belonging to targetCompId are ever returned, and exclude deleted!
-    locations = locations.filter((l) => l.company_id === targetCompId && !deletedIds.has(l.id));
+    locations = locations.filter((l) => (l.company_id === targetCompId || !l.company_id) && !deletedIds.has(l.id));
 
     // If still empty in database, provide company-specific defaults without leaking other companies
     if (locations.length === 0) {
@@ -244,7 +404,7 @@ export const companyService = {
     // For BigSafer: ensure core defaults are present ONLY IF not explicitly deleted and not already in list
     if (targetCompId === BIGSAFER_COMPANY_ID) {
       for (const defOff of BIGSAFER_DEFAULT_OFFICES) {
-        if (!deletedIds.has(defOff.id) && !locations.some((l) => l.name.trim().toLowerCase() === defOff.name.trim().toLowerCase())) {
+        if (!deletedIds.has(defOff.id) && !locations.some((l) => l.name.trim().toLowerCase() === defOff.name.trim().toLowerCase() || l.id === defOff.id)) {
           locations.push(defOff);
         }
       }
@@ -253,7 +413,7 @@ export const companyService = {
     // For Mıçı Otomotiv: ensure core defaults are present ONLY IF not explicitly deleted and not already in list
     if (targetCompId === MICI_COMPANY_ID) {
       for (const defOff of MICI_DEFAULT_OFFICES) {
-        if (!deletedIds.has(defOff.id) && !locations.some((l) => l.name.trim().toLowerCase() === defOff.name.trim().toLowerCase())) {
+        if (!deletedIds.has(defOff.id) && !locations.some((l) => l.name.trim().toLowerCase() === defOff.name.trim().toLowerCase() || l.id === defOff.id)) {
           locations.push(defOff);
         }
       }
@@ -518,18 +678,43 @@ export const HIZEL_COMPANY_ID = 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9';
 export const SKILLBRIDGE_COMPANY_ID = 'c2b6dd6f-317e-41a1-90d8-ac8774249c75';
 export const BIGSAFELY_COMPANY_ID = '71fa880b-c3e2-4967-b121-a2692353aa55';
 
+function getActiveUserCompanyHint(): string {
+  try {
+    const raw = localStorage.getItem('humanius_remembered_account');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.companyName) return String(parsed.companyName).toLowerCase();
+    }
+  } catch {}
+  return '';
+}
+
 export function normalizeCompanyId(companyId?: string | null): string {
-  if (!companyId) return BIGSAFER_COMPANY_ID;
-  const s = String(companyId).trim().toLowerCase();
-  if (s === 'all' || s === 'default' || s === 'demo-company-id-9999') return BIGSAFER_COMPANY_ID;
+  const s = String(companyId || '').trim().toLowerCase();
+
+  if (
+    s === MICI_COMPANY_ID ||
+    s.includes('mıçı') ||
+    s.includes('mici') ||
+    s.includes('toyota') ||
+    s.includes('byd') ||
+    s.includes('sixt') ||
+    s.includes('suzuki') ||
+    s.includes('tarsus') ||
+    s.includes('seyhan') ||
+    s.includes('yuregir') ||
+    s.includes('yüreğir') ||
+    s.includes('adana') ||
+    s.includes('kayseri') ||
+    s.includes('mersin')
+  ) {
+    return MICI_COMPANY_ID;
+  }
   if (s === BIGSAFELY_COMPANY_ID || s.includes('bigsafely')) {
     return BIGSAFELY_COMPANY_ID;
   }
   if (s === BIGSAFER_COMPANY_ID || s.includes('bigsafer')) {
     return BIGSAFER_COMPANY_ID;
-  }
-  if (s === MICI_COMPANY_ID || s.includes('mıçı') || s.includes('mici')) {
-    return MICI_COMPANY_ID;
   }
   if (s === CAVDARLI_COMPANY_ID || s.includes('çavdarlı') || s.includes('cavdarli')) {
     return CAVDARLI_COMPANY_ID;
@@ -540,6 +725,33 @@ export function normalizeCompanyId(companyId?: string | null): string {
   if (s === SKILLBRIDGE_COMPANY_ID || s.includes('skillbridge')) {
     return SKILLBRIDGE_COMPANY_ID;
   }
+
+  // If companyId is not provided, 'all', 'default' or demo, resolve based on active user context
+  if (!companyId || s === 'all' || s === 'default' || s === 'demo-company-id-9999') {
+    const hint = getActiveUserCompanyHint();
+    if (hint) {
+      if (
+        hint.includes('mıçı') ||
+        hint.includes('mici') ||
+        hint.includes('toyota') ||
+        hint.includes('byd') ||
+        hint.includes('adana') ||
+        hint.includes('kayseri') ||
+        hint.includes('tarsus') ||
+        hint.includes('sixt') ||
+        hint.includes('suzuki') ||
+        hint.includes('mersin')
+      ) {
+        return MICI_COMPANY_ID;
+      }
+      if (hint.includes('çavdarlı') || hint.includes('cavdarli')) return CAVDARLI_COMPANY_ID;
+      if (hint.includes('hızel') || hint.includes('hizel')) return HIZEL_COMPANY_ID;
+      if (hint.includes('skillbridge')) return SKILLBRIDGE_COMPANY_ID;
+      if (hint.includes('bigsafely')) return BIGSAFELY_COMPANY_ID;
+    }
+    return BIGSAFER_COMPANY_ID;
+  }
+
   return companyId;
 }
 

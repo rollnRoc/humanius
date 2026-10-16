@@ -77,20 +77,25 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          {appRole === 'superadmin' && (
-            <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-1.5">
-              <label className="text-xs text-gray-500 font-medium">{t('toolbar.company')}:</label>
+          {appRole === 'superadmin' && companies.length > 1 && (
+            <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-1.5 shadow-xs">
+              <label className="text-xs text-gray-500 font-semibold">{t('toolbar.company')}:</label>
               <select
                 value={selectedCompany}
                 onChange={(e) => onCompanyChange(e.target.value)}
-                className="bg-transparent text-gray-800 text-sm font-semibold outline-none cursor-pointer"
+                className="bg-transparent text-gray-800 text-sm font-semibold outline-none cursor-pointer max-w-[220px]"
+                title="Şirkete göre filtrele"
               >
-                <option value="all">{t('toolbar.all')}</option>
-                {companies.map(company => (
-                  <option key={company} value={company}>
-                    {company}
-                  </option>
-                ))}
+                <option value="all">🏢 {t('toolbar.all')} (Tüm Şirketler)</option>
+                {companies.map((company: any) => {
+                  const compName = typeof company === 'string' ? company : (company?.name || '');
+                  const compKey = typeof company === 'string' ? company : (company?.id || company?.name || Math.random());
+                  return (
+                    <option key={compKey} value={compName}>
+                      {compName}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}

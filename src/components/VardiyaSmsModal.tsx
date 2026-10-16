@@ -58,7 +58,7 @@ export const VardiyaSmsModal: React.FC<VardiyaSmsModalProps> = ({
   const todayStr = getTodayYYYYMMDD();
 
   const loadLogs = () => {
-    const all = smsService.getLogs(filterDate === 'today' ? todayStr : undefined);
+    const all = smsService.getLogs(filterDate === 'today' ? todayStr : undefined, companyId, employees);
     setLogs(all);
   };
 
@@ -74,13 +74,13 @@ export const VardiyaSmsModal: React.FC<VardiyaSmsModalProps> = ({
       setEditLoginUrl(currentConfig.login_url);
       loadLogs();
     }
-  }, [isOpen, companyId, filterDate]);
+  }, [isOpen, companyId, filterDate, employees]);
 
   useEffect(() => {
     const handleUpdate = () => loadLogs();
     window.addEventListener('humanius_sms_updated', handleUpdate);
     return () => window.removeEventListener('humanius_sms_updated', handleUpdate);
-  }, [filterDate]);
+  }, [filterDate, companyId, employees]);
 
   if (!isOpen) return null;
 
@@ -104,8 +104,8 @@ export const VardiyaSmsModal: React.FC<VardiyaSmsModalProps> = ({
       username: editUsername,
       password: editPassword,
       source_addr: editSourceAddr,
-      start_delay_minutes: Number(editStartDelay) || 15,
-      end_delay_minutes: Number(editEndDelay) || 15,
+      start_delay_minutes: Number(editStartDelay) || 10,
+      end_delay_minutes: Number(editEndDelay) || 10,
       login_url: editLoginUrl.trim() || 'https://humanius.net',
     });
     setConfig(updated);
@@ -170,11 +170,11 @@ export const VardiyaSmsModal: React.FC<VardiyaSmsModalProps> = ({
 
   const handleClearLogs = async () => {
     const confirmed = await showConfirm(
-      'SMS kayıt günlüğünü silmek istediğinize emin misiniz? Bu işlem geri alınamaz.'
+      'Bu şirketin SMS kayıt günlüğünü silmek istediğinize emin misiniz? Bu işlem geri alınamaz.'
     );
     if (confirmed) {
-      smsService.clearLogs();
-      setLogs([]);
+      smsService.clearLogs(companyId, employees);
+      loadLogs();
       showSuccess('SMS günlüğü temizlendi.');
     }
   };
@@ -402,7 +402,7 @@ export const VardiyaSmsModal: React.FC<VardiyaSmsModalProps> = ({
                     onChange={(e) => setEditStartDelay(Number(e.target.value))}
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white"
                   />
-                  <span className="text-[11px] text-slate-500">Örn: 15 dk (08:30 için 08:45)</span>
+                  <span className="text-[11px] text-slate-500">Örn: 10 dk (08:30 için 08:40)</span>
                 </div>
 
                 <div>
@@ -417,7 +417,7 @@ export const VardiyaSmsModal: React.FC<VardiyaSmsModalProps> = ({
                     onChange={(e) => setEditEndDelay(Number(e.target.value))}
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white"
                   />
-                  <span className="text-[11px] text-slate-500">Örn: 15 dk (18:00 için 18:15)</span>
+                  <span className="text-[11px] text-slate-500">Örn: 10 dk (18:00 için 18:10)</span>
                 </div>
 
                 <div>

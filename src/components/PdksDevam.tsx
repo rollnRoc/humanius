@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { pdksService, VardiyaInsert } from '../services/pdksService';
-import { companyService, BIGSAFER_COMPANY_ID, MICI_COMPANY_ID, normalizeCompanyId, getDefaultOfficesForCompany } from '../services/companyService';
+import { companyService, BIGSAFER_COMPANY_ID, MICI_COMPANY_ID, normalizeCompanyId, getDefaultOfficesForCompany, MICI_DEFAULT_OFFICES } from '../services/companyService';
 import { notificationService } from '../services/notificationService';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, isNotSaturdayShift, inferOfficeForShift, isShiftMatchingOffice, resolveOfficeForShift, normalizeTr, getShiftOfficeMeta } from '../services/shiftService';
 import { VardiyaYonetimiModal } from './VardiyaYonetimiModal';
@@ -12,7 +12,7 @@ import {
   Compass, Play, Square, AlertCircle, CheckCircle2, ShieldAlert,
   Sliders, Navigation, CheckCircle, RefreshCw, Trash2, RotateCcw,
   Building2, Plus, Edit2, Check, X, Bell, BellRing, Users,
-  Printer, FileText, Download, CalendarCheck, ArrowUpDown, ChevronDown,
+  Printer, FileText, Download, CalendarCheck, Calendar, ArrowUpDown, ChevronDown,
   MessageSquare
 } from 'lucide-react';
 import { VardiyaSmsModal } from './VardiyaSmsModal';
@@ -160,11 +160,36 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     if (matched) return matched;
     if (employees && employees.length === 1) return employees[0];
     if (isManagement && employees && employees.length > 0) return employees[0];
-    return employees?.[0] || null;
+    if (employees && employees.length > 0) return employees[0];
+
+    // Fallback: If user or profile exists, synthesize employee so clock-in is never blocked
+    if (user || profile) {
+      const fallbackId = profile?.id || user?.id || 'emp-current';
+      const fallbackName =
+        profile?.full_name ||
+        user?.user_metadata?.full_name ||
+        profile?.name ||
+        (user?.email ? user.email.split('@')[0] : 'Personel');
+      const fallbackEmail = profile?.email || user?.email || '';
+      return {
+        id: fallbackId,
+        company_id: profile?.company_id || user?.user_metadata?.company_id || MICI_COMPANY_ID,
+        name: fallbackName,
+        email: fallbackEmail,
+        department: (profile as any)?.department || 'Genel',
+        position: (profile as any)?.position || 'Personel',
+        status: 'active',
+        tc_no: (profile as any)?.tc_no || user?.user_metadata?.tc_no || '',
+        phone: (profile as any)?.phone || user?.user_metadata?.phone || '',
+        il: (profile as any)?.il || '',
+        ilce: (profile as any)?.ilce || '',
+      } as any;
+    }
+    return null;
   }, [employees, profile, user, isManagement]);
 
   const resolvedCompanyId = React.useMemo(() => {
-    // 1. If superadmin selected a specific company in the dropdown:
+    // 1. If superadmin or manager selected a specific company:
     if (selectedCompany && selectedCompany !== 'all') {
       const normalized = normalizeCompanyId(selectedCompany);
       if (normalized) return normalized;
@@ -175,24 +200,52 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       if (matchedEmp?.company_id) return matchedEmp.company_id;
     }
 
-    // 2. Personal tab / employee profile company
+    // 2. Personal employee record company or location hint
     if (currentEmployee?.company_id) {
-      return currentEmployee.company_id;
+      const norm = normalizeCompanyId(currentEmployee.company_id);
+      if (norm) return norm;
+    }
+    if (currentEmployee?.company) {
+      const norm = normalizeCompanyId(currentEmployee.company);
+      if (norm) return norm;
+    }
+    const empCity = (currentEmployee?.il || (currentEmployee as any)?.city || currentEmployee?.department || '').toLowerCase();
+    if (empCity.includes('adana') || empCity.includes('mersin') || empCity.includes('tarsus') || empCity.includes('kayseri')) {
+      return MICI_COMPANY_ID;
     }
 
     // 3. User profile company
     if (profile?.company_id && profile.company_id !== 'demo-company-id-9999') {
-      return profile.company_id;
+      const norm = normalizeCompanyId(profile.company_id);
+      if (norm) return norm;
+    }
+    if ((profile as any)?.company_name || (profile as any)?.company) {
+      const norm = normalizeCompanyId((profile as any).company_name || (profile as any).company);
+      if (norm) return norm;
     }
 
     // 4. Employee list fallback
-    const firstEmpWithComp = employees.find((e) => e.company_id)?.company_id;
+    const firstEmpWithComp = employees.find((e) => e.company_id || e.company);
     if (firstEmpWithComp) {
-      return firstEmpWithComp;
+      const norm = normalizeCompanyId(firstEmpWithComp.company_id || firstEmpWithComp.company);
+      if (norm) return norm;
     }
 
-    return BIGSAFER_COMPANY_ID;
-  }, [selectedCompany, currentEmployee?.company_id, profile?.company_id, employees]);
+    // 5. Remembered account fallback
+    try {
+      const remembered = localStorage.getItem('humanius_remembered_account');
+      if (remembered) {
+        const parsed = JSON.parse(remembered);
+        if (parsed?.companyName) {
+          const norm = normalizeCompanyId(parsed.companyName);
+          if (norm) return norm;
+        }
+      }
+    } catch {}
+
+    // Default to Mıçı Otomotiv
+    return MICI_COMPANY_ID;
+  }, [selectedCompany, currentEmployee?.company_id, currentEmployee?.company, currentEmployee?.il, profile?.company_id, employees]);
 
   const effectiveCompanyId = resolvedCompanyId;
 
@@ -255,7 +308,9 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const [allShiftRecords, setAllShiftRecords] = useState<any[]>([]);
 
   // Multi-office locations state
-  const [officeLocations, setOfficeLocations] = useState<CompanyOfficeLocation[]>([]);
+  const [officeLocations, setOfficeLocations] = useState<CompanyOfficeLocation[]>(() => {
+    return getDefaultOfficesForCompany(MICI_COMPANY_ID) || MICI_DEFAULT_OFFICES;
+  });
   const [allCompanyOfficesMap, setAllCompanyOfficesMap] = useState<Record<string, CompanyOfficeLocation[]>>({});
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>(() => {
     try {
@@ -274,16 +329,17 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const [showVardiyaModal, setShowVardiyaModal] = useState(false);
   const [showSmsModal, setShowSmsModal] = useState(false);
   const [todaySmsCount, setTodaySmsCount] = useState<number>(() => {
-    return smsService.getLogs(getTodayYYYYMMDD()).length;
+    return smsService.getLogs(getTodayYYYYMMDD(), resolvedCompanyId, employees).length;
   });
 
   useEffect(() => {
     const handleSmsUpdate = () => {
-      setTodaySmsCount(smsService.getLogs(getTodayYYYYMMDD()).length);
+      setTodaySmsCount(smsService.getLogs(getTodayYYYYMMDD(), resolvedCompanyId, employees).length);
     };
+    handleSmsUpdate();
     window.addEventListener('humanius_sms_updated', handleSmsUpdate);
     return () => window.removeEventListener('humanius_sms_updated', handleSmsUpdate);
-  }, []);
+  }, [resolvedCompanyId, employees]);
 
   const [allCompanyShifts, setAllCompanyShifts] = useState<CompanyShift[]>(VARSAYILAN_VARDIYALAR);
   const [allShiftAssignments, setAllShiftAssignments] = useState<Record<string, string>>({});
@@ -412,14 +468,17 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
   // 2. Personelin kendi mevcut ofisi (Doğrudan başlangıç seçimi)
   const employeeAssignedOffice = useMemo<CompanyOfficeLocation | null>(() => {
-    if (officeLocations.length === 0) return null;
+    const effectiveLocs = (officeLocations && officeLocations.length > 0)
+      ? officeLocations
+      : (getDefaultOfficesForCompany(resolvedCompanyId) || MICI_DEFAULT_OFFICES);
+    if (!effectiveLocs || effectiveLocs.length === 0) return null;
 
     // 0. Öncelik: Personelin bizzat seçtiği ve kaydettiği ofis (Local-first)
     if (currentEmployee?.id) {
       try {
         const savedOfficeId = localStorage.getItem(`humanius_emp_selected_office_${currentEmployee.id}`);
         if (savedOfficeId) {
-          const found = officeLocations.find((o) => o.id === savedOfficeId);
+          const found = effectiveLocs.find((o) => o.id === savedOfficeId);
           if (found) return found;
         }
       } catch {}
@@ -428,26 +487,26 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     // 1. Admin müdahalesi
     if (currentEmployee?.id && adminOverrides[currentEmployee.id]?.officeName) {
       const adminOffName = normalizeTr(adminOverrides[currentEmployee.id].officeName);
-      const found = officeLocations.find((o) => normalizeTr(o.name) === adminOffName);
+      const found = effectiveLocs.find((o) => normalizeTr(o.name) === adminOffName);
       if (found) return found;
     }
 
     // 2. Atanmış vardiyada ofis açıkça tanımlıysa (Yalnızca vardiyada açık office_id veya office_name varsa)
     if (employeeAssignedShift && (employeeAssignedShift.office_id || employeeAssignedShift.office_name)) {
-      const off = resolveOfficeForShift(employeeAssignedShift, officeLocations);
+      const off = resolveOfficeForShift(employeeAssignedShift, effectiveLocs);
       if (off && !off.is_default) return off;
     }
 
     // 3. Personelin departman veya il/ilçe/şube bilgisine göre ofis eşleştir
     if (currentEmployee) {
       const offName = resolveEmployeeOfficeName(currentEmployee, employeeAssignedShift, null);
-      const found = officeLocations.find((o) => normalizeTr(o.name) === normalizeTr(offName));
+      const found = effectiveLocs.find((o) => normalizeTr(o.name) === normalizeTr(offName));
       if (found) return found;
     }
 
     // 4. Varsayılan ofis
-    return officeLocations.find((o) => o.is_default) || officeLocations[0] || null;
-  }, [employeeAssignedShift, officeLocations, currentEmployee, resolveEmployeeOfficeName, adminOverrides]);
+    return effectiveLocs.find((o) => o.is_default) || effectiveLocs[0] || null;
+  }, [employeeAssignedShift, officeLocations, currentEmployee, resolveEmployeeOfficeName, adminOverrides, resolvedCompanyId]);
   
   // Location Modal Form state
   const [locName, setLocName] = useState('');
@@ -477,29 +536,35 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   }, [selectedLocIlData]);
 
   // Şehir bazlı ofis filtrelemesi:
-  // - İK ve Şirket Yöneticisi (superadmin, admin, hr) şirketin tüm ofislerini görür.
+  // - İK ve Şirket Yöneticisi / Müdür (superadmin, admin, hr, manager) şirketin tüm ofislerini görür.
   // - Normal personel için:
   //   1. Personelin ili seçiliyse, SADECE kendi ilindeki ofis(ler)i görür.
   //   2. Eğer personelin bulunduğu şehirde hiçbir ofis yoksa veya şehir seçili değilse, tüm ofisleri görür.
   const hasCityOffices = useMemo(() => {
-    if (isHrOrAdmin) return false;
+    if (isManagement) return false;
     const userCityNorm = currentEmployee?.il ? currentEmployee.il.trim().toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '') : '';
     if (!userCityNorm) return false;
-    return officeLocations.some((loc) => {
+    const locs = (officeLocations && officeLocations.length > 0) ? officeLocations : MICI_DEFAULT_OFFICES;
+    return locs.some((loc) => {
       const locCityNorm = loc.il ? loc.il.trim().toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '') : '';
       return locCityNorm === userCityNorm;
     });
-  }, [isHrOrAdmin, currentEmployee?.il, officeLocations]);
+  }, [isManagement, currentEmployee?.il, officeLocations]);
 
   const visibleOfficeLocations = useMemo(() => {
-    if (!officeLocations || officeLocations.length === 0) return [];
+    let locs = (officeLocations && officeLocations.length > 0)
+      ? officeLocations
+      : (getDefaultOfficesForCompany(resolvedCompanyId) || MICI_DEFAULT_OFFICES);
+    if (!locs || locs.length === 0) {
+      locs = MICI_DEFAULT_OFFICES;
+    }
 
     // Tüm şirket ofisleri seçilebilir olmalıdır (isteyen ofisini değiştirebilsin).
     // Personelin kendi ofisi (Kendi Ofisiniz) daima en üstte (1. sırada), ardından iline uyan ofisler, varsayılan merkez ofis ve diğerleri sıralanır.
     const assignedId = employeeAssignedOffice?.id;
     const userCityNorm = currentEmployee?.il ? normalizeTr(currentEmployee.il) : '';
 
-    return [...officeLocations].sort((a, b) => {
+    return [...locs].sort((a, b) => {
       // 1. Personelin kendi ofisi en başta
       if (assignedId) {
         if (a.id === assignedId) return -1;
@@ -518,7 +583,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       // 4. Alfabetik
       return a.name.localeCompare(b.name, 'tr-TR');
     });
-  }, [officeLocations, employeeAssignedOffice, currentEmployee?.il]);
+  }, [officeLocations, employeeAssignedOffice, currentEmployee?.il, resolvedCompanyId]);
 
   // Efektif seçili ofis ID'si (Kullanıcının kendi atanmış ofisi doğrudan seçili gelir)
   const effectiveSelectedOfficeId = useMemo(() => {
@@ -858,10 +923,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     // Read local storage for active session
     const savedActiveId = localStorage.getItem('pdks_active_shift_id');
     const savedStart = localStorage.getItem('pdks_active_shift_start');
-    const nowInit = new Date();
-    const isTodayWeekend = nowInit.getDay() === 6 || nowInit.getDay() === 0;
-    const targetCikisTime = getTargetCikisTime(activeUserShift, undefined, isTodayWeekend, saturdayConfig);
-    const isOvertimeAuthorized = Boolean(currentEmployee?.id && overtimeAuthMap[currentEmployee.id]);
     
     if (savedActiveId && savedStart) {
       // KULLANICI KESİN TALİMATI: Gün aşsa bile (gece vardiyası veya açık kalan mesai)
@@ -904,22 +965,22 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         companyService.getOfficeLocations(resolvedCompanyId),
         companyService.getAllOfficeLocations()
       ]);
-      setOfficeLocations(locs);
+      const effectiveLocs = (locs && locs.length > 0) ? locs : (getDefaultOfficesForCompany(resolvedCompanyId) || MICI_DEFAULT_OFFICES);
+      setOfficeLocations(effectiveLocs);
       setAllCompanyOfficesMap(allMap);
-      if (locs && locs.length > 0) {
+      if (effectiveLocs && effectiveLocs.length > 0) {
         setSelectedOfficeId((prev) => {
-          if (prev && locs.some((l) => l.id === prev)) return prev;
-          if (employeeAssignedOffice && locs.some((l) => l.id === employeeAssignedOffice.id)) {
-            return employeeAssignedOffice.id;
-          }
-          const def = locs.find((l) => l.is_default) || locs[0];
+          if (prev && effectiveLocs.some((l) => l.id === prev)) return prev;
+          const def = effectiveLocs.find((l) => l.is_default) || effectiveLocs[0];
           return def ? def.id : '';
         });
       }
     } catch (e) {
       console.error("Error loading office locations:", e);
+      const fallbackLocs = getDefaultOfficesForCompany(resolvedCompanyId) || MICI_DEFAULT_OFFICES;
+      setOfficeLocations(fallbackLocs);
     }
-  }, [resolvedCompanyId, employeeAssignedOffice, currentEmployee?.id]);
+  }, [resolvedCompanyId]);
 
   useEffect(() => {
     loadOfficeLocations();
@@ -931,6 +992,16 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       window.removeEventListener('humanius_office_locations_updated', handleOfficeUpdate);
     };
   }, [loadOfficeLocations]);
+
+  // Sync selected office with employee assigned office if available and valid
+  useEffect(() => {
+    if (employeeAssignedOffice?.id) {
+      setSelectedOfficeId((prev) => {
+        if (!prev) return employeeAssignedOffice.id;
+        return prev;
+      });
+    }
+  }, [employeeAssignedOffice?.id]);
 
   // Load shift history from database and sync shift status
   const loadShiftHistory = React.useCallback(async () => {
@@ -1028,7 +1099,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         setLocalHistory(JSON.parse(savedHistory));
       }
     }
-  }, [currentEmployee?.id, activeUserShift, overtimeAuthMap, saturdayConfig]);
+  }, [currentEmployee?.id]);
 
   useEffect(() => {
     loadShiftHistory();
@@ -1352,7 +1423,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
   // Start Shift Handler
   const handleStartShift = async () => {
-    const empId = currentEmployee?.id;
+    const empId = currentEmployee?.id || profile?.id || user?.id;
     if (!empId) {
       showError(
         'Personel Kaydı Bulunamadı',
@@ -1901,7 +1972,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
             durum: leaveTitle,
             isLeave: effKod !== 'D',
             mesai: 0,
-            officeName: '-',
+            officeName: resolveEmployeeOfficeName(emp, empShift, null) || '-',
             shift: empShift,
           };
         }
@@ -2011,6 +2082,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         }
       }
 
+      const assignedOfficeName = resolveEmployeeOfficeName(emp, empShift, null) || '-';
+
       // 2. ÖNCELİK: Onaylanmış İzin Talebi Kontrolü (izinTalepleri)
       const activeLeave = (izinTalepleri || []).find((t: any) => {
         const tEmpId = t.employeeId || t.employee_id;
@@ -2032,12 +2105,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           durum: leaveTitle,
           isLeave: true,
           mesai: 0,
-          officeName: '-',
+          officeName: assignedOfficeName,
           shift: empShift,
         };
       }
-
-
 
       // 4. ÖNCELİK: Kayıt Bulunmayan Durumlarda Günün Niteliği (Pazar / Cumartesi Hafta Tatili)
       // Pazar günleri yasal hafta tatilidir (Madde 46)
@@ -2049,7 +2120,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           durum: 'Haftalık Tatil',
           isLeave: true,
           mesai: 0,
-          officeName: '-',
+          officeName: assignedOfficeName,
           shift: empShift,
         };
       }
@@ -2065,7 +2136,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
             durum: 'Haftalık Tatil',
             isLeave: true,
             mesai: 0,
-            officeName: '-',
+            officeName: assignedOfficeName,
             shift: empShift,
           };
         }
@@ -2079,7 +2150,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         durum: 'Giriş Yapılmadı',
         isLeave: false,
         mesai: 0,
-        officeName: '-',
+        officeName: assignedOfficeName,
         shift: empShift,
       };
     });
@@ -2525,7 +2596,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                           🏢 Merkez
                         </span>
                       )}
-                      {isHrOrAdmin && (
+                      {isManagement && (
                         <button
                           type="button"
                           onClick={handleOpenNewOffice}
@@ -2798,8 +2869,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               )}
             </div>
 
-            {/* Şirket Ofis & Şube Konumları Paneli (Sadece Süper Admin / Şirket Yöneticisi / İK personeli görebilir) */}
-            {isHrOrAdmin && (
+            {/* Şirket Ofis & Şube Konumları Paneli (Süper Admin / Şirket Yöneticisi / İK / Müdür) */}
+            {isManagement && (
               <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 rounded-2xl p-5 text-white space-y-4 shadow-md">
                 <div className="flex items-center justify-between border-b border-indigo-800/80 pb-3">
                   <div className="flex items-center gap-2">
@@ -2811,7 +2882,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       </p>
                     </div>
                   </div>
-                  {isHrOrAdmin && (
+                  {isManagement && (
                     <button
                       onClick={handleOpenNewOffice}
                       className="text-[11px] bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm transition-all cursor-pointer"
@@ -2869,7 +2940,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                               </span>
                             )}
                           </div>
-                          {isHrOrAdmin && (
+                          {isManagement && (
                             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => handleOpenEditOffice(loc)}
@@ -3024,9 +3095,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 </div>
               </div>
 
-              {/* Hızlı Kısayollar ve Çıktı Butonları (Sadece Süper Admin / Şirket Yöneticisi / İK) */}
-              {isHrOrAdmin && (
+              {/* Hızlı Kısayollar ve Çıktı Butonları (Süper Admin / Şirket Yöneticisi / İK / Müdür) */}
+              {isManagement && (
                 <div className="flex items-center gap-2 flex-wrap">
+                  {onNavigateToPuantaj && (
+                    <button
+                      onClick={onNavigateToPuantaj}
+                      className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                      title="Aylık Puantaj Cetveline Git"
+                    >
+                      <Calendar className="w-3.5 h-3.5 text-indigo-200" />
+                      Aylık Puantaj Cetveli
+                    </button>
+                  )}
                   <button
                     onClick={handlePrintPdf}
                     className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
@@ -3042,6 +3123,19 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   >
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
                     Excel / CSV
+                  </button>
+                  <button
+                    onClick={() => setShowSmsModal(true)}
+                    className="flex items-center gap-1.5 border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                    title="Vardiya SMS Hatırlatmaları ve Günlüğü"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>SMS Günlüğü</span>
+                    {todaySmsCount > 0 && (
+                      <span className="bg-indigo-600 text-white text-[10px] font-extrabold px-1.5 py-0.2 rounded-full">
+                        {todaySmsCount}
+                      </span>
+                    )}
                   </button>
                 </div>
               )}
@@ -3355,7 +3449,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       )}
                     </div>
                   </th>
-                  {isHrOrAdmin && (
+                  {isManagement && (
                     <th
                       onClick={() => handleSort('mesai')}
                       className="px-6 py-4 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none font-semibold text-gray-700"
@@ -3395,7 +3489,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       )}
                     </div>
                   </th>
-                  {isHrOrAdmin && <th className="px-6 py-4 text-right">İşlemler</th>}
+                  {isManagement && <th className="px-6 py-4 text-right">İşlemler</th>}
                 </tr>
               </thead>
               <tbody>
@@ -3460,11 +3554,17 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                           <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                           <span>{d.officeName}</span>
                         </span>
+                      ) : (d.officeName && d.officeName !== '-') ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-xl bg-slate-50 text-slate-700 border border-slate-200/90 shadow-2xs" title="Tanımlı / Atanmış Şube">
+                          <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span>{d.officeName}</span>
+                          <span className="text-[10px] text-slate-400 font-normal">(Atanmış)</span>
+                        </span>
                       ) : (
                         <span className="text-xs text-gray-400 font-medium">-</span>
                       )}
                     </td>
-                    {isHrOrAdmin && (
+                    {isManagement && (
                       <td className="px-6 py-4 text-center">
                         {(() => {
                           const now = new Date();
@@ -3531,7 +3631,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         {d.durum === 'Fiili Çalışma' || d.durum.includes('Fiili Çalışma') ? 'Zamanında' : d.durum}
                       </span>
                     </td>
-                    {isHrOrAdmin && (
+                    {isManagement && (
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => {
@@ -3553,7 +3653,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 ))}
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={isHrOrAdmin ? 7 : 5} className="px-6 py-8 text-center text-gray-500">Kayıt bulunamadı.</td>
+                    <td colSpan={isManagement ? 7 : 5} className="px-6 py-8 text-center text-gray-500">Kayıt bulunamadı.</td>
                   </tr>
                 )}
               </tbody>

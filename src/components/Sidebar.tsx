@@ -368,13 +368,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 aria-expanded={hasChildren ? isSectionOpen : undefined}
                 onClick={() => {
                   if (hasChildren) {
-                    if (item.children.length === 1) {
-                      onViewChange(item.children[0].id);
-                    }
+                    onViewChange(item.children[0].id);
                     setOpenSections((prev) =>
-                      prev.includes(item.id)
-                        ? prev.filter((sectionId) => sectionId !== item.id)
-                        : [...prev, item.id]
+                      prev.includes(item.id) ? prev : [...prev, item.id]
                     );
                     return;
                   }

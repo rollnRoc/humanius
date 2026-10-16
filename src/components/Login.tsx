@@ -68,25 +68,26 @@ export default function Login() {
 
     // If identifier doesn't contain @, resolve to actual profile email
     if (!rawInput.includes('@')) {
+      const asciiName = rawInput.toLowerCase()
+        .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
+        .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+        .replace(/İ/g, 'i').replace(/Ğ/g, 'g').replace(/Ü/g, 'u')
+        .replace(/Ş/g, 's').replace(/Ö/g, 'o').replace(/Ç/g, 'c')
+        .replace(/\s+/g, '.');
+
       try {
-        const { data: resData } = await supabase.functions.invoke('user-management', {
-          body: { operation: 'resolve_identifier', identifier: rawInput }
-        });
-        if (resData && resData.email) {
-          loginEmail = resData.email;
+        const { data: pData } = await supabase
+          .from('profiles')
+          .select('email')
+          .ilike('full_name', rawInput)
+          .maybeSingle();
+
+        if (pData?.email) {
+          loginEmail = pData.email;
         } else {
-          const asciiName = rawInput.toLowerCase()
-            .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
-            .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
-            .replace(/\s+/g, '.');
           loginEmail = `${asciiName}@humanius.net`;
         }
-      } catch (resErr) {
-        console.warn("Identifier resolution error:", resErr);
-        const asciiName = rawInput.toLowerCase()
-          .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
-          .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
-          .replace(/\s+/g, '.');
+      } catch {
         loginEmail = `${asciiName}@humanius.net`;
       }
     }
@@ -114,9 +115,14 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('user-management', {
+      const invokePromise = supabase.functions.invoke('user-management', {
         body: { operation: 'quick_login', email: targetEmail }
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT')), 3500)
+      );
+
+      const { data, error: fnError } = (await Promise.race([invokePromise, timeoutPromise])) as any;
       if (fnError || !data?.token_hash) {
         throw new Error(data?.error || 'Hızlı giriş işlemi gerçekleştirilemedi.');
       }
@@ -128,7 +134,7 @@ export default function Login() {
         throw verifyError;
       }
     } catch (err: any) {
-      console.error('Quick login error:', err);
+      console.warn('Quick login fallback:', err);
       setError('Hızlı giriş bağlantısı kurulamadı. Lütfen standart parola ile giriş yapın.');
       setShowFullForm(true);
     } finally {

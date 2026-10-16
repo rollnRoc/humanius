@@ -14,6 +14,8 @@ interface EmployeeTableProps {
   onEmployeeActionSelect?: (employee: Employee, action: 'gorev' | 'bordro' | 'izin') => void;
   sortOrder?: 'asc' | 'desc';
   onToggleSort?: () => void;
+  onResetFilters?: () => void;
+  totalCount?: number;
 }
 
 export type EmployeeSortField = 'name' | 'company' | 'department' | 'position' | 'role' | 'isYeriSgkSicilNo' | 'employeeType' | 'status' | 'phone' | 'joinDate';
@@ -24,7 +26,9 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
   onDeleteEmployee,
   onEmployeeActionSelect,
   sortOrder,
-  onToggleSort
+  onToggleSort,
+  onResetFilters,
+  totalCount
 }) => {
   const { t } = useLanguage();
   const { appRole } = useAuth();
@@ -336,7 +340,33 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
             </tr>
           </thead>
           <tbody className="bg-white">
-            {paginatedEmployees.map((employee, index) => (
+            {paginatedEmployees.length === 0 ? (
+              <tr>
+                <td colSpan={10} className="py-16 text-center text-gray-500">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-1">
+                      <span className="text-2xl">👥</span>
+                    </div>
+                    <p className="text-base font-semibold text-gray-800">Personel Kaydı Bulunamadı</p>
+                    <p className="text-xs text-gray-500 max-w-md">
+                      {typeof totalCount === 'number' && totalCount > 0
+                        ? `Sistemde toplam ${totalCount} personel kaydı mevcuttur ancak seçilen şirket, departman veya arama kriterine uygun kayıt bulunamadı.`
+                        : 'Mevcut filtre veya arama kriterlerinize uygun personel bulunamadı. Filtreleri sıfırlayabilir veya sağ üstteki "+ Yeni Personel" butonundan ekleyebilirsiniz.'}
+                    </p>
+                    {onResetFilters && (
+                      <button
+                        type="button"
+                        onClick={onResetFilters}
+                        className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                      >
+                        <span>🔄 Filtreleri Sıfırla (Tüm Personelleri Göster)</span>
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              paginatedEmployees.map((employee, index) => (
               <tr 
                 key={employee.id}
                 className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
@@ -487,7 +517,7 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                   </div>
                 </td>
               </tr>
-            ))}
+            )))}
           </tbody>
         </table>
       </div>

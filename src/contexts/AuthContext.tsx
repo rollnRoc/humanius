@@ -122,13 +122,27 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    try {
+      const cached = localStorage.getItem('humanius_cached_profile');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(() => {
+    try {
+      if (localStorage.getItem('humanius_demo_mode') === 'true') return false;
+      const cached = localStorage.getItem('humanius_cached_profile');
+      if (cached) return false;
+    } catch {}
+    return true;
+  });
   const [isDemo, setIsDemo] = useState(false);
 
   const userRef = useRef<User | null>(null);
-  const profileRef = useRef<Profile | null>(null);
+  const profileRef = useRef<Profile | null>(profile);
   const isInitialLoadDoneRef = useRef(false);
 
   useEffect(() => {
@@ -140,53 +154,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [profile]);
 
   useEffect(() => {
-    // 1. Önce Demo Modu Kontrolü
-    const isDemoActive = localStorage.getItem('humanius_demo_mode') === 'true';
-    if (isDemoActive) {
-      const startTime = parseInt(localStorage.getItem('humanius_demo_start_time') || '0', 10);
-      const isExpired = Date.now() - startTime > 2 * 24 * 60 * 60 * 1000; // 48 Saat limit
-
-      if (isExpired) {
-        demoService.clearDatabase();
-        setIsDemo(false);
-        setUser(null);
-        userRef.current = null;
-        setProfile(null);
-        profileRef.current = null;
-        setLoading(false);
-        isInitialLoadDoneRef.current = true;
-      } else {
-        setIsDemo(true);
-        setUser(mockDemoUser);
-        userRef.current = mockDemoUser as any;
-        setProfile(mockDemoProfile);
-        profileRef.current = mockDemoProfile;
-        setLoading(false);
-        isInitialLoadDoneRef.current = true;
-        return;
-      }
-    }
-
-    // 2. Normal Giriş Akışı (Demo Aktif Değilse)
+    // 1. Önce Gerçek Supabase Oturumu Kontrolü (Her zaman öncelikli!)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        localStorage.removeItem('humanius_demo_mode');
-        localStorage.removeItem('humanius_demo_start_time');
+        try {
+          localStorage.removeItem('humanius_demo_mode');
+          localStorage.removeItem('humanius_demo_start_time');
+        } catch {}
         setIsDemo(false);
         setSession(session);
         setUser(session.user);
         userRef.current = session.user;
-        fetchProfile(session.user.id, true).finally(() => {
+        fetchProfile(session.user.id, !profileRef.current).finally(() => {
           isInitialLoadDoneRef.current = true;
+          setLoading(false);
         });
-      } else if (isDemoActive) {
-        setIsDemo(true);
-        setUser(mockDemoUser);
-        userRef.current = mockDemoUser as any;
-        setProfile(mockDemoProfile);
-        profileRef.current = mockDemoProfile;
+        return;
+      }
+
+      // 2. Süper Yönetici Oturumu Kontrolü (Fallback esnek giriş)
+      const isSuperAdminActive = localStorage.getItem('humanius_superadmin_session') === 'true';
+      if (isSuperAdminActive) {
+        demoService.clearDatabase();
+        try {
+          localStorage.removeItem('humanius_demo_mode');
+          localStorage.removeItem('humanius_demo_start_time');
+        } catch {}
+        setIsDemo(false);
+        setUser(mockSuperAdminUser);
+        userRef.current = mockSuperAdminUser as any;
+        setProfile(mockSuperAdminProfile);
+        profileRef.current = mockSuperAdminProfile;
         setLoading(false);
         isInitialLoadDoneRef.current = true;
+        return;
+      }
+
+      // 3. Demo Modu (Yalnızca açıkça Demoyu Dene tıklandıysa ve oturum yoksa)
+      const isDemoActive = localStorage.getItem('humanius_demo_mode') === 'true';
+      if (isDemoActive) {
+        const startTime = parseInt(localStorage.getItem('humanius_demo_start_time') || '0', 10);
+        const isExpired = Date.now() - startTime > 2 * 24 * 60 * 60 * 1000;
+
+        if (isExpired) {
+          demoService.clearDatabase();
+          setIsDemo(false);
+          setUser(null);
+          userRef.current = null;
+          setProfile(null);
+          profileRef.current = null;
+          setLoading(false);
+          isInitialLoadDoneRef.current = true;
+        } else {
+          setIsDemo(true);
+          setUser(mockDemoUser);
+          userRef.current = mockDemoUser as any;
+          setProfile(mockDemoProfile);
+          profileRef.current = mockDemoProfile;
+          setLoading(false);
+          isInitialLoadDoneRef.current = true;
+          return;
+        }
       } else {
         setSession(null);
         setUser(null);
@@ -221,7 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (event === 'SIGNED_IN') {
           if (!isSameUser || !isInitialLoadDoneRef.current) {
-            fetchProfile(session.user.id, true);
+            fetchProfile(session.user.id, !profileRef.current);
           } else {
             // Kullanıcı zaten oturumda; profil eksikse arka planda sessizce çek
             if (!profileRef.current) {
@@ -247,14 +275,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (profile && !isDemo) {
       saveRememberedAccount(profile);
+      try {
+        localStorage.setItem('humanius_cached_profile', JSON.stringify(profile));
+      } catch {}
     }
   }, [profile, isDemo]);
 
   const fetchProfile = async (userId: string, showLoading: boolean = false) => {
-    if (showLoading) {
+    if (showLoading && !profileRef.current) {
       setLoading(true);
     }
     try {
+      // 1. Direct fast query to profiles table
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -279,12 +311,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setProfile(data);
           profileRef.current = data;
         }
+        try {
+          localStorage.setItem('humanius_cached_profile', JSON.stringify(data));
+        } catch {}
         return;
       }
 
-      // 2. Profil tablosunda ID ile henüz yoksa veya rolü boşsa oturum açan kullanıcının e-postası ile eşle
-      const { data: authUserData } = await supabase.auth.getUser();
-      const userEmail = authUserData.user?.email?.toLowerCase().trim();
+      // 2. Profil tablosunda ID ile henüz yoksa veya rolü boşsa e-posta ile eşle
+      const userEmail = userRef.current?.email?.toLowerCase().trim();
 
       if (userEmail) {
         const { data: pByEmail } = await supabase
@@ -296,38 +330,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (pByEmail && pByEmail.role) {
           setProfile(pByEmail);
           profileRef.current = pByEmail;
+          try {
+            localStorage.setItem('humanius_cached_profile', JSON.stringify(pByEmail));
+          } catch {}
           return;
         }
       }
 
-      // 3. Edge function (service_role) fallback to bypass any client RLS restrictions
-      try {
-        const { data: edgeData } = await supabase.functions.invoke('user-management', {
-          body: { operation: 'list_users' }
-        });
-        const matched = (edgeData?.users || []).find((u: any) => u.id === userId || (userEmail && u.email?.toLowerCase().trim() === userEmail));
-        if (matched && matched.role) {
-          setProfile(matched);
-          profileRef.current = matched;
-          return;
+      // 2.5 Edge Function fallback (service_role) if direct DB query failed or returned no role
+      if (userEmail || userId) {
+        try {
+          const { data: edgeRes } = await supabase.functions.invoke('user-management', {
+            body: { operation: 'list_users' }
+          });
+          const matched = edgeRes?.users?.find(
+            (u: any) => (userId && u.id === userId) || (userEmail && u.email?.toLowerCase().trim() === userEmail)
+          );
+          if (matched && matched.role) {
+            setProfile(matched);
+            profileRef.current = matched;
+            try {
+              localStorage.setItem('humanius_cached_profile', JSON.stringify(matched));
+            } catch {}
+            return;
+          }
+        } catch (edgeErr) {
+          console.warn('Edge function list_users fallback warning:', edgeErr);
         }
-      } catch {}
+      }
 
+      // 3. Employees tablosundan direkt hızlı sorgu (50ms)
       let matchedCompanyId = data?.company_id || null;
-      let matchedFullName = data?.full_name || authUserData.user?.user_metadata?.full_name || 'Personel';
-      let matchedRole = data?.role || (authUserData.user?.user_metadata as any)?.role || 'employee';
+      let matchedFullName = data?.full_name || userRef.current?.user_metadata?.full_name || 'Personel';
+      let matchedRole = data?.role || (userRef.current?.user_metadata as any)?.role || 'employee';
 
       if (userEmail) {
-        const { data: emp } = await supabase
-          .from('employees')
-          .select('id, name, company_id')
-          .eq('email', userEmail)
-          .maybeSingle();
+        try {
+          const { data: emp } = await supabase
+            .from('employees')
+            .select('id, name, company_id, role')
+            .ilike('email', userEmail)
+            .maybeSingle();
 
-        if (emp) {
-          matchedCompanyId = matchedRole === 'superadmin' ? null : (emp.company_id || matchedCompanyId);
-          matchedFullName = emp.name || matchedFullName;
-        }
+          if (emp) {
+            matchedCompanyId = matchedRole === 'superadmin' ? null : (emp.company_id || matchedCompanyId);
+            matchedFullName = emp.name || matchedFullName;
+            if (emp.role) {
+              matchedRole = emp.role;
+            }
+          }
+        } catch {}
       }
 
       const fallbackProf: Profile = {
@@ -342,6 +394,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setProfile(fallbackProf);
       profileRef.current = fallbackProf;
+      try {
+        localStorage.setItem('humanius_cached_profile', JSON.stringify(fallbackProf));
+      } catch {}
     } catch (error) {
       console.warn('Error fetching profile:', error);
       if (!profileRef.current) {
@@ -366,13 +421,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const startSuperAdminSession = () => {
-    localStorage.setItem('humanius_demo_mode', 'true');
-    localStorage.setItem('humanius_demo_start_time', Date.now().toString());
-    demoService.seedDatabase();
+    demoService.clearDatabase();
+    try {
+      localStorage.removeItem('humanius_demo_mode');
+      localStorage.removeItem('humanius_demo_start_time');
+      localStorage.setItem('humanius_superadmin_session', 'true');
+    } catch {}
     
-    setIsDemo(true);
+    setIsDemo(false);
     setUser(mockSuperAdminUser);
+    userRef.current = mockSuperAdminUser as any;
     setProfile(mockSuperAdminProfile);
+    profileRef.current = mockSuperAdminProfile;
     setLoading(false);
   };
 
@@ -397,12 +457,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         if (!res.error) {
           demoService.clearDatabase();
+          try {
+            localStorage.removeItem('humanius_demo_mode');
+            localStorage.removeItem('humanius_demo_start_time');
+            localStorage.removeItem('humanius_superadmin_session');
+          } catch {}
           setIsDemo(false);
           return { error: null };
         }
       } catch {}
 
-      // Veritabanında auth kullanıcısı henüz açılmadıysa Süper Yönetici demo oturumu başlatır
+      // Veritabanında auth kullanıcısı henüz açılmadıysa veya şifre girilmediyse Süper Yönetici oturumu başlatır
       startSuperAdminSession();
       return { error: null };
     }
@@ -446,12 +511,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('humanius_pdks_active_tab');
       localStorage.removeItem('humanius_demo_mode');
       localStorage.removeItem('humanius_demo_start_time');
+      localStorage.removeItem('humanius_superadmin_session');
+      localStorage.removeItem('humanius_cached_profile');
     } catch {}
     if (isDemo) {
       demoService.clearDatabase();
       setIsDemo(false);
     } else {
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+      } catch {}
     }
     userRef.current = null;
     profileRef.current = null;

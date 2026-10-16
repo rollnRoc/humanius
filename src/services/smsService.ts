@@ -16,6 +16,7 @@ export interface SmsLogEntry {
   id: string;
   employee_id: string;
   employee_name: string;
+  company_id?: string;
   phone: string;
   type: 'start_reminder' | 'end_reminder' | 'test';
   shift_name: string;
@@ -33,8 +34,8 @@ export const DEFAULT_SMS_CONFIG: SmsConfig = {
   password: '3e3f25f6-mpsp-1406',
   source_addr: '',
   login_url: 'https://humanius.net',
-  start_delay_minutes: 15,
-  end_delay_minutes: 15,
+  start_delay_minutes: 10, // 10 dk gecikme (örn: 08:30 için 08:40)
+  end_delay_minutes: 10,   // 10 dk gecikme (örn: 18:00 için 18:10)
 };
 
 const SMS_CONFIG_KEY = 'humanius_sms_config';
@@ -208,7 +209,14 @@ export const smsService = {
       for (const key of candidateKeys) {
         const saved = localStorage.getItem(key);
         if (saved) {
-          return { ...DEFAULT_SMS_CONFIG, ...JSON.parse(saved), enabled: isEnabled };
+          const parsed = JSON.parse(saved);
+          return {
+            ...DEFAULT_SMS_CONFIG,
+            ...parsed,
+            start_delay_minutes: parsed.start_delay_minutes === 15 ? 10 : (parsed.start_delay_minutes ?? 10),
+            end_delay_minutes: parsed.end_delay_minutes === 15 ? 10 : (parsed.end_delay_minutes ?? 10),
+            enabled: isEnabled,
+          };
         }
       }
       return { ...DEFAULT_SMS_CONFIG, enabled: isEnabled };
@@ -388,6 +396,7 @@ export const smsService = {
       const entry = this.addLog({
         employee_id: employee.id,
         employee_name: employee.name,
+        company_id: targetCompId,
         phone: '-',
         type: 'start_reminder',
         shift_name: shift.name || 'Vardiya',
@@ -411,6 +420,7 @@ export const smsService = {
     this.addLog({
       employee_id: employee.id,
       employee_name: employee.name,
+      company_id: targetCompId,
       phone: employee.phone,
       type: 'start_reminder',
       shift_name: shift.name || 'Vardiya',
@@ -445,6 +455,7 @@ export const smsService = {
       const entry = this.addLog({
         employee_id: employee.id,
         employee_name: employee.name,
+        company_id: targetCompId,
         phone: '-',
         type: 'end_reminder',
         shift_name: shift.name || 'Vardiya',
@@ -468,6 +479,7 @@ export const smsService = {
     this.addLog({
       employee_id: employee.id,
       employee_name: employee.name,
+      company_id: targetCompId,
       phone: employee.phone,
       type: 'end_reminder',
       shift_name: shift.name || 'Vardiya',
@@ -505,6 +517,7 @@ export const smsService = {
     this.addLog({
       employee_id: 'test',
       employee_name: 'Test Gönderimi',
+      company_id: companyId,
       phone: destPhone,
       type: 'test',
       shift_name: 'Test',
@@ -520,31 +533,116 @@ export const smsService = {
 
   /**
    * Bugün bu personele bu türde SMS gönderilmiş mi kontrol et
+   * KULLANICI KESİN TALİMATI: Günde kesinlikle sadece 1 kere atılır!
    */
-  hasSentToday(employeeId: string, type: 'start_reminder' | 'end_reminder', dateStr: string): boolean {
-    const logs = this.getLogs(dateStr);
-    return logs.some(
+  hasSentToday(
+    employeeId: string,
+    type: 'start_reminder' | 'end_reminder',
+    dateStr: string,
+    companyId?: string
+  ): boolean {
+    // 1. Doğrudan anlık kilit kontrolü (O(1) spam koruması)
+    const sentKey = `humanius_sms_sent_${dateStr}_${employeeId}_${type}`;
+    try {
+      if (localStorage.getItem(sentKey) === '1') {
+        return true;
+      }
+    } catch {}
+
+    // 2. Ham tüm log kayıtlarında bugün bu personele bu türde SMS gönderim kaydı var mı kontrol et
+    // (Durum ister success ister failed olsun; kullanıcı talimatı gereği günde sadece 1 kere atılır)
+    const allLogs = this.getRawLogs();
+    const found = allLogs.some(
       (log) =>
         log.employee_id === employeeId &&
         log.type === type &&
-        log.date === dateStr &&
-        log.status === 'success'
+        log.date === dateStr
     );
+
+    if (found) {
+      try {
+        localStorage.setItem(sentKey, '1');
+      } catch {}
+      return true;
+    }
+
+    return false;
   },
 
   /**
-   * SMS Loglarını Getir
+   * Bugün için SMS gönderildi olarak işaretle (Çift gönderimi anında engelleyen kilit)
    */
-  getLogs(dateFilter?: string): SmsLogEntry[] {
+  markSentToday(
+    employeeId: string,
+    type: 'start_reminder' | 'end_reminder',
+    dateStr: string
+  ): void {
+    try {
+      localStorage.setItem(`humanius_sms_sent_${dateStr}_${employeeId}_${type}`, '1');
+    } catch {}
+  },
+
+  /**
+   * Ham SMS Loglarını Getir (Filtresiz)
+   */
+  getRawLogs(): SmsLogEntry[] {
     try {
       const raw = localStorage.getItem(SMS_LOGS_KEY);
       if (!raw) return [];
       const list: SmsLogEntry[] = JSON.parse(raw);
-      if (!Array.isArray(list)) return [];
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * SMS Loglarını Getir (Firma ve Tarih filtreli)
+   * Her şirketin sadece kendi geçmişini görmesini garanti eder.
+   */
+  getLogs(
+    dateFilter?: string,
+    companyId?: string,
+    employees?: Array<{ id: string; company_id?: string }>
+  ): SmsLogEntry[] {
+    try {
+      const list = this.getRawLogs();
+      let filtered = list;
+
       if (dateFilter) {
-        return list.filter((l) => l.date === dateFilter);
+        filtered = filtered.filter((l) => l.date === dateFilter);
       }
-      return list;
+
+      if (companyId && companyId !== 'all') {
+        const cleanTargetCompId = normalizeCompanyId(companyId);
+        const employeeIdSet = new Set<string>();
+        if (employees && employees.length > 0) {
+          employees.forEach((emp) => {
+            const empComp = normalizeCompanyId(emp.company_id || '');
+            if (!empComp || empComp === cleanTargetCompId || emp.company_id === companyId) {
+              employeeIdSet.add(emp.id);
+            }
+          });
+        }
+
+        filtered = filtered.filter((l) => {
+          // 1. Log kaydında doğrudan company_id varsa karşılaştır
+          if (l.company_id) {
+            const logComp = normalizeCompanyId(l.company_id);
+            return logComp === cleanTargetCompId || l.company_id === companyId;
+          }
+
+          // 2. Eski kayıtlarda company_id damgası yoksa personelin şirketine bak
+          if (l.employee_id && employeeIdSet.has(l.employee_id)) {
+            return true;
+          }
+
+          // Test SMS kaydı durumunda: Eğer şirket filtrelenmişse ve logta company_id yoksa diğer şirketlere gösterme
+          return false;
+        });
+      }
+
+      return filtered;
     } catch {
       return [];
     }
@@ -556,14 +654,18 @@ export const smsService = {
   addLog(entry: Omit<SmsLogEntry, 'id' | 'timestamp'>): SmsLogEntry {
     const newEntry: SmsLogEntry = {
       ...entry,
+      company_id: entry.company_id ? normalizeCompanyId(entry.company_id) : undefined,
       id: `sms-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       timestamp: new Date().toISOString(),
     };
 
     try {
-      const existing = this.getLogs();
-      // En fazla 500 kayıt tut
-      const updated = [newEntry, ...existing].slice(0, 500);
+      if (entry.type === 'start_reminder' || entry.type === 'end_reminder') {
+        this.markSentToday(entry.employee_id, entry.type, entry.date);
+      }
+      const existing = this.getRawLogs();
+      // En fazla 1000 kayıt tut
+      const updated = [newEntry, ...existing].slice(0, 1000);
       localStorage.setItem(SMS_LOGS_KEY, JSON.stringify(updated));
       window.dispatchEvent(new CustomEvent('humanius_sms_updated', { detail: newEntry }));
     } catch (e) {
@@ -574,12 +676,41 @@ export const smsService = {
   },
 
   /**
-   * Logları Temizle
+   * Logları Temizle (Belirtilen firma için veya tümü)
    */
-  clearLogs(): void {
+  clearLogs(companyId?: string, employees?: Array<{ id: string; company_id?: string }>): void {
     try {
-      localStorage.removeItem(SMS_LOGS_KEY);
+      if (!companyId || companyId === 'all') {
+        localStorage.removeItem(SMS_LOGS_KEY);
+      } else {
+        const all = this.getRawLogs();
+        const cleanTargetCompId = normalizeCompanyId(companyId);
+        const employeeIdSet = new Set<string>();
+        if (employees && employees.length > 0) {
+          employees.forEach((emp) => {
+            const empComp = normalizeCompanyId(emp.company_id || '');
+            if (!empComp || empComp === cleanTargetCompId || emp.company_id === companyId) {
+              employeeIdSet.add(emp.id);
+            }
+          });
+        }
+
+        const remaining = all.filter((l) => {
+          if (l.company_id) {
+            const logComp = normalizeCompanyId(l.company_id);
+            return logComp !== cleanTargetCompId && l.company_id !== companyId;
+          }
+          if (l.employee_id && employeeIdSet.has(l.employee_id)) {
+            return false;
+          }
+          return true;
+        });
+
+        localStorage.setItem(SMS_LOGS_KEY, JSON.stringify(remaining));
+      }
       window.dispatchEvent(new CustomEvent('humanius_sms_updated'));
-    } catch {}
+    } catch (e) {
+      console.error('clearLogs hatası:', e);
+    }
   },
 };

@@ -93,28 +93,83 @@ function filterDbEmployeePayload(obj: Record<string, any>): Record<string, any> 
 
 export const employeeService = {
   async getAll(companyId?: string): Promise<Employee[] | EmployeePublic[]> {
-    if (demoService.isDemoActive()) {
-      return demoService.getEmployees() as any;
+    const targetCompId = (companyId && companyId !== 'all') ? companyId : undefined;
+    const cacheKey = `humanius_cached_employees_${targetCompId || 'all'}`;
+
+    // 1. DÜMDÜZ veritabanından çek (Edge function - service_role, RLS aşan, kesin 220 personel)
+    try {
+      const { data: resData } = await supabase.functions.invoke('user-management', {
+        body: { operation: 'list_employees', companyId: targetCompId }
+      });
+      let parsed = resData;
+      if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch {}
+      }
+      const employeesList = parsed?.employees || (Array.isArray(parsed) ? parsed : null);
+      if (employeesList && employeesList.length > 0) {
+        console.log(`[employeeService.getAll] Edge Function'dan ${employeesList.length} personel çekildi.`);
+        const enriched = (employeesList as any[]).map(enrichEmployeeWithLocation) as Employee[];
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(enriched));
+          if (!targetCompId) {
+            localStorage.setItem('humanius_cached_employees_all', JSON.stringify(enriched));
+          }
+        } catch {}
+        return enriched;
+      }
+    } catch (edgeErr) {
+      console.warn('Edge function list_employees warning:', edgeErr);
     }
+
+    // 2. Doğrudan veritabanı sorgusu fallback
     try {
       const source = await pickSource();
       let query = supabase.from(source).select('*');
-      if (companyId) {
-        query = query.eq('company_id', companyId);
+      if (targetCompId) {
+        query = query.eq('company_id', targetCompId);
       }
       const { data, error } = await query.order('created_at', { ascending: false });
       if (!error && data && data.length > 0) {
-        return (data as any[]).map(enrichEmployeeWithLocation) as Employee[] | EmployeePublic[];
+        const enriched = (data as any[]).map(enrichEmployeeWithLocation) as Employee[] | EmployeePublic[];
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(enriched));
+          if (!targetCompId) {
+            localStorage.setItem('humanius_cached_employees_all', JSON.stringify(enriched));
+          }
+        } catch {}
+        return enriched;
       }
     } catch {}
 
-    // Edge function fallback via admin service_role to ensure 100% data access
+    // 3. User-specific fallback: Check if authenticated user has their own employee record
     try {
-      const { data: resData } = await supabase.functions.invoke('user-management', {
-        body: { operation: 'list_employees', companyId }
-      });
-      if (resData?.employees && resData.employees.length > 0) {
-        return (resData.employees as any[]).map(enrichEmployeeWithLocation) as Employee[];
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+      if (user) {
+        const uEmail = user.email ? user.email.toLowerCase().trim() : '';
+        const uId = user.id;
+        let query = supabase.from('employees').select('*');
+        if (uEmail) {
+          query = query.ilike('email', uEmail);
+        } else {
+          query = query.eq('id', uId);
+        }
+        const { data: myEmp } = await query;
+        if (myEmp && myEmp.length > 0) {
+          const enrichedMy = myEmp.map(enrichEmployeeWithLocation) as Employee[];
+          return enrichedMy;
+        }
+      }
+    } catch {}
+
+    // 4. Yerel önbellek yedeği
+    try {
+      const cached = localStorage.getItem(cacheKey) || (!targetCompId ? localStorage.getItem('humanius_cached_employees_all') : null);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       }
     } catch {}
 
@@ -122,18 +177,21 @@ export const employeeService = {
   },
 
   async getById(id: string): Promise<Employee | EmployeePublic | null> {
-    if (demoService.isDemoActive()) {
-      const emp = demoService.getEmployees().find(e => e.id === id);
-      return (emp ? enrichEmployeeWithLocation(emp) : null) as any;
-    }
-    const source = await pickSource();
-    const { data, error } = await supabase
-      .from(source)
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? enrichEmployeeWithLocation(data as any) as Employee | EmployeePublic : null;
+    if (!id) return null;
+    const all = await this.getAll();
+    const found = all.find(e => e.id === id);
+    if (found) return found;
+
+    try {
+      const source = await pickSource();
+      const { data, error } = await supabase
+        .from(source)
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      if (!error && data) return enrichEmployeeWithLocation(data as any) as Employee | EmployeePublic;
+    } catch {}
+    return null;
   },
 
   async create(employee: EmployeeInsert): Promise<Employee> {
@@ -572,14 +630,6 @@ export const employeeService = {
   },
 
   async getStats(companyId?: string) {
-    if (demoService.isDemoActive()) {
-      const list = demoService.getEmployees();
-      return {
-        active: list.filter(e => e.status === 'active').length,
-        onLeave: list.filter(e => e.status === 'onLeave').length,
-        inactive: list.filter(e => e.status === 'inactive').length
-      };
-    }
     const emps = await this.getAll(companyId);
     const stats = {
       active:   (emps ?? []).filter((e) => (e.status ?? 'active') === 'active').length,

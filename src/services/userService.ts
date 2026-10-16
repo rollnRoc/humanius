@@ -137,20 +137,46 @@ function toAsciiEmail(name: string): string {
     .replace(/Ç/g, 'c');
 }
 
+let cachedUserProfiles: { data: UserProfile[]; timestamp: number } | null = null;
+const CACHE_TTL_USERS = 60000;
+
+export function clearUserCache() {
+  cachedUserProfiles = null;
+  try {
+    localStorage.removeItem('humanius_cached_user_profiles');
+  } catch {}
+}
+
 export const userService = {
+  clearCache: clearUserCache,
+
   async getAll(): Promise<UserProfile[]> {
+    if (cachedUserProfiles && (Date.now() - cachedUserProfiles.timestamp < CACHE_TTL_USERS)) {
+      return cachedUserProfiles.data;
+    }
+
+    try {
+      const stored = localStorage.getItem('humanius_cached_user_profiles');
+      if (stored && !cachedUserProfiles) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          cachedUserProfiles = { data: parsed, timestamp: Date.now() };
+        }
+      }
+    } catch {}
+
     let profilesList: UserProfile[] = [];
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         profilesList = data as UserProfile[];
       }
     } catch {}
 
-    if (profilesList.length === 0) {
+    if (profilesList.length === 0 && (!cachedUserProfiles || cachedUserProfiles.data.length === 0)) {
       try {
         const { data: res } = await supabase.functions.invoke('user-management', {
           body: { operation: 'list_users' }
@@ -204,6 +230,13 @@ export const userService = {
       }
     } catch {}
 
+    if (profilesList.length > 0) {
+      cachedUserProfiles = { data: profilesList, timestamp: Date.now() };
+      try {
+        localStorage.setItem('humanius_cached_user_profiles', JSON.stringify(profilesList));
+      } catch {}
+    }
+
     return profilesList;
   },
 
@@ -221,6 +254,7 @@ export const userService = {
     updates: { role?: string; full_name?: string; company_id?: string | null; email?: string },
     currentUserId: string,
   ): Promise<void> {
+    clearUserCache();
     const targetEmail = (updates.email || '').trim().toLowerCase();
 
     // 1. Edge function ile güncelleme dene (service_role yetkisi ile hem auth, hem profile hem employees günceller)

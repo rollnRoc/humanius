@@ -731,7 +731,14 @@ const MOCK_IZIN_TALEPLERI = (): DemoIzinTalebi[] => {
 
 export const demoService = {
   isDemoActive(): boolean {
-    return localStorage.getItem('humanius_demo_mode') === 'true';
+    try {
+      if (localStorage.getItem('humanius_superadmin_session') === 'true') {
+        return false;
+      }
+      return localStorage.getItem('humanius_demo_mode') === 'true';
+    } catch {
+      return false;
+    }
   },
 
   seedDatabase(): void {

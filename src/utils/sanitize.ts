@@ -113,18 +113,20 @@ export function matchEmployeeToUser<T extends { id: string; name?: string; email
   ).trim();
   const normProfileName = normalizeTurkish(profileFullName).replace(/[\s-]/g, '');
 
-  // 1. Direct ID match if profile.id is in employee
-  if (profile?.id) {
+  // 1. Direct ID match if profile.id or user.id is in employee
+  const targetIds = [profile?.id, user?.id].filter(Boolean);
+  if (targetIds.length > 0) {
     const idMatch = employees.find(
       (e) =>
-        e.id === profile.id ||
-        (e as any).user_id === profile.id ||
-        (e as any).profile_id === profile.id
+        targetIds.includes(e.id) ||
+        targetIds.includes((e as any).user_id) ||
+        targetIds.includes((e as any).profile_id) ||
+        targetIds.includes((e as any).auth_id)
     );
     if (idMatch) return idMatch;
   }
 
-  // 2. Email match (case-insensitive & trimmed, checking email, contact_email, personal_email)
+  // 2. Email match (exact or username prefix)
   if (candidateEmails.length > 0) {
     const emailMatch = employees.find((e) => {
       const empEmails = [
@@ -136,9 +138,31 @@ export function matchEmployeeToUser<T extends { id: string; name?: string; email
         .filter(Boolean)
         .map((x) => String(x).trim().toLowerCase());
 
-      return candidateEmails.some((ce) => empEmails.includes(ce));
+      return candidateEmails.some((ce) => {
+        if (empEmails.includes(ce)) return true;
+        const ceUser = ce.split('@')[0];
+        return empEmails.some((ee) => {
+          const eeUser = ee.split('@')[0];
+          return ceUser === eeUser || (ceUser.length >= 3 && eeUser.includes(ceUser));
+        });
+      });
     });
     if (emailMatch) return emailMatch;
+  }
+
+  // 2.5 TC Kimlik / Telefon eşleşmesi
+  const userTc = (user?.user_metadata?.tc_no || (profile as any)?.tc_no || '').toString().trim();
+  const userPhone = (user?.user_metadata?.phone || (profile as any)?.phone || '').toString().replace(/\D/g, '');
+  if (userTc || (userPhone && userPhone.length >= 7)) {
+    const tcPhoneMatch = employees.find((e: any) => {
+      if (userTc && e.tc_no && String(e.tc_no).trim() === userTc) return true;
+      if (userPhone && e.phone) {
+        const empP = String(e.phone).replace(/\D/g, '');
+        if (empP && (empP === userPhone || empP.endsWith(userPhone) || userPhone.endsWith(empP))) return true;
+      }
+      return false;
+    });
+    if (tcPhoneMatch) return tcPhoneMatch;
   }
 
   // 3. Name match with Turkish normalization
@@ -150,11 +174,27 @@ export function matchEmployeeToUser<T extends { id: string; name?: string; email
         normEmpName.length > 1 &&
         (normEmpName === normProfileName ||
           normEmpName.includes(normProfileName) ||
-          normProfileName.includes(normEmpName))
+          normProfileName.includes(normEmpName) ||
+          normEmpName.startsWith(normProfileName) ||
+          normProfileName.startsWith(normEmpName))
       );
     });
     if (nameMatch) return nameMatch;
   }
 
+  // 4. Fallback: match by email username against employee first name
+  if (candidateEmails.length > 0) {
+    const firstPart = candidateEmails[0].split('@')[0].split('.')[0].replace(/[^a-z0-9]/g, '');
+    if (firstPart.length >= 3) {
+      const firstPartNorm = normalizeTurkish(firstPart);
+      const namePartMatch = employees.find((e) => {
+        const empFirst = normalizeTurkish(String(e.name || '').split(' ')[0]);
+        return empFirst && (empFirst === firstPartNorm || empFirst.startsWith(firstPartNorm) || firstPartNorm.startsWith(empFirst));
+      });
+      if (namePartMatch) return namePartMatch;
+    }
+  }
+
   return null;
 }
+

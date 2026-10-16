@@ -151,17 +151,17 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
       setEditSmsStartDelay(cfg.start_delay_minutes);
       setEditSmsEndDelay(cfg.end_delay_minutes);
       setEditSmsLoginUrl(cfg.login_url);
-      setSmsLogs(smsService.getLogs(smsFilterDate === 'today' ? getTodayYYYYMMDD() : undefined));
+      setSmsLogs(smsService.getLogs(smsFilterDate === 'today' ? getTodayYYYYMMDD() : undefined, effectiveCompanyId, employees));
     }
-  }, [isOpen, effectiveCompanyId, smsFilterDate]);
+  }, [isOpen, effectiveCompanyId, smsFilterDate, employees]);
 
   useEffect(() => {
     const handleSmsUpdate = () => {
-      setSmsLogs(smsService.getLogs(smsFilterDate === 'today' ? getTodayYYYYMMDD() : undefined));
+      setSmsLogs(smsService.getLogs(smsFilterDate === 'today' ? getTodayYYYYMMDD() : undefined, effectiveCompanyId, employees));
     };
     window.addEventListener('humanius_sms_updated', handleSmsUpdate);
     return () => window.removeEventListener('humanius_sms_updated', handleSmsUpdate);
-  }, [smsFilterDate]);
+  }, [smsFilterDate, effectiveCompanyId, employees]);
 
   if (!isOpen) return null;
 
@@ -1110,7 +1110,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                       setSmsChecking(true);
                       try {
                         const res = await shiftSmsScheduler.checkAndSendShiftSms({ employees, companyId: effectiveCompanyId });
-                        setSmsLogs(smsService.getLogs(smsFilterDate === 'today' ? getTodayYYYYMMDD() : undefined));
+                        setSmsLogs(smsService.getLogs(smsFilterDate === 'today' ? getTodayYYYYMMDD() : undefined, effectiveCompanyId, employees));
                         if (res.startSmsSent === 0 && res.endSmsSent === 0 && res.errors.length === 0) {
                           showSuccess(`Tarama tamamlandı: Kontrol edilen ${res.checkedEmployeesCount} aktif personelden SMS gerektiren yeni bir gecikme bulunamadı.`);
                         } else if (res.errors.length > 0) {
@@ -1196,7 +1196,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                         onChange={(e) => setEditSmsStartDelay(Number(e.target.value))}
                         className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white"
                       />
-                      <span className="text-[11px] text-slate-500">Örn: 15 dk (08:30 için 08:45)</span>
+                      <span className="text-[11px] text-slate-500">Örn: 10 dk (08:30 için 08:40)</span>
                     </div>
 
                     <div>
@@ -1211,7 +1211,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                         onChange={(e) => setEditSmsEndDelay(Number(e.target.value))}
                         className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white"
                       />
-                      <span className="text-[11px] text-slate-500">Örn: 15 dk (18:00 için 18:15)</span>
+                      <span className="text-[11px] text-slate-500">Örn: 10 dk (18:00 için 18:10)</span>
                     </div>
 
                     <div>
@@ -1251,8 +1251,8 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                           username: editSmsUsername,
                           password: editSmsPassword,
                           source_addr: editSmsSourceAddr,
-                          start_delay_minutes: Number(editSmsStartDelay) || 15,
-                          end_delay_minutes: Number(editSmsEndDelay) || 15,
+                          start_delay_minutes: Number(editSmsStartDelay) || 10,
+                          end_delay_minutes: Number(editSmsEndDelay) || 10,
                           login_url: editSmsLoginUrl.trim() || 'https://humanius.net',
                         });
                         setSmsConfig(updated);
@@ -1283,7 +1283,7 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                       return;
                     }
                     const res = await smsService.sendTestSms(smsTestPhone, smsTestNote, effectiveCompanyId);
-                    setSmsLogs(smsService.getLogs(smsFilterDate === 'today' ? getTodayYYYYMMDD() : undefined));
+                    setSmsLogs(smsService.getLogs(smsFilterDate === 'today' ? getTodayYYYYMMDD() : undefined, effectiveCompanyId, employees));
                     if (res.success) {
                       showSuccess(`Test SMS'i ${smsTestPhone} numarasına iletildi.`);
                     } else {
@@ -1353,9 +1353,9 @@ export const VardiyaYonetimiModal: React.FC<VardiyaYonetimiModalProps> = ({
                     {smsLogs.length > 0 && (
                       <button
                         onClick={async () => {
-                          const conf = await showConfirm('SMS günlüğünü temizlemek istediğinize emin misiniz?');
+                          const conf = await showConfirm('Şirketinizin SMS günlüğünü temizlemek istediğinize emin misiniz?');
                           if (conf) {
-                            smsService.clearLogs();
+                            smsService.clearLogs(effectiveCompanyId, employees);
                             setSmsLogs([]);
                             showSuccess('SMS günlüğü temizlendi.');
                           }

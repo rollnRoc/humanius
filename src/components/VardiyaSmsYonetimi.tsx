@@ -189,7 +189,7 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
       targetDate = undefined; // 'all'
     }
 
-    const fetched = smsService.getLogs(targetDate);
+    const fetched = smsService.getLogs(targetDate, effectiveCompanyId, employees);
     setSmsLogs(fetched);
   };
 
@@ -217,13 +217,13 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
       window.removeEventListener('humanius_sms_company_updated', handleSmsCompanyUpdate);
       window.removeEventListener('humanius_sms_config_updated', handleSmsCompanyUpdate);
     };
-  }, [effectiveCompanyId, dateFilterMode, customDate]);
+  }, [effectiveCompanyId, dateFilterMode, customDate, employees]);
 
   useEffect(() => {
     const handleSmsUpdate = () => loadSmsLogs();
     window.addEventListener('humanius_sms_updated', handleSmsUpdate);
     return () => window.removeEventListener('humanius_sms_updated', handleSmsUpdate);
-  }, [dateFilterMode, customDate]);
+  }, [dateFilterMode, customDate, effectiveCompanyId, employees]);
 
   // Filtered shifts based on office
   const displayedShifts = useMemo(() => {
@@ -546,15 +546,15 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
   const handleClearSmsLogs = async () => {
     const confirmed = await showConfirm({
       title: 'SMS Günlüğünü Temizle',
-      text: 'Tüm SMS gönderim kayıtları silinecektir. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?',
+      text: 'Bu şirkete ait SMS gönderim kayıtları silinecektir. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?',
       confirmButtonText: 'Evet, Temizle',
       isDanger: true,
     });
     if (!confirmed) return;
 
-    smsService.clearLogs();
-    setSmsLogs([]);
-    showSuccess('Temizlendi', 'SMS kayıt günlüğü başarıyla temizlendi.');
+    smsService.clearLogs(effectiveCompanyId, employees);
+    loadSmsLogs();
+    showSuccess('Temizlendi', 'Şirketinizin SMS kayıt günlüğü başarıyla temizlendi.');
   };
 
   // Helper to lookup employee details from employees list
