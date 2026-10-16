@@ -39,6 +39,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
 }) => {
   const { t } = useLanguage();
   const { appRole } = useAuth();
+  const canManageEmployees = ['superadmin', 'admin', 'hr'].includes(appRole);
 
   return (
     <div className="space-y-3 mb-4">
@@ -112,15 +113,17 @@ const Toolbar: React.FC<ToolbarProps> = ({
             </button>
           )}
 
-          <button
-            onClick={onNewEmployee}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm text-sm cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            {t('toolbar.newEmployee')}
-          </button>
+          {canManageEmployees && (
+            <button
+              onClick={onNewEmployee}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm text-sm cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              {t('toolbar.newEmployee')}
+            </button>
+          )}
 
-          {onImportExcel && (
+          {canManageEmployees && onImportExcel && (
             <button
               onClick={onImportExcel}
               className="flex items-center gap-2 bg-emerald-50 border border-emerald-300 text-emerald-700 hover:bg-emerald-100 px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm text-sm cursor-pointer"
@@ -131,13 +134,15 @@ const Toolbar: React.FC<ToolbarProps> = ({
             </button>
           )}
           
-          <button
-            onClick={onExportCSV}
-            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-semibold hover:border-blue-300 hover:bg-blue-50 transition-all text-sm cursor-pointer"
-          >
-            <FileDown className="w-4 h-4 text-gray-500" />
-            {t('toolbar.exportCSV')}
-          </button>
+          {canManageEmployees && (
+            <button
+              onClick={onExportCSV}
+              className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-semibold hover:border-blue-300 hover:bg-blue-50 transition-all text-sm cursor-pointer"
+            >
+              <FileDown className="w-4 h-4 text-gray-500" />
+              {t('toolbar.exportCSV')}
+            </button>
+          )}
         </div>
       </div>
 

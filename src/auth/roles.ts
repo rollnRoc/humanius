@@ -10,7 +10,8 @@ export function normalizeRole(role: RawProfileRole): AppRole {
   if (role === 'hr') return 'hr';
   if (role === 'manager') return 'manager';
   if (role === 'employee') return 'employee';
-  return 'admin';
+  if (role === 'user') return 'employee';
+  return 'employee';
 }
 
 export function getRoleLabel(role: AppRole): string {
@@ -20,12 +21,15 @@ export function getRoleLabel(role: AppRole): string {
     case 'hr':         return 'İK Uzmanı';
     case 'manager':    return 'Birim / Departman Amiri';
     case 'employee':   return 'Personel';
-    default:           return 'Şirket Yöneticisi';
+    default:           return 'Personel';
   }
 }
 
 export function getDefaultViewForRole(role: AppRole): View {
-  return 'personel';
+  if (role === 'employee' || role === 'user') {
+    return 'arama';
+  }
+  return 'arama';
 }
 
 // ─── Kurumsal Erişim Matrisi ──────────────────────────────────────────────────
@@ -75,14 +79,32 @@ const ALLOWED_VIEWS: Record<AppRole, View[]> = {
   ],
   // PERSONEL: Sadece tamamen kendisine ait kişisel bilgiler & kendi talepleri
   employee: [
-    'arama', 'personel', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'puantaj',
-    'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
-    'sifre-degistir', 'analiz', 'sirket-yonetimi',
+    'arama',
+    'personel',
+    'ozluk-dosyasi',
+    'bordro',
+    'izin',
+    'is-akisi-menu',
+    'puantaj',
+    'pdks-devam',
+    'egitim',
+    'zimmet',
+    'sifre-degistir',
+    'kullanim-kilavuzu',
   ],
   user: [
-    'arama', 'personel', 'ozluk-dosyasi', 'bordro', 'izin', 'uyari', 'pdks', 'pdks-devam', 'puantaj',
-    'egitim', 'zimmet', 'okr', 'yetkinlik', 'yan-haklar', 'kullanim-kilavuzu', 'is-akisi-menu',
-    'sifre-degistir', 'analiz', 'sirket-yonetimi',
+    'arama',
+    'personel',
+    'ozluk-dosyasi',
+    'bordro',
+    'izin',
+    'is-akisi-menu',
+    'puantaj',
+    'pdks-devam',
+    'egitim',
+    'zimmet',
+    'sifre-degistir',
+    'kullanim-kilavuzu',
   ],
 };
 

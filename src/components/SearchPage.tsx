@@ -290,10 +290,12 @@ export const SearchPage: React.FC<SearchPageProps> = ({
     // ── Sayfalar ──────────────────────────────────────────────────────────────
     PAGES.forEach(page => {
       if (!canAccessView(effectiveRole, page.id)) return;
-      const allText = [page.label, ...page.keywords].join(' ');
+      const isEmp = effectiveRole === 'employee' || effectiveRole === 'user';
+      const pageTitle = isEmp && page.id === 'personel' ? 'Personel Bilgilerim' : page.label;
+      const allText = [pageTitle, ...page.keywords].join(' ');
       results.push({
         id: `page-${page.id}`,
-        title: page.label,
+        title: pageTitle,
         subtitle: page.keywords.slice(0, 4).join(', '),
         category: 'sayfa',
         matchedFields: [{ label: 'Anahtar Kelimeler', value: page.keywords.join(', ') }],
@@ -607,6 +609,8 @@ export const SearchPage: React.FC<SearchPageProps> = ({
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {PAGES.filter(page => canAccessView(effectiveRole, page.id)).slice(0, 6).map(page => {
+                  const isEmp = effectiveRole === 'employee' || effectiveRole === 'user';
+                  const pageLabel = isEmp && page.id === 'personel' ? 'Personel Bilgilerim' : page.label;
                   const cs = page.id === 'kullanicilar' ? CAT_STYLE.sayfa
                     : page.id.startsWith('bordro') ? CAT_STYLE.bordro
                     : page.id === 'izin' ? CAT_STYLE.izin
@@ -622,7 +626,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
                         {PAGE_ICON[page.id] ?? <Layers className="w-4 h-4" />}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className={`font-semibold text-sm text-gray-800 group-hover:${cs.text} transition-colors break-words leading-tight`}>{page.label}</p>
+                        <p className={`font-semibold text-sm text-gray-800 group-hover:${cs.text} transition-colors break-words leading-tight`}>{pageLabel}</p>
                         <p className="text-[11px] text-gray-400 mt-0.5 truncate">{page.keywords.slice(0, 3).join(', ')}</p>
                       </div>
                     </button>

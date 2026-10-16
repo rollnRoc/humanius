@@ -3,7 +3,7 @@ import { CreditCard as Edit, Trash2, Phone, Eye, FileDown, ChevronDown } from 'l
 import { Employee } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
-import { canAccessView } from '../auth/roles';
+import { canAccessView, canDeleteUsers } from '../auth/roles';
 
 import { formatDisplayDate } from '../utils/dateUtils';
 
@@ -507,13 +507,15 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                     >
                       <FileDown className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => onDeleteEmployee(employee.id)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title={t('table.delete')}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {canDeleteUsers(appRole) && (
+                      <button
+                        onClick={() => onDeleteEmployee(employee.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title={t('table.delete')}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

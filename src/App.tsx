@@ -157,12 +157,20 @@ const AppInner: React.FC = () => {
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [currentView, setCurrentView] = useState<View>(() => {
     try {
+      const cachedProfStr = localStorage.getItem('humanius_cached_profile');
+      if (cachedProfStr) {
+        const cachedProf = JSON.parse(cachedProfStr);
+        const normRole = normalizeRole(cachedProf?.role);
+        if (normRole === 'employee' || normRole === 'user') {
+          return 'arama';
+        }
+      }
       const saved = localStorage.getItem('humanius_current_view') as View | null;
-      if (saved && saved !== 'arama' && saved !== 'chat') {
+      if (saved && saved !== 'chat') {
         return saved;
       }
     } catch {}
-    return 'personel';
+    return 'arama';
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
@@ -209,9 +217,23 @@ const AppInner: React.FC = () => {
     } catch {}
   }, [currentView]);
 
+  // Normal personel oturum açtığında veya sayfaya girdiğinde her zaman Ana Sayfadan başlasın
+  const employeeHomeResetRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!authLoading && user && isEmployeeOnly) {
+      if (employeeHomeResetRef.current !== user.id) {
+        employeeHomeResetRef.current = user.id;
+        setCurrentView('arama');
+        try {
+          localStorage.setItem('humanius_current_view', 'arama');
+        } catch {}
+      }
+    }
+  }, [authLoading, user, isEmployeeOnly]);
+
   useEffect(() => {
     if (!authLoading && user && !canAccessView(effectiveAppRole, currentView)) {
-      setCurrentView('personel');
+      setCurrentView(getDefaultViewForRole(effectiveAppRole));
     }
   }, [authLoading, user, effectiveAppRole, currentView]);
 
@@ -492,14 +514,14 @@ const AppInner: React.FC = () => {
       let filteredMapped = uniqueMapped;
       let currentUserEmpId: string | null = null;
       const isManagerRole = effectiveAppRole === 'manager' || profile?.role === 'manager';
-      const isEmployeeRole = !isManagementRole && (profile?.role === 'employee' || profile?.role === 'user');
+      const isEmployeeRole = isEmployeeOnly || (!isManagementRole && (profile?.role === 'employee' || profile?.role === 'user'));
 
       // Find current user's employee record
       const currentUserEmp = uniqueMapped.find((emp) => {
-        const profileEmail = String(profile?.email ?? '').toLowerCase();
-        const empEmail = String(emp.email ?? '').toLowerCase();
+        const profileEmail = String(profile?.email ?? user?.email ?? '').toLowerCase().trim();
+        const empEmail = String(emp.email ?? '').toLowerCase().trim();
         if (profileEmail && empEmail && profileEmail === empEmail) return true;
-        const profileName = String(profile?.full_name ?? '').trim().toLocaleLowerCase('tr-TR');
+        const profileName = String(profile?.full_name ?? user?.user_metadata?.full_name ?? '').trim().toLocaleLowerCase('tr-TR');
         const empName = String(emp.name ?? '').trim().toLocaleLowerCase('tr-TR');
         if (profileName.length > 0 && profileName === empName) return true;
         
@@ -513,18 +535,55 @@ const AppInner: React.FC = () => {
       }
 
       const managerDepartment = currentUserEmp?.department || (profile as any)?.department || null;
-
       const effectiveUserCompanyId = profile?.company_id || currentUserEmp?.company_id;
 
-      // Şirket bazlı filtreleme: Süper yönetici değilse kullanıcı sadece kendi şirketindeki personelleri görsün
-      if (!isSuper && effectiveUserCompanyId) {
+      // Rol bazlı filtreleme:
+      // Normal personel (employee / user) YALNIZCA KENDİ BİLGİLERİNİ görebilir!
+      if (isEmployeeRole) {
+        if (currentUserEmp) {
+          filteredMapped = [currentUserEmp];
+        } else {
+          const matched = uniqueMapped.filter(emp =>
+            (profile?.email && emp.email?.toLowerCase().trim() === profile.email.toLowerCase().trim()) ||
+            (user?.email && emp.email?.toLowerCase().trim() === user.email.toLowerCase().trim()) ||
+            (emp.id === profile?.id)
+          );
+          if (matched.length > 0) {
+            filteredMapped = matched;
+            currentUserEmpId = matched[0].id;
+          } else if (profile) {
+            const selfEmp: Employee = {
+              id: profile.id,
+              company_id: profile.company_id || undefined,
+              name: profile.full_name || user?.user_metadata?.full_name || 'Personel',
+              email: profile.email || user?.email || '',
+              company: companyMap.get(profile.company_id || '') || (profile as any)?.company_name || 'Şirketim',
+              department: (profile as any)?.department || 'Genel',
+              position: (profile as any)?.position || 'Personel',
+              level: '',
+              salary: 0,
+              status: 'active',
+              role: 'employee',
+              employeeType: 'normal'
+            };
+            filteredMapped = [selfEmp];
+            currentUserEmpId = selfEmp.id;
+          } else {
+            filteredMapped = [];
+          }
+        }
+        if (filteredMapped[0]) {
+          setSelectedEmployee(filteredMapped[0]);
+        }
+      } else if (!isSuper && effectiveUserCompanyId) {
+        // Süper yönetici değilse kullanıcı sadece kendi şirketindeki personelleri görsün
         filteredMapped = uniqueMapped.filter(emp => emp.company_id === effectiveUserCompanyId);
       } else {
         filteredMapped = uniqueMapped;
       }
 
       filteredMapped.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
-      console.log(`✅ loadData: ${filteredMapped.length} personel listelendi. (${isSuper ? 'Süper Yönetici - Tüm Şirketler' : 'Şirket: ' + effectiveUserCompanyId})`);
+      console.log(`✅ loadData: ${filteredMapped.length} personel listelendi. (${isSuper ? 'Süper Yönetici - Tüm Şirketler' : isEmployeeRole ? 'Personel Kendi Kaydı' : 'Şirket: ' + effectiveUserCompanyId})`);
       setEmployees(filteredMapped);
 
       // Şirket listesi: Normal kullanıcılar yalnızca kendi şirketini görsün
@@ -543,9 +602,11 @@ const AppInner: React.FC = () => {
       };
       setStats(calculatedStats);
 
-      const depts = isManagerRole && managerDepartment
-        ? [managerDepartment]
-        : [...new Set(filteredMapped.map((e) => e.department).filter(Boolean))];
+      const depts = isEmployeeRole
+        ? (filteredMapped[0]?.department ? [filteredMapped[0].department] : [])
+        : (isManagerRole && managerDepartment
+          ? [managerDepartment]
+          : [...new Set(filteredMapped.map((e) => e.department).filter(Boolean))]);
       setDepartments(depts);
 
       // Preload Company Leave Types & Shifts directly from Supabase (non-blocking)

@@ -259,19 +259,47 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const mainNavItems = useMemo(() => {
     const isSuper = appRole === 'superadmin' || effectiveRole === 'superadmin';
+    const isEmp = effectiveRole === 'employee' || effectiveRole === 'user';
     const navItems = RAW_NAV_ITEMS.map(item => {
+      let itemLabel = item.label;
+      if (isEmp && item.id === 'personel') {
+        itemLabel = 'Personel Bilgilerim';
+      }
       if (item.children) {
+        const filteredChildren = item.children.filter(child => {
+          if (child.id === 'kullanicilar' && !isSuper) {
+            return false;
+          }
+          return canAccessView(effectiveRole, child.id);
+        }).map(child => {
+          if (isEmp && child.id === 'personel') {
+            return { ...child, label: 'Kişisel Bilgilerim' };
+          }
+          if (isEmp && child.id === 'ozluk-dosyasi') {
+            return { ...child, label: 'Özlük Dosyam' };
+          }
+          if (isEmp && child.id === 'bordro') {
+            return { ...child, label: 'Bordrom' };
+          }
+          if (isEmp && child.id === 'izin') {
+            return { ...child, label: 'İzin Taleplerim' };
+          }
+          if (isEmp && child.id === 'puantaj') {
+            return { ...child, label: 'Puantaj Cetvelim' };
+          }
+          if (isEmp && child.id === 'pdks-devam') {
+            return { ...child, label: 'Giriş - Çıkış Kayıtlarım' };
+          }
+          return child;
+        });
+
         return {
           ...item,
-          children: item.children.filter(child => {
-            if (child.id === 'kullanicilar' && !isSuper) {
-              return false;
-            }
-            return canAccessView(effectiveRole, child.id);
-          })
+          label: itemLabel,
+          children: filteredChildren
         };
       }
-      return item;
+      return { ...item, label: itemLabel };
     }).filter(item => {
       if (item.children) {
         return item.children.length > 0;
