@@ -37,6 +37,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   sortOrder = 'asc',
   onToggleSort
 }) => {
+  const { t } = useLanguage();
   const { appRole, profile, user } = useAuth();
   const rawRole = (profile?.role || appRole || (user?.user_metadata as any)?.role || '').toLowerCase().trim();
   const canManageEmployees = ['superadmin', 'admin', 'hr', 'ik'].includes(rawRole);
