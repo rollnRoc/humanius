@@ -137,10 +137,10 @@ class AppSectionErrorBoundary extends React.Component<
 }
 
 const AppInner: React.FC = () => {
-  const { user, profile, appRole, loading: authLoading, isDemo } = useAuth();
+  const { user, profile, appRole, loading: authLoading, isDemo, isSuperAdmin } = useAuth();
   const effectiveAppRole = user ? appRole : 'admin';
   const isEmployeeOnly = ['employee', 'user'].includes(effectiveAppRole);
-  const isSuper = effectiveAppRole === 'superadmin' || profile?.role === 'superadmin' || user?.email === 'superadmin@humanius.net';
+  const isSuper = Boolean(effectiveAppRole === 'superadmin' || isSuperAdmin || profile?.role === 'superadmin' || user?.email === 'superadmin@humanius.net');
   const isManagementRole = ['superadmin', 'admin', 'hr', 'manager'].includes(effectiveAppRole);
 
   const isForcePasswordChangeRequired = Boolean(
@@ -869,7 +869,6 @@ const AppInner: React.FC = () => {
   };
 
   const handleNewEmployee = () => {
-    const isSuper = effectiveAppRole === 'superadmin' || isSuperAdmin;
     const defaultCompanyName = (selectedCompany && selectedCompany !== 'all')
       ? selectedCompany
       : ((companies && companies.length > 0) ? (typeof companies[0] === 'string' ? companies[0] : (companies[0] as any).name) : '');
@@ -2080,7 +2079,7 @@ const AppInner: React.FC = () => {
         onDelete={handleDeleteEmployee}
         companies={companies}
         departments={departments}
-        isSuperAdmin={effectiveAppRole === 'superadmin' || isSuperAdmin}
+        isSuperAdmin={isSuper}
       />
 
       <ExcelImportModal
