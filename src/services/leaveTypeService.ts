@@ -19,9 +19,14 @@ class LeaveTypeService {
           .maybeSingle();
 
         if (!error && data?.leave_types && Array.isArray(data.leave_types) && data.leave_types.length > 0) {
-          localStorage.setItem(storageKey, JSON.stringify(data.leave_types));
-          localStorage.setItem('humanius_izin_turleri_default', JSON.stringify(data.leave_types));
-          return data.leave_types as IzinTuruKural[];
+          const cleanTypes = (data.leave_types as any[]).filter(x => x && !x.id?.startsWith('__'));
+          if (cleanTypes.length > 0) {
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(cleanTypes));
+              localStorage.setItem('humanius_izin_turleri_default', JSON.stringify(cleanTypes));
+            } catch {}
+            return cleanTypes as IzinTuruKural[];
+          }
         }
       } catch (e) {
         console.warn('Supabase leave types fetch warning:', e);
@@ -36,9 +41,14 @@ class LeaveTypeService {
           },
         });
         if (!fnError && res?.leave_types && Array.isArray(res.leave_types) && res.leave_types.length > 0) {
-          localStorage.setItem(storageKey, JSON.stringify(res.leave_types));
-          localStorage.setItem('humanius_izin_turleri_default', JSON.stringify(res.leave_types));
-          return res.leave_types as IzinTuruKural[];
+          const cleanResTypes = (res.leave_types as any[]).filter(x => x && !x.id?.startsWith('__'));
+          if (cleanResTypes.length > 0) {
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(cleanResTypes));
+              localStorage.setItem('humanius_izin_turleri_default', JSON.stringify(cleanResTypes));
+            } catch {}
+            return cleanResTypes as IzinTuruKural[];
+          }
         }
       } catch (e) {
         console.warn('Edge function leave types fetch error:', e);
@@ -51,14 +61,14 @@ class LeaveTypeService {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return parsed.filter((x: any) => x && !x.id?.startsWith('__'));
         }
       }
       const defSaved = localStorage.getItem('humanius_izin_turleri_default');
       if (defSaved) {
         const parsed = JSON.parse(defSaved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return parsed.filter((x: any) => x && !x.id?.startsWith('__'));
         }
       }
     } catch (e) {
@@ -83,15 +93,19 @@ class LeaveTypeService {
       try {
         const { data: existing, error: checkError } = await supabase
           .from('company_leave_types')
-          .select('id')
+          .select('id, leave_types')
           .eq('company_id', companyId)
           .maybeSingle();
+
+        // Preserve system metadata (__approval_config__, __request_stages__)
+        const preservedSystemItems = (existing?.leave_types || []).filter((x: any) => x && x.id?.startsWith('__'));
+        const mergedPayload = [...leaveTypes, ...preservedSystemItems];
 
         if (!checkError && existing?.id) {
           const { error: updateError } = await supabase
             .from('company_leave_types')
             .update({
-              leave_types: leaveTypes,
+              leave_types: mergedPayload,
               updated_at: new Date().toISOString(),
             })
             .eq('company_id', companyId);
@@ -101,7 +115,7 @@ class LeaveTypeService {
             .from('company_leave_types')
             .insert({
               company_id: companyId,
-              leave_types: leaveTypes,
+              leave_types: mergedPayload,
               updated_at: new Date().toISOString(),
             });
           if (!insertError) savedToDb = true;

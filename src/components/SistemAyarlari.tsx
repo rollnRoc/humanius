@@ -300,6 +300,12 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
     leaveApprovalService.getConfig(targetCompId).then(cfg => {
       if (cfg) setLeaveApprovalConfig(cfg);
     }).catch(err => console.error('Error loading leave approval config:', err));
+
+    const handleUpdate = (e: any) => {
+      if (e.detail) setLeaveApprovalConfig(e.detail);
+    };
+    window.addEventListener('humanius_leave_approval_updated', handleUpdate);
+    return () => window.removeEventListener('humanius_leave_approval_updated', handleUpdate);
   }, [profile?.company_id, companies]);
 
   const handleToggleApprovalStage = async (stage: 'manager' | 'hr' | 'admin') => {

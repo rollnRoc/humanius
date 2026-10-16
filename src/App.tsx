@@ -1318,13 +1318,13 @@ const AppInner: React.FC = () => {
       showError('Hata', 'Kullanıcı bilgisi bulunamadı.');
       return;
     }
-    const targetCompId = profile?.company_id || 'default';
-    const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
     const talep = izinTalepleri.find((t) => t.id === id);
     if (!talep) {
       showError('Hata', 'İzin talebi bulunamadı.');
       return;
     }
+    const targetCompId = talep.companyId || profile?.company_id || 'default';
+    const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
 
     const currentStage = leaveApprovalService.getTalepCurrentStage(id, talep.durum, approvalCfg, talep);
     if (currentStage === 'completed') {
@@ -1349,7 +1349,7 @@ const AppInner: React.FC = () => {
     try {
       if (nextStage) {
         // Son aşama değil: Bir sonraki aşamaya devret!
-        leaveApprovalService.setTalepCurrentStage(id, nextStage);
+        await leaveApprovalService.setTalepCurrentStage(id, nextStage, targetCompId);
         setIzinTalepleri((prev) =>
           prev.map((t) => (t.id === id ? { ...t, currentStage: nextStage } : t))
         );
@@ -1362,7 +1362,7 @@ const AppInner: React.FC = () => {
       } else {
         // Son onay kademesi: İzni tamamen onayla!
         await izinService.approveTalep(id, profile.id);
-        leaveApprovalService.setTalepCurrentStage(id, 'completed');
+        await leaveApprovalService.setTalepCurrentStage(id, 'completed', targetCompId);
         setIzinTalepleri((prev) =>
           prev.map((t) => (t.id === id ? { ...t, durum: 'onaylandi', onaylayanId: profile.id, currentStage: 'completed' } : t))
         );
@@ -1411,13 +1411,13 @@ const AppInner: React.FC = () => {
       showError('Hata', 'Kullanıcı bilgisi bulunamadı.');
       return;
     }
-    const targetCompId = profile?.company_id || 'default';
-    const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
     const talep = izinTalepleri.find((t) => t.id === id);
     if (!talep) {
       showError('Hata', 'İzin talebi bulunamadı.');
       return;
     }
+    const targetCompId = talep.companyId || profile?.company_id || 'default';
+    const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
 
     const currentStage = leaveApprovalService.getTalepCurrentStage(id, talep.durum, approvalCfg, talep);
     const canApproveThisStage = currentStage !== 'completed' && leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage, approvalCfg);
