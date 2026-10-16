@@ -685,9 +685,11 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
   isAccessGranted = false,
   onSelectEmployee,
 }) => {
-  const { profile, appRole } = useAuth();
-  const effectiveRole = profile?.role || appRole || 'employee';
-  const isEmployeeRole = ['employee', 'user'].includes(effectiveRole) || ['employee', 'user'].includes(appRole);
+  const { profile, appRole, user } = useAuth();
+  const rawRole = (profile?.role || appRole || (user?.user_metadata as any)?.role || '').toLowerCase().trim();
+  const isManagement = Boolean(rawRole === 'superadmin' || rawRole === 'admin' || rawRole === 'hr' || rawRole === 'manager');
+  const isEmployeeRole = Boolean(!isManagement && (rawRole === 'employee' || rawRole === 'user'));
+  const effectiveRole = isManagement ? rawRole : 'employee';
   const DEMO_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
   const effectiveCompanyId = profile?.company_id ?? DEMO_COMPANY_ID;
   const storageEnabled = import.meta.env.VITE_SUPABASE_STORAGE_ENABLED !== 'false';

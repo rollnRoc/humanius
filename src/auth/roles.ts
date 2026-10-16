@@ -4,13 +4,14 @@ export type RawProfileRole = 'superadmin' | 'admin' | 'manager' | 'employee' | '
 
 export type AppRole = 'superadmin' | 'admin' | 'hr' | 'manager' | 'employee' | 'user';
 
-export function normalizeRole(role: RawProfileRole): AppRole {
-  if (role === 'superadmin') return 'superadmin';
-  if (role === 'admin') return 'admin';
-  if (role === 'hr') return 'hr';
-  if (role === 'manager') return 'manager';
-  if (role === 'employee') return 'employee';
-  if (role === 'user') return 'employee';
+export function normalizeRole(role: RawProfileRole | string): AppRole {
+  if (!role) return 'employee';
+  const norm = String(role).toLowerCase().trim();
+  if (norm === 'superadmin' || norm === 'super_admin') return 'superadmin';
+  if (norm === 'admin') return 'admin';
+  if (norm === 'hr' || norm === 'ik' || norm === 'insan_kaynaklari') return 'hr';
+  if (norm === 'manager' || norm === 'yonetici' || norm === 'departman_amiri') return 'manager';
+  if (norm === 'employee' || norm === 'user' || norm === 'personel') return 'employee';
   return 'employee';
 }
 

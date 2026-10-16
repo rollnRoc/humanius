@@ -162,8 +162,10 @@ const BlueHLogo: React.FC<{ className?: string; style?: React.CSSProperties }> =
 export const SearchPage: React.FC<SearchPageProps> = ({
   employees, izinTalepleri, bordrolar, onEmployeeClick, onNavigate, companyLogoUrl,
 }) => {
-  const { appRole, signOut } = useAuth();
-  const effectiveRole = appRole || 'employee';
+  const { appRole, profile, user, signOut } = useAuth();
+  const rawRole = (profile?.role || appRole || (user?.user_metadata as any)?.role || '').toLowerCase().trim();
+  const isManagement = Boolean(rawRole === 'superadmin' || rawRole === 'admin' || rawRole === 'hr' || rawRole === 'manager');
+  const effectiveRole: AppRole = isManagement ? (rawRole as AppRole) : 'employee';
 
   const QUICK_APPROVAL_QUERY = 'personel onay ve doğrulama şifresi al';
   const [query, setQuery] = useState('');

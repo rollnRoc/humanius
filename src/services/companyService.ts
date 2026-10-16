@@ -30,6 +30,19 @@ export const companyService = {
     // 1. In-memory & local cache
     const STATIC_KNOWN_COMPANIES: Company[] = [
       {
+        id: '1cc4a668-c6ad-49d9-8f9c-aea1243239c9',
+        name: 'ALTAN MOTORLU ARAÇLAR SAN.ve TİC. A.Ş',
+        city: 'Adana',
+        email: '',
+        phone: '',
+        address: 'Adana, Türkiye',
+        tax_number: '',
+        sgk_sicil_no: '',
+        logo_url: null,
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z'
+      },
+      {
         id: '735825a4-f12b-4ee7-959c-a8a29e674617',
         name: 'Mıçı Otomotiv',
         city: 'Adana',

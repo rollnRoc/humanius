@@ -11,9 +11,11 @@ interface SmartHeaderProps {
 }
 
 const SmartHeader: React.FC<SmartHeaderProps> = ({ onNavigate, currentView }) => {
-  const { appRole } = useAuth();
-  const effectiveRole = appRole || 'employee';
-  const isEmployeeOnly = ['employee', 'user'].includes(effectiveRole);
+  const { user, profile, appRole } = useAuth();
+  const rawRole = (profile?.role || appRole || (user?.user_metadata as any)?.role || '').toLowerCase().trim();
+  const isManagement = Boolean(rawRole === 'superadmin' || rawRole === 'admin' || rawRole === 'hr' || rawRole === 'manager');
+  const isEmployeeOnly = Boolean(!isManagement && (rawRole === 'employee' || rawRole === 'user'));
+  const effectiveRole: AppRole = isManagement ? (rawRole as AppRole) : 'employee';
 
   const [favorites, setFavorites] = useState<View[]>(() => {
     const saved = localStorage.getItem('humanius_favorites');

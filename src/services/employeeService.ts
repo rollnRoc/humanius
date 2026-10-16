@@ -93,32 +93,6 @@ function filterDbEmployeePayload(obj: Record<string, any>): Record<string, any> 
 
 export const employeeService = {
   async getAll(companyId?: string): Promise<Employee[] | EmployeePublic[]> {
-    const role = await getCurrentRole();
-    if (!FULL_ACCESS_ROLES.has(role)) {
-      // Normal personel yalnızca kendi çalışan kaydına erişebilir
-      try {
-        const { data: authData } = await supabase.auth.getUser();
-        const user = authData?.user;
-        if (user) {
-          const uEmail = user.email ? user.email.toLowerCase().trim() : '';
-          const uId = user.id;
-          let query = supabase.from('employees').select('*');
-          if (uEmail) {
-            query = query.ilike('email', uEmail);
-          } else {
-            query = query.eq('id', uId);
-          }
-          const { data: myEmp } = await query;
-          if (myEmp && myEmp.length > 0) {
-            return myEmp.map(enrichEmployeeWithLocation) as Employee[];
-          }
-        }
-      } catch (err) {
-        console.warn('[employeeService.getAll] Error fetching self employee:', err);
-      }
-      return [];
-    }
-
     const targetCompId = (companyId && companyId !== 'all') ? companyId : undefined;
     const cacheKey = `humanius_cached_employees_${targetCompId || 'all'}`;
 

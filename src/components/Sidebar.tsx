@@ -117,7 +117,13 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { t } = useLanguage();
   const { user, profile, appRole } = useAuth();
-  const effectiveRole = user ? appRole : 'admin';
+  const rawRole = (profile?.role || appRole || (user?.user_metadata as any)?.role || '').toLowerCase().trim();
+  const isSuper = Boolean(rawRole === 'superadmin' || profile?.role === 'superadmin' || user?.email === 'superadmin@humanius.net');
+  const isAdmin = Boolean(!isSuper && (rawRole === 'admin' || profile?.role === 'admin'));
+  const isHR = Boolean(!isSuper && !isAdmin && (rawRole === 'hr' || profile?.role === 'hr'));
+  const isManager = Boolean(!isSuper && !isAdmin && !isHR && (rawRole === 'manager' || profile?.role === 'manager'));
+  const isEmp = Boolean(!isSuper && !isAdmin && !isHR && !isManager && (rawRole === 'employee' || rawRole === 'user' || profile?.role === 'employee' || profile?.role === 'user'));
+  const effectiveRole: AppRole = isSuper ? 'superadmin' : isAdmin ? 'admin' : isHR ? 'hr' : isManager ? 'manager' : 'employee';
   const prevViewRef = useRef<View>(currentView);
   const [openSections, setOpenSections] = useState<View[]>(() => {
     const parent = RAW_NAV_ITEMS.find(

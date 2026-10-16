@@ -586,14 +586,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const appRole = normalizeRole(profile?.role);
+  const appRole = user?.email === 'superadmin@humanius.net'
+    ? 'superadmin'
+    : normalizeRole(profile?.role || (user?.user_metadata as any)?.role);
 
   const value = {
     user,
     profile,
     session,
     appRole,
-    isSuperAdmin: appRole === 'superadmin',
+    isSuperAdmin: appRole === 'superadmin' || user?.email === 'superadmin@humanius.net',
     isAdmin: appRole === 'superadmin' || appRole === 'admin',
     isHr: appRole === 'hr',
     isManager: appRole === 'manager',

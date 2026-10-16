@@ -123,7 +123,8 @@ interface ZimmetYonetimiProps {
 
 const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
   const { profile, appRole, user } = useAuth();
-  const isAdminOrHR = appRole === 'superadmin' || appRole === 'admin' || appRole === 'hr';
+  const userRole = (profile?.role || appRole || (user?.user_metadata as any)?.role || '').toLowerCase().trim();
+  const isAdminOrHR = userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr';
 
   const currentEmployee = employees.find(e => 
     (profile?.email && e.email?.toLowerCase().trim() === profile.email.toLowerCase().trim()) ||

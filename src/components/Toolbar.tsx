@@ -37,9 +37,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
   sortOrder = 'asc',
   onToggleSort
 }) => {
-  const { t } = useLanguage();
-  const { appRole } = useAuth();
-  const canManageEmployees = ['superadmin', 'admin', 'hr'].includes(appRole);
+  const { appRole, profile, user } = useAuth();
+  const rawRole = (profile?.role || appRole || (user?.user_metadata as any)?.role || '').toLowerCase().trim();
+  const canManageEmployees = ['superadmin', 'admin', 'hr', 'ik'].includes(rawRole);
 
   return (
     <div className="space-y-3 mb-4">
@@ -78,7 +78,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          {appRole === 'superadmin' && companies.length > 1 && (
+          {rawRole === 'superadmin' && companies.length > 1 && (
             <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-1.5 shadow-xs">
               <label className="text-xs text-gray-500 font-semibold">{t('toolbar.company')}:</label>
               <select

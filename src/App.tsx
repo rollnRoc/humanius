@@ -138,10 +138,14 @@ class AppSectionErrorBoundary extends React.Component<
 
 const AppInner: React.FC = () => {
   const { user, profile, appRole, loading: authLoading, isDemo, isSuperAdmin } = useAuth();
-  const effectiveAppRole = user ? appRole : 'admin';
-  const isEmployeeOnly = ['employee', 'user'].includes(effectiveAppRole);
-  const isSuper = Boolean(effectiveAppRole === 'superadmin' || isSuperAdmin || profile?.role === 'superadmin' || user?.email === 'superadmin@humanius.net');
-  const isManagementRole = ['superadmin', 'admin', 'hr', 'manager'].includes(effectiveAppRole);
+  const rawRole = (profile?.role || appRole || (user?.user_metadata as any)?.role || '').toLowerCase().trim();
+  const isSuper = Boolean(rawRole === 'superadmin' || isSuperAdmin || profile?.role === 'superadmin' || user?.email === 'superadmin@humanius.net');
+  const isAdmin = Boolean(!isSuper && (rawRole === 'admin' || profile?.role === 'admin'));
+  const isHR = Boolean(!isSuper && !isAdmin && (rawRole === 'hr' || profile?.role === 'hr'));
+  const isManager = Boolean(!isSuper && !isAdmin && !isHR && (rawRole === 'manager' || profile?.role === 'manager'));
+  const isManagementRole = Boolean(isSuper || isAdmin || isHR || isManager);
+  const isEmployeeOnly = Boolean(!isManagementRole && (rawRole === 'employee' || rawRole === 'user' || profile?.role === 'employee' || profile?.role === 'user'));
+  const effectiveAppRole: AppRole = isSuper ? 'superadmin' : isAdmin ? 'admin' : isHR ? 'hr' : isManager ? 'manager' : 'employee';
 
   const isForcePasswordChangeRequired = Boolean(
     !isDemo &&
@@ -389,6 +393,7 @@ const AppInner: React.FC = () => {
       ]);
 
       const companyMap = new Map<string, string>([
+        ['1cc4a668-c6ad-49d9-8f9c-aea1243239c9', 'ALTAN MOTORLU ARAÇLAR SAN.ve TİC. A.Ş'],
         ['735825a4-f12b-4ee7-959c-a8a29e674617', 'Mıçı Otomotiv'],
         ['11111111-1111-1111-1111-111111111111', 'Bigsafer Teknolojiler A.Ş.'],
         ['87ed6f79-6a54-40ea-b188-8b325513dc41', 'Çavdarlı Otomotiv San. ve Tic. A.Ş.'],
@@ -513,8 +518,8 @@ const AppInner: React.FC = () => {
 
       let filteredMapped = uniqueMapped;
       let currentUserEmpId: string | null = null;
-      const isManagerRole = effectiveAppRole === 'manager' || profile?.role === 'manager';
-      const isEmployeeRole = isEmployeeOnly || (!isManagementRole && (profile?.role === 'employee' || profile?.role === 'user'));
+      const isManagerRole = isManager;
+      const isEmployeeRole = isEmployeeOnly;
 
       // Find current user's employee record
       const currentUserEmp = uniqueMapped.find((emp) => {
@@ -575,10 +580,31 @@ const AppInner: React.FC = () => {
         if (filteredMapped[0]) {
           setSelectedEmployee(filteredMapped[0]);
         }
+      } else if (isManagerRole && managerDepartment && effectiveUserCompanyId) {
+        // Departman amiri sadece kendi departmanındaki personelleri görsün
+        filteredMapped = uniqueMapped.filter(emp => {
+          const cMatch = !effectiveUserCompanyId || String(emp.company_id || '').toLowerCase().trim() === String(effectiveUserCompanyId).toLowerCase().trim();
+          const dMatch = String(emp.department || '').toLowerCase().trim() === String(managerDepartment).toLowerCase().trim();
+          return cMatch && dMatch;
+        });
       } else if (!isSuper && effectiveUserCompanyId) {
-        // Süper yönetici değilse kullanıcı sadece kendi şirketindeki personelleri görsün
-        filteredMapped = uniqueMapped.filter(emp => emp.company_id === effectiveUserCompanyId);
+        // Şirket Yöneticisi (Admin) ve İK (HR) kendi şirketindeki TÜM personelleri görür!
+        const normTargetId = String(effectiveUserCompanyId).toLowerCase().trim();
+        const normTargetName = String(companyMap.get(effectiveUserCompanyId) || (profile as any)?.company_name || '').toLowerCase().trim();
+
+        filteredMapped = uniqueMapped.filter(emp => {
+          const empCompId = String(emp.company_id || '').toLowerCase().trim();
+          const empCompName = String(emp.company || '').toLowerCase().trim();
+          if (empCompId && empCompId === normTargetId) return true;
+          if (normTargetName && empCompName && normTargetName === empCompName) return true;
+          return false;
+        });
+
+        if (filteredMapped.length === 0 && uniqueMapped.length > 0) {
+          filteredMapped = uniqueMapped.filter(emp => String(emp.company_id || '').toLowerCase().trim() === normTargetId);
+        }
       } else {
+        // Süper Yönetici tüm şirketlerdeki tüm personelleri görür!
         filteredMapped = uniqueMapped;
       }
 
@@ -892,7 +918,7 @@ const AppInner: React.FC = () => {
       selectedDepartment === 'all' || emp.department === selectedDepartment;
 
     const matchCompany = (() => {
-      if (selectedCompany === 'all' || !selectedCompany) return true;
+      if (!isSuper || selectedCompany === 'all' || !selectedCompany) return true;
       const target = selectedCompany.toLowerCase().trim();
       const empCompName = (emp.company || '').toLowerCase().trim();
       const empCompId = (emp.company_id || '').toLowerCase().trim();
@@ -1913,7 +1939,10 @@ const AppInner: React.FC = () => {
           ['employee', 'user'].includes(effectiveAppRole) ? (
             <div className="space-y-6">
               <BordroList
-                bordrolar={bordrolar}
+                bordrolar={bordrolar.filter(b => {
+                  const myEmpId = selectedEmployee?.id || employees[0]?.id;
+                  return myEmpId ? b.employee_id === myEmpId : false;
+                })}
                 employees={employees}
                 onView={setSelectedBordro}
                 isEmployeeView={true}
