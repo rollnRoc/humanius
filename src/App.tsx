@@ -1086,9 +1086,11 @@ const AppInner: React.FC = () => {
       });
 
       setDrawerOpen(false);
+      showSuccess('Başarılı', isNewEmployee ? 'Yeni personel başarıyla kaydedildi.' : 'Personel bilgileri güncellendi.');
       await loadData();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Personel kaydedilemedi:', err);
+      showError('Kayıt Başarısız', `Personel kaydedilirken bir hata oluştu: ${err?.message || err}`);
     }
   };
 

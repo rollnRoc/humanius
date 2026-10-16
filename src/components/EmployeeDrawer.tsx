@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle, AlertCircle, MapPin, UserCheck, Users, Shield, Crown, KeyRound, Building2, Building } from 'lucide-react';
+import { X, User, Briefcase, Mail, ClipboardCheck, CheckCircle2, Circle, AlertCircle, MapPin, UserCheck, Users, Shield, Crown, KeyRound, Building2, Building, Loader2 } from 'lucide-react';
 import { Employee, Company, Department } from '../types';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,7 +16,7 @@ interface EmployeeDrawerProps {
   employee: Employee | null;
   isNew: boolean;
   onClose: () => void;
-  onSave: (employee: Employee) => void;
+  onSave: (employee: Employee) => void | Promise<void>;
   onDelete: (id: string) => void;
   companies: Company[];
   departments: Department[];
@@ -39,7 +39,14 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const isSuperUser = Boolean(isSuperAdminProp || authIsSuper || appRole === 'superadmin' || profile?.role === 'superadmin');
   const showCompanySelector = true;
 
+  const [isSaving, setIsSaving] = useState(false);
   const [allCompanies, setAllCompanies] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsSaving(false);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     let isMounted = true;
@@ -370,7 +377,8 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
   if (!isOpen || !formData) return null;
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSaving) return;
     if (emailStatus === 'taken') {
       alert('Bu e-posta adresi sistemde zaten kayıtlı. Lütfen başka bir e-posta tanımlayın.');
       return;
@@ -389,23 +397,30 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     const resolvedCompName = matchedComp?.name || formData.company || 'Şirket';
     const resolvedCompId = matchedComp?.id || formData.company_id || '';
 
-    onSave({
-      ...formData,
-      company: resolvedCompName,
-      company_id: resolvedCompId,
-      email: cleanEmail,
-      joinDate: finalJd,
-      join_date: finalJd,
-      birthDate: finalBd || undefined,
-      birth_date: finalBd || undefined,
-      level: formData.level || 'Junior',
-      is_yeri_sgk_sicil_no: isYeriSgk,
-      isYeriSgkSicilNo: isYeriSgk,
-      medeni_durum: (formData as any).medeni_durum || 'bekar',
-      cocuk_sayisi: Number((formData as any).cocuk_sayisi) || 0,
-      engelli_durumu: (formData as any).engelli_durumu || 'yok',
-      approval_passcode: formData.approval_passcode || '987654',
-    });
+    setIsSaving(true);
+    try {
+      await onSave({
+        ...formData,
+        company: resolvedCompName,
+        company_id: resolvedCompId,
+        email: cleanEmail,
+        joinDate: finalJd,
+        join_date: finalJd,
+        birthDate: finalBd || undefined,
+        birth_date: finalBd || undefined,
+        level: formData.level || 'Junior',
+        is_yeri_sgk_sicil_no: isYeriSgk,
+        isYeriSgkSicilNo: isYeriSgk,
+        medeni_durum: (formData as any).medeni_durum || 'bekar',
+        cocuk_sayisi: Number((formData as any).cocuk_sayisi) || 0,
+        engelli_durumu: (formData as any).engelli_durumu || 'yok',
+        approval_passcode: formData.approval_passcode || '987654',
+      });
+    } catch (err) {
+      console.error('Personel kaydedilirken hata:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleInputChange = (field: keyof Employee, value: any) => {
@@ -453,12 +468,21 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-800">
-            {isNew ? 'Yeni Personel Ekle' : 'Personel Düzenle'}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-gray-800">
+              {isNew ? 'Yeni Personel Ekle' : 'Personel Düzenle'}
+            </h2>
+            {isSaving && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Kaydediliyor...
+              </span>
+            )}
+          </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            disabled={isSaving}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -491,22 +515,33 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
             {/* Actions */}
             <div className="mt-6 space-y-2">
               <button
+                type="button"
                 onClick={handleSave}
-                className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-colors"
+                disabled={isSaving}
+                className="w-full bg-blue-600 disabled:bg-blue-400 disabled:cursor-not-allowed text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
               >
-                {isNew ? 'Personel Ekle' : 'Değişiklikleri Kaydet'}
+                {isSaving && <Loader2 className="w-4 h-4 animate-spin shrink-0 text-white" />}
+                <span>
+                  {isSaving
+                    ? 'Kaydediliyor...'
+                    : (isNew ? 'Personel Ekle' : 'Değişiklikleri Kaydet')}
+                </span>
               </button>
               {!isNew && canDeleteUsers(appRole) && (
                 <button
+                  type="button"
+                  disabled={isSaving}
                   onClick={() => onDelete(formData.id)}
-                  className="w-full bg-red-600 text-white py-2.5 rounded-xl font-bold hover:bg-red-700 transition-colors"
+                  className="w-full bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-xl font-bold hover:bg-red-700 transition-colors cursor-pointer"
                 >
                   Personeli Sil
                 </button>
               )}
               <button
+                type="button"
+                disabled={isSaving}
                 onClick={onClose}
-                className="w-full bg-white border border-gray-200 text-gray-700 py-2.5 rounded-xl font-medium hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                className="w-full bg-white disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 text-gray-700 py-2.5 rounded-xl font-medium hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer"
               >
                 İptal
               </button>
