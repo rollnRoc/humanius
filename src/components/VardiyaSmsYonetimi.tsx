@@ -38,7 +38,7 @@ import {
   inferOfficeForShift,
   isShiftMatchingOffice,
 } from '../services/shiftService';
-import { companyService } from '../services/companyService';
+import { companyService, normalizeCompanyId } from '../services/companyService';
 import { smsService, SmsConfig, SmsLogEntry } from '../services/smsService';
 import { shiftSmsScheduler, ShiftSmsCheckResult } from '../services/shiftSmsScheduler';
 import { showConfirm, showSuccess, showError } from '../utils/swal';
