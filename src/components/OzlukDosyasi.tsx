@@ -700,6 +700,9 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
 
   const visibleTabs = useMemo(() => {
+    if (isEmployeeRole) {
+      return TABS.filter(tab => tab.id === 'genel');
+    }
     return TABS.filter(tab => {
       if (tab.id === 'gorev-tanimi' && !canAccessView(effectiveRole, 'gorev-tanimi')) {
         return false;
@@ -709,15 +712,17 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
       }
       return true;
     });
-  }, [effectiveRole]);
+  }, [effectiveRole, isEmployeeRole]);
 
   const [activeTab, setActiveTab] = useState<TabId>('genel');
 
   useEffect(() => {
-    if (!visibleTabs.some(t => t.id === activeTab)) {
+    if (isEmployeeRole) {
+      setActiveTab('genel');
+    } else if (!visibleTabs.some(t => t.id === activeTab)) {
       setActiveTab('genel');
     }
-  }, [visibleTabs, activeTab]);
+  }, [isEmployeeRole, visibleTabs, activeTab]);
 
   // Belgeler
   const [dosyalar, setDosyalar] = useState<OzlukDosya[]>([]);
@@ -1097,62 +1102,100 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
     : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Başlık */}
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-blue-100 rounded-xl">
-          <FolderOpen className="w-6 h-6 text-blue-600" />
+        <div className="p-2.5 bg-blue-100 rounded-xl shrink-0">
+          <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">
-            {isSelf || ['employee', 'user'].includes(appRole) ? 'Personel Bilgilerim ve Özlük Dosyası' : 'Çalışan Özlük Dosyası'}
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">
+            {isEmployeeRole ? 'Personel Bilgilerim' : (isSelf ? 'Personel Bilgilerim ve Özlük Dosyası' : 'Çalışan Özlük Dosyası')}
           </h1>
-          <p className="text-sm text-gray-500">
-            {isSelf || ['employee', 'user'].includes(appRole) ? 'Kişisel bilgileriniz, belgeleriniz, izin ve bordro dökümleriniz' : 'Personel belgeleri, izin geçmişi ve bordro özeti'}
+          <p className="text-xs sm:text-sm text-gray-500">
+            {isEmployeeRole ? 'Kişisel ve kurumsal kayıt bilgileriniz' : 'Personel belgeleri, izin geçmişi ve bordro özeti'}
           </p>
         </div>
       </div>
 
-      {/* Personel seçimi */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-wrap items-center gap-4">
-        {!isEmployeeRole && companyEmployees.length > 1 && (
-          <div className="flex-1 min-w-[260px]">
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Personel Seçin</label>
-            <div className="relative">
-              <select
-                value={effectiveSelectedEmpId || ''}
-                onChange={(e) => {
-                  if (onSelectEmployee) onSelectEmployee(e.target.value);
-                  setActiveTab('genel');
-                }}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 pr-9 text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">  Personel seçin  </option>
-                {companyEmployees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name}
-                    {emp.department ? `   ${emp.department}` : ''}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      {/* Personel Profil Kartı (Normal Personel için özel mobil uyumlu kart) */}
+      {isEmployeeRole && selectedEmp ? (
+        <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3.5 sm:gap-4">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-2xl sm:text-3xl shrink-0 shadow-sm">
+              {selectedEmp.avatar_url ? (
+                <img src={selectedEmp.avatar_url} alt={selectedEmp.name} className="w-full h-full object-cover rounded-2xl" />
+              ) : (
+                (selectedEmp.name || 'P').charAt(0).toUpperCase()
+              )}
+            </div>
+            <div className="flex-1 min-w-0 text-center sm:text-left">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
+                  {selectedEmp.name}
+                </h2>
+                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                  selectedEmp.status === 'active'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : selectedEmp.status === 'onLeave'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-gray-100 text-gray-700 border-gray-200'
+                }`}>
+                  {selectedEmp.status === 'active' ? '● Aktif' : selectedEmp.status === 'onLeave' ? '● İzinde' : '● Pasif'}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-gray-600 font-medium mt-1">
+                {[selectedEmp.department, selectedEmp.position].filter(Boolean).join(' • ') || 'Personel'}
+              </p>
+              {selectedEmp.company && (
+                <p className="text-xs text-gray-500 mt-1 flex items-center justify-center sm:justify-start gap-1">
+                  <Building2 className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                  <span className="truncate">{selectedEmp.company}</span>
+                </p>
+              )}
             </div>
           </div>
-        )}
-        {selectedEmp && (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-3 bg-blue-50 rounded-xl px-4 py-2">
-              <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                {selectedEmp.name.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">{selectedEmp.name}</p>
-                <p className="text-xs text-gray-500">
-                  {selectedEmp.department} ⬢ {selectedEmp.position}
-                </p>
+        </div>
+      ) : (
+        /* Yönetici için Personel Seçim Çubuğu */
+        <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {!isEmployeeRole && companyEmployees.length > 1 && (
+            <div className="flex-1 min-w-[240px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Personel Seçin</label>
+              <div className="relative">
+                <select
+                  value={effectiveSelectedEmpId || ''}
+                  onChange={(e) => {
+                    if (onSelectEmployee) onSelectEmployee(e.target.value);
+                    setActiveTab('genel');
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 pr-9 text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Personel seçin</option>
+                  {companyEmployees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                      {emp.department ? ` - ${emp.department}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               </div>
             </div>
-            <div className="flex items-center gap-2">
+          )}
+
+          {selectedEmp && (
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <div className="flex items-center gap-2.5 bg-blue-50 rounded-xl px-3 py-1.5 mr-auto sm:mr-0">
+                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                  {selectedEmp.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-900 truncate max-w-[140px]">{selectedEmp.name}</p>
+                  <p className="text-[10px] text-gray-500 truncate max-w-[140px]">{selectedEmp.position || selectedEmp.department}</p>
+                </div>
+              </div>
+
               <button
                 onClick={() => {
                   if (selectedEmp) {
@@ -1174,24 +1217,25 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                     );
                   }
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 active:scale-95 transition-all shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-slate-900 text-white rounded-xl hover:bg-slate-800 active:scale-95 transition-all shadow-xs"
                 title="Tüm Özlük Dosyasını ve Çalışma Raporunu A4 PDF Yazdır"
               >
-                <Printer className="w-4 h-4 text-amber-400" />
-                Özlük Dosyası Yazdır / PDF
+                <Printer className="w-3.5 h-3.5 text-amber-400" />
+                <span>Yazdır / PDF</span>
               </button>
+
               <button
                 onClick={performBackup}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 active:scale-95 transition-all shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 active:scale-95 transition-all shadow-xs"
                 title="Özlük dosyasını yerel depoya yedekle"
               >
-                <Download className="w-4 h-4" />
-                Yedekle
+                <Download className="w-3.5 h-3.5" />
+                <span>Yedekle</span>
               </button>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {!effectiveSelectedEmpId && !isEmployeeRole && (
         <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-8 text-center">
@@ -1229,28 +1273,35 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
 
       {selectedEmp && (
         <div className="animate-fade-in">
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
+            {!isEmployeeRole && visibleTabs.length > 1 ? (
               <div className="flex overflow-x-auto border-b border-gray-100 scrollbar-hide">
-              {visibleTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-                    activeTab === tab.id
-                      ? 'border-blue-600 text-blue-600 bg-blue-50'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+                {visibleTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+                      activeTab === tab.id
+                        ? 'border-blue-600 text-blue-600 bg-blue-50'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center gap-2">
+                <User className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-bold text-gray-800">Genel Bilgiler</span>
+              </div>
+            )}
 
-            <div className="p-5">
+            <div className="p-3.5 sm:p-5">
               {/*  Genel Bilgiler  */}
               {activeTab === 'genel' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <InfoSatiri icon={User} label="Ad Soyad" value={selectedEmp.name} />
                   <InfoSatiri icon={FileBadge} label="TC Kimlik No" value={selectedEmp.tc_no ?? '-'} />
                   <InfoSatiri icon={FileBadge} label="Sicil No" value={selectedEmp.sicil_no ?? '-'} />
@@ -1844,11 +1895,13 @@ const InfoSatiri: React.FC<{
   label: string;
   value: string;
 }> = ({ icon: Icon, label, value }) => (
-  <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
-    <Icon className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-    <div>
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-sm font-medium text-gray-800 mt-0.5">{value}</p>
+  <div className="flex items-start gap-3 p-3 sm:p-3.5 rounded-xl bg-gray-50/80 border border-gray-100 min-w-0 transition-colors hover:bg-gray-100/60 shadow-2xs">
+    <div className="p-2 rounded-lg bg-white border border-gray-200/80 text-blue-600 shrink-0 mt-0.5 shadow-2xs">
+      <Icon className="w-4 h-4" />
+    </div>
+    <div className="min-w-0 flex-1">
+      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-sm font-semibold text-gray-800 mt-0.5 break-words select-text">{value || '-'}</p>
     </div>
   </div>
 );

@@ -190,10 +190,6 @@ export const SearchPage: React.FC<SearchPageProps> = ({
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-
-
-  useEffect(() => { inputRef.current?.focus(); }, []);
-
   // ── Build entity index ──────────────────────────────────────────────────────
   const entityIndex = useMemo<EntityResult[]>(() => {
     const results: EntityResult[] = [];
