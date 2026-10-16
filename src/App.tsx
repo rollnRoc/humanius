@@ -1900,7 +1900,7 @@ const AppInner: React.FC = () => {
         {currentView === 'vardiya-sms' && (
           <VardiyaSmsYonetimi
             employees={employees}
-            companyId={profile?.company_id || selectedCompany || 'default'}
+            companyId={profile?.company_id || (employees[0] as any)?.company_id || selectedCompany || 'default'}
           />
         )}
         {currentView === 'is-akisi' && <IsAkisi companyId={profile?.company_id} />}

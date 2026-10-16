@@ -91,23 +91,12 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
 
   // ─── SMS Bildirim State ──────────────────────────────────────────────────
   const todayStr = getTodayYYYYMMDD();
-  const yesterdayStr = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }, []);
-
-  const [dateFilterMode, setDateFilterMode] = useState<'today' | 'yesterday' | 'custom' | 'all'>('today');
-  const [customDate, setCustomDate] = useState(todayStr);
+  const [selectedDate, setSelectedDate] = useState(todayStr);
   const [smsSearch, setSmsSearch] = useState('');
   const [smsTypeFilter, setSmsTypeFilter] = useState<'all' | 'start_reminder' | 'end_reminder' | 'test'>('all');
   const [smsStatusFilter, setSmsStatusFilter] = useState<'all' | 'success' | 'failed'>('all');
   const [smsLogs, setSmsLogs] = useState<SmsLogEntry[]>([]);
   const [smsConfig, setSmsConfig] = useState<SmsConfig>(() => smsService.getConfig(companyId));
-  const [isCheckingSms, setIsCheckingSms] = useState(false);
   const [selectedMessageModal, setSelectedMessageModal] = useState<SmsLogEntry | null>(null);
 
   // Test SMS Modal State
@@ -178,18 +167,7 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
 
   // Load SMS logs according to selected date filter
   const loadSmsLogs = () => {
-    let targetDate: string | undefined = undefined;
-    if (dateFilterMode === 'today') {
-      targetDate = todayStr;
-    } else if (dateFilterMode === 'yesterday') {
-      targetDate = yesterdayStr;
-    } else if (dateFilterMode === 'custom') {
-      targetDate = customDate;
-    } else {
-      targetDate = undefined; // 'all'
-    }
-
-    const fetched = smsService.getLogs(targetDate, effectiveCompanyId, employees);
+    const fetched = smsService.getLogs(selectedDate, effectiveCompanyId, employees);
     setSmsLogs(fetched);
   };
 
@@ -217,13 +195,13 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
       window.removeEventListener('humanius_sms_company_updated', handleSmsCompanyUpdate);
       window.removeEventListener('humanius_sms_config_updated', handleSmsCompanyUpdate);
     };
-  }, [effectiveCompanyId, dateFilterMode, customDate, employees]);
+  }, [effectiveCompanyId, selectedDate, employees]);
 
   useEffect(() => {
     const handleSmsUpdate = () => loadSmsLogs();
     window.addEventListener('humanius_sms_updated', handleSmsUpdate);
     return () => window.removeEventListener('humanius_sms_updated', handleSmsUpdate);
-  }, [dateFilterMode, customDate, effectiveCompanyId, employees]);
+  }, [selectedDate, effectiveCompanyId, employees]);
 
   // Filtered shifts based on office
   const displayedShifts = useMemo(() => {
@@ -245,21 +223,56 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
     });
   }, [employees, searchEmp, selectedDept]);
 
-  // Filtered SMS logs
+  // Filtered SMS logs (Sadece kendi personeline giden veya iletilemeyen/hatalı mesajlar)
   const filteredSmsLogs = useMemo(() => {
+    const ownEmployeeIds = new Set<string>();
+    const ownEmployeeNames = new Set<string>();
+    const ownEmployeePhones = new Set<string>();
+
+    employees.forEach((emp) => {
+      if (emp.id) ownEmployeeIds.add(emp.id);
+      if (emp.name) ownEmployeeNames.add(emp.name.trim().toLocaleLowerCase('tr-TR'));
+      const rawPhone = (emp.phone || '').replace(/\D/g, '');
+      if (rawPhone.length >= 7) ownEmployeePhones.add(rawPhone);
+    });
+
+    const cleanComp = normalizeCompanyId(effectiveCompanyId);
+
     return smsLogs.filter((log) => {
+      // 1. Şirket / Personel izolasyonu: Yalnızca kendi personeline ait olan loglar
+      const matchId = Boolean(log.employee_id && ownEmployeeIds.has(log.employee_id));
+      const matchName = Boolean(log.employee_name && ownEmployeeNames.has(log.employee_name.trim().toLocaleLowerCase('tr-TR')));
+      const logPhone = (log.phone || '').replace(/\D/g, '');
+      const matchPhone = Boolean(logPhone.length >= 7 && ownEmployeePhones.has(logPhone));
+      const matchCompany = Boolean(
+        log.company_id &&
+        cleanComp &&
+        cleanComp !== 'default' &&
+        normalizeCompanyId(log.company_id) === cleanComp
+      );
+
+      const isOwnPersonnelLog = matchId || matchName || matchPhone || matchCompany;
+
+      // Eğer personel listemiz varsa ve kayıt kendi personelimizle eşleşmiyorsa gösterme (başka firma personeli)
+      if (employees.length > 0 && !isOwnPersonnelLog && companyId !== 'all') {
+        return false;
+      }
+
+      // 2. Arama filtresi
       const matchSearch =
         !smsSearch.trim() ||
         log.employee_name.toLocaleLowerCase('tr-TR').includes(smsSearch.toLocaleLowerCase('tr-TR')) ||
         log.phone.includes(smsSearch) ||
         log.message.toLocaleLowerCase('tr-TR').includes(smsSearch.toLocaleLowerCase('tr-TR'));
 
+      // 3. Bildirim türü filtresi
       const matchType = smsTypeFilter === 'all' || log.type === smsTypeFilter;
+      // 4. Durum filtresi (giden [success] ya da hatalı/iletilemeyen [failed] mesajlar)
       const matchStatus = smsStatusFilter === 'all' || log.status === smsStatusFilter;
 
       return matchSearch && matchType && matchStatus;
     });
-  }, [smsLogs, smsSearch, smsTypeFilter, smsStatusFilter]);
+  }, [smsLogs, employees, effectiveCompanyId, companyId, smsSearch, smsTypeFilter, smsStatusFilter]);
 
   // SMS Statistics
   const smsStats = useMemo(() => {
@@ -486,38 +499,7 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
   };
 
 
-  const handleManualSmsCheck = async () => {
-    setIsCheckingSms(true);
-    try {
-      const res: ShiftSmsCheckResult = await shiftSmsScheduler.checkAndSendShiftSms({
-        employees,
-        companyId: effectiveCompanyId,
-      });
 
-      loadSmsLogs();
-
-      if (res.startSmsSent === 0 && res.endSmsSent === 0 && res.errors.length === 0) {
-        showSuccess(
-          'Tarama Tamamlandı',
-          `Kontrol edilen ${res.checkedEmployeesCount} aktif personelden SMS gerektiren yeni bir gecikme bulunamadı.`
-        );
-      } else if (res.errors.length > 0) {
-        showError(
-          'Tarama Tamamlandı (Hatalarla)',
-          `Gönderilen SMS: ${res.startSmsSent + res.endSmsSent} adet.\nHata alan: ${res.errors.length} adet.\n\nİlk Hata: ${res.errors[0]?.error}`
-        );
-      } else {
-        showSuccess(
-          'Vardiya SMS Taraması Başarılı',
-          `• Vardiya Başlatma Uyarısı: ${res.startSmsSent} personele gönderildi\n• Vardiya Bitirme Uyarısı: ${res.endSmsSent} personele gönderildi`
-        );
-      }
-    } catch (err: any) {
-      showError('Hata', `Tarama sırasında bir hata oluştu: ${err?.message || err}`);
-    } finally {
-      setIsCheckingSms(false);
-    }
-  };
 
   const handleSendTestSms = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1057,73 +1039,28 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                 </p>
               </div>
 
-              {/* Date Filter Buttons & Custom Date Picker */}
+              {/* Date Filter: Only Single Date Picker & Actions */}
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-                  <button
-                    onClick={() => setDateFilterMode('today')}
-                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                      dateFilterMode === 'today'
-                        ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Bugün
-                  </button>
-                  <button
-                    onClick={() => setDateFilterMode('yesterday')}
-                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                      dateFilterMode === 'yesterday'
-                        ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Dün
-                  </button>
-                  <button
-                    onClick={() => setDateFilterMode('all')}
-                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                      dateFilterMode === 'all'
-                        ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Tüm Geçmiş
-                  </button>
-                </div>
-
-                {/* Custom Date Input */}
-                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                {/* Single Date Picker */}
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs hover:border-indigo-300 transition">
+                  <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span className="text-xs font-semibold text-slate-500">Tarih:</span>
                   <input
                     type="date"
-                    value={customDate}
-                    onChange={(e) => {
-                      setCustomDate(e.target.value);
-                      setDateFilterMode('custom');
-                    }}
-                    className="text-xs bg-transparent border-0 outline-none text-slate-700 font-semibold cursor-pointer"
-                    title="Özel Tarih Seçiniz"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="text-xs bg-transparent border-0 outline-none text-slate-800 font-bold cursor-pointer"
+                    title="Tarih Seçiniz"
                   />
                 </div>
 
-                {/* Actions */}
+                {/* Refresh */}
                 <button
                   onClick={loadSmsLogs}
                   className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition cursor-pointer"
                   title="Yenile"
                 >
                   <RefreshCw className="w-4 h-4" />
-                </button>
-
-                <button
-                  onClick={handleManualSmsCheck}
-                  disabled={isCheckingSms}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
-                  title="Geciken personelleri hemen tara ve SMS gönder"
-                >
-                  <Send className={`w-3.5 h-3.5 ${isCheckingSms ? 'animate-spin' : ''}`} />
-                  {isCheckingSms ? 'Taranıyor...' : 'Manuel SMS Tara'}
                 </button>
 
                 {smsLogs.length > 0 && (
@@ -1168,7 +1105,7 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                   onChange={(e) => setSmsStatusFilter(e.target.value as any)}
                   className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 outline-none font-medium text-slate-700"
                 >
-                  <option value="all">Tüm Durumlar</option>
+                  <option value="all">Tüm Durumlar (Giden ve Hatalı)</option>
                   <option value="success">Başarılı / İletildi</option>
                   <option value="failed">Hatalı / İletilemedi</option>
                 </select>
@@ -1178,13 +1115,7 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
               <div className="text-xs text-slate-500 font-medium">
                 Gösterilen Tarih:{' '}
                 <strong className="text-slate-800">
-                  {dateFilterMode === 'today'
-                    ? `Bugün (${todayStr})`
-                    : dateFilterMode === 'yesterday'
-                    ? `Dün (${yesterdayStr})`
-                    : dateFilterMode === 'custom'
-                    ? customDate
-                    : 'Tüm Kayıtlar'}
+                  {selectedDate === todayStr ? `Bugün (${todayStr})` : selectedDate}
                 </strong>
               </div>
             </div>
@@ -1230,9 +1161,9 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                 <div>
                   <h4 className="text-sm font-bold text-slate-700">SMS Gönderim Kaydı Bulunmuyor</h4>
                   <p className="text-xs text-slate-500 mt-1">
-                    {dateFilterMode === 'today'
-                      ? 'Bugün için henüz SMS uyarısı gönderilmiş bir personel bulunmuyor.'
-                      : 'Seçili tarih filtresine uygun kayıt bulunamadı.'}
+                    {selectedDate === todayStr
+                      ? 'Bugün için henüz personelinize gönderilmiş bir SMS kaydı bulunmuyor.'
+                      : `${selectedDate} tarihi için personelinize ait bir SMS kaydı bulunamadı.`}
                   </p>
                 </div>
               </div>

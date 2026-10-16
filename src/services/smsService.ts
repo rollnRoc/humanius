@@ -603,7 +603,7 @@ export const smsService = {
   getLogs(
     dateFilter?: string,
     companyId?: string,
-    employees?: Array<{ id: string; company_id?: string }>
+    employees?: Array<{ id: string; company_id?: string; name?: string; phone?: string; company?: string }>
   ): SmsLogEntry[] {
     try {
       const list = this.getRawLogs();
@@ -616,11 +616,17 @@ export const smsService = {
       if (companyId && companyId !== 'all') {
         const cleanTargetCompId = normalizeCompanyId(companyId);
         const employeeIdSet = new Set<string>();
+        const employeeNameSet = new Set<string>();
+        const employeePhoneSet = new Set<string>();
+
         if (employees && employees.length > 0) {
           employees.forEach((emp) => {
-            const empComp = normalizeCompanyId(emp.company_id || '');
-            if (!empComp || empComp === cleanTargetCompId || emp.company_id === companyId) {
-              employeeIdSet.add(emp.id);
+            const empComp = normalizeCompanyId(emp.company_id || emp.company || '');
+            if (empComp === cleanTargetCompId || emp.company_id === companyId || (!cleanTargetCompId || cleanTargetCompId === 'default')) {
+              if (emp.id) employeeIdSet.add(emp.id);
+              if (emp.name) employeeNameSet.add(emp.name.trim().toLocaleLowerCase('tr-TR'));
+              const rawP = (emp.phone || '').replace(/\D/g, '');
+              if (rawP.length >= 7) employeePhoneSet.add(rawP);
             }
           });
         }
@@ -629,15 +635,27 @@ export const smsService = {
           // 1. Log kaydında doğrudan company_id varsa karşılaştır
           if (l.company_id) {
             const logComp = normalizeCompanyId(l.company_id);
-            return logComp === cleanTargetCompId || l.company_id === companyId;
+            if (cleanTargetCompId && cleanTargetCompId !== 'default') {
+              return logComp === cleanTargetCompId || l.company_id === companyId;
+            }
           }
 
-          // 2. Eski kayıtlarda company_id damgası yoksa personelin şirketine bak
+          // 2. Personel ID eşleşmesi
           if (l.employee_id && employeeIdSet.has(l.employee_id)) {
             return true;
           }
 
-          // Test SMS kaydı durumunda: Eğer şirket filtrelenmişse ve logta company_id yoksa diğer şirketlere gösterme
+          // 3. Personel İsim eşleşmesi
+          if (l.employee_name && employeeNameSet.has(l.employee_name.trim().toLocaleLowerCase('tr-TR'))) {
+            return true;
+          }
+
+          // 4. Personel Telefon eşleşmesi
+          const logPhone = (l.phone || '').replace(/\D/g, '');
+          if (logPhone.length >= 7 && employeePhoneSet.has(logPhone)) {
+            return true;
+          }
+
           return false;
         });
       }
@@ -678,7 +696,7 @@ export const smsService = {
   /**
    * Logları Temizle (Belirtilen firma için veya tümü)
    */
-  clearLogs(companyId?: string, employees?: Array<{ id: string; company_id?: string }>): void {
+  clearLogs(companyId?: string, employees?: Array<{ id: string; company_id?: string; company?: string }>): void {
     try {
       if (!companyId || companyId === 'all') {
         localStorage.removeItem(SMS_LOGS_KEY);
@@ -688,9 +706,9 @@ export const smsService = {
         const employeeIdSet = new Set<string>();
         if (employees && employees.length > 0) {
           employees.forEach((emp) => {
-            const empComp = normalizeCompanyId(emp.company_id || '');
-            if (!empComp || empComp === cleanTargetCompId || emp.company_id === companyId) {
-              employeeIdSet.add(emp.id);
+            const empComp = normalizeCompanyId(emp.company_id || emp.company || '');
+            if (empComp === cleanTargetCompId || emp.company_id === companyId) {
+              if (emp.id) employeeIdSet.add(emp.id);
             }
           });
         }
