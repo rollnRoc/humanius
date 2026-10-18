@@ -95,11 +95,7 @@ export default function Login() {
     try {
       const { error: signInError } = await signIn(loginEmail, password);
       if (signInError) {
-        setError(
-          signInError.message.includes('Invalid login credentials')
-            ? 'Giriş bilgileri veya parola hatalı.'
-            : signInError.message
-        );
+        setError(translateErrorMessage(signInError.message));
         return;
       }
 

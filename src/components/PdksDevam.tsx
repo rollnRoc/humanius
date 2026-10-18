@@ -3098,16 +3098,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
               {/* Hızlı Kısayollar ve Çıktı Butonları (Süper Admin / Şirket Yöneticisi / İK / Müdür) */}
               {isManagement && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  {onNavigateToPuantaj && (
-                    <button
-                      onClick={onNavigateToPuantaj}
-                      className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                      title="Aylık Puantaj Cetveline Git"
-                    >
-                      <Calendar className="w-3.5 h-3.5 text-indigo-200" />
-                      Aylık Puantaj Cetveli
-                    </button>
-                  )}
                   <button
                     onClick={handlePrintPdf}
                     className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
@@ -3123,19 +3113,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   >
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
                     Excel / CSV
-                  </button>
-                  <button
-                    onClick={() => setShowSmsModal(true)}
-                    className="flex items-center gap-1.5 border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-900 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-                    title="Vardiya SMS Hatırlatmaları ve Günlüğü"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>SMS Günlüğü</span>
-                    {todaySmsCount > 0 && (
-                      <span className="bg-indigo-600 text-white text-[10px] font-extrabold px-1.5 py-0.2 rounded-full">
-                        {todaySmsCount}
-                      </span>
-                    )}
                   </button>
                 </div>
               )}

@@ -392,7 +392,9 @@ export const smsService = {
       return { success: false, error: 'SMS gönderimi bu firma için kapalıdır.' };
     }
 
-    if (!employee.phone) {
+    const targetPhone = employee.phone || (employee as any).mobile;
+
+    if (!targetPhone) {
       const entry = this.addLog({
         employee_id: employee.id,
         employee_name: employee.name,
@@ -415,13 +417,13 @@ export const smsService = {
       `Bugün ${shiftText} vardiyanız başlamıştır ancak henüz vardiyanızı başlatmadığınız tespit edilmiştir. Lütfen sisteme giriş yaparak vardiyanızı başlatınız.\n` +
       `${config.login_url || 'https://humanius.net'}`;
 
-    const res = await this.sendVerimorSms(employee.phone, smsMessage, config, targetCompId);
+    const res = await this.sendVerimorSms(targetPhone, smsMessage, config, targetCompId);
 
     this.addLog({
       employee_id: employee.id,
       employee_name: employee.name,
       company_id: targetCompId,
-      phone: employee.phone,
+      phone: targetPhone,
       type: 'start_reminder',
       shift_name: shift.name || 'Vardiya',
       shift_time: shiftText,
@@ -451,7 +453,9 @@ export const smsService = {
       return { success: false, error: 'SMS gönderimi bu firma için kapalıdır.' };
     }
 
-    if (!employee.phone) {
+    const targetPhone = employee.phone || (employee as any).mobile;
+
+    if (!targetPhone) {
       const entry = this.addLog({
         employee_id: employee.id,
         employee_name: employee.name,
@@ -474,13 +478,13 @@ export const smsService = {
       `Bugün ${shiftText} vardiyanız tamamlanmıştır ancak henüz vardiyanızı bitirmediğiniz tespit edilmiştir. Lütfen sisteme giriş yaparak vardiyanızı bitiriniz.\n` +
       `${config.login_url || 'https://humanius.net'}`;
 
-    const res = await this.sendVerimorSms(employee.phone, smsMessage, config, targetCompId);
+    const res = await this.sendVerimorSms(targetPhone, smsMessage, config, targetCompId);
 
     this.addLog({
       employee_id: employee.id,
       employee_name: employee.name,
       company_id: targetCompId,
-      phone: employee.phone,
+      phone: targetPhone,
       type: 'end_reminder',
       shift_name: shift.name || 'Vardiya',
       shift_time: shiftText,

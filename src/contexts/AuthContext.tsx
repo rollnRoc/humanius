@@ -337,29 +337,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // 2.5 Edge Function fallback (service_role) if direct DB query failed or returned no role
-      if (userEmail || userId) {
-        try {
-          const { data: edgeRes } = await supabase.functions.invoke('user-management', {
-            body: { operation: 'list_users' }
-          });
-          const matched = edgeRes?.users?.find(
-            (u: any) => (userId && u.id === userId) || (userEmail && u.email?.toLowerCase().trim() === userEmail)
-          );
-          if (matched && matched.role) {
-            setProfile(matched);
-            profileRef.current = matched;
-            try {
-              localStorage.setItem('humanius_cached_profile', JSON.stringify(matched));
-            } catch {}
-            return;
-          }
-        } catch (edgeErr) {
-          console.warn('Edge function list_users fallback warning:', edgeErr);
-        }
-      }
-
-      // 3. Employees tablosundan direkt hızlı sorgu (50ms)
+      // 3. Employees tablosundan direkt hızlı sorgu (50ms) - PostgREST doğrudan erişim
       let matchedCompanyId = data?.company_id || null;
       let matchedFullName = data?.full_name || userRef.current?.user_metadata?.full_name || 'Personel';
       let matchedRole = data?.role || (userRef.current?.user_metadata as any)?.role || 'employee';

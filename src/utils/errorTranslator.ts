@@ -24,8 +24,8 @@ export function translateErrorMessage(rawMessage: string | undefined | null): st
   if (msg.includes('Auth session missing') || msg.includes('JWT expired')) {
     return 'Oturum süreniz doldu. Lütfen tekrar giriş yapın.';
   }
-  if (msg.includes('Same password')) {
-    return 'Yeni şifreniz mevcut şifreniz ile aynı olamaz.';
+  if (msg.includes('restricted') || msg.includes('exceed_edge_functions') || msg.includes('exceed_egress_quota')) {
+    return 'Sistem bakımda: Supabase bulut servis kotaları kısıtlandı. Lütfen sistem yöneticisi ile iletişime geçin.';
   }
 
   return msg;

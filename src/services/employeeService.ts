@@ -96,32 +96,20 @@ export const employeeService = {
     const targetCompId = (companyId && companyId !== 'all') ? companyId : undefined;
     const cacheKey = `humanius_cached_employees_${targetCompId || 'all'}`;
 
-    // 1. DÜMDÜZ veritabanından çek (Edge function - service_role, RLS aşan, kesin 220 personel)
+    // 1. Önce Hızlı Yerel Önbellek Kontrolü (varsa anında döndür veya arka planda yenile)
     try {
-      const { data: resData } = await supabase.functions.invoke('user-management', {
-        body: { operation: 'list_employees', companyId: targetCompId }
-      });
-      let parsed = resData;
-      if (typeof parsed === 'string') {
-        try { parsed = JSON.parse(parsed); } catch {}
+      const cached = localStorage.getItem(cacheKey) || (!targetCompId ? localStorage.getItem('humanius_cached_employees_all') : null);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Önbellek mevcut, anında UI'ya sun
+          // Arka planda sadece gerekirse sessizce yenilenecektir
+          return parsed;
+        }
       }
-      const employeesList = parsed?.employees || (Array.isArray(parsed) ? parsed : null);
-      if (employeesList && employeesList.length > 0) {
-        console.log(`[employeeService.getAll] Edge Function'dan ${employeesList.length} personel çekildi.`);
-        const enriched = (employeesList as any[]).map(enrichEmployeeWithLocation) as Employee[];
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify(enriched));
-          if (!targetCompId) {
-            localStorage.setItem('humanius_cached_employees_all', JSON.stringify(enriched));
-          }
-        } catch {}
-        return enriched;
-      }
-    } catch (edgeErr) {
-      console.warn('Edge function list_employees warning:', edgeErr);
-    }
+    } catch {}
 
-    // 2. Doğrudan veritabanı sorgusu fallback
+    // 2. Doğrudan PostgREST veritabanı sorgusu (1. Öncelik - 0 Edge Function çağrısı, düşük egress)
     try {
       const source = await pickSource();
       let query = supabase.from(source).select('*');
@@ -139,9 +127,11 @@ export const employeeService = {
         } catch {}
         return enriched;
       }
-    } catch {}
+    } catch (dbErr) {
+      console.warn('Direct employees query warning:', dbErr);
+    }
 
-    // 3. User-specific fallback: Check if authenticated user has their own employee record
+    // 3. Kullanıcıya özel fallback (eğer RLS genel listelemeyi kısıtlıyorsa kullanıcının kendi kaydını bul)
     try {
       const { data: authData } = await supabase.auth.getUser();
       const user = authData?.user;
@@ -162,7 +152,33 @@ export const employeeService = {
       }
     } catch {}
 
-    // 4. Yerel önbellek yedeği
+    // 4. Son Çare Yedek: Edge Function (Yalnızca doğrudan DB boş veya RLS engelli ise service_role ile çek)
+    try {
+      const { data: resData, error: edgeErr } = await supabase.functions.invoke('user-management', {
+        body: { operation: 'list_employees', companyId: targetCompId }
+      });
+      if (!edgeErr && resData) {
+        let parsed = resData;
+        if (typeof parsed === 'string') {
+          try { parsed = JSON.parse(parsed); } catch {}
+        }
+        const employeesList = parsed?.employees || (Array.isArray(parsed) ? parsed : null);
+        if (employeesList && employeesList.length > 0) {
+          const enriched = (employeesList as any[]).map(enrichEmployeeWithLocation) as Employee[];
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(enriched));
+            if (!targetCompId) {
+              localStorage.setItem('humanius_cached_employees_all', JSON.stringify(enriched));
+            }
+          } catch {}
+          return enriched;
+        }
+      }
+    } catch (edgeErr) {
+      console.warn('Edge function list_employees fallback warning:', edgeErr);
+    }
+
+    // 5. Eski önbellek yedeği
     try {
       const cached = localStorage.getItem(cacheKey) || (!targetCompId ? localStorage.getItem('humanius_cached_employees_all') : null);
       if (cached) {

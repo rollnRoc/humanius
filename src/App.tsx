@@ -363,8 +363,7 @@ const AppInner: React.FC = () => {
           try {
             const res = await supabase.from('profiles').select('id, email, full_name, role');
             if (res.data && res.data.length > 0) return res;
-            const edge = await supabase.functions.invoke('user-management', { body: { operation: 'list_users' } });
-            return { data: edge.data?.users || [] };
+            return { data: [] };
           } catch {
             return { data: [] };
           }
@@ -871,18 +870,16 @@ const AppInner: React.FC = () => {
     }
   }, [effectiveAppRole, employees, selectedEmployee]);
 
-  // ── Otomatik Vardiya SMS Bildirim Servisi (Zamanlayıcı) ────────────────────
+  // ── Otomatik Vardiya SMS Bildirim Servisi (Merkezi Arka Plan Yönetimi) ─────
+  // NOT: 7/24 Vardiya SMS kontrolleri backend üzerinde (server-worker.cjs) merkezi
+  // ve optimize olarak çalıştırılmaktadır. Her açık tarayıcı sekmesinin Supabase'e
+  // 60 saniyede bir istek atıp kota tüketmesini engellemek için tarayıcı döngüsü
+  // pasife alınmıştır. İstenildiğinde Vardiya SMS Yönetimi ekranından manuel tetiklenebilir.
   useEffect(() => {
-    if (user && employees && employees.length > 0) {
-      shiftSmsScheduler.startShiftSmsWorker(
-        () => employees,
-        () => selectedCompany || profile?.company_id || 'default'
-      );
-    }
     return () => {
       shiftSmsScheduler.stopShiftSmsWorker();
     };
-  }, [user, employees.length, selectedCompany, profile?.company_id]);
+  }, []);
 
   // ── Filtered lists ──────────────────────────────────────────────────────────
   const filteredEmployees = employees.filter((emp) => {

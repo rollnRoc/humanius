@@ -11,8 +11,8 @@ echo "========================================================="
   while true; do
     echo "[Supervisor] Starting Humanius 24/7 Shift SMS Worker..."
     node /app/server-worker.cjs || true
-    echo "[Supervisor] Worker exited. Restarting in 3 seconds..."
-    sleep 3
+    echo "[Supervisor] Worker exited. Restarting in 15 seconds..."
+    sleep 15
   done
 ) &
 WORKER_PID=$!

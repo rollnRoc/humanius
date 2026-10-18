@@ -148,37 +148,18 @@ export const companyService = {
       }
     ];
 
+    // 1. Önce Hızlı Yerel Önbellek Kontrolü
     try {
       const cached = localStorage.getItem('humanius_cached_companies');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length >= 5) {
-          // Revalidate in background via edge function
-          supabase.functions.invoke('user-management', { body: { operation: 'list_companies' } })
-            .then(({ data: res }) => {
-              if (res?.companies && res.companies.length > 0) {
-                const refreshed = (res.companies || []).map((c: any) => ({ ...c, name: fixUtf8Encoding(c.name) }));
-                localStorage.setItem('humanius_cached_companies', JSON.stringify(refreshed));
-              }
-            }).catch(() => {});
           return parsed;
         }
       }
     } catch {}
 
-    // 2. Edge Function (Fast service_role query, bypasses RLS)
-    try {
-      const { data: res } = await supabase.functions.invoke('user-management', {
-        body: { operation: 'list_companies' }
-      });
-      if (res?.companies && res.companies.length > 0) {
-        const list = (res.companies || []).map((c: any) => ({ ...c, name: fixUtf8Encoding(c.name) }));
-        try { localStorage.setItem('humanius_cached_companies', JSON.stringify(list)); } catch {}
-        return list;
-      }
-    } catch {}
-
-    // 3. Direct DB query fallback
+    // 2. Doğrudan PostgREST veritabanı sorgusu (1. Öncelik - 0 Edge Function çağrısı)
     try {
       const { data, error } = await supabase
         .from('companies')
@@ -187,6 +168,18 @@ export const companyService = {
 
       if (!error && data && data.length > 0) {
         const list = (data || []).map(c => ({ ...c, name: fixUtf8Encoding(c.name) }));
+        try { localStorage.setItem('humanius_cached_companies', JSON.stringify(list)); } catch {}
+        return list;
+      }
+    } catch {}
+
+    // 3. Edge Function (Yalnızca doğrudan DB başarısız olursa son çare yedek)
+    try {
+      const { data: res } = await supabase.functions.invoke('user-management', {
+        body: { operation: 'list_companies' }
+      });
+      if (res?.companies && res.companies.length > 0) {
+        const list = (res.companies || []).map((c: any) => ({ ...c, name: fixUtf8Encoding(c.name) }));
         try { localStorage.setItem('humanius_cached_companies', JSON.stringify(list)); } catch {}
         return list;
       }
