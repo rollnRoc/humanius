@@ -30,6 +30,8 @@ interface Employee {
   name: string;
   department: string;
   position: string;
+  company_id?: string;
+  company?: string;
 }
 
 const DEMO_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
@@ -165,6 +167,9 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       if (emp) {
         setPozisyonAdi(emp.position || '');
         setIsBirimi(emp.department || '');
+        if (emp.company) {
+          setSirketAdi(emp.company);
+        }
         
         // Check if there is an existing job description for this employee in the database
         gorevTanimiService.getGorevTanimiByEmployeeId(selectedEmployeeId).then((existing) => {
@@ -173,10 +178,66 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
             setIsBirimi(existing.is_birimi || emp.department || '');
             setPozisyonAmaci(existing.gorev_aciklama || '');
             setIdariUst(existing.bagli_oldugu_pozisyon || '');
+            setFonksiyonelUst(existing.bagli_oldugu_pozisyon || '');
             const createdDate = existing.created_at ? String(existing.created_at).split('T')[0] : new Date().toISOString().split('T')[0];
             setIlkYayinTarihi(existing.ilk_yayin_tarihi || createdDate);
             setRevizyonTarihi(existing.revizyon_tarihi || '');
             setRevizyonNo(existing.revizyon_no !== undefined ? String(existing.revizyon_no) : '0');
+
+            const matchedTpl = JOB_TEMPLATES.find(
+              (t) => normalizeTr(t.title) === normalizeTr(existing.gorev_adi || '')
+            );
+
+            if (Array.isArray(existing.sorumluluklar) && existing.sorumluluklar.length > 0) {
+              const calismalarArr = Array.isArray(existing.calismalar) ? existing.calismalar : [];
+              const maxLen = Math.max(existing.sorumluluklar.length, calismalarArr.length);
+              const loadedTasks: Task[] = [];
+              for (let i = 0; i < maxLen; i++) {
+                const tplTask = matchedTpl?.tasks?.[i];
+                loadedTasks.push({
+                  surec: existing.sorumluluklar[i] ?? tplTask?.surec ?? '',
+                  yetkinlik: tplTask?.yetkinlik ?? '',
+                  davranis: calismalarArr[i] ?? tplTask?.davranis ?? '',
+                  raci: tplTask?.raci ?? 'A/R',
+                  kpi: tplTask?.kpi ?? '',
+                });
+              }
+              setTasks(loadedTasks);
+            } else if (matchedTpl) {
+              setTasks(matchedTpl.tasks);
+            }
+
+            if (Array.isArray(existing.performans_kriterleri) && existing.performans_kriterleri.length > 0) {
+              setKpis(
+                existing.performans_kriterleri.map((item: string) => {
+                  const sepIdx = item.indexOf(':');
+                  if (sepIdx !== -1) {
+                    return {
+                      label: item.slice(0, sepIdx).trim(),
+                      value: item.slice(sepIdx + 1).trim(),
+                    };
+                  }
+                  return { label: item, value: '' };
+                })
+              );
+            } else if (matchedTpl) {
+              setKpis(matchedTpl.kpis);
+            }
+
+            if (Array.isArray(existing.yetki_ve_sorumluluklar) && existing.yetki_ve_sorumluluklar.length > 0) {
+              setYonetselYetkinlikler(
+                existing.yetki_ve_sorumluluklar.map((baslik: string, idx: number) => ({
+                  baslik,
+                  aciklama: matchedTpl?.yonetselYetkinlikler?.[idx]?.aciklama ?? '',
+                }))
+              );
+            } else if (matchedTpl) {
+              setYonetselYetkinlikler(matchedTpl.yonetselYetkinlikler);
+            }
+
+            if (matchedTpl?.teknikBeceriler) {
+              setTeknikBeceriler(matchedTpl.teknikBeceriler);
+            }
           } else {
             // No existing record, clear template fields so they can enter a new one
             setIlkYayinTarihi(new Date().toISOString().split('T')[0]);
@@ -302,6 +363,627 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
 
   const exportToExcel = () => {
     alert('Excel export fonksiyonu için XLSX kütüphanesi eklenmesi gerekiyor.');
+  };
+
+  const escapeHtml = (val: any) =>
+    String(val ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const printGorevTanimiPdf = (pdfData: {
+    employeeName?: string;
+    pozisyonAdi: string;
+    sirketAdi: string;
+    isBirimi: string;
+    lokasyon: string;
+    idariUst: string;
+    fonksiyonelUst: string;
+    ilkYayinTarihi: string;
+    revizyonTarihi: string;
+    revizyonNo: string;
+    pozisyonAmaci: string;
+    projePortfoy?: string;
+    tasks: Task[];
+    kpis: KPI[];
+    yonetselYetkinlikler: Yetkinlik[];
+    teknikBeceriler: string[];
+    kurallar: string[];
+  }) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('PDF yazdırma penceresi engellendi. Lütfen tarayıcı izinlerini kontrol edin.');
+      return;
+    }
+
+    const docTitle = [pdfData.pozisyonAdi || 'Görev Tanımı', pdfData.employeeName]
+      .filter(Boolean)
+      .join(' - ');
+
+    const tasksRowsHtml = pdfData.tasks
+      .filter((t) => t.surec || t.yetkinlik || t.davranis || t.kpi)
+      .map(
+        (t) => `
+        <tr>
+          <td><strong>${escapeHtml(t.surec || '-')}</strong></td>
+          <td>${escapeHtml(t.yetkinlik || '-')}</td>
+          <td>${escapeHtml(t.davranis || '-')}</td>
+          <td style="text-align:center; font-weight:700;">${escapeHtml(t.raci || 'A/R')}</td>
+          <td>${escapeHtml(t.kpi || '-')}</td>
+        </tr>
+      `
+      )
+      .join('');
+
+    const kpisHtml = pdfData.kpis
+      .filter((k) => k.label || k.value)
+      .map(
+        (k) => `
+        <div class="kpi-item">
+          <span class="kpi-label">${escapeHtml(k.label)}</span>
+          <span class="kpi-val">${escapeHtml(k.value || '-')}</span>
+        </div>
+      `
+      )
+      .join('');
+
+    const yonetselHtml = pdfData.yonetselYetkinlikler
+      .filter((y) => y.baslik || y.aciklama)
+      .map(
+        (y) => `
+        <div class="comp-card">
+          <div class="comp-title">${escapeHtml(y.baslik)}</div>
+          ${y.aciklama ? `<div class="comp-desc">${escapeHtml(y.aciklama)}</div>` : ''}
+        </div>
+      `
+      )
+      .join('');
+
+    const teknikHtml = pdfData.teknikBeceriler
+      .filter(Boolean)
+      .map((b) => `<li class="skill-item">${escapeHtml(b)}</li>`)
+      .join('');
+
+    const kurallarHtml = pdfData.kurallar
+      .filter(Boolean)
+      .map((k, idx) => `<div class="rule-item"><strong>${idx + 1}.</strong> ${escapeHtml(k)}</div>`)
+      .join('');
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Görev Tanımı - ${escapeHtml(docTitle)}</title>
+  <style>
+    @page { size: A4; margin: 12mm 14mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color: #1e293b;
+      background: #ffffff;
+      margin: 0;
+      padding: 0;
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+    .header-box {
+      border: 2px solid #1e293b;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .header-grid {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .header-grid td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 12px;
+      vertical-align: middle;
+    }
+    .header-main {
+      background: #1e293b;
+      color: #ffffff;
+      text-align: center;
+    }
+    .header-main h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .header-main p {
+      margin: 4px 0 0;
+      font-size: 12.5px;
+      color: #bbf7d0;
+      font-weight: 600;
+    }
+    .meta-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5px;
+    }
+    .meta-table td {
+      border: 1px solid #e2e8f0;
+      padding: 4px 8px;
+    }
+    .meta-label {
+      background: #f8fafc;
+      font-weight: 700;
+      color: #475569;
+      width: 48%;
+    }
+    .section {
+      margin-bottom: 14px;
+      page-break-inside: avoid;
+    }
+    .section-breakable {
+      margin-bottom: 14px;
+    }
+    .section-title {
+      background: #f1f5f9;
+      border-left: 4px solid #16a34a;
+      padding: 6px 10px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .info-table td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 10px;
+      font-size: 11.5px;
+    }
+    .info-table td.lbl {
+      background: #f8fafc;
+      font-weight: 700;
+      color: #334155;
+      width: 22%;
+    }
+    .info-table td.val {
+      width: 28%;
+      color: #0f172a;
+    }
+    .purpose-box {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: #ffffff;
+      white-space: pre-line;
+      text-align: justify;
+    }
+    .portfolio-box {
+      margin-top: 6px;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 11px;
+    }
+    .tasks-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5px;
+    }
+    .tasks-table th {
+      background: #1e293b;
+      color: #ffffff;
+      text-align: left;
+      padding: 6px 8px;
+      border: 1px solid #1e293b;
+      font-weight: 600;
+    }
+    .tasks-table td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+    .tasks-table tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+    .kpi-item {
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      padding: 6px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f8fafc;
+    }
+    .kpi-label {
+      font-weight: 600;
+      color: #334155;
+    }
+    .kpi-val {
+      font-weight: 700;
+      color: #15803d;
+      margin-left: 8px;
+    }
+    .comp-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .comp-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      padding: 7px 10px;
+      background: #ffffff;
+    }
+    .comp-title {
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 1px solid #bbf7d0;
+      padding-bottom: 3px;
+      margin-bottom: 4px;
+    }
+    .comp-desc {
+      font-size: 10.5px;
+      color: #475569;
+    }
+    .skills-list {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px 16px;
+    }
+    .skill-item {
+      font-size: 11px;
+      color: #1e293b;
+    }
+    .rule-item {
+      font-size: 10px;
+      color: #334155;
+      margin-bottom: 5px;
+      text-align: justify;
+    }
+    .signatures {
+      margin-top: 22px;
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      page-break-inside: avoid;
+    }
+    .sig-box {
+      flex: 1;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px 14px;
+      min-height: 105px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .sig-title {
+      font-weight: 700;
+      font-size: 11px;
+      color: #334155;
+      text-transform: uppercase;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+    }
+    .sig-footer {
+      margin-top: 38px;
+      border-top: 1px dashed #94a3b8;
+      padding-top: 5px;
+      font-size: 10.5px;
+      color: #475569;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div class="header-box">
+    <table class="header-grid">
+      <tr>
+        <td class="header-main" style="width: 68%;">
+          <h1>GÖREV TANIMI FORMU</h1>
+          <p>${escapeHtml(pdfData.pozisyonAdi || 'Görev Tanımı')}</p>
+        </td>
+        <td style="width: 32%; padding: 0;">
+          <table class="meta-table">
+            <tr>
+              <td class="meta-label">İlk Yayın Tarihi</td>
+              <td>${escapeHtml(pdfData.ilkYayinTarihi || new Date().toLocaleDateString('tr-TR'))}</td>
+            </tr>
+            <tr>
+              <td class="meta-label">Revizyon Tarihi</td>
+              <td>${escapeHtml(pdfData.revizyonTarihi || '-')}</td>
+            </tr>
+            <tr>
+              <td class="meta-label">Revizyon No</td>
+              <td>${escapeHtml(pdfData.revizyonNo || '0')}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">1. Pozisyon &amp; Organizasyon Bilgileri</div>
+    <table class="info-table">
+      ${
+        pdfData.employeeName
+          ? `<tr>
+              <td class="lbl">Personel Adı Soyadı</td>
+              <td class="val" colspan="3"><strong>${escapeHtml(pdfData.employeeName)}</strong></td>
+            </tr>`
+          : ''
+      }
+      <tr>
+        <td class="lbl">Pozisyon Adı</td>
+        <td class="val"><strong>${escapeHtml(pdfData.pozisyonAdi || '-')}</strong></td>
+        <td class="lbl">Şirket Adı</td>
+        <td class="val">${escapeHtml(pdfData.sirketAdi || '-')}</td>
+      </tr>
+      <tr>
+        <td class="lbl">İş Birimi / Departman</td>
+        <td class="val">${escapeHtml(pdfData.isBirimi || '-')}</td>
+        <td class="lbl">Lokasyon</td>
+        <td class="val">${escapeHtml(pdfData.lokasyon || 'Merkez Ofis')}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Bağlı Olunan Üst (İdari)</td>
+        <td class="val">${escapeHtml(pdfData.idariUst || '-')}</td>
+        <td class="lbl">Bağlı Olunan Üst (Fonksiyonel)</td>
+        <td class="val">${escapeHtml(pdfData.fonksiyonelUst || pdfData.idariUst || '-')}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">2. Pozisyonun Amacı</div>
+    <div class="purpose-box">${escapeHtml(pdfData.pozisyonAmaci || '-')}</div>
+    ${
+      pdfData.projePortfoy
+        ? `<div class="portfolio-box"><strong>Proje Portföyü Teslimat Performansı:</strong> ${escapeHtml(pdfData.projePortfoy)}</div>`
+        : ''
+    }
+  </div>
+
+  ${
+    tasksRowsHtml
+      ? `<div class="section-breakable">
+          <div class="section-title">3. Süreçler, Yetkinlikler, RACI ve KPI Tablosu</div>
+          <table class="tasks-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Süreç Adı / Sorumluluk</th>
+                <th style="width: 16%;">Yetkinlik</th>
+                <th style="width: 34%;">Davranış Göstergeleri / Çalışmalar</th>
+                <th style="width: 8%; text-align:center;">RACI</th>
+                <th style="width: 20%;">KPI</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tasksRowsHtml}
+            </tbody>
+          </table>
+        </div>`
+      : ''
+  }
+
+  ${
+    kpisHtml
+      ? `<div class="section">
+          <div class="section-title">4. Genel Performans Göstergeleri (KPI)</div>
+          <div class="kpi-grid">${kpisHtml}</div>
+        </div>`
+      : ''
+  }
+
+  ${
+    yonetselHtml
+      ? `<div class="section">
+          <div class="section-title">5. Yönetsel Yetkinlikler</div>
+          <div class="comp-grid">${yonetselHtml}</div>
+        </div>`
+      : ''
+  }
+
+  ${
+    teknikHtml
+      ? `<div class="section">
+          <div class="section-title">6. Teknik / Mesleki Beceriler</div>
+          <ul class="skills-list">${teknikHtml}</ul>
+        </div>`
+      : ''
+  }
+
+  ${
+    kurallarHtml
+      ? `<div class="section">
+          <div class="section-title">7. Genel Kurallar</div>
+          ${kurallarHtml}
+        </div>`
+      : ''
+  }
+
+  <div class="signatures">
+    <div class="sig-box">
+      <div class="sig-title">Hazırlayan / Onaylayan Yönetici</div>
+      <div class="sig-footer">
+        <span>Ad Soyad / Unvan</span>
+        <span>İmza</span>
+      </div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-title">Tebellüğ Eden Personel</div>
+      <div style="font-size: 11px; margin-top: 6px; font-weight: 600;">
+        ${escapeHtml(pdfData.employeeName || '')}
+      </div>
+      <div class="sig-footer">
+        <span>Tarih: .... / .... / 202..</span>
+        <span>İmza</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 300);
+    };
+  </script>
+</body>
+</html>`;
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
+  const handleDownloadFormPdf = () => {
+    const selectedEmp = employees.find((e) => e.id === selectedEmployeeId);
+    const resolvedCompany =
+      selectedEmp?.company ||
+      (sirketAdi && sirketAdi !== 'Varsayılan Şirket' ? sirketAdi : '') ||
+      'HUMANİUS KURUMSAL';
+
+    printGorevTanimiPdf({
+      employeeName: selectedEmp?.name || '',
+      pozisyonAdi: pozisyonAdi || selectedEmp?.position || 'Görev Tanımı',
+      sirketAdi: resolvedCompany,
+      isBirimi: isBirimi || selectedEmp?.department || '-',
+      lokasyon: lokasyon || 'Merkez Ofis',
+      idariUst: idariUst || '-',
+      fonksiyonelUst: fonksiyonelUst || idariUst || '-',
+      ilkYayinTarihi: ilkYayinTarihi || new Date().toISOString().split('T')[0],
+      revizyonTarihi: revizyonTarihi || '-',
+      revizyonNo: revizyonNo || '0',
+      pozisyonAmaci: pozisyonAmaci || '-',
+      projePortfoy,
+      tasks,
+      kpis,
+      yonetselYetkinlikler,
+      teknikBeceriler,
+      kurallar,
+    });
+  };
+
+  const handleDownloadTemplatePdf = (tpl: JobTemplate) => {
+    const selectedEmp = employees.find((e) => e.id === selectedEmployeeId);
+    const resolvedCompany =
+      selectedEmp?.company ||
+      (sirketAdi && sirketAdi !== 'Varsayılan Şirket' ? sirketAdi : '') ||
+      'HUMANİUS KURUMSAL';
+
+    printGorevTanimiPdf({
+      employeeName: selectedEmp?.name || '',
+      pozisyonAdi: tpl.title,
+      sirketAdi: resolvedCompany,
+      isBirimi: tpl.department,
+      lokasyon: lokasyon || 'Merkez Ofis',
+      idariUst: tpl.reportsTo,
+      fonksiyonelUst: tpl.reportsTo,
+      ilkYayinTarihi: new Date().toISOString().split('T')[0],
+      revizyonTarihi: '-',
+      revizyonNo: '0',
+      pozisyonAmaci: tpl.summary,
+      projePortfoy: '',
+      tasks: tpl.tasks,
+      kpis: tpl.kpis,
+      yonetselYetkinlikler: tpl.yonetselYetkinlikler,
+      teknikBeceriler: tpl.teknikBeceriler,
+      kurallar: defaultKurallar,
+    });
+  };
+
+  const handleDownloadRecordPdf = (record: any) => {
+    const matchedEmp = employees.find((e) => e.id === record.employee_id);
+    const matchedTpl = JOB_TEMPLATES.find(
+      (t) => normalizeTr(t.title) === normalizeTr(record.gorev_adi || '')
+    );
+
+    const sorumluluklarArr: string[] = Array.isArray(record.sorumluluklar) ? record.sorumluluklar : [];
+    const calismalarArr: string[] = Array.isArray(record.calismalar) ? record.calismalar : [];
+    const maxLen = Math.max(sorumluluklarArr.length, calismalarArr.length);
+
+    let recordTasks: Task[] = [];
+    if (maxLen > 0) {
+      for (let i = 0; i < maxLen; i++) {
+        const tplTask = matchedTpl?.tasks?.[i];
+        recordTasks.push({
+          surec: sorumluluklarArr[i] ?? tplTask?.surec ?? '',
+          yetkinlik: tplTask?.yetkinlik ?? '',
+          davranis: calismalarArr[i] ?? tplTask?.davranis ?? '',
+          raci: tplTask?.raci ?? 'A/R',
+          kpi: tplTask?.kpi ?? '',
+        });
+      }
+    } else if (matchedTpl) {
+      recordTasks = matchedTpl.tasks;
+    }
+
+    const perfArr: string[] = Array.isArray(record.performans_kriterleri) ? record.performans_kriterleri : [];
+    const recordKpis: KPI[] =
+      perfArr.length > 0
+        ? perfArr.map((item: string) => {
+            const sepIdx = item.indexOf(':');
+            if (sepIdx !== -1) {
+              return {
+                label: item.slice(0, sepIdx).trim(),
+                value: item.slice(sepIdx + 1).trim(),
+              };
+            }
+            return { label: item, value: '' };
+          })
+        : matchedTpl?.kpis ?? [];
+
+    const yetkiArr: string[] = Array.isArray(record.yetki_ve_sorumluluklar) ? record.yetki_ve_sorumluluklar : [];
+    const recordYonetsel: Yetkinlik[] =
+      yetkiArr.length > 0
+        ? yetkiArr.map((baslik: string, idx: number) => ({
+            baslik,
+            aciklama: matchedTpl?.yonetselYetkinlikler?.[idx]?.aciklama ?? '',
+          }))
+        : matchedTpl?.yonetselYetkinlikler ?? [];
+
+    const createdDate = record.created_at
+      ? new Date(record.created_at).toLocaleDateString('tr-TR')
+      : new Date().toLocaleDateString('tr-TR');
+
+    const resolvedCompany =
+      matchedEmp?.company ||
+      (sirketAdi && sirketAdi !== 'Varsayılan Şirket' ? sirketAdi : '') ||
+      'HUMANİUS KURUMSAL';
+
+    printGorevTanimiPdf({
+      employeeName: record.employee_name || matchedEmp?.name || '',
+      pozisyonAdi: record.gorev_adi || matchedEmp?.position || 'Görev Tanımı',
+      sirketAdi: resolvedCompany,
+      isBirimi: record.is_birimi || matchedEmp?.department || '-',
+      lokasyon: lokasyon || 'Merkez Ofis',
+      idariUst: record.bagli_oldugu_pozisyon || matchedTpl?.reportsTo || '-',
+      fonksiyonelUst: record.bagli_oldugu_pozisyon || matchedTpl?.reportsTo || '-',
+      ilkYayinTarihi: record.ilk_yayin_tarihi || createdDate,
+      revizyonTarihi: record.revizyon_tarihi || '-',
+      revizyonNo: record.revizyon_no !== undefined ? String(record.revizyon_no) : '0',
+      pozisyonAmaci: record.gorev_aciklama || matchedTpl?.summary || '-',
+      projePortfoy: '',
+      tasks: recordTasks,
+      kpis: recordKpis,
+      yonetselYetkinlikler: recordYonetsel,
+      teknikBeceriler: matchedTpl?.teknikBeceriler ?? [],
+      kurallar: defaultKurallar,
+    });
   };
 
   const resetForm = () => {
@@ -457,6 +1139,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">İş Birimi</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Bağlı Pozisyon</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Kayıt Tarihi</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">İşlem</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -469,6 +1152,17 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                           <td className="px-4 py-3 text-sm text-slate-700">{record.bagli_oldugu_pozisyon || '-'}</td>
                           <td className="px-4 py-3 text-sm text-slate-600">
                             {record.created_at ? new Date(record.created_at).toLocaleString('tr-TR') : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadRecordPdf(record)}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
+                              title="Görev Tanımını PDF Olarak İndir"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              PDF İndir
+                            </button>
                           </td>
                         </tr>
                       );
@@ -565,6 +1259,14 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
               >
                 <Save className="h-4 w-4" />
                 Kaydet
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadFormPdf}
+                className="flex items-center gap-2 rounded-full bg-red-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-red-700"
+              >
+                <Download className="h-4 w-4" />
+                PDF İndir
               </button>
               <button
                 onClick={exportToExcel}
@@ -1037,14 +1739,25 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                       <p>🔹 <span className="font-semibold">{tpl.kpis.length} KPI / Performans Göstergesi</span></p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => applyTemplate(tpl)}
-                    className="w-full mt-2 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Bu Şablonu Forma Yükle
-                  </button>
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applyTemplate(tpl)}
+                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Bu Şablonu Forma Yükle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadTemplatePdf(tpl)}
+                      className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                      title="Bu şablonu PDF olarak indir"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      PDF İndir
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
