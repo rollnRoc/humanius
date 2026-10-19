@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Bell, X, Megaphone, Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { canApproveLeave, type AppRole } from './auth/roles';
+import { canApproveLeave, normalizeRole, type AppRole } from './auth/roles';
 import { LanguageProvider } from './contexts/LanguageContext';
 import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';

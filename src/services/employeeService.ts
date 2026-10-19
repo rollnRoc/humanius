@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 import { demoService } from './demoService';
 import {
   formatAddressWithCity,
+  formatAddressWithLocationAndSgk,
+  parseIsYeriSgkFromAddress,
   saveEmployeeLocationMeta,
   enrichEmployeeWithLocation,
   saveEmployeeIsYeriSgkSicil,
@@ -109,7 +111,8 @@ export const employeeService = {
     const targetCompId = (companyId && companyId !== 'all') ? companyId : undefined;
     const cacheKey = `humanius_cached_employees_${targetCompId || 'all'}`;
 
-    // 1. Doğrudan PostgREST veritabanı sorgusu (1. Öncelik - her zaman güncel veri, 0 Edge Function çağrısı)
+    // 1. Doğrudan PostgREST veritabanı sorgusu (RLS izin veriyorsa >1 personel döner, 0 Edge Function çağrısı)
+    let singleRowFallback: any[] | null = null;
     try {
       const source = await pickSource();
       let query = supabase.from(source).select('*');
@@ -117,7 +120,7 @@ export const employeeService = {
         query = query.eq('company_id', targetCompId);
       }
       const { data, error } = await query.order('created_at', { ascending: false });
-      if (!error && data && data.length > 0) {
+      if (!error && data && data.length > 1) {
         const enriched = (data as any[]).map(enrichEmployeeWithLocation) as Employee[] | EmployeePublic[];
         try {
           localStorage.setItem(cacheKey, JSON.stringify(enriched));
@@ -126,33 +129,14 @@ export const employeeService = {
           }
         } catch {}
         return enriched;
+      } else if (!error && data && data.length === 1) {
+        singleRowFallback = data;
       }
     } catch (dbErr) {
       console.warn('Direct employees query warning:', dbErr);
     }
 
-    // 3. Kullanıcıya özel fallback (eğer RLS genel listelemeyi kısıtlıyorsa kullanıcının kendi kaydını bul)
-    try {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
-      if (user) {
-        const uEmail = user.email ? user.email.toLowerCase().trim() : '';
-        const uId = user.id;
-        let query = supabase.from('employees').select('*');
-        if (uEmail) {
-          query = query.ilike('email', uEmail);
-        } else {
-          query = query.eq('id', uId);
-        }
-        const { data: myEmp } = await query;
-        if (myEmp && myEmp.length > 0) {
-          const enrichedMy = myEmp.map(enrichEmployeeWithLocation) as Employee[];
-          return enrichedMy;
-        }
-      }
-    } catch {}
-
-    // 4. Son Çare Yedek: Edge Function (Yalnızca doğrudan DB boş veya RLS engelli ise service_role ile çek)
+    // 2. Edge Function (Doğrudan DB RLS nedeniyle boş veya tek satır döndüyse service_role ile tüm personelleri çek)
     try {
       const { data: resData, error: edgeErr } = await supabase.functions.invoke('user-management', {
         body: { operation: 'list_employees', companyId: targetCompId }
@@ -177,6 +161,31 @@ export const employeeService = {
     } catch (edgeErr) {
       console.warn('Edge function list_employees fallback warning:', edgeErr);
     }
+
+    if (singleRowFallback && singleRowFallback.length > 0) {
+      return singleRowFallback.map(enrichEmployeeWithLocation) as Employee[];
+    }
+
+    // 3. Kullanıcıya özel fallback (yalnızca kendi kaydını bul)
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+      if (user) {
+        const uEmail = user.email ? user.email.toLowerCase().trim() : '';
+        const uId = user.id;
+        let query = supabase.from('employees').select('*');
+        if (uEmail) {
+          query = query.ilike('email', uEmail);
+        } else {
+          query = query.eq('id', uId);
+        }
+        const { data: myEmp } = await query;
+        if (myEmp && myEmp.length > 0) {
+          const enrichedMy = myEmp.map(enrichEmployeeWithLocation) as Employee[];
+          return enrichedMy;
+        }
+      }
+    } catch {}
 
     // 5. Eski önbellek yedeği
     try {

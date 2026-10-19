@@ -359,15 +359,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const { data: emp } = await supabase
             .from('employees')
-            .select('id, name, company_id, role')
+            .select('*')
             .ilike('email', userEmail)
             .maybeSingle();
 
           if (emp) {
             matchedCompanyId = matchedRole === 'superadmin' ? null : (emp.company_id || matchedCompanyId);
             matchedFullName = emp.name || matchedFullName;
-            if (emp.role) {
-              matchedRole = emp.role;
+            if ((emp as any).role) {
+              matchedRole = (emp as any).role;
             }
           }
         } catch {}
@@ -378,7 +378,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: userEmail || data?.email || '',
         full_name: matchedFullName,
         company_id: matchedRole === 'superadmin' ? null : matchedCompanyId,
-        role: matchedRole,
+        role: matchedRole as any,
+        avatar_url: data?.avatar_url || null,
         created_at: data?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
