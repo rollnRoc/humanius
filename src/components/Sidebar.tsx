@@ -4,7 +4,7 @@ import { View } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import LogoEditor, { LogoConfig } from './LogoEditor';
-import { canAccessView } from '../auth/roles';
+import { canAccessView, type AppRole } from '../auth/roles';
 import { companyService } from '../services/companyService';
 
 const DEFAULT_LOGO_SRC = '/humanius-original.png';
@@ -408,9 +408,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 aria-expanded={hasChildren ? isSectionOpen : undefined}
                 onClick={() => {
                   if (hasChildren) {
-                    onViewChange(item.children[0].id);
+                    const isOpen = openSections.includes(item.id);
+                    if (!isOpen && item.children.length === 1) {
+                      onViewChange(item.children[0].id);
+                    }
                     setOpenSections((prev) =>
-                      prev.includes(item.id) ? prev : [...prev, item.id]
+                      prev.includes(item.id)
+                        ? prev.filter((sectionId) => sectionId !== item.id)
+                        : [...prev, item.id]
                     );
                     return;
                   }
