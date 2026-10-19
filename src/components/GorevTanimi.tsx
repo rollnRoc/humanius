@@ -44,6 +44,7 @@ interface GorevTanimiViewProps {
 export default function GorevTanimi({ mode = 'form', employees: employeesProp }: GorevTanimiViewProps) {
   const { profile, user } = useAuth();
   const effectiveCompanyId = profile?.company_id ?? '';
+  const [activeMode, setActiveMode] = useState<'form' | 'records'>(mode);
   const [employees, setEmployees] = useState<Employee[]>(employeesProp ?? []);
   const [savedRecords, setSavedRecords] = useState<any[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
@@ -56,6 +57,10 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setActiveMode(mode);
+  }, [mode]);
 
   const [ilkYayinTarihi, setIlkYayinTarihi] = useState('');
   const [revizyonTarihi, setRevizyonTarihi] = useState('');
@@ -147,16 +152,15 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
 
   useEffect(() => {
     const init = async () => {
+      let loadedEmps: Employee[] = employeesProp ?? [];
       if (employeesProp && employeesProp.length > 0) {
         setEmployees(employeesProp);
       } else {
-        await loadEmployees();
+        loadedEmps = await loadEmployees();
       }
       setCompanyId(effectiveCompanyId);
       setIsLoading(false);
-      if (mode === 'records') {
-        loadRecords();
-      }
+      await loadRecords(loadedEmps);
     };
     init();
   }, [profile, mode, employeesProp]);
@@ -260,35 +264,49 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
     }
   }, [selectedEmployeeId, employees]);
 
-  const loadEmployees = async () => {
+  const loadEmployees = async (): Promise<Employee[]> => {
     try {
       setCompanyId(effectiveCompanyId);
       const empList = await employeeService.getAll(effectiveCompanyId || undefined);
       console.log('loadEmployees - yüklenen personel sayısı:', empList?.length || 0);
 
       if (empList) {
-        setEmployees(empList.map((emp: any) => ({
+        const mapped = empList.map((emp: any) => ({
           id: emp.id,
           name: emp.name || 'İsimsiz Personel',
           department: emp.department || 'Belirtilmemiş',
           position: emp.position || 'Belirtilmemiş',
           company_id: emp.company_id,
           company: emp.company,
-        } as Employee)));
+        } as Employee));
+        setEmployees(mapped);
+        return mapped;
       }
+      return [];
     } catch (error) {
       console.error('loadEmployees - Hata:', error);
+      return [];
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadRecords = async () => {
+  const loadRecords = async (empListOverride?: Employee[]) => {
     setRecordsLoading(true);
     setRecordsError('');
     try {
-      const data = await gorevTanimiService.getGorevTanimlari(effectiveCompanyId || undefined);
-      setSavedRecords(data ?? []);
+      const data = await gorevTanimiService.getGorevTanimlari(undefined);
+      const currentEmps = empListOverride && empListOverride.length > 0 ? empListOverride : employees;
+      const empIdSet = new Set(currentEmps.map((e) => e.id));
+      const filtered =
+        effectiveCompanyId || empIdSet.size > 0
+          ? (data ?? []).filter(
+              (r: any) =>
+                (effectiveCompanyId && r.company_id === effectiveCompanyId) ||
+                (r.employee_id && empIdSet.has(r.employee_id))
+            )
+          : data ?? [];
+      setSavedRecords(filtered);
     } catch (error: any) {
       console.error('Görev tanımı kayıtları yüklenemedi:', error);
       setRecordsError(error?.message || 'Görev tanımı kayıtları yüklenemedi.');
@@ -373,7 +391,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
-  const printGorevTanimiPdf = (pdfData: {
+  interface PdfDataItem {
     employeeName?: string;
     pozisyonAdi: string;
     sirketAdi: string;
@@ -391,17 +409,9 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
     yonetselYetkinlikler: Yetkinlik[];
     teknikBeceriler: string[];
     kurallar: string[];
-  }) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('PDF yazdırma penceresi engellendi. Lütfen tarayıcı izinlerini kontrol edin.');
-      return;
-    }
+  }
 
-    const docTitle = [pdfData.pozisyonAdi || 'Görev Tanımı', pdfData.employeeName]
-      .filter(Boolean)
-      .join(' - ');
-
+  const renderSinglePdfPageHtml = (pdfData: PdfDataItem) => {
     const tasksRowsHtml = pdfData.tasks
       .filter((t) => t.surec || t.yetkinlik || t.davranis || t.kpi)
       .map(
@@ -451,6 +461,175 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       .map((k, idx) => `<div class="rule-item"><strong>${idx + 1}.</strong> ${escapeHtml(k)}</div>`)
       .join('');
 
+    return `
+  <div class="doc-page">
+    <div class="header-box">
+      <table class="header-grid">
+        <tr>
+          <td class="header-main" style="width: 68%;">
+            <h1>GÖREV TANIMI FORMU</h1>
+            <p>${escapeHtml(pdfData.pozisyonAdi || 'Görev Tanımı')}</p>
+          </td>
+          <td style="width: 32%; padding: 0;">
+            <table class="meta-table">
+              <tr>
+                <td class="meta-label">İlk Yayın Tarihi</td>
+                <td>${escapeHtml(pdfData.ilkYayinTarihi || new Date().toLocaleDateString('tr-TR'))}</td>
+              </tr>
+              <tr>
+                <td class="meta-label">Revizyon Tarihi</td>
+                <td>${escapeHtml(pdfData.revizyonTarihi || '-')}</td>
+              </tr>
+              <tr>
+                <td class="meta-label">Revizyon No</td>
+                <td>${escapeHtml(pdfData.revizyonNo || '0')}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">1. Pozisyon &amp; Organizasyon Bilgileri</div>
+      <table class="info-table">
+        ${
+          pdfData.employeeName
+            ? `<tr>
+                <td class="lbl">Personel Adı Soyadı</td>
+                <td class="val" colspan="3"><strong>${escapeHtml(pdfData.employeeName)}</strong></td>
+              </tr>`
+            : ''
+        }
+        <tr>
+          <td class="lbl">Pozisyon Adı</td>
+          <td class="val"><strong>${escapeHtml(pdfData.pozisyonAdi || '-')}</strong></td>
+          <td class="lbl">Şirket Adı</td>
+          <td class="val">${escapeHtml(pdfData.sirketAdi || '-')}</td>
+        </tr>
+        <tr>
+          <td class="lbl">İş Birimi / Departman</td>
+          <td class="val">${escapeHtml(pdfData.isBirimi || '-')}</td>
+          <td class="lbl">Lokasyon</td>
+          <td class="val">${escapeHtml(pdfData.lokasyon || 'Merkez Ofis')}</td>
+        </tr>
+        <tr>
+          <td class="lbl">Bağlı Olunan Üst (İdari)</td>
+          <td class="val">${escapeHtml(pdfData.idariUst || '-')}</td>
+          <td class="lbl">Bağlı Olunan Üst (Fonksiyonel)</td>
+          <td class="val">${escapeHtml(pdfData.fonksiyonelUst || pdfData.idariUst || '-')}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">2. Pozisyonun Amacı</div>
+      <div class="purpose-box">${escapeHtml(pdfData.pozisyonAmaci || '-')}</div>
+      ${
+        pdfData.projePortfoy
+          ? `<div class="portfolio-box"><strong>Proje Portföyü Teslimat Performansı:</strong> ${escapeHtml(pdfData.projePortfoy)}</div>`
+          : ''
+      }
+    </div>
+
+    ${
+      tasksRowsHtml
+        ? `<div class="section-breakable">
+            <div class="section-title">3. Süreçler, Yetkinlikler, RACI ve KPI Tablosu</div>
+            <table class="tasks-table">
+              <thead>
+                <tr>
+                  <th style="width: 22%;">Süreç Adı / Sorumluluk</th>
+                  <th style="width: 16%;">Yetkinlik</th>
+                  <th style="width: 34%;">Davranış Göstergeleri / Çalışmalar</th>
+                  <th style="width: 8%; text-align:center;">RACI</th>
+                  <th style="width: 20%;">KPI</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tasksRowsHtml}
+              </tbody>
+            </table>
+          </div>`
+        : ''
+    }
+
+    ${
+      kpisHtml
+        ? `<div class="section">
+            <div class="section-title">4. Genel Performans Göstergeleri (KPI)</div>
+            <div class="kpi-grid">${kpisHtml}</div>
+          </div>`
+        : ''
+    }
+
+    ${
+      yonetselHtml
+        ? `<div class="section">
+            <div class="section-title">5. Yönetsel Yetkinlikler</div>
+            <div class="comp-grid">${yonetselHtml}</div>
+          </div>`
+        : ''
+    }
+
+    ${
+      teknikHtml
+        ? `<div class="section">
+            <div class="section-title">6. Teknik / Mesleki Beceriler</div>
+            <ul class="skills-list">${teknikHtml}</ul>
+          </div>`
+        : ''
+    }
+
+    ${
+      kurallarHtml
+        ? `<div class="section">
+            <div class="section-title">7. Genel Kurallar</div>
+            ${kurallarHtml}
+          </div>`
+        : ''
+    }
+
+    <div class="signatures">
+      <div class="sig-box">
+        <div class="sig-title">Hazırlayan / Onaylayan Yönetici</div>
+        <div class="sig-footer">
+          <span>Ad Soyad / Unvan</span>
+          <span>İmza</span>
+        </div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-title">Tebellüğ Eden Personel</div>
+        <div style="font-size: 11px; margin-top: 6px; font-weight: 600;">
+          ${escapeHtml(pdfData.employeeName || '')}
+        </div>
+        <div class="sig-footer">
+          <span>Tarih: .... / .... / 202..</span>
+          <span>İmza</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  };
+
+  const printGorevTanimiPdf = (itemsInput: PdfDataItem | PdfDataItem[]) => {
+    const items = Array.isArray(itemsInput) ? itemsInput : [itemsInput];
+    if (items.length === 0) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('PDF yazdırma penceresi engellendi. Lütfen tarayıcı izinlerini kontrol edin.');
+      return;
+    }
+
+    const first = items[0];
+    const docTitle =
+      items.length > 1
+        ? `Tüm Görev Tanımları (${items.length} Personel)`
+        : [first.pozisyonAdi || 'Görev Tanımı', first.employeeName].filter(Boolean).join(' - ');
+
+    const pagesHtml = items.map((item) => renderSinglePdfPageHtml(item)).join('\n');
+
     const htmlContent = `<!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -467,6 +646,10 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       padding: 0;
       font-size: 11.5px;
       line-height: 1.45;
+    }
+    .doc-page:not(:last-child) {
+      page-break-after: always;
+      margin-bottom: 30px;
     }
     .header-box {
       border: 2px solid #1e293b;
@@ -688,153 +871,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
   </style>
 </head>
 <body>
-  <div class="header-box">
-    <table class="header-grid">
-      <tr>
-        <td class="header-main" style="width: 68%;">
-          <h1>GÖREV TANIMI FORMU</h1>
-          <p>${escapeHtml(pdfData.pozisyonAdi || 'Görev Tanımı')}</p>
-        </td>
-        <td style="width: 32%; padding: 0;">
-          <table class="meta-table">
-            <tr>
-              <td class="meta-label">İlk Yayın Tarihi</td>
-              <td>${escapeHtml(pdfData.ilkYayinTarihi || new Date().toLocaleDateString('tr-TR'))}</td>
-            </tr>
-            <tr>
-              <td class="meta-label">Revizyon Tarihi</td>
-              <td>${escapeHtml(pdfData.revizyonTarihi || '-')}</td>
-            </tr>
-            <tr>
-              <td class="meta-label">Revizyon No</td>
-              <td>${escapeHtml(pdfData.revizyonNo || '0')}</td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>
-
-  <div class="section">
-    <div class="section-title">1. Pozisyon &amp; Organizasyon Bilgileri</div>
-    <table class="info-table">
-      ${
-        pdfData.employeeName
-          ? `<tr>
-              <td class="lbl">Personel Adı Soyadı</td>
-              <td class="val" colspan="3"><strong>${escapeHtml(pdfData.employeeName)}</strong></td>
-            </tr>`
-          : ''
-      }
-      <tr>
-        <td class="lbl">Pozisyon Adı</td>
-        <td class="val"><strong>${escapeHtml(pdfData.pozisyonAdi || '-')}</strong></td>
-        <td class="lbl">Şirket Adı</td>
-        <td class="val">${escapeHtml(pdfData.sirketAdi || '-')}</td>
-      </tr>
-      <tr>
-        <td class="lbl">İş Birimi / Departman</td>
-        <td class="val">${escapeHtml(pdfData.isBirimi || '-')}</td>
-        <td class="lbl">Lokasyon</td>
-        <td class="val">${escapeHtml(pdfData.lokasyon || 'Merkez Ofis')}</td>
-      </tr>
-      <tr>
-        <td class="lbl">Bağlı Olunan Üst (İdari)</td>
-        <td class="val">${escapeHtml(pdfData.idariUst || '-')}</td>
-        <td class="lbl">Bağlı Olunan Üst (Fonksiyonel)</td>
-        <td class="val">${escapeHtml(pdfData.fonksiyonelUst || pdfData.idariUst || '-')}</td>
-      </tr>
-    </table>
-  </div>
-
-  <div class="section">
-    <div class="section-title">2. Pozisyonun Amacı</div>
-    <div class="purpose-box">${escapeHtml(pdfData.pozisyonAmaci || '-')}</div>
-    ${
-      pdfData.projePortfoy
-        ? `<div class="portfolio-box"><strong>Proje Portföyü Teslimat Performansı:</strong> ${escapeHtml(pdfData.projePortfoy)}</div>`
-        : ''
-    }
-  </div>
-
-  ${
-    tasksRowsHtml
-      ? `<div class="section-breakable">
-          <div class="section-title">3. Süreçler, Yetkinlikler, RACI ve KPI Tablosu</div>
-          <table class="tasks-table">
-            <thead>
-              <tr>
-                <th style="width: 22%;">Süreç Adı / Sorumluluk</th>
-                <th style="width: 16%;">Yetkinlik</th>
-                <th style="width: 34%;">Davranış Göstergeleri / Çalışmalar</th>
-                <th style="width: 8%; text-align:center;">RACI</th>
-                <th style="width: 20%;">KPI</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tasksRowsHtml}
-            </tbody>
-          </table>
-        </div>`
-      : ''
-  }
-
-  ${
-    kpisHtml
-      ? `<div class="section">
-          <div class="section-title">4. Genel Performans Göstergeleri (KPI)</div>
-          <div class="kpi-grid">${kpisHtml}</div>
-        </div>`
-      : ''
-  }
-
-  ${
-    yonetselHtml
-      ? `<div class="section">
-          <div class="section-title">5. Yönetsel Yetkinlikler</div>
-          <div class="comp-grid">${yonetselHtml}</div>
-        </div>`
-      : ''
-  }
-
-  ${
-    teknikHtml
-      ? `<div class="section">
-          <div class="section-title">6. Teknik / Mesleki Beceriler</div>
-          <ul class="skills-list">${teknikHtml}</ul>
-        </div>`
-      : ''
-  }
-
-  ${
-    kurallarHtml
-      ? `<div class="section">
-          <div class="section-title">7. Genel Kurallar</div>
-          ${kurallarHtml}
-        </div>`
-      : ''
-  }
-
-  <div class="signatures">
-    <div class="sig-box">
-      <div class="sig-title">Hazırlayan / Onaylayan Yönetici</div>
-      <div class="sig-footer">
-        <span>Ad Soyad / Unvan</span>
-        <span>İmza</span>
-      </div>
-    </div>
-    <div class="sig-box">
-      <div class="sig-title">Tebellüğ Eden Personel</div>
-      <div style="font-size: 11px; margin-top: 6px; font-weight: 600;">
-        ${escapeHtml(pdfData.employeeName || '')}
-      </div>
-      <div class="sig-footer">
-        <span>Tarih: .... / .... / 202..</span>
-        <span>İmza</span>
-      </div>
-    </div>
-  </div>
-
+  ${pagesHtml}
   <script>
     window.onload = function() {
       setTimeout(function() {
@@ -878,35 +915,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
     });
   };
 
-  const handleDownloadTemplatePdf = (tpl: JobTemplate) => {
-    const selectedEmp = employees.find((e) => e.id === selectedEmployeeId);
-    const resolvedCompany =
-      selectedEmp?.company ||
-      (sirketAdi && sirketAdi !== 'Varsayılan Şirket' ? sirketAdi : '') ||
-      'HUMANİUS KURUMSAL';
-
-    printGorevTanimiPdf({
-      employeeName: selectedEmp?.name || '',
-      pozisyonAdi: tpl.title,
-      sirketAdi: resolvedCompany,
-      isBirimi: tpl.department,
-      lokasyon: lokasyon || 'Merkez Ofis',
-      idariUst: tpl.reportsTo,
-      fonksiyonelUst: tpl.reportsTo,
-      ilkYayinTarihi: new Date().toISOString().split('T')[0],
-      revizyonTarihi: '-',
-      revizyonNo: '0',
-      pozisyonAmaci: tpl.summary,
-      projePortfoy: '',
-      tasks: tpl.tasks,
-      kpis: tpl.kpis,
-      yonetselYetkinlikler: tpl.yonetselYetkinlikler,
-      teknikBeceriler: tpl.teknikBeceriler,
-      kurallar: defaultKurallar,
-    });
-  };
-
-  const handleDownloadRecordPdf = (record: any) => {
+  const buildPdfDataFromRecord = (record: any): PdfDataItem => {
     const matchedEmp = employees.find((e) => e.id === record.employee_id);
     const matchedTpl = JOB_TEMPLATES.find(
       (t) => normalizeTr(t.title) === normalizeTr(record.gorev_adi || '')
@@ -965,7 +974,7 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       (sirketAdi && sirketAdi !== 'Varsayılan Şirket' ? sirketAdi : '') ||
       'HUMANİUS KURUMSAL';
 
-    printGorevTanimiPdf({
+    return {
       employeeName: record.employee_name || matchedEmp?.name || '',
       pozisyonAdi: record.gorev_adi || matchedEmp?.position || 'Görev Tanımı',
       sirketAdi: resolvedCompany,
@@ -983,7 +992,20 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       yonetselYetkinlikler: recordYonetsel,
       teknikBeceriler: matchedTpl?.teknikBeceriler ?? [],
       kurallar: defaultKurallar,
-    });
+    };
+  };
+
+  const handleDownloadRecordPdf = (record: any) => {
+    printGorevTanimiPdf(buildPdfDataFromRecord(record));
+  };
+
+  const handleDownloadAllRecordsPdf = (recordsList: any[]) => {
+    if (!recordsList || recordsList.length === 0) {
+      alert('İndirilecek görev tanımı kaydı bulunamadı.');
+      return;
+    }
+    const pdfItems = recordsList.map((rec) => buildPdfDataFromRecord(rec));
+    printGorevTanimiPdf(pdfItems);
   };
 
   const resetForm = () => {
@@ -1074,105 +1096,147 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
     );
   }
 
+  const filteredRecords = savedRecords.filter((record) => {
+    const q = recordsSearchTerm.toLowerCase();
+    return (
+      String(record.employee_name ?? '').toLowerCase().includes(q) ||
+      String(record.gorev_adi ?? '').toLowerCase().includes(q) ||
+      String(record.is_birimi ?? '').toLowerCase().includes(q) ||
+      String(record.onay_durumu ?? '').toLowerCase().includes(q)
+    );
+  });
 
+  const renderRecordsSection = (isStandalonePage = false) => (
+    <div className={isStandalonePage ? 'overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl' : 'mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm'}>
+      <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-8 py-6 text-white flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <History className="h-7 w-7" />
+          <div>
+            <h2 className="text-2xl font-semibold">Kaydedilen Personel Görev Tanımları ({filteredRecords.length})</h2>
+            <p className="text-sm text-slate-300">Kaydedilen personellerin görev tanımlarını listeden tek tek veya toplu olarak PDF indirebilirsiniz</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {isStandalonePage && (
+            <button
+              type="button"
+              onClick={() => setActiveMode('form')}
+              className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/25"
+            >
+              <FileText className="h-4 w-4" />
+              Görev Tanımı Formuna Dön
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => handleDownloadAllRecordsPdf(filteredRecords)}
+            disabled={filteredRecords.length === 0}
+            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="h-4 w-4" />
+            Tüm Kayıtları PDF İndir ({filteredRecords.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => loadRecords()}
+            className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/20"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Yenile
+          </button>
+        </div>
+      </div>
 
-  if (mode === 'records') {
-    const filteredRecords = savedRecords.filter((record) => {
-      const q = recordsSearchTerm.toLowerCase();
-      return (
-        String(record.employee_name ?? '').toLowerCase().includes(q) ||
-        String(record.gorev_adi ?? '').toLowerCase().includes(q) ||
-        String(record.is_birimi ?? '').toLowerCase().includes(q) ||
-        String(record.onay_durumu ?? '').toLowerCase().includes(q)
-      );
-    });
+      <div className="border-b bg-slate-50 px-6 py-4">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            value={recordsSearchTerm}
+            onChange={(e) => setRecordsSearchTerm(e.target.value)}
+            placeholder="Personel, görev adı, iş birimi veya durum ara..."
+            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:border-blue-500"
+          />
+        </div>
+      </div>
 
+      {recordsError && (
+        <div className="m-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {recordsError}
+        </div>
+      )}
+
+      {recordsLoading ? (
+        <div className="px-6 py-10 text-sm text-slate-500">Kayıtlar yükleniyor...</div>
+      ) : filteredRecords.length === 0 ? (
+        <div className="px-6 py-10 text-sm text-slate-500">Gösterilecek görev tanım kaydı bulunamadı.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[700px]">
+            <thead className="bg-slate-100 border-y border-slate-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Personel</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Görev Adı</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">İş Birimi</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Bağlı Pozisyon</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Kayıt Tarihi</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">İşlem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRecords.map((record) => {
+                return (
+                  <tr key={record.id} className="border-b border-slate-100 hover:bg-slate-50">
+                    <td className="px-4 py-3 text-sm font-medium text-slate-800">{record.employee_name || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{record.gorev_adi || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{record.is_birimi || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{record.bagli_oldugu_pozisyon || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">
+                      {record.created_at ? new Date(record.created_at).toLocaleString('tr-TR') : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center justify-end gap-2">
+                        {record.employee_id && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedEmployeeId(record.employee_id);
+                              setActiveMode('form');
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100"
+                            title="Bu personelin görev tanımını forma yükle"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            Forma Yükle
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadRecordPdf(record)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
+                          title="Görev Tanımını PDF Olarak İndir"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          PDF İndir
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
+  if (activeMode === 'records') {
     return (
       <div className="min-h-screen bg-slate-100">
         <div className="mx-auto max-w-7xl px-4 py-6">
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-            <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-8 py-6 text-white flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <History className="h-7 w-7" />
-                <div>
-                  <h1 className="text-2xl font-semibold">Görev Tanım Kayıtları</h1>
-                  <p className="text-sm text-slate-300">Kaydedilen ve onaylanan görev tanımı kayıtlarını listeleyin</p>
-                </div>
-              </div>
-              <button
-                onClick={loadRecords}
-                className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/20"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Yenile
-              </button>
-            </div>
-
-            <div className="border-b bg-slate-50 px-6 py-4">
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={recordsSearchTerm}
-                  onChange={(e) => setRecordsSearchTerm(e.target.value)}
-                  placeholder="Personel, görev adı, iş birimi veya durum ara..."
-                  className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            {recordsError && (
-              <div className="m-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {recordsError}
-              </div>
-            )}
-
-            {recordsLoading ? (
-              <div className="px-6 py-10 text-sm text-slate-500">Kayıtlar yükleniyor...</div>
-            ) : filteredRecords.length === 0 ? (
-              <div className="px-6 py-10 text-sm text-slate-500">Gösterilecek görev tanım kaydı bulunamadı.</div>
-            ) : (
-                <table className="w-full min-w-[700px]">
-                  <thead className="bg-slate-100 border-y border-slate-200">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Personel</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Görev Adı</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">İş Birimi</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Bağlı Pozisyon</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Kayıt Tarihi</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">İşlem</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRecords.map((record) => {
-                      return (
-                        <tr key={record.id} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="px-4 py-3 text-sm text-slate-800">{record.employee_name || '-'}</td>
-                          <td className="px-4 py-3 text-sm text-slate-700">{record.gorev_adi || '-'}</td>
-                          <td className="px-4 py-3 text-sm text-slate-700">{record.is_birimi || '-'}</td>
-                          <td className="px-4 py-3 text-sm text-slate-700">{record.bagli_oldugu_pozisyon || '-'}</td>
-                          <td className="px-4 py-3 text-sm text-slate-600">
-                            {record.created_at ? new Date(record.created_at).toLocaleString('tr-TR') : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              type="button"
-                              onClick={() => handleDownloadRecordPdf(record)}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
-                              title="Görev Tanımını PDF Olarak İndir"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                              PDF İndir
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-            )}
-          </div>
+          {renderRecordsSection(true)}
         </div>
-
       </div>
     );
   }
@@ -1182,10 +1246,20 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
       <div className="mx-auto max-w-7xl px-4 py-6">
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
           <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-10 py-8 text-white">
-            <div className="flex flex-wrap items-center gap-3">
-              <FileText className="h-8 w-8" />
-              <h1 className="text-3xl font-semibold">GÖREV TANIMI</h1>
-              <span className="rounded-full bg-green-600 px-4 py-2 text-base shadow-sm">{pozisyonAdi || 'Görev Tanımı'}</span>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <FileText className="h-8 w-8" />
+                <h1 className="text-3xl font-semibold">GÖREV TANIMI</h1>
+                <span className="rounded-full bg-green-600 px-4 py-2 text-base shadow-sm">{pozisyonAdi || 'Görev Tanımı'}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveMode('records')}
+                className="inline-flex items-center gap-2 rounded-full bg-white/15 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
+              >
+                <History className="h-4 w-4" />
+                Kaydedilen Personeller Listesi ({savedRecords.length})
+              </button>
             </div>
             <div className="mt-4 flex flex-wrap gap-6 text-base font-medium text-slate-200">
               <div className="flex items-center gap-2">
@@ -1267,6 +1341,14 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
               >
                 <Download className="h-4 w-4" />
                 PDF İndir
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMode('records')}
+                className="flex items-center gap-2 rounded-full bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-indigo-700"
+              >
+                <History className="h-4 w-4" />
+                Kayıtlı Personeller ({savedRecords.length})
               </button>
               <button
                 onClick={exportToExcel}
@@ -1672,6 +1754,8 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                 Yeni Kural Ekle
               </button>
             </div>
+
+            {renderRecordsSection(false)}
           </div>
         </div>
       </div>
@@ -1739,25 +1823,14 @@ export default function GorevTanimi({ mode = 'form', employees: employeesProp }:
                       <p>🔹 <span className="font-semibold">{tpl.kpis.length} KPI / Performans Göstergesi</span></p>
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => applyTemplate(tpl)}
-                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Bu Şablonu Forma Yükle
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadTemplatePdf(tpl)}
-                      className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                      title="Bu şablonu PDF olarak indir"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      PDF İndir
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => applyTemplate(tpl)}
+                    className="w-full mt-2 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Bu Şablonu Forma Yükle
+                  </button>
                 </div>
               ))}
             </div>
