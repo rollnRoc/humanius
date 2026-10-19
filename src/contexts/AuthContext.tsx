@@ -239,6 +239,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isSameUser) {
           setUser(session.user);
           userRef.current = session.user;
+          if (profileRef.current && profileRef.current.id !== session.user.id) {
+            profileRef.current = null;
+            setProfile(null);
+            try {
+              localStorage.removeItem('humanius_cached_profile');
+              for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('humanius_cached_employees_')) {
+                  localStorage.removeItem(k);
+                }
+              }
+            } catch {}
+          }
         }
 
         // Sekme değiştiğinde (Alt-Tab), pencereye geri dönüldüğünde veya token yenilendiğinde (TOKEN_REFRESHED):
@@ -491,6 +504,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('humanius_demo_start_time');
       localStorage.removeItem('humanius_superadmin_session');
       localStorage.removeItem('humanius_cached_profile');
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('humanius_cached_employees_')) {
+          localStorage.removeItem(k);
+        }
+      }
     } catch {}
     if (isDemo) {
       demoService.clearDatabase();

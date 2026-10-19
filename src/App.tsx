@@ -224,7 +224,7 @@ const AppInner: React.FC = () => {
   // Normal personel oturum açtığında veya sayfaya girdiğinde her zaman Ana Sayfadan başlasın
   const employeeHomeResetRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!authLoading && user && isEmployeeOnly) {
+    if (!authLoading && user && profile && isEmployeeOnly) {
       if (employeeHomeResetRef.current !== user.id) {
         employeeHomeResetRef.current = user.id;
         setCurrentView('arama');
@@ -233,13 +233,13 @@ const AppInner: React.FC = () => {
         } catch {}
       }
     }
-  }, [authLoading, user, isEmployeeOnly]);
+  }, [authLoading, user, profile, isEmployeeOnly]);
 
   useEffect(() => {
-    if (!authLoading && user && !canAccessView(effectiveAppRole, currentView)) {
+    if (!authLoading && user && profile && !canAccessView(effectiveAppRole, currentView)) {
       setCurrentView(getDefaultViewForRole(effectiveAppRole));
     }
-  }, [authLoading, user, effectiveAppRole, currentView]);
+  }, [authLoading, user, profile, effectiveAppRole, currentView]);
 
   // ── Global Notification & Toplu Uyarı ────────────────────────────────────────
   const [showAlertNotification, setShowAlertNotification] = useState(() => {
@@ -287,10 +287,10 @@ const AppInner: React.FC = () => {
   }, [currentView]);
 
   useEffect(() => {
-    if (!canAccessView(effectiveAppRole, currentView)) {
+    if (!authLoading && profile && !canAccessView(effectiveAppRole, currentView)) {
       setCurrentView(getDefaultViewForRole(effectiveAppRole));
     }
-  }, [effectiveAppRole, currentView]);
+  }, [authLoading, profile, effectiveAppRole, currentView]);
 
   // ── Employee data ───────────────────────────────────────────────────────────
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -331,11 +331,16 @@ const AppInner: React.FC = () => {
 
 
   const isDataLoadingRef = useRef(false);
+  const pendingReloadRef = useRef(false);
+  const latestLoadDataRef = useRef<(() => Promise<void>) | null>(null);
   const previousUserIdRef = useRef<string | null>(null);
   const realtimeDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadData = useCallback(async () => {
-    if (isDataLoadingRef.current) return;
+    if (isDataLoadingRef.current) {
+      pendingReloadRef.current = true;
+      return;
+    }
     isDataLoadingRef.current = true;
 
     // Tüm şirketlerin personel kayıtlarına erişebilmek için şirket filtresiz master veri çek
@@ -517,8 +522,6 @@ const AppInner: React.FC = () => {
 
       let filteredMapped = uniqueMapped;
       let currentUserEmpId: string | null = null;
-      const isManagerRole = isManager;
-      const isEmployeeRole = isEmployeeOnly;
 
       // Find current user's employee record
       const currentUserEmp = uniqueMapped.find((emp) => {
@@ -537,6 +540,21 @@ const AppInner: React.FC = () => {
       if (currentUserEmp) {
         currentUserEmpId = currentUserEmp.id;
       }
+
+      const fallbackUserEmail = String(profile?.email ?? user?.email ?? '').toLowerCase().trim();
+      const resolvedUserRole = normalizeRole(
+        profile?.role ||
+        (user?.id ? profileRoleMap.get(user.id) : undefined) ||
+        (fallbackUserEmail ? profileRoleMap.get(fallbackUserEmail) : undefined) ||
+        currentUserEmp?.role ||
+        rawRole
+      );
+      const effectiveIsSuper = Boolean(isSuper || resolvedUserRole === 'superadmin');
+      const effectiveIsAdmin = Boolean(!effectiveIsSuper && (isAdmin || resolvedUserRole === 'admin'));
+      const effectiveIsHR = Boolean(!effectiveIsSuper && !effectiveIsAdmin && (isHR || resolvedUserRole === 'hr'));
+      const effectiveIsManager = Boolean(!effectiveIsSuper && !effectiveIsAdmin && !effectiveIsHR && (isManager || resolvedUserRole === 'manager'));
+      const isManagerRole = effectiveIsManager;
+      const isEmployeeRole = Boolean(!effectiveIsSuper && !effectiveIsAdmin && !effectiveIsHR && !effectiveIsManager);
 
       const managerDepartment = currentUserEmp?.department || (profile as any)?.department || null;
       const effectiveUserCompanyId = profile?.company_id || currentUserEmp?.company_id;
@@ -586,7 +604,7 @@ const AppInner: React.FC = () => {
           const dMatch = String(emp.department || '').toLowerCase().trim() === String(managerDepartment).toLowerCase().trim();
           return cMatch && dMatch;
         });
-      } else if (!isSuper && effectiveUserCompanyId) {
+      } else if (!effectiveIsSuper && effectiveUserCompanyId) {
         // Şirket Yöneticisi (Admin) ve İK (HR) kendi şirketindeki TÜM personelleri görür!
         const normTargetId = String(effectiveUserCompanyId).toLowerCase().trim();
         const normTargetName = String(companyMap.get(effectiveUserCompanyId) || (profile as any)?.company_name || '').toLowerCase().trim();
@@ -608,11 +626,11 @@ const AppInner: React.FC = () => {
       }
 
       filteredMapped.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
-      console.log(`✅ loadData: ${filteredMapped.length} personel listelendi. (${isSuper ? 'Süper Yönetici - Tüm Şirketler' : isEmployeeRole ? 'Personel Kendi Kaydı' : 'Şirket: ' + effectiveUserCompanyId})`);
+      console.log(`✅ loadData: ${filteredMapped.length} personel listelendi. (${effectiveIsSuper ? 'Süper Yönetici - Tüm Şirketler' : isEmployeeRole ? 'Personel Kendi Kaydı' : 'Şirket: ' + effectiveUserCompanyId})`);
       setEmployees(filteredMapped);
 
       // Şirket listesi: Normal kullanıcılar yalnızca kendi şirketini görsün
-      if (!isSuper && effectiveUserCompanyId) {
+      if (!effectiveIsSuper && effectiveUserCompanyId) {
         const myCompName = companyMap.get(effectiveUserCompanyId) || (profile as any)?.company_name || 'Şirketim';
         setCompanies([myCompName as any]);
       } else if (allComps && allComps.length > 0) {
@@ -808,8 +826,16 @@ const AppInner: React.FC = () => {
       console.error('Veri yüklenemedi:', err);
     } finally {
       isDataLoadingRef.current = false;
+      if (pendingReloadRef.current) {
+        pendingReloadRef.current = false;
+        setTimeout(() => {
+          latestLoadDataRef.current?.();
+        }, 0);
+      }
     }
   }, [profile?.company_id, profile?.role, profile?.email, profile?.full_name, effectiveAppRole]);
+
+  latestLoadDataRef.current = loadData;
 
   useEffect(() => {
     if (user) {
@@ -818,7 +844,7 @@ const AppInner: React.FC = () => {
       const debouncedRealtimeSync = () => {
         if (realtimeDebounceTimerRef.current) clearTimeout(realtimeDebounceTimerRef.current);
         realtimeDebounceTimerRef.current = setTimeout(() => {
-          loadData();
+          latestLoadDataRef.current?.();
         }, 400);
       };
 

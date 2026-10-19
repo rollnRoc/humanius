@@ -91,25 +91,25 @@ function filterDbEmployeePayload(obj: Record<string, any>): Record<string, any> 
   return result;
 }
 
+function clearEmployeeCache() {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('humanius_cached_employees_')) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {}
+}
+
 export const employeeService = {
   async getAll(companyId?: string): Promise<Employee[] | EmployeePublic[]> {
     const targetCompId = (companyId && companyId !== 'all') ? companyId : undefined;
     const cacheKey = `humanius_cached_employees_${targetCompId || 'all'}`;
 
-    // 1. Önce Hızlı Yerel Önbellek Kontrolü (varsa anında döndür veya arka planda yenile)
-    try {
-      const cached = localStorage.getItem(cacheKey) || (!targetCompId ? localStorage.getItem('humanius_cached_employees_all') : null);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Önbellek mevcut, anında UI'ya sun
-          // Arka planda sadece gerekirse sessizce yenilenecektir
-          return parsed;
-        }
-      }
-    } catch {}
-
-    // 2. Doğrudan PostgREST veritabanı sorgusu (1. Öncelik - 0 Edge Function çağrısı, düşük egress)
+    // 1. Doğrudan PostgREST veritabanı sorgusu (1. Öncelik - her zaman güncel veri, 0 Edge Function çağrısı)
     try {
       const source = await pickSource();
       let query = supabase.from(source).select('*');
@@ -324,6 +324,7 @@ export const employeeService = {
       }
     }
 
+    clearEmployeeCache();
     return enrichEmployeeWithLocation({
       ...data,
       il: il || '',
@@ -459,6 +460,7 @@ export const employeeService = {
       }
     }
 
+    clearEmployeeCache();
     return { count: totalInserted + updatedCount };
   },
 
@@ -567,6 +569,7 @@ export const employeeService = {
       console.warn('Edge function update warning:', edgeErr);
     }
 
+    clearEmployeeCache();
     return enrichEmployeeWithLocation({
       ...(updatedRow || { id, ...updates }),
       il: targetIl,
@@ -584,6 +587,7 @@ export const employeeService = {
       .delete()
       .eq('id', id);
     if (error) throw error;
+    clearEmployeeCache();
   },
 
   async getByDepartment(
