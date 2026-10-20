@@ -147,9 +147,12 @@ const AppInner: React.FC = () => {
   const isEmployeeOnly = Boolean(!isManagementRole && (rawRole === 'employee' || rawRole === 'user' || profile?.role === 'employee' || profile?.role === 'user'));
   const effectiveAppRole: AppRole = isSuper ? 'superadmin' : isAdmin ? 'admin' : isHR ? 'hr' : isManager ? 'manager' : 'employee';
 
+  const [passwordChangeCompletedForUser, setPasswordChangeCompletedForUser] = useState<string | null>(null);
+
   const isForcePasswordChangeRequired = Boolean(
     !isDemo &&
     user &&
+    passwordChangeCompletedForUser !== user.id &&
     (
       user?.user_metadata?.must_change_password === true ||
       user?.user_metadata?.is_first_login === true ||
@@ -2468,7 +2471,15 @@ const AppInner: React.FC = () => {
       )}
 
       {isForcePasswordChangeRequired && (
-        <ForcePasswordChangeModal onSuccess={loadData} />
+        <ForcePasswordChangeModal
+          onSuccess={() => {
+            if (user?.id) {
+              setPasswordChangeCompletedForUser(user.id);
+            }
+            setCurrentView('arama');
+            loadData();
+          }}
+        />
       )}
 
 

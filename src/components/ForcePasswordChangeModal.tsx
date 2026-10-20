@@ -47,46 +47,49 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
     try {
       // 1. Supabase Auth password update & metadata flag clear
       let updated = false;
+      const targetUserId = user?.id || profile?.id;
+      const targetEmail = user?.email || profile?.email;
+
       try {
-        const { error: authError } = await supabase.auth.updateUser({
-          password: newPassword,
-          data: { must_change_password: false, is_first_login: false, password_customized: true },
-        });
+        const { error: authError } = await updatePassword(newPassword);
         if (!authError) updated = true;
       } catch (e) {
         console.warn('Direct updateUser failed, using service fallback:', e);
       }
 
       // 2. Fallback via userManagementService if auth session wasn't active
-      if (!updated) {
-        const targetUserId = user?.id || profile?.id;
-        if (targetUserId) {
+      if (!updated && targetUserId) {
+        const { userManagementService } = await import('../services/userManagementService');
+        await userManagementService.updateManagedPassword({
+          userId: targetUserId,
+          newPassword: newPassword,
+        });
+        updated = true;
+      }
+
+      // 3. Always clear force-password flags on both backend (edge function) & profiles table & local AuthContext
+      if (targetUserId || targetEmail) {
+        try {
           const { userManagementService } = await import('../services/userManagementService');
-          await userManagementService.updateManagedPassword({
-            userId: targetUserId,
-            newPassword: newPassword,
-          });
           await userManagementService.flagForcePasswordChange({
             userId: targetUserId,
+            email: targetEmail,
             forceState: false,
           });
-          updated = true;
+        } catch {
+          // ignore edge function warning if already cleared
         }
       }
 
-      // 3. Update profile table if must_change_password column exists or update metadata
-      if (user?.id || profile?.id) {
+      if (targetUserId) {
         try {
-          await supabase
-            .from('profiles')
-            .update({ must_change_password: false } as any)
-            .eq('id', (user?.id || profile?.id)!);
+          await updateProfile({ must_change_password: false, is_first_login: false } as any);
         } catch {
           // ignore column missing warning
         }
       }
 
-      setSuccessMessage('Şifreniz başarıyla güncellendi! Yönlendiriliyorsunuz...');
+      setSuccessMessage('Şifreniz başarıyla güncellendi! Sisteme giriş yapılıyor...');
 
       setTimeout(() => {
         if (onSuccess) {
@@ -94,7 +97,7 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
         } else {
           window.location.reload();
         }
-      }, 1200);
+      }, 400);
     } catch (err: any) {
       console.error('Password change error:', err);
       setErrorMessage(translateErrorMessage(err.message));

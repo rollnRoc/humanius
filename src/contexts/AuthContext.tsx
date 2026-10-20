@@ -236,7 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const currentUserId = userRef.current?.id;
         const isSameUser = currentUserId === session.user.id;
 
-        if (!isSameUser) {
+        if (!isSameUser || event === 'USER_UPDATED') {
           setUser(session.user);
           userRef.current = session.user;
           if (profileRef.current && profileRef.current.id !== session.user.id) {
@@ -319,7 +319,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           prev.company_id !== data.company_id ||
           prev.full_name !== data.full_name ||
           prev.email !== data.email ||
-          prev.avatar_url !== data.avatar_url
+          prev.avatar_url !== data.avatar_url ||
+          (prev as any).must_change_password !== (data as any).must_change_password ||
+          (prev as any).is_first_login !== (data as any).is_first_login
         ) {
           setProfile(data);
           profileRef.current = data;
@@ -538,7 +540,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isDemo) {
       return { error: null };
     }
-    const { error } = await supabase.auth.updateUser({
+    const { data, error } = await supabase.auth.updateUser({
       password: newPassword,
       data: {
         must_change_password: false,
@@ -547,12 +549,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    if (!error && user) {
-      try {
-        await supabase.from('profiles').update({
-          must_change_password: false
-        }).eq('id', user.id);
-      } catch {}
+    if (!error) {
+      if (data?.user) {
+        setUser(data.user);
+        userRef.current = data.user;
+      } else if (userRef.current) {
+        const updatedUser = {
+          ...userRef.current,
+          user_metadata: {
+            ...userRef.current.user_metadata,
+            must_change_password: false,
+            is_first_login: false,
+            password_customized: true
+          }
+        };
+        setUser(updatedUser);
+        userRef.current = updatedUser;
+      }
+      if (user) {
+        try {
+          await supabase.from('profiles').update({
+            must_change_password: false
+          } as any).eq('id', user.id);
+        } catch {}
+      }
+      if (profileRef.current) {
+        const updatedProf = { ...profileRef.current, must_change_password: false, is_first_login: false } as any;
+        setProfile(updatedProf);
+        profileRef.current = updatedProf;
+        try {
+          localStorage.setItem('humanius_cached_profile', JSON.stringify(updatedProf));
+        } catch {}
+      }
     }
   
     return { error };
@@ -565,6 +593,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProfile({ ...profile, ...updates });
       }
       return { error: null };
+    }
+
+    if ((updates as any).must_change_password === false) {
+      if (userRef.current) {
+        const updatedUser = {
+          ...userRef.current,
+          user_metadata: {
+            ...userRef.current.user_metadata,
+            must_change_password: false,
+            is_first_login: false,
+            password_customized: true
+          }
+        };
+        setUser(updatedUser);
+        userRef.current = updatedUser;
+      }
+      if (profileRef.current) {
+        const updatedProf = { ...profileRef.current, ...updates } as any;
+        setProfile(updatedProf);
+        profileRef.current = updatedProf;
+        try {
+          localStorage.setItem('humanius_cached_profile', JSON.stringify(updatedProf));
+        } catch {}
+      }
     }
 
     if (!user) return { error: new Error('No user logged in') };
