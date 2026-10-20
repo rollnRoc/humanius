@@ -54,8 +54,11 @@ import {
   parseAddressCity,
   parseIsYeriSgkFromAddress,
   getEmployeeIsYeriSgkSicil,
+  parseContactEmailFromAddress,
+  getEmployeeContactEmail,
   saveEmployeeLocationMeta,
   saveEmployeeIsYeriSgkSicil,
+  saveEmployeeContactEmail,
   formatAddressWithLocationAndSgk,
 } from './utils/employeeLocationMeta';
 import { normalizeDateForInput } from './utils/dateUtils';
@@ -433,23 +436,32 @@ const AppInner: React.FC = () => {
       }
 
       const profileRoleMap = new Map<string, string>();
+      const profileEmailMap = new Map<string, string>();
       const allProfiles = (profilesRes as any)?.data ?? [];
       allProfiles.forEach((p: any) => {
-        if (p?.id) profileRoleMap.set(p.id, p.role);
+        if (p?.id) {
+          profileRoleMap.set(p.id, p.role);
+          if (p?.email) profileEmailMap.set(p.id, p.email.toLowerCase().trim());
+        }
         if (p?.email) profileRoleMap.set(p.email.toLowerCase().trim(), p.role);
         if (p?.full_name) {
           const normName = String(p.full_name).trim().toLocaleLowerCase('tr-TR');
           profileRoleMap.set(normName, p.role);
           const cleanName = normName.replace(/[\s-]/g, '');
           profileRoleMap.set(cleanName, p.role);
+          if (p?.email) {
+            profileEmailMap.set(normName, p.email.toLowerCase().trim());
+            profileEmailMap.set(cleanName, p.email.toLowerCase().trim());
+          }
         }
       });
 
       // Map DB rows → frontend Employee shape
       const mapped: Employee[] = (empData ?? []).map((e: any) => {
-        const empEmail = (e.email ?? '').toLowerCase().trim();
+        const rawEmpEmail = (e.email ?? '').toLowerCase().trim();
         const empName = String(e.name ?? '').trim().toLocaleLowerCase('tr-TR');
         const cleanEmpName = empName.replace(/[\s-]/g, '');
+        const empEmail = rawEmpEmail || profileEmailMap.get(e.id) || '';
         const resolvedCompName = companyMap.get(e.company_id) || (profile?.company_id === e.company_id ? (profile as any)?.company_name : null) || 'Şirket';
         const resolvedRole = profileRoleMap.get(e.id) ?? profileRoleMap.get(empEmail) ?? profileRoleMap.get(empName) ?? profileRoleMap.get(cleanEmpName) ?? e.role ?? 'employee';
 
@@ -462,6 +474,13 @@ const AppInner: React.FC = () => {
           ((e as any).isYeriSgkSicilNo && String((e as any).isYeriSgkSicilNo).trim()) ||
           parseIsYeriSgkFromAddress(e.address) ||
           getEmployeeIsYeriSgkSicil(e.id, empEmail) ||
+          '';
+        const resolvedContactEmail =
+          ((e as any).contact_email && String((e as any).contact_email).trim()) ||
+          ((e as any).personal_email && String((e as any).personal_email).trim()) ||
+          parseContactEmailFromAddress(e.address) ||
+          getEmployeeContactEmail(e.id, empEmail) ||
+          getEmployeeContactEmail(e.id, rawEmpEmail) ||
           '';
 
         return {
@@ -479,8 +498,8 @@ const AppInner: React.FC = () => {
           salary: Number(e.salary ?? 0),
           status: e.status ?? 'active',
           phone: e.phone ?? '',
-          email: e.email ?? '',
-          contact_email: (e as any).contact_email ?? (e as any).personal_email ?? '',
+          email: empEmail || (e.email ?? ''),
+          contact_email: resolvedContactEmail,
           role: resolvedRole,
           joinDate: normalizeDateForInput(e.join_date) || '',
           join_date: normalizeDateForInput(e.join_date) || '',
@@ -1092,7 +1111,8 @@ const AppInner: React.FC = () => {
       const oldEmail = selectedEmployee?.email || (emp as any).oldEmail || emp.email;
 
       const finalIsYeriSgk = (emp.is_yeri_sgk_sicil_no || (emp as any).isYeriSgkSicilNo || '').trim();
-      const fullAddress = formatAddressWithLocationAndSgk(emp.address, emp.il, emp.ilce, finalIsYeriSgk);
+      const finalContactEmail = String(emp.contact_email ?? (emp as any).personal_email ?? '').trim();
+      const fullAddress = formatAddressWithLocationAndSgk(emp.address, emp.il, emp.ilce, finalIsYeriSgk, finalContactEmail);
 
       // Yalnızca mevcut personel güncellenirken kullanıcı detaylarını güncelle
       if (!isNewEmployee && (targetEmail || emp.id)) {
@@ -1140,6 +1160,9 @@ const AppInner: React.FC = () => {
           status: emp.status,
           phone: emp.phone ?? '',
           email: targetEmail || emp.email,
+          oldEmail: oldEmail || undefined,
+          contact_email: finalContactEmail,
+          personal_email: finalContactEmail,
           address: fullAddress,
           il: emp.il ?? '',
           ilce: emp.ilce ?? '',
@@ -1181,7 +1204,9 @@ const AppInner: React.FC = () => {
         if (emp.id) {
           saveEmployeeLocationMeta(emp.id, targetEmail || emp.email, emp.il, emp.ilce);
           saveEmployeeIsYeriSgkSicil(emp.id, targetEmail || emp.email, finalIsYeriSgk);
+          saveEmployeeContactEmail(emp.id, targetEmail || emp.email, finalContactEmail);
         }
+        userService.clearCache();
       } catch (clientEmpErr) {
         console.warn('İstemci personel güncelleme uyarısı:', clientEmpErr);
       }
@@ -1193,6 +1218,7 @@ const AppInner: React.FC = () => {
           id: emp.id,
           company: matchedCompName || emp.company || 'Şirket',
           email: targetEmail || emp.email,
+          contact_email: finalContactEmail,
           address: fullAddress,
           il: emp.il || '',
           ilce: emp.ilce || '',

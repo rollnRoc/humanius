@@ -20,6 +20,7 @@ import { bordroService } from '../services/bordroService';
 import { QRCodeSVG } from 'qrcode.react';
 import bcrypt from 'bcryptjs';
 import { formatIzinTuru, calculateCompletedYears, calculateYillikIzinHakki, hasCompletedOneYear } from '../utils/izinCalculations';
+import { parseAddressCity } from '../utils/employeeLocationMeta';
 
 // Belge kategorileri
 const BELGE_KATEGORILER = [
@@ -286,8 +287,8 @@ export const printOzlukDosyasiPdf = (
   const departman = emp.department || '---';
   const pozisyon = emp.position || '---';
   const telefon = emp.phone || '---';
-  const email = emp.email || '---';
-  const adres = emp.address || '---';
+  const email = emp.contact_email || (emp as any).personal_email || emp.email || '---';
+  const adres = parseAddressCity(emp.address).cleanAddress || emp.address || '---';
   const iseGiris = emp.join_date ? new Date(emp.join_date).toLocaleDateString('tr-TR') : '---';
   const durumText = emp.status === 'active' ? 'Aktif Çalışan' : emp.status === 'onLeave' ? 'İzinde' : 'Pasif';
   const turText = emp.employeeType === 'emekli' ? 'Emekli Çalışan' : 'Normal Çalışan';
@@ -1323,9 +1324,10 @@ const OzlukDosyasi: React.FC<OzlukDosyasiProps> = ({
                     value={calismaSuresi(selectedEmp.join_date)}
                   />
                   <InfoSatiri icon={Phone} label="Telefon" value={selectedEmp.phone || '-'} />
-                  <InfoSatiri icon={Mail} label="E-posta" value={selectedEmp.email || '-'} />
+                  <InfoSatiri icon={Mail} label="Giriş Kullanıcı Adı" value={selectedEmp.email || '-'} />
+                  <InfoSatiri icon={Mail} label="Kişisel / İletişim E-postası" value={selectedEmp.contact_email || (selectedEmp as any).personal_email || '-'} />
                   <InfoSatiri icon={MapPin} label="İl / İlçe" value={[selectedEmp.ilce, selectedEmp.il].filter(Boolean).join(' / ') || '-'} />
-                  <InfoSatiri icon={MapPin} label="Adres" value={selectedEmp.address || '-'} />
+                  <InfoSatiri icon={MapPin} label="Adres" value={parseAddressCity(selectedEmp.address).cleanAddress || selectedEmp.address || '-'} />
                   <InfoSatiri
                     icon={Shield}
                     label="Personel Türü"

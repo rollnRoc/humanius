@@ -6,9 +6,11 @@ import {
   formatAddressWithCity,
   formatAddressWithLocationAndSgk,
   parseIsYeriSgkFromAddress,
+  parseContactEmailFromAddress,
   saveEmployeeLocationMeta,
   enrichEmployeeWithLocation,
   saveEmployeeIsYeriSgkSicil,
+  saveEmployeeContactEmail,
 } from '../utils/employeeLocationMeta';
 import { normalizeDateForInput } from '../utils/dateUtils';
 
@@ -62,7 +64,6 @@ const VALID_DB_EMPLOYEE_COLUMNS = new Set([
   'name',
   'tc_no',
   'sicil_no',
-  'is_yeri_sgk_sicil_no',
   'department',
   'position',
   'level',
@@ -93,7 +94,7 @@ function filterDbEmployeePayload(obj: Record<string, any>): Record<string, any> 
   return result;
 }
 
-function clearEmployeeCache() {
+export function clearEmployeeCache() {
   try {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -107,6 +108,8 @@ function clearEmployeeCache() {
 }
 
 export const employeeService = {
+  clearCache: clearEmployeeCache,
+
   async getAll(companyId?: string): Promise<Employee[] | EmployeePublic[]> {
     const targetCompId = (companyId && companyId !== 'all') ? companyId : undefined;
     const cacheKey = `humanius_cached_employees_${targetCompId || 'all'}`;
@@ -225,7 +228,8 @@ export const employeeService = {
     }
     const { contact_email, personal_email, joinDate, employeeType, role, il, ilce, ...rawPayload } = employee as any;
     const targetIsYeriSicil = (rawPayload.is_yeri_sgk_sicil_no || rawPayload.isYeriSgkSicilNo || '').trim();
-    const cleanAddress = formatAddressWithCity(rawPayload.address, il, ilce, targetIsYeriSicil);
+    const targetContactEmail = String(contact_email ?? personal_email ?? '').trim();
+    const cleanAddress = formatAddressWithCity(rawPayload.address, il, ilce, targetIsYeriSicil, targetContactEmail);
     const cleanLevel = sanitizeLevel(rawPayload.level);
     const cleanJoinDate = normalizeDateForInput(rawPayload.join_date ?? joinDate) || null;
     const cleanBirthDate = normalizeDateForInput(rawPayload.birth_date ?? (rawPayload as any).birthDate) || null;
@@ -310,6 +314,9 @@ export const employeeService = {
       }
       if (targetIsYeriSicil) {
         saveEmployeeIsYeriSgkSicil(data.id, data.email, targetIsYeriSicil);
+      }
+      if (targetContactEmail) {
+        saveEmployeeContactEmail(data.id, data.email, targetContactEmail);
       }
       try {
         const { userManagementService } = await import('./userManagementService');
@@ -477,11 +484,14 @@ export const employeeService = {
     if (demoService.isDemoActive()) {
       return demoService.updateEmployee(id, updates as any) as any;
     }
-    const { contact_email, personal_email, joinDate, employeeType, role, il, ilce, ...rawUpdates } = updates as any;
+    const { contact_email, personal_email, oldEmail, joinDate, employeeType, role, il, ilce, ...rawUpdates } = updates as any;
     const targetIl = il !== undefined ? il : (updates as any).il;
     const targetIlce = ilce !== undefined ? ilce : (updates as any).ilce;
     const targetIsYeriSicil = rawUpdates.is_yeri_sgk_sicil_no !== undefined || rawUpdates.isYeriSgkSicilNo !== undefined
       ? String(rawUpdates.is_yeri_sgk_sicil_no ?? rawUpdates.isYeriSgkSicilNo ?? '').trim()
+      : undefined;
+    const targetContactEmail = contact_email !== undefined || personal_email !== undefined
+      ? String(contact_email ?? personal_email ?? '').trim()
       : undefined;
 
     if (targetIl !== undefined || targetIlce !== undefined) {
@@ -490,13 +500,17 @@ export const employeeService = {
     if (targetIsYeriSicil !== undefined) {
       saveEmployeeIsYeriSgkSicil(id, updates.email, targetIsYeriSicil);
     }
+    if (targetContactEmail !== undefined) {
+      saveEmployeeContactEmail(id, updates.email, targetContactEmail);
+    }
 
-    if (targetIl !== undefined || targetIlce !== undefined || targetIsYeriSicil !== undefined) {
+    if (targetIl !== undefined || targetIlce !== undefined || targetIsYeriSicil !== undefined || targetContactEmail !== undefined) {
       rawUpdates.address = formatAddressWithLocationAndSgk(
         rawUpdates.address ?? updates.address,
         targetIl,
         targetIlce,
-        targetIsYeriSicil !== undefined ? targetIsYeriSicil : parseIsYeriSgkFromAddress(rawUpdates.address ?? updates.address)
+        targetIsYeriSicil !== undefined ? targetIsYeriSicil : parseIsYeriSgkFromAddress(rawUpdates.address ?? updates.address),
+        targetContactEmail !== undefined ? targetContactEmail : parseContactEmailFromAddress(rawUpdates.address ?? updates.address)
       );
     }
 
@@ -556,6 +570,7 @@ export const employeeService = {
       await userManagementService.updateEmployeeDetails({
         employeeId: id,
         email: updates.email || '',
+        oldEmail: oldEmail || undefined,
         phone: updates.phone ?? '',
         address: rawUpdates.address ?? updates.address ?? '',
         is_yeri_sgk_sicil_no: targetIsYeriSicil,

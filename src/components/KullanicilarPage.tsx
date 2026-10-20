@@ -459,21 +459,19 @@ const UserModal: React.FC<UserModalProps> = ({
         const trimmedEmail = form.email.trim().toLowerCase();
         const oldEmail = (initial.email || '').trim().toLowerCase();
 
-        // 1. E-posta (Kullanıcı Adı) değiştiyse
-        if (trimmedEmail !== oldEmail) {
-          try {
-            await userManagementService.updateEmployeeDetails({
-              employeeId: initial.id,
-              email: trimmedEmail,
-              oldEmail: oldEmail,
-              fullName: form.full_name.trim(),
-              role: form.role,
-              companyId: form.company_id || undefined,
-            });
-          } catch (eErr) {
-            console.warn('updateEmployeeDetails warning:', eErr);
-          }
-        }
+        // 1. Profil, Auth (Sistem Giriş Kullanıcı Adı) ve Personel kartını tam senkronize güncelle
+        await userService.updateProfile(
+          initial.id,
+          {
+            full_name:   form.full_name.trim(),
+            role:        form.role,
+            company_id:  form.company_id || null,
+            email:       trimmedEmail || initial.email,
+            oldEmail:    oldEmail,
+            oldFullName: initial.full_name,
+          },
+          currentUserId,
+        );
 
         // 2. Yeni şifre girildiyse
         if (form.password && form.password.trim().length >= 6) {
@@ -488,18 +486,6 @@ const UserModal: React.FC<UserModalProps> = ({
           saveKnownPassword(initial.id, pass);
           onPasswordSaved?.(trimmedEmail || oldEmail, pass);
         }
-
-        // 3. Profil bilgilerini güncelle
-        await userService.updateProfile(
-          initial.id,
-          {
-            full_name:  form.full_name.trim(),
-            role:       form.role,
-            company_id: form.company_id || null,
-            email:      trimmedEmail || initial.email,
-          },
-          currentUserId,
-        );
         onSuccess();
       }
     } catch (err: any) {
@@ -563,7 +549,7 @@ const UserModal: React.FC<UserModalProps> = ({
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-gray-700">Email Adresi (Kullanıcı Adı) *</label>
+              <label className="block text-xs font-semibold text-gray-700">Sistem Giriş Kullanıcı Adı (Giriş E-postası) *</label>
               {mode === 'edit' && isSuperAdmin && (
                 <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
                   Değiştirilebilir

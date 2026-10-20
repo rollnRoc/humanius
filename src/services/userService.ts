@@ -144,6 +144,7 @@ export function clearUserCache() {
   cachedUserProfiles = null;
   try {
     localStorage.removeItem('humanius_cached_user_profiles');
+    employeeService.clearCache?.();
   } catch {}
 }
 
@@ -251,50 +252,89 @@ export const userService = {
    */
   async updateProfile(
     targetId: string,
-    updates: { role?: string; full_name?: string; company_id?: string | null; email?: string },
+    updates: {
+      role?: string;
+      full_name?: string;
+      company_id?: string | null;
+      email?: string;
+      oldEmail?: string;
+      oldFullName?: string;
+      employeeId?: string;
+    },
     currentUserId: string,
   ): Promise<void> {
     clearUserCache();
     const targetEmail = (updates.email || '').trim().toLowerCase();
+    const oldEmail = (updates.oldEmail || '').trim().toLowerCase();
+    const oldFullName = (updates.oldFullName || '').trim().toLowerCase();
+    const targetFullName = (updates.full_name || '').trim().toLowerCase();
 
-    // 1. Edge function ile güncelleme dene (service_role yetkisi ile hem auth, hem profile hem employees günceller)
+    // Eşleşen personel kartının gerçek employees.id değerini bul (profiles.id ile employees.id farklı olabilir)
+    let resolvedEmployeeId = updates.employeeId || '';
+    if (!resolvedEmployeeId) {
+      try {
+        const allEmps = await employeeService.getAll();
+        const matchedEmp = (allEmps || []).find((e: any) => {
+          const eId = String(e.id || '').trim();
+          const eMail = String(e.email || '').trim().toLowerCase();
+          const eName = String(e.name || '').trim().toLowerCase();
+          if (targetId && eId === targetId) return true;
+          if (oldEmail && eMail === oldEmail) return true;
+          if (targetEmail && eMail === targetEmail) return true;
+          if (oldFullName && eName === oldFullName) return true;
+          if (targetFullName && eName === targetFullName) return true;
+          return false;
+        });
+        if (matchedEmp?.id) {
+          resolvedEmployeeId = matchedEmp.id;
+        }
+      } catch {}
+    }
+
+    let edgeSucceeded = false;
+
+    // 1. Önce update_employee_details ile auth.users + profiles + employees (gerçek employeeId ile) senkronize et
+    try {
+      const { data: edgeRes2, error: edgeErr2 } = await supabase.functions.invoke('user-management', {
+        body: {
+          operation: 'update_employee_details',
+          email: targetEmail,
+          oldEmail: oldEmail || targetEmail || undefined,
+          employeeId: resolvedEmployeeId || targetId,
+          fullName: updates.full_name,
+          role: updates.role,
+          companyId: updates.company_id || undefined,
+        }
+      });
+      if (!edgeErr2 && edgeRes2 && !edgeRes2.error) {
+        edgeSucceeded = true;
+      }
+    } catch {}
+
+    // 2. Ardından update_user_profile ile profiles tablosundaki rol, isim ve e-postayı kesinleştir
     try {
       const { data: edgeRes, error: edgeErr } = await supabase.functions.invoke('user-management', {
         body: {
           operation: 'update_user_profile',
           email: targetEmail,
           userId: targetId,
-          employeeId: targetId,
+          employeeId: resolvedEmployeeId || targetId,
           fullName: updates.full_name,
           role: updates.role,
           companyId: updates.company_id,
         }
       });
       if (!edgeErr && edgeRes && !edgeRes.error) {
-        return;
-      }
-      if (edgeErr || edgeRes?.error) {
-        console.warn('Edge function update_user_profile returned error, trying update_employee_details:', edgeErr || edgeRes?.error);
+        edgeSucceeded = true;
       }
     } catch (edgeCallErr) {
       console.warn('Edge function update_user_profile call exception:', edgeCallErr);
     }
 
-    try {
-      const { data: edgeRes2 } = await supabase.functions.invoke('user-management', {
-        body: {
-          operation: 'update_employee_details',
-          email: targetEmail,
-          employeeId: targetId,
-          fullName: updates.full_name,
-          role: updates.role,
-          companyId: updates.company_id || undefined,
-        }
-      });
-      if (edgeRes2 && !edgeRes2.error) {
-        return;
-      }
-    } catch {}
+    clearUserCache();
+    if (edgeSucceeded) {
+      return;
+    }
 
     // 2. Fallback: Doğrudan SQL / RPC ile güncelle
     if (targetId === currentUserId) {

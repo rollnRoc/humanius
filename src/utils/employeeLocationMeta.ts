@@ -1,5 +1,6 @@
 /**
- * Utility functions for persisting and parsing Employee City (İl) & District (İlçe)
+ * Utility functions for persisting and parsing Employee City (İl), District (İlçe),
+ * İş Yeri SGK Sicil No, and Kişisel / İletişim E-postası (contact_email)
  * without requiring direct DDL changes to the remote Supabase 'employees' table.
  */
 
@@ -15,12 +16,21 @@ export function parseIsYeriSgkFromAddress(address?: string | null): string {
   return match ? match[1].trim() : '';
 }
 
+export function parseContactEmailFromAddress(address?: string | null): string {
+  if (!address) return '';
+  const match = String(address).match(/\[ILETISIM-EPOSTA:\s*([^\]]+)\]/i);
+  return match ? match[1].trim() : '';
+}
+
 export function parseAddressCity(address?: string | null): ParsedAddress {
   if (!address) return { il: '', ilce: '', cleanAddress: '' };
   let raw = String(address).trim();
 
-  // Strip SGK-ISYERI tag from address string for city/district parsing
-  raw = raw.replace(/\[SGK-ISYERI:\s*[^\]]+\]/gi, '').trim();
+  // Strip SGK-ISYERI and ILETISIM-EPOSTA tags from address string for city/district parsing
+  raw = raw
+    .replace(/\[SGK-ISYERI:\s*[^\]]+\]/gi, '')
+    .replace(/\[ILETISIM-EPOSTA:\s*[^\]]+\]/gi, '')
+    .trim();
 
   // 1. Bracket format: "Açık adres metni [İlçe / İl]" or "Açık adres metni [İl]"
   const bracketMatch = raw.match(/\[(.*?)\]/);
@@ -49,16 +59,26 @@ export function formatAddressWithLocationAndSgk(
   address?: string | null,
   il?: string | null,
   ilce?: string | null,
-  isYeriSgk?: string | null
+  isYeriSgk?: string | null,
+  contactEmail?: string | null
 ): string {
+  const preservedContactEmail =
+    contactEmail !== undefined && contactEmail !== null
+      ? contactEmail
+      : parseContactEmailFromAddress(address);
+
   let baseAddr = (address || '').trim();
   // Strip previous metadata tags from base address
-  baseAddr = baseAddr.replace(/\[SGK-ISYERI:\s*[^\]]+\]/gi, '').trim();
+  baseAddr = baseAddr
+    .replace(/\[SGK-ISYERI:\s*[^\]]+\]/gi, '')
+    .replace(/\[ILETISIM-EPOSTA:\s*[^\]]+\]/gi, '')
+    .trim();
   baseAddr = baseAddr.replace(/\[.*?\]/, '').trim();
 
   const trimmedIl = (il || '').trim();
   const trimmedIlce = (ilce || '').trim();
   const trimmedSgk = (isYeriSgk || '').trim();
+  const trimmedContact = (preservedContactEmail || '').trim();
 
   const parts: string[] = [];
   if (baseAddr) parts.push(baseAddr);
@@ -69,6 +89,9 @@ export function formatAddressWithLocationAndSgk(
   if (trimmedSgk) {
     parts.push(`[SGK-ISYERI: ${trimmedSgk}]`);
   }
+  if (trimmedContact) {
+    parts.push(`[ILETISIM-EPOSTA: ${trimmedContact}]`);
+  }
   return parts.join(' ').trim();
 }
 
@@ -76,10 +99,16 @@ export function formatAddressWithCity(
   address?: string | null,
   il?: string | null,
   ilce?: string | null,
-  isYeriSgk?: string | null
+  isYeriSgk?: string | null,
+  contactEmail?: string | null
 ): string {
-  const existingSgk = isYeriSgk !== undefined && isYeriSgk !== null ? isYeriSgk : parseIsYeriSgkFromAddress(address);
-  return formatAddressWithLocationAndSgk(address, il, ilce, existingSgk);
+  const existingSgk =
+    isYeriSgk !== undefined && isYeriSgk !== null ? isYeriSgk : parseIsYeriSgkFromAddress(address);
+  const existingContact =
+    contactEmail !== undefined && contactEmail !== null
+      ? contactEmail
+      : parseContactEmailFromAddress(address);
+  return formatAddressWithLocationAndSgk(address, il, ilce, existingSgk, existingContact);
 }
 
 export function getEmployeeLocationMeta(
@@ -169,6 +198,49 @@ export function saveEmployeeIsYeriSgkSicil(
   } catch {}
 }
 
+export function getEmployeeContactEmail(
+  empId?: string | null,
+  email?: string | null
+): string {
+  try {
+    if (empId) {
+      const val = localStorage.getItem(`humanius_emp_contact_email_${empId}`);
+      if (val !== null) return val;
+    }
+    if (email) {
+      const cleanEmail = email.trim().toLowerCase();
+      const val = localStorage.getItem(`humanius_emp_contact_email_${cleanEmail}`);
+      if (val !== null) return val;
+    }
+  } catch {}
+  return '';
+}
+
+export function saveEmployeeContactEmail(
+  empId?: string | null,
+  email?: string | null,
+  contactEmail?: string | null
+): void {
+  const clean = (contactEmail || '').trim();
+  try {
+    if (empId) {
+      if (clean) {
+        localStorage.setItem(`humanius_emp_contact_email_${empId}`, clean);
+      } else {
+        localStorage.removeItem(`humanius_emp_contact_email_${empId}`);
+      }
+    }
+    if (email) {
+      const cleanEmail = email.trim().toLowerCase();
+      if (clean) {
+        localStorage.setItem(`humanius_emp_contact_email_${cleanEmail}`, clean);
+      } else {
+        localStorage.removeItem(`humanius_emp_contact_email_${cleanEmail}`);
+      }
+    }
+  } catch {}
+}
+
 export function enrichEmployeeWithLocation<T extends Record<string, any>>(emp: T): T {
   if (!emp) return emp;
   const meta = getEmployeeLocationMeta(emp.id, emp.email);
@@ -178,6 +250,12 @@ export function enrichEmployeeWithLocation<T extends Record<string, any>>(emp: T
     (emp.isYeriSgkSicilNo && String(emp.isYeriSgkSicilNo).trim()) ||
     parseIsYeriSgkFromAddress(emp.address) ||
     getEmployeeIsYeriSgkSicil(emp.id, emp.email) ||
+    '';
+  const contactEmail =
+    (emp.contact_email && String(emp.contact_email).trim()) ||
+    (emp.personal_email && String(emp.personal_email).trim()) ||
+    parseContactEmailFromAddress(emp.address) ||
+    getEmployeeContactEmail(emp.id, emp.email) ||
     '';
 
   const resolvedIl = (emp.il && String(emp.il).trim()) || meta.il || parsed.il || '';
@@ -189,5 +267,7 @@ export function enrichEmployeeWithLocation<T extends Record<string, any>>(emp: T
     ilce: resolvedIlce,
     is_yeri_sgk_sicil_no: isYeriSgk,
     isYeriSgkSicilNo: isYeriSgk,
+    contact_email: contactEmail,
+    personal_email: contactEmail,
   };
 }

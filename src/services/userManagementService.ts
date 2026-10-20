@@ -118,21 +118,7 @@ export const userManagementService = {
     employee_type?: string;
     employeeType?: string;
   }) {
-    // 1. Profil ve yetki rolü güncellemesi varsa, profiles tablosunu update_user_profile ile güvenli şekilde güncelle
-    if (payload.role || payload.fullName || payload.companyId) {
-      try {
-        await invokeFunction<{ message: string }>('update_user_profile', {
-          email: payload.email,
-          role: payload.role,
-          companyId: payload.companyId,
-          fullName: payload.fullName,
-        });
-      } catch (profErr) {
-        console.warn('update_user_profile uyarısı:', profErr);
-      }
-    }
-
-    // 2. update_employee_details operasyonu employees tablosunu günceller.
+    // 1. Önce update_employee_details operasyonu ile auth.users, profiles ve employees tablolarını (oldEmail destekli) güncelle
     const cleanPayload: Record<string, any> = { ...payload };
 
     // Tarih normalizasyonu
@@ -164,7 +150,23 @@ export const userManagementService = {
     delete cleanPayload.contact_email;
     delete cleanPayload.contactEmail;
 
-    return invokeFunction<{ message: string }>('update_employee_details', cleanPayload);
+    const res = await invokeFunction<{ message: string }>('update_employee_details', cleanPayload);
+
+    // 2. Profil ve yetki rolü güncellemesi varsa, profiles tablosunu update_user_profile ile kesinleştir
+    if (payload.role || payload.fullName || payload.companyId) {
+      try {
+        await invokeFunction<{ message: string }>('update_user_profile', {
+          email: payload.email,
+          role: payload.role,
+          companyId: payload.companyId,
+          fullName: payload.fullName,
+        });
+      } catch (profErr) {
+        console.warn('update_user_profile uyarısı:', profErr);
+      }
+    }
+
+    return res;
   },
 
   resetPasswordWithTcPhone(payload: { email: string; tcNo: string; phone: string }) {

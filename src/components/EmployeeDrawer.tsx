@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase';
 import { userService } from '../services/userService';
 import { companyService } from '../services/companyService';
 import iller, { type IlIlceItem } from '../lib/illce';
-import { getEmployeeLocationMeta, parseAddressCity, parseIsYeriSgkFromAddress, getEmployeeIsYeriSgkSicil } from '../utils/employeeLocationMeta';
+import { getEmployeeLocationMeta, parseAddressCity, parseIsYeriSgkFromAddress, getEmployeeIsYeriSgkSicil, parseContactEmailFromAddress, getEmployeeContactEmail } from '../utils/employeeLocationMeta';
 import { normalizeDateForInput } from '../utils/dateUtils';
 
 interface EmployeeDrawerProps {
@@ -246,12 +246,21 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
         const { data: profMatches } = await supabase
           .from('profiles')
-          .select('id, email')
+          .select('id, email, full_name')
           .or(`email.eq.${effectiveEmail},email.eq.${altEmailCom},email.eq.${altEmailComTr}`);
 
         const excludeId = formData?.id || employee?.id || '';
-        const otherEmpMatches = (empMatches || []).filter(e => e.id !== excludeId);
-        const otherProfMatches = (profMatches || []).filter(p => p.id !== excludeId);
+        const currentNameNorm = (formData?.name || employee?.name || '').trim().toLowerCase();
+        const origEmailNorm = (employee?.email || '').trim().toLowerCase();
+        const otherEmpMatches = (empMatches || []).filter(e =>
+          e.id !== excludeId &&
+          (!currentNameNorm || (e.name || '').trim().toLowerCase() !== currentNameNorm)
+        );
+        const otherProfMatches = (profMatches || []).filter((p: any) =>
+          p.id !== excludeId &&
+          (!currentNameNorm || (p.full_name || '').trim().toLowerCase() !== currentNameNorm) &&
+          (!origEmailNorm || (p.email || '').trim().toLowerCase() !== origEmailNorm)
+        );
 
         if (active) {
           if (otherEmpMatches.length > 0 || otherProfMatches.length > 0) {
@@ -278,7 +287,12 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         const formattedJd = normalizeDateForInput(rawJd);
         const rawBd = (employee as any).birth_date || (employee as any).birthDate || (employee as any).dogum_tarihi || '';
         const formattedBd = normalizeDateForInput(rawBd);
-        const cEmail = employee.contact_email ?? (employee as any).personal_email ?? '';
+        const cEmail =
+          (employee.contact_email && String(employee.contact_email).trim()) ||
+          ((employee as any).personal_email && String((employee as any).personal_email).trim()) ||
+          parseContactEmailFromAddress(employee.address) ||
+          getEmployeeContactEmail(employee.id, employee.email) ||
+          '';
 
         const locMeta = getEmployeeLocationMeta(employee.id, employee.email);
         const parsedAddr = parseAddressCity(employee.address);
@@ -327,8 +341,12 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
               if (matched?.role) {
                 profRole = matched.role;
               }
-              if (profRole) {
-                setFormData(prev => prev ? { ...prev, role: profRole } : null);
+              if (profRole || matched?.email) {
+                setFormData(prev => prev ? {
+                  ...prev,
+                  role: profRole || prev.role,
+                  email: matched?.email || prev.email,
+                } : null);
               }
             } catch {}
           })();
@@ -749,7 +767,7 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                   {/* Giriş E-postası ve Başlangıç Şifresi Yan Yana */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">Giriş E-postası</label>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">Sistem Giriş Kullanıcı Adı (Giriş E-postası)</label>
                       <input
                         type="email"
                         value={formData.email || (formData.name ? `${toAsciiEmail(formData.name)}@humanius.net` : '')}
@@ -1028,7 +1046,9 @@ const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label htmlFor="employee-contact-email" className="block text-sm font-medium text-gray-700 mb-2">Kişisel / İletişim E-postası</label>
+                    <label htmlFor="employee-contact-email" className="block text-sm font-medium text-gray-700 mb-2">
+                      Kişisel / İletişim E-postası <span className="text-xs font-normal text-gray-400">(Sadece İletişim Amaçlıdır, Girişte Kullanılmaz)</span>
+                    </label>
                     <input
                       id="employee-contact-email"
                       type="email"
