@@ -1432,7 +1432,7 @@ const AppInner: React.FC = () => {
       updatedTalep.durum !== editingIzin.durum &&
       !canApproveLeave(effectiveAppRole as AppRole)
     ) {
-      alert('İzin durumunu onaylandı veya reddedildi olarak güncelleme yetkisi yalnızca İK ve Şirket Yöneticisine aittir.');
+      alert('İzin durumunu onaylandı veya reddedildi olarak güncelleme yetkiniz bulunmamaktadır.');
       return;
     }
     try {
@@ -1491,47 +1491,24 @@ const AppInner: React.FC = () => {
     const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
 
     const currentStage = leaveApprovalService.getTalepCurrentStage(id, talep.durum, approvalCfg, talep);
-    if (currentStage === 'completed') {
-      showSuccess('Bilgi', 'Bu izin talebi zaten onaylanmış.');
-      return;
-    }
-
-    // Rol Kontrolü: Tek aşamalı onay ise şirket yöneticisi de onaylayabilir, çok aşamalıda ilgili kademe yetkilisi onaylar
-    const canApproveThisStage = leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage, approvalCfg);
+    const canApproveThisStage = currentStage !== 'completed' && leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage, approvalCfg);
     if (!canApproveThisStage) {
       const requiredRole = leaveApprovalService.getRequiredRoleLabel(currentStage, approvalCfg);
-      const stageName = leaveApprovalService.getStageLabel(currentStage);
       showWarning(
-        'Onay Yetkisi Kısıtlaması',
-        `Bu izin talebi şu an <b>${stageName}</b> kademesindedir.<br/><br/>Onay akışı kurallarına göre yalnızca <b>${requiredRole}</b> rolüne sahip yetkili bu aşamada onay verebilir.`
+        'Yetki Kısıtlaması',
+        `Şirket izin onay ayarlarına göre yalnızca <b>${requiredRole}</b> rolü bu işlem için yetkilidir.`
       );
       return;
     }
 
-    const nextStage = leaveApprovalService.getNextStage(approvalCfg, currentStage);
-
     try {
-      if (nextStage) {
-        // Son aşama değil: Bir sonraki aşamaya devret!
-        await leaveApprovalService.setTalepCurrentStage(id, nextStage, targetCompId);
-        setIzinTalepleri((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, currentStage: nextStage } : t))
-        );
-        const stageLabel = leaveApprovalService.getStageLabel(currentStage);
-        const nextStageLabel = leaveApprovalService.getStageLabel(nextStage);
-        showSuccess(
-          'Kademe Onaylandı',
-          `<b>${stageLabel}</b> tamamlandı.<br/>Talep bir sonraki onay kademesine (<b>${nextStageLabel}</b>) iletildi.`
-        );
-      } else {
-        // Son onay kademesi: İzni tamamen onayla!
-        await izinService.approveTalep(id, profile.id);
-        await leaveApprovalService.setTalepCurrentStage(id, 'completed', targetCompId);
-        setIzinTalepleri((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, durum: 'onaylandi', onaylayanId: profile.id, currentStage: 'completed' } : t))
-        );
-        showSuccess('İzin Onaylandı', 'Tüm onay aşamaları başarıyla tamamlandı. İzin kaydı puantaj cetveline ve bordroya işlendi.');
-      }
+      // Seçilen yetkili onayladığında izin doğrudan onaylanır!
+      await izinService.approveTalep(id, profile.id);
+      await leaveApprovalService.setTalepCurrentStage(id, 'completed', targetCompId);
+      setIzinTalepleri((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, durum: 'onaylandi', onaylayanId: profile.id, currentStage: 'completed' } : t))
+      );
+      showSuccess('İzin Onaylandı', 'İzin talebi doğrudan onaylandı. İzin kaydı puantaj cetveline ve bordroya işlendi.');
     } catch (error: any) {
       console.error('İzin onaylanamadı:', error);
       showError('Hata', `İzin onaylanırken bir hata oluştu: ${error?.message || ''}`);

@@ -266,7 +266,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
       list.push({
         id: 'manager',
         stepNum: counter++,
-        label: '1. Aşama: Birim Amiri',
+        label: 'Birim Amiri',
         roleTitle: 'Departman Sorumlusu',
         desc: 'İlk değerlendirme ve birim ön onayı',
         icon: Users,
@@ -276,7 +276,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
       list.push({
         id: 'hr',
         stepNum: counter++,
-        label: '2. Aşama: İK Uzmanı',
+        label: 'İK Uzmanı',
         roleTitle: 'İnsan Kaynakları',
         desc: 'Mevzuat uygunluğu ve hak ediş denetimi',
         icon: Award,
@@ -286,7 +286,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
       list.push({
         id: 'admin',
         stepNum: counter++,
-        label: '3. Aşama: Şirket Yöneticisi',
+        label: 'Şirket Yöneticisi',
         roleTitle: 'Genel Müdür / Üst Yönetim',
         desc: 'Nihai yönetim tasdiki',
         icon: Briefcase,
@@ -318,7 +318,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
     // En az bir aşama açık kalmalı
     const activeCount = Object.values(newStages).filter(Boolean).length;
     if (activeCount === 0) {
-      showError('İşlem İptal Edildi', 'İzin onay sürecinde en az bir onay kademesinin açık olması zorunludur. Tüm aşamalar aynı anda kapatılamaz.');
+      showError('İşlem İptal Edildi', 'İzin onay sürecinde en az bir onay yetkilisinin seçili olması zorunludur. Tüm yetkililer aynı anda kapatılamaz.');
       return;
     }
 
@@ -2060,14 +2060,14 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                             3. Ayar: İzin Talep Onayı
                           </span>
                           <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300">
-                            {leaveApprovalService.getActiveStagesCount(leaveApprovalConfig)} Kademeli Onay Aktif
+                            {leaveApprovalService.getActiveStagesCount(leaveApprovalConfig)} Onay Yetkilisi Seçili (Direkt Onay)
                           </span>
                         </div>
                         <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                          İzin Talebi Onay Süreç & Aşama Ayarları
+                          İzin Talebi Onay Yetkilileri Ayarı
                         </h3>
                         <p className="text-xs text-slate-500">
-                          İzin taleplerinin kaç aşamalı onaydan geçeceğini belirleyin. İstediğiniz aşamaları açıp kapatabilirsiniz (1, 2 veya 3 kademeli onay).
+                          İzin taleplerini hangi yetkili rollerin onaylayabileceğini seçin. Seçtiğiniz yetkililerden herhangi biri onay verdiğinde izin başka aşama beklemeden doğrudan onaylanır.
                         </p>
                       </div>
                     </div>
@@ -2091,14 +2091,14 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                       <div>
                         <div className="flex items-center gap-2 flex-wrap mb-0.5">
                           <span className="text-xs font-black text-purple-950 uppercase tracking-wider">
-                            Onay Akışı Sıralaması & Canlı Süreç Durumu
+                            Onay Yetkilileri & Doğrudan Onay Akışı
                           </span>
                           <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300">
-                            Seçilen {activeApprovalSteps.length} Kademeli Akış
+                            Seçilen {activeApprovalSteps.length} Yetkili Rol (Tek Onay ile Direkt Onaylanır)
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500">
-                          Seçilen kademelere göre izin talebinin geçtiği, bulunduğu ve bekleyen aşamaları görsel olarak aşağıda listelenmiştir.
+                          Seçtiğiniz yetkili rollerden herhangi biri onay verdiğinde izin talebi başka bir onay beklemeden doğrudan onaylanır.
                         </p>
                       </div>
 
@@ -2119,7 +2119,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                             {workflowSimulationStep === step.stepNum && (
                               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                             )}
-                            <span>{step.stepNum}. Kademede</span>
+                            <span>Onay Yetkiliside</span>
                           </button>
                         ))}
                         <button
@@ -2168,9 +2168,9 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
 
                       {/* Dinamik Aktif Onay Kademeleri */}
                       {activeApprovalSteps.map((step) => {
-                        const isPassed = step.stepNum < workflowSimulationStep;
-                        const isCurrent = step.stepNum === workflowSimulationStep;
-                        const isPending = step.stepNum > workflowSimulationStep;
+                        const isPassed = workflowSimulationStep > activeApprovalSteps.length;
+                        const isCurrent = workflowSimulationStep <= activeApprovalSteps.length;
+                        const isPending = false;
                         const StepIcon = step.icon;
 
                         return (
@@ -2193,7 +2193,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                                 )}
                                 {isCurrent && (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-600 text-white shadow-xs animate-pulse">
-                                    <Clock className="w-2.5 h-2.5" /> Şu Anki Aşama
+                                    <Clock className="w-2.5 h-2.5" /> Direkt Onay Yetkili
                                   </span>
                                 )}
                                 {isPending && (
@@ -2325,7 +2325,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                               1
                             </div>
                             <div>
-                              <span className="font-extrabold text-xs text-slate-900 block">1. Aşama: Birim Amiri</span>
+                              <span className="font-extrabold text-xs text-slate-900 block">Birim Amiri</span>
                               <span className="text-[10px] font-semibold text-slate-500">Departman Sorumlusu</span>
                             </div>
                           </div>
@@ -2339,14 +2339,14 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                         </div>
 
                         <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
-                          Çalışanın bağlı olduğu departmanın birim amiri ilk değerlendirmeyi ve <strong>ön onayı</strong> yapar.
+                          Seçildiğinde çalışanın bağlı olduğu departmanın <strong>Birim Amiri</strong> izin talebini doğrudan onaylayabilir ve izin direkt onaylanır.
                         </p>
                       </div>
 
                       <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[10px]">
-                        <span className="text-slate-500">Aşama Statüsü:</span>
+                        <span className="text-slate-500">Onay Yetkisi:</span>
                         <span className={`font-bold ${leaveApprovalConfig.stages.manager ? 'text-blue-700' : 'text-slate-400'}`}>
-                          {leaveApprovalConfig.stages.manager ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
+                          {leaveApprovalConfig.stages.manager ? '✓ Yetkili (Direkt Onaylar)' : '✗ Kapalı (Yetkisiz)'}
                         </span>
                       </div>
                     </div>
@@ -2369,7 +2369,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                               2
                             </div>
                             <div>
-                              <span className="font-extrabold text-xs text-slate-900 block">2. Aşama: İK Uzmanı</span>
+                              <span className="font-extrabold text-xs text-slate-900 block">İK Uzmanı</span>
                               <span className="text-[10px] font-semibold text-slate-500">Mevzuat & Bakiye Denetimi</span>
                             </div>
                           </div>
@@ -2383,14 +2383,14 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                         </div>
 
                         <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
-                          İzin hak edişi, 4857 İş Kanunu uygunluğu ve resmi evrak süreci <strong>İK Uzmanı</strong> tarafından denetlenip onaylanır.
+                          Seçildiğinde <strong>İK Uzmanı</strong> izin talebini doğrudan onaylayabilir ve izin direkt onaylanır.
                         </p>
                       </div>
 
                       <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[10px]">
-                        <span className="text-slate-500">Aşama Statüsü:</span>
+                        <span className="text-slate-500">Onay Yetkisi:</span>
                         <span className={`font-bold ${leaveApprovalConfig.stages.hr ? 'text-indigo-700' : 'text-slate-400'}`}>
-                          {leaveApprovalConfig.stages.hr ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
+                          {leaveApprovalConfig.stages.hr ? '✓ Yetkili (Direkt Onaylar)' : '✗ Kapalı (Yetkisiz)'}
                         </span>
                       </div>
                     </div>
@@ -2413,7 +2413,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                               3
                             </div>
                             <div>
-                              <span className="font-extrabold text-xs text-slate-900 block">3. Aşama: Şirket Yöneticisi</span>
+                              <span className="font-extrabold text-xs text-slate-900 block">Şirket Yöneticisi</span>
                               <span className="text-[10px] font-semibold text-slate-500">Genel Müdür / Üst Yönetim</span>
                             </div>
                           </div>
@@ -2427,14 +2427,14 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                         </div>
 
                         <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
-                          Üst yönetim veya şirket yöneticisi tarafından verilen <strong>nihai onay</strong> kademesidir.
+                          Seçildiğinde <strong>Şirket Yöneticisi</strong> izin talebini doğrudan onaylayabilir ve izin direkt onaylanır.
                         </p>
                       </div>
 
                       <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[10px]">
-                        <span className="text-slate-500">Aşama Statüsü:</span>
+                        <span className="text-slate-500">Onay Yetkisi:</span>
                         <span className={`font-bold ${leaveApprovalConfig.stages.admin ? 'text-purple-700' : 'text-slate-400'}`}>
-                          {leaveApprovalConfig.stages.admin ? '✓ Açık (Zorunlu Kademe)' : '✗ Kapalı (Atlanır)'}
+                          {leaveApprovalConfig.stages.admin ? '✓ Yetkili (Direkt Onaylar)' : '✗ Kapalı (Yetkisiz)'}
                         </span>
                       </div>
                     </div>
@@ -2444,7 +2444,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                   <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border-2 border-purple-200/90 text-xs text-purple-950 flex items-start sm:items-center gap-3 shadow-xs">
                     <Sparkles className="w-5 h-5 text-purple-600 shrink-0 mt-0.5 sm:mt-0" />
                     <div className="leading-relaxed font-medium">
-                      <strong>Esnek Onay Politikası:</strong> Yukarıdaki 3 kademeden herhangi 2 tanesini kapatıp <strong>yalnızca 1 onay</strong> açık bırakabilir, <strong>2 onay</strong> isteyebilir veya <strong>3 aşamalı tam akış</strong> çalıştırabilirsiniz. Kapalı olan kademeler izin onay sürecinde otomatik olarak atlanır.
+                      <strong>Doğrudan Onay Politikası:</strong> Yukarıdaki 3 rolden izin onaylama yetkisi vermek istediklerinizi tek tek veya birlikte seçebilirsiniz. Seçili olan yetkililerden <strong>herhangi biri onay verdiğinde</strong> izin talebi başka bir kademe beklemeden <strong>doğrudan onaylanır</strong>.
                     </div>
                   </div>
                 </div>

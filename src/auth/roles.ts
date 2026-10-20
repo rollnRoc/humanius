@@ -149,7 +149,7 @@ export function isManagementRole(role: AppRole): boolean {
   return role === 'superadmin' || role === 'admin' || role === 'hr';
 }
 
-// İzin onaylama ve reddetme yetkisi (Sadece Süper Admin, Şirket Yöneticisi ve İK Uzmanı; Birim amirleri/müdürler onaylayamaz)
+// İzin onaylama ve reddetme yetkisi (Şirket ayarlarında seçilen yetkili roller: Süper Admin, Şirket Yöneticisi, İK Uzmanı, Birim Amiri)
 export function canApproveLeave(role: AppRole): boolean {
-  return role === 'superadmin' || role === 'admin' || role === 'hr';
-}
+  return role === 'superadmin' || role === 'admin' || role === 'hr' || role === 'manager';
+}

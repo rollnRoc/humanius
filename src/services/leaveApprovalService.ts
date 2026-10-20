@@ -1,9 +1,9 @@
 import { supabase } from '../lib/supabase';
 
 export interface LeaveApprovalStages {
-  manager: boolean; // 1. Aşama: Birim / Departman Amiri
-  hr: boolean;      // 2. Aşama: İnsan Kaynakları (İK)
-  admin: boolean;   // 3. Aşama: Şirket Yöneticisi
+  manager: boolean; // Birim / Departman Amiri Onay Yetkisi
+  hr: boolean;      // İnsan Kaynakları (İK) Onay Yetkisi
+  admin: boolean;   // Şirket Yöneticisi Onay Yetkisi
 }
 
 export interface LeaveApprovalConfig {
@@ -14,13 +14,13 @@ export interface LeaveApprovalConfig {
 
 /**
  * Varsayılan sistem kuralı:
- * Kullanıcının belirlediği gibi varsayılan olarak İK tek yetkili onay mercidir (1 Kademeli - Sadece İK Onayı).
+ * Seçilen roller izin talebini doğrudan onaylama yetkisine sahiptir (herhangi biri onayladığında izin direkt onaylanır).
  */
 export const DEFAULT_LEAVE_APPROVAL_CONFIG: LeaveApprovalConfig = {
   stages: {
-    manager: false, // 1. Aşama: Birim Amiri (Kapalı)
-    hr: true,       // 2. Aşama: İK Uzmanı (Açık - Asıl ve Yetkili Onay)
-    admin: false,   // 3. Aşama: Şirket Yöneticisi (Kapalı)
+    manager: false, // Birim Amiri (Kapalı)
+    hr: true,       // İK Uzmanı (Açık)
+    admin: true,    // Şirket Yöneticisi (Açık)
   },
 };
 
@@ -129,7 +129,7 @@ class LeaveApprovalService {
       console.warn('Error reading fallback leave approval config:', e);
     }
 
-    // 3. Fallback: Sadece İK Onayı varsayılanı
+    // 3. Fallback: Varsayılan onay yetkisi
     return DEFAULT_LEAVE_APPROVAL_CONFIG;
   }
 
@@ -140,10 +140,10 @@ class LeaveApprovalService {
   public async saveConfig(companyId: string, config: LeaveApprovalConfig, userEmail?: string): Promise<boolean> {
     const effectiveCompanyId = companyId && companyId !== 'default' ? companyId : 'default';
 
-    // En az bir aşama açık olmalıdır
+    // En az bir yetkili rol açık olmalıdır
     const hasAtLeastOne = config.stages.manager || config.stages.hr || config.stages.admin;
     if (!hasAtLeastOne) {
-      throw new Error('En az bir onay aşaması açık olmalıdır.');
+      throw new Error('En az bir onay yetkilisi seçili olmalıdır.');
     }
 
     const payload: LeaveApprovalConfig = {
@@ -169,8 +169,6 @@ class LeaveApprovalService {
         .select('id, company_id, leave_types');
 
       if (!fetchErr && rows && rows.length > 0) {
-        // Eğer belirli bir şirket seçilmişse o şirketi ve boş olanları güncelle,
-        // ya da tüm şirket kayıtlarını senkronize et
         const targetRows = (companyId && companyId !== 'default' && !companyId.includes('demo'))
           ? rows.filter(r => r.company_id === companyId)
           : rows;
@@ -219,16 +217,19 @@ class LeaveApprovalService {
     return [config.stages.manager, config.stages.hr, config.stages.admin].filter(Boolean).length;
   }
 
-  public getActiveStagesSummary(config: LeaveApprovalConfig): string {
+  public getAuthorizedRolesList(config?: LeaveApprovalConfig): string[] {
+    const cfg = config || DEFAULT_LEAVE_APPROVAL_CONFIG;
     const activeNames: string[] = [];
-    if (config.stages.manager) activeNames.push('1. Birim Amiri');
-    if (config.stages.hr) activeNames.push('2. İK Uzmanı');
-    if (config.stages.admin) activeNames.push('3. Şirket Yöneticisi');
+    if (cfg.stages.manager) activeNames.push('Birim Amiri');
+    if (cfg.stages.hr) activeNames.push('İK Uzmanı');
+    if (cfg.stages.admin) activeNames.push('Şirket Yöneticisi');
+    return activeNames;
+  }
 
+  public getActiveStagesSummary(config: LeaveApprovalConfig): string {
+    const activeNames = this.getAuthorizedRolesList(config);
     if (activeNames.length === 0) return 'Tanımsız';
-    if (activeNames.length === 1) return `Tek Kademeli Onay (${activeNames[0]})`;
-    if (activeNames.length === 3) return '3 Aşamalı Onay (Tam Akış: Birim Amiri ➔ İK ➔ Şirket Yöneticisi)';
-    return `${activeNames.length} Aşamalı Onay (${activeNames.join(' ➔ ')})`;
+    return `Direkt Onay (${activeNames.join(' / ')})`;
   }
 
   public getActiveStageSequence(config: LeaveApprovalConfig): ('manager' | 'hr' | 'admin')[] {
@@ -244,13 +245,11 @@ class LeaveApprovalService {
     return seq[0] || 'hr';
   }
 
-  public getNextStage(config: LeaveApprovalConfig, currentStage: 'manager' | 'hr' | 'admin'): ('manager' | 'hr' | 'admin') | null {
-    const seq = this.getActiveStageSequence(config);
-    const currentIndex = seq.indexOf(currentStage);
-    if (currentIndex >= 0 && currentIndex < seq.length - 1) {
-      return seq[currentIndex + 1];
-    }
-    return null; // Son onay kademesi tamamlandı
+  /**
+   * Seçilen yetkili rollerden herhangi biri onayladığında izin doğrudan onaylanır (zincirleme bekleme yoktur).
+   */
+  public getNextStage(_config: LeaveApprovalConfig, _currentStage: 'manager' | 'hr' | 'admin'): ('manager' | 'hr' | 'admin') | null {
+    return null;
   }
 
   public getStageStorageKey(): string {
@@ -288,25 +287,12 @@ class LeaveApprovalService {
   }
 
   public getTalepCurrentStage(
-    talepId: string,
+    _talepId: string,
     talepDurum: string,
     config: LeaveApprovalConfig,
-    talepObj?: any
+    _talepObj?: any
   ): 'manager' | 'hr' | 'admin' | 'completed' {
-    if (talepDurum === 'onaylandi') return 'completed';
-    if (talepDurum === 'reddedildi') return 'completed';
-    if (talepObj?.currentStage) return talepObj.currentStage;
-    
-    // Bellek veya depolama kontrolü
-    if (this.stagesCache[talepId]) return this.stagesCache[talepId];
-    const stored = this.getStoredStages();
-    if (stored[talepId]) return stored[talepId];
-
-    // İlk kez yükleniyorsa DB'den arka planda getir
-    if (!this.hasLoadedStagesFromDb) {
-      this.loadRequestStagesFromDb().catch(() => {});
-    }
-
+    if (talepDurum === 'onaylandi' || talepDurum === 'reddedildi') return 'completed';
     return this.getInitialStage(config);
   }
 
@@ -325,7 +311,6 @@ class LeaveApprovalService {
       console.warn('Error saving talep stage to localStorage:', e);
     }
 
-    // SUPABASE DATABASE FIRST: Aşamayı veritabanına kaydet
     try {
       const { data: rows } = await supabase.from('company_leave_types').select('id, company_id, leave_types');
       if (rows && rows.length > 0) {
@@ -360,52 +345,52 @@ class LeaveApprovalService {
     }
   }
 
-  public getStageLabel(stage: 'manager' | 'hr' | 'admin' | 'completed'): string {
+  public getStageLabel(stage: 'manager' | 'hr' | 'admin' | 'completed', config?: LeaveApprovalConfig): string {
+    if (stage === 'completed') return 'Tamamlandı';
+    if (config) {
+      const activeNames = this.getAuthorizedRolesList(config);
+      if (activeNames.length > 0) {
+        return `${activeNames.join(' / ')} Onayı`;
+      }
+    }
     switch (stage) {
-      case 'manager': return '1. Aşama: Birim Amiri';
-      case 'hr': return '2. Aşama: İK Uzmanı';
-      case 'admin': return '3. Aşama: Şirket Yöneticisi';
-      case 'completed': return 'Tamamlandı';
+      case 'manager': return 'Birim Amiri Onayı';
+      case 'hr': return 'İK Uzmanı Onayı';
+      case 'admin': return 'Şirket Yöneticisi Onayı';
       default: return stage;
     }
   }
 
-  public getRequiredRoleLabel(stage: 'manager' | 'hr' | 'admin', config?: LeaveApprovalConfig): string {
-    const isSingle = config ? this.getActiveStagesCount(config) === 1 : false;
-    switch (stage) {
-      case 'manager': return isSingle ? 'Birim Amiri veya Şirket Yöneticisi' : 'Birim Amiri';
-      case 'hr': return isSingle ? 'İK Uzmanı veya Şirket Yöneticisi' : 'İK Uzmanı';
-      case 'admin': return 'Şirket Yöneticisi';
-      default: return '';
-    }
+  public getRequiredRoleLabel(_stage: 'manager' | 'hr' | 'admin', config?: LeaveApprovalConfig): string {
+    const activeNames = this.getAuthorizedRolesList(config);
+    if (activeNames.length === 0) return 'Yetkili Yönetici';
+    return activeNames.join(' veya ');
   }
 
+  /**
+   * Kullanıcının rolü şirket ayarlarında seçili olan onay yetkililerinden biri mi kontrol eder.
+   * Seçili rollerden herhangi biri doğrudan onay verebilir.
+   */
   public canRoleApproveCurrentStage(
     effectiveRole: string,
-    currentStage: 'manager' | 'hr' | 'admin',
+    _currentStage: 'manager' | 'hr' | 'admin',
     config?: LeaveApprovalConfig
   ): boolean {
-    // Süper yönetici her zaman tüm kademeleri nihai yetkiyle onaylayabilir
+    // Süper yönetici her zaman nihai yetkiyle onaylayabilir
     if (effectiveRole === 'superadmin') {
       return true;
     }
 
-    const isSingle = config ? this.getActiveStagesCount(config) === 1 : false;
-    const isCompanyManager = ['admin', 'superadmin'].includes(effectiveRole);
+    const cfg = config || DEFAULT_LEAVE_APPROVAL_CONFIG;
 
-    // Kural: Eğer süreç tek aşamalı ise şirket yöneticisi de (Birim amiri veya İK yerine) doğrudan onaylayabilir
-    if (isSingle && isCompanyManager) {
-      return true;
+    if (effectiveRole === 'admin') {
+      return Boolean(cfg.stages.admin);
     }
-
-    if (currentStage === 'manager') {
-      return effectiveRole === 'manager';
+    if (effectiveRole === 'hr') {
+      return Boolean(cfg.stages.hr);
     }
-    if (currentStage === 'hr') {
-      return effectiveRole === 'hr';
-    }
-    if (currentStage === 'admin') {
-      return isCompanyManager;
+    if (effectiveRole === 'manager') {
+      return Boolean(cfg.stages.manager);
     }
     return false;
   }

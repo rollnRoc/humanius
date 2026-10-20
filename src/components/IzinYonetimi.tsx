@@ -113,17 +113,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
   }, [profile?.company_id]);
 
   const canApprove = useMemo(() => {
-    if (['superadmin', 'admin'].includes(effectiveAppRole)) {
-      // Şirket Yöneticisi / Süper Yönetici her zaman veya 3. kademe açıksa onaylayabilir
-      return true;
-    }
-    if (effectiveAppRole === 'hr') {
-      return Boolean(approvalConfig.stages.hr);
-    }
-    if (effectiveAppRole === 'manager') {
-      return Boolean(approvalConfig.stages.manager);
-    }
-    return false;
+    return leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, 'hr', approvalConfig);
   }, [effectiveAppRole, approvalConfig]);
 
   // Normal personel sadece kendisine ait talepleri görebilir, yetkili roller tüm şirket taleplerini görebilir
@@ -469,11 +459,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start sm:items-center gap-3 text-amber-900 text-xs shadow-xs">
               <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5 sm:mt-0" />
               <div>
-                <span className="font-bold text-amber-950">Onay Yetkisi Bilgilendirmesi:</span> {
-                  effectiveAppRole === 'manager'
-                    ? 'Birim amiri onay kademesi şirket ayarlarında pasif durumdadır. İzin onayları aktif olan İK veya Şirket Yöneticisi kademesinde yürütülmektedir.'
-                    : 'İzin onaylama ve reddetme yetkisi şirket onay akış politikası kapsamında aktif kademelerdeki yetkililere aittir.'
-                }
+                <span className="font-bold text-amber-950">Onay Yetkisi Bilgilendirmesi:</span> Rolünüz için izin onay yetkisi şirket ayarlarında kapalıdır. İzin onayları şu anda seçili olan <b>{leaveApprovalService.getRequiredRoleLabel('hr', approvalConfig)}</b> yetkisinde yürütülmektedir.
               </div>
             </div>
           )}
@@ -497,7 +483,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
             <div className="flex items-center justify-between pt-1 max-w-2xl">
               {[
                 { label: isAuthorized ? '1. Çalışan Talebi' : '1. Talebiniz', sub: 'Oluşturuldu' },
-                { label: isAuthorized ? '2. İK / Şirket Yöneticisi Onayı' : '2. Yönetici Değerlendirmesi', sub: isAuthorized ? 'Onay / Red Bekleniyor' : 'İnceleme ve Karar' },
+                { label: isAuthorized ? `2. Yetkili Onayı (${leaveApprovalService.getAuthorizedRolesList(approvalConfig).join(' / ') || 'Yetkili'})` : '2. Yetkili Değerlendirmesi', sub: isAuthorized ? 'Seçili Yetkili Direkt Onaylar' : 'Tek Onay ile Direkt Onaylanır' },
                 { label: '3. Bordro ve Takvim', sub: 'Otomatik Güncellenir' },
               ].map((adim, i, arr) => (
                 <React.Fragment key={i}>

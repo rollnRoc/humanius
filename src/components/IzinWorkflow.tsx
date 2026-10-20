@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
-  CheckCircle, Clock, XCircle, User, UserCheck, Briefcase, CreditCard, 
-  ChevronRight, Edit2, Trash2, Users, Award, Check
+  CheckCircle, Clock, XCircle, User, UserCheck, CreditCard, 
+  Edit2, Trash2, Check
 } from 'lucide-react';
 import type { IzinTalebi } from '../types/izin';
 import { formatIzinTuru } from '../utils/izinCalculations';
@@ -93,70 +93,47 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
     };
   }, [talep.companyId, talep.id]);
 
-  // Anlık kademe
+  // Anlık durum
   const currentStage = useMemo(() => {
     if (localCurrentStage) return localCurrentStage;
     return leaveApprovalService.getTalepCurrentStage(talep.id, talep.durum, approvalConfig, talep);
   }, [talep.id, talep.durum, (talep as any).currentStage, approvalConfig, localCurrentStage]);
 
-  // Şirket onay ayarlarından seçilen aşamalara göre dinamik akış adımları
+  const authorizedRolesText = useMemo(() => {
+    const list = leaveApprovalService.getAuthorizedRolesList(approvalConfig);
+    return list.length > 0 ? list.join(' / ') : 'Yetkili Yönetici';
+  }, [approvalConfig]);
+
+  // Doğrudan (Tek Adımlı) Onay Akışı: Çalışan Talebi -> Yetkili Onayı -> Bordro & Puantaj
   const dynamicSteps = useMemo(() => {
     const steps: DynamicStep[] = [
       {
         id: 'talep',
-        stepNum: 0,
-        label: 'Çalışan Talebi',
+        stepNum: 1,
+        label: '1. Çalışan Talebi',
         roleLabel: 'Talep Formu',
         desc: 'Talep oluşturuldu & iletildi',
         icon: <User className="w-3.5 h-3.5" />,
+      },
+      {
+        id: 'onay',
+        stepNum: 2,
+        label: '2. Yetkili Onayı',
+        roleLabel: authorizedRolesText,
+        desc: 'Yetkili onayladığında direkt onaylanır',
+        icon: <UserCheck className="w-3.5 h-3.5" />,
+      },
+      {
+        id: 'bordro',
+        stepNum: 3,
+        label: '3. Bordro & Puantaj',
+        roleLabel: 'Sistem Entegrasyonu',
+        desc: 'Puantaj ve bordroya otomatik işlendi',
+        icon: <CreditCard className="w-3.5 h-3.5" />,
       }
     ];
-
-    let counter = 1;
-    if (approvalConfig.stages.manager) {
-      steps.push({
-        id: 'manager',
-        stepNum: counter++,
-        label: `${counter > 1 ? counter - 1 : 1}. Aşama: Birim Amiri`,
-        roleLabel: 'Departman Sorumlusu',
-        desc: 'Departman ön onayı',
-        icon: <Users className="w-3.5 h-3.5" />,
-      });
-    }
-
-    if (approvalConfig.stages.hr) {
-      steps.push({
-        id: 'hr',
-        stepNum: counter++,
-        label: `${counter > 1 ? counter - 1 : 1}. Aşama: İK Uzmanı`,
-        roleLabel: 'İnsan Kaynakları',
-        desc: 'Mevzuat ve bakiye denetimi',
-        icon: <Award className="w-3.5 h-3.5" />,
-      });
-    }
-
-    if (approvalConfig.stages.admin) {
-      steps.push({
-        id: 'admin',
-        stepNum: counter++,
-        label: `${counter > 1 ? counter - 1 : 1}. Aşama: Şirket Yöneticisi`,
-        roleLabel: 'Üst Yönetim',
-        desc: 'Nihai yönetim onayı',
-        icon: <Briefcase className="w-3.5 h-3.5" />,
-      });
-    }
-
-    steps.push({
-      id: 'bordro',
-      stepNum: counter,
-      label: 'Bordro & Puantaj',
-      roleLabel: 'Sistem Entegrasyonu',
-      desc: 'Puantaj ve bordroya otomatik işlendi',
-      icon: <CreditCard className="w-3.5 h-3.5" />,
-    });
-
     return steps;
-  }, [approvalConfig.stages]);
+  }, [authorizedRolesText]);
 
   // Her adımın anlık durumunu belirle
   const getStepStatus = (stepId: string): StepDurum => {
@@ -166,34 +143,20 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
       return 'gecilen';
     }
 
-    const seq = leaveApprovalService.getActiveStageSequence(approvalConfig);
-    const currentIdx = seq.indexOf(currentStage as any);
-    const stepIdx = seq.indexOf(stepId as any);
-
     if (talep.durum === 'reddedildi') {
-      if (stepId === 'bordro') return 'ilerlenmemis';
-      if (stepIdx === currentIdx || (currentIdx === -1 && stepIdx === 0)) return 'red';
-      if (stepIdx >= 0 && currentIdx >= 0 && stepIdx < currentIdx) return 'gecilen';
+      if (stepId === 'onay') return 'red';
       return 'ilerlenmemis';
     }
 
     if (talep.durum === 'beklemede') {
-      if (stepId === 'bordro') return 'ilerlenmemis';
-      if (stepIdx >= 0) {
-        if (currentIdx === -1) {
-          return stepIdx === 0 ? 'bulunulan' : 'ilerlenmemis';
-        }
-        if (stepIdx < currentIdx) return 'gecilen';
-        if (stepIdx === currentIdx) return 'bulunulan';
-        return 'ilerlenmemis';
-      }
+      if (stepId === 'onay') return 'bulunulan';
       return 'ilerlenmemis';
     }
 
     return 'ilerlenmemis';
   };
 
-  // Şu anki aşamaya ait onay yetkisi kontrolü
+  // Kullanıcının rolü seçili onay yetkililerinden biri mi kontrolü
   const isRoleAuthorizedForThisStage = useMemo(() => {
     if (talep.durum !== 'beklemede' || currentStage === 'completed') return false;
     return leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage as any, approvalConfig);
@@ -209,10 +172,10 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
             <React.Fragment key={step.id}>
               <div
                 title={`${step.label} (${
-                  status === 'gecilen' ? 'Geçilen Aşama: Onaylandı' :
-                  status === 'bulunulan' ? 'Bulunulan Aşama: Onay Bekliyor' :
+                  status === 'gecilen' ? 'Tamamlandı / Onaylandı' :
+                  status === 'bulunulan' ? `Onay Bekliyor (${authorizedRolesText})` :
                   status === 'red' ? 'Reddedildi' :
-                  'Henüz İlerlenmemiş Aşama'
+                  'Beklemede'
                 })`}
                 className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
                   status === 'gecilen'
@@ -256,10 +219,10 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-black text-slate-900 tracking-wide uppercase">
-              Onay Akışı Takibi
+              İzin Onay Takibi
             </span>
             <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-50 text-purple-800 border border-purple-200">
-              {leaveApprovalService.getActiveStagesCount(approvalConfig)} Aşamalı Süreç
+              Yetkili: {authorizedRolesText}
             </span>
           </div>
 
@@ -302,8 +265,8 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
         </div>
       </div>
 
-      {/* Dinamik ve Kompakt Onay Akışı Adımları (Grid / Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+      {/* Onay Akışı Adımları (3 Adım: Talep -> Yetkili Onayı -> Bordro & Puantaj) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
         {dynamicSteps.map((step) => {
           const status = getStepStatus(step.id);
           const isPassed = status === 'gecilen';
@@ -325,21 +288,21 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
               }`}
             >
               <div>
-                {/* Üst Rozet (Aşama Durumu) */}
+                {/* Üst Rozet */}
                 <div className="flex items-center justify-between mb-1.5">
                   {isPassed && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-2xs">
-                      <CheckCircle className="w-2.5 h-2.5" /> Geçildi
+                      <CheckCircle className="w-2.5 h-2.5" /> Tamamlandı
                     </span>
                   )}
                   {isCurrent && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-blue-600 text-white shadow-2xs animate-pulse">
-                      <Clock className="w-2.5 h-2.5" /> Şu Anki Aşama
+                      <Clock className="w-2.5 h-2.5" /> Onay Bekliyor
                     </span>
                   )}
                   {isPending && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8.5px] font-bold uppercase tracking-wider bg-slate-200/80 text-slate-600">
-                      ⚪ Sırada
+                      ⚪ Beklemede
                     </span>
                   )}
                   {isRejected && (
@@ -390,7 +353,7 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
                 <span>Durum:</span>
                 <span className="flex items-center gap-0.5">
                   {isPassed && '✓ Onaylandı'}
-                  {isCurrent && '⏳ Onay Bekliyor'}
+                  {isCurrent && '⏳ Direkt Onay Bekliyor'}
                   {isPending && '⚪ Beklemede'}
                   {isRejected && '✗ Reddedildi'}
                 </span>
@@ -446,10 +409,9 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
         {talep.durum === 'beklemede' && (
           <div className="ml-auto flex items-center gap-2">
             {isRoleAuthorizedForThisStage ? (
-              // Kullanıcının rolü bu aşamayla tam eşleşiyorsa Onayla ve Reddet butonları
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
-                  Aşama: <strong className="text-slate-700">{leaveApprovalService.getStageLabel(currentStage as any)}</strong>
+                  Onay Yetkisi: <strong className="text-slate-700">{authorizedRolesText}</strong>
                 </span>
                 {onRed && (
                   <button
@@ -472,12 +434,11 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
                 )}
               </div>
             ) : (
-              // Yetkili rol dışındakiler (örn. Şirket Yöneticisi aşama Birim Amirindeyken)
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 text-xs font-semibold shadow-2xs">
                 <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0 animate-pulse" />
                 <span>
-                  Şu an <b>{leaveApprovalService.getStageLabel(currentStage as any)}</b> Onayında
-                  <span className="text-amber-700 font-medium ml-1.5 hidden xs:inline">
+                  Onay Bekliyor
+                  <span className="text-amber-700 font-medium ml-1.5">
                     (Yetkili: <b>{leaveApprovalService.getRequiredRoleLabel(currentStage as any, approvalConfig)}</b>)
                   </span>
                 </span>
@@ -524,7 +485,7 @@ export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({
       <div>
         <h3 className="text-base font-bold text-gray-800">Onay Bekleyen Talepler</h3>
         <p className="text-xs text-gray-500 mt-0.5">
-          İzin onay akışındaki kademeler ve işlem bekleyen personel talepleri
+          Onay bekleyen personel izin talepleri
         </p>
       </div>
 
@@ -543,6 +504,7 @@ export const IzinWorkflowListesi: React.FC<IzinWorkflowListesiProps> = ({
               onEdit={onEdit}
               onDelete={onDelete}
               talepleri={talepleri}
+              effectiveAppRole={effectiveAppRole}
             />
           ))}
         </div>
