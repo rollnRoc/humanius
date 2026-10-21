@@ -225,40 +225,147 @@ export function getCalismaSaati(
   return 8.5; // Standart tam gün çalışma süresi
 }
 
+export function snapEarlyCheckInToShiftStart(
+  girisTimeStr: string | null | undefined,
+  shiftStartTimeStr: string = '08:30'
+): string | null {
+  if (!girisTimeStr || girisTimeStr === '-') return null;
+  const cleanGiris = girisTimeStr.substring(0, 5);
+  if (!/^\d{1,2}:\d{2}$/.test(cleanGiris)) return girisTimeStr;
+
+  const cleanShiftStart = (shiftStartTimeStr || '08:30').substring(0, 5);
+  const [gH, gM] = cleanGiris.split(':').map(Number);
+  const [sH, sM] = cleanShiftStart.split(':').map(Number);
+  if (isNaN(gH) || isNaN(gM) || isNaN(sH) || isNaN(sM)) return cleanGiris;
+
+  let diffMins = (gH * 60 + gM) - (sH * 60 + sM);
+  if (diffMins < -720) diffMins += 1440;
+  if (diffMins > 720) diffMins -= 1440;
+
+  // Vardiya başlangıcından önce (4 saate kadar erken basılmış girişler: ör. 08:00 vardiyasına 07:30'da basılması)
+  // doğrudan vardiya başlangıç saatine çekilir.
+  if (diffMins < 0 && diffMins >= -240) {
+    return cleanShiftStart;
+  }
+  return cleanGiris;
+}
+
+export function snapLateCheckOutToShiftEnd(
+  cikisTimeStr: string | null | undefined,
+  shiftEndTimeStr: string = '18:00',
+  _shiftStartTimeStr: string = '08:30',
+  isOvertimeAuthorized: boolean = false
+): string | null {
+  if (!cikisTimeStr || cikisTimeStr === '-') return null;
+  const cleanCikis = cikisTimeStr.substring(0, 5);
+  if (!/^\d{1,2}:\d{2}$/.test(cleanCikis)) return cikisTimeStr;
+  if (isOvertimeAuthorized) return cleanCikis;
+
+  const cleanShiftEnd = (shiftEndTimeStr || '18:00').substring(0, 5);
+  const [cH, cM] = cleanCikis.split(':').map(Number);
+  const [eH, eM] = cleanShiftEnd.split(':').map(Number);
+  if (isNaN(cH) || isNaN(cM) || isNaN(eH) || isNaN(eM)) return cleanCikis;
+
+  let diffAfterEnd = (cH * 60 + cM) - (eH * 60 + eM);
+  if (diffAfterEnd < -720) diffAfterEnd += 1440;
+  if (diffAfterEnd > 720) diffAfterEnd -= 1440;
+
+  // Fazla mesai onayı yoksa vardiya bitişinden sonra yapılan çıkışlar vardiya bitiş saatine çekilir (erken çıkışlara dokunulmaz)
+  if (diffAfterEnd > 0 && diffAfterEnd <= 360) {
+    return cleanShiftEnd;
+  }
+  return cleanCikis;
+}
+
+export function checkEmployeeOvertimeAuth(
+  overtimeAuthMap: Record<string, any> | undefined | null,
+  empId: string | undefined | null,
+  dateStr: string,
+  notlar?: string | null,
+  todayStr?: string
+): boolean {
+  if (notlar && notlar.includes('[FM_ONAYLI]')) return true;
+  if (!overtimeAuthMap || !empId) return false;
+  if (overtimeAuthMap[`${empId}_${dateStr}`] === true) return true;
+  const effectiveToday = todayStr || new Date().toISOString().split('T')[0];
+  if (dateStr === effectiveToday && overtimeAuthMap[empId] === true) return true;
+  return false;
+}
+
+export function checkIsShiftExpired(
+  shiftStartIso: string | null,
+  cikisTimeStr: string = '18:00',
+  isOvertimeAuthorized: boolean = false,
+  gracePeriodMinutes: number = 0,
+  shiftStartTimeStr?: string
+): { isExpired: boolean; autoCloseTime: string } {
+  const cleanCikis = (cikisTimeStr || '18:00').substring(0, 5);
+  if (!shiftStartIso) return { isExpired: true, autoCloseTime: cleanCikis };
+  const startMs = new Date(shiftStartIso).getTime();
+  if (isNaN(startMs)) return { isExpired: true, autoCloseTime: cleanCikis };
+
+  const now = new Date();
+  const startDate = new Date(shiftStartIso);
+  const elapsedMs = now.getTime() - startMs;
+  const elapsedHours = elapsedMs / (1000 * 60 * 60);
+
+  // 1. Failsafe (Açık unutulmuş mesai): 18 saatten fazla geçmişse kesinlikle otomatik kapat
+  if (elapsedHours >= 18) {
+    return { isExpired: true, autoCloseTime: cleanCikis };
+  }
+
+  // 2. Fazla mesai onayı varsa: Yönetici onayladığı için vardiya bitişinde otomatik kapatma yapılmaz
+  if (isOvertimeAuthorized) {
+    return { isExpired: false, autoCloseTime: cleanCikis };
+  }
+
+  // 3. Vardiya Planlanan Bitiş Saati Kontrolü (Gündüz, Sabah, Cumartesi ve Gece Vardiyaları):
+  const [eH, eM] = cleanCikis.split(':').map(Number);
+  if (isNaN(eH) || isNaN(eM)) {
+    return { isExpired: false, autoCloseTime: cleanCikis };
+  }
+
+  const shiftEnd = new Date(startDate);
+  shiftEnd.setHours(eH, eM, 0, 0);
+
+  // Gece vardiyası kontrolü (örn: 23:00 - 07:00):
+  let isOvernight = false;
+  if (shiftStartTimeStr) {
+    const [sH, sM] = shiftStartTimeStr.substring(0, 5).split(':').map(Number);
+    if (!isNaN(sH) && !isNaN(sM)) {
+      isOvernight = (eH * 60 + eM) < (sH * 60 + sM);
+    }
+  }
+  if (isOvernight && shiftEnd.getTime() <= startDate.getTime()) {
+    shiftEnd.setDate(shiftEnd.getDate() + 1);
+  }
+
+  const deadline = new Date(shiftEnd.getTime() + gracePeriodMinutes * 60 * 1000);
+
+  if (now.getTime() >= deadline.getTime()) {
+    return { isExpired: true, autoCloseTime: cleanCikis };
+  }
+
+  return { isExpired: false, autoCloseTime: cleanCikis };
+}
+
 export function findBestMatchingShift(
   girisSaati: string,
   assignedShift: CompanyShift,
   allShifts?: CompanyShift[]
 ): CompanyShift {
   const [gH, gM] = girisSaati.split(':').map(Number);
-  const gMin = gH * 60 + gM;
 
-  if (allShifts && allShifts.length > 0) {
-    let bestShift: CompanyShift | null = null;
-    let minDiff = Infinity;
-
-    for (const s of allShifts) {
-      if (!s.start_time) continue;
-      const [sH, sM] = s.start_time.split(':').map(Number);
-      if (isNaN(sH) || isNaN(sM)) continue;
-      const sMin = sH * 60 + sM;
-      let diff = Math.abs(gMin - sMin);
-      if (diff > 720) diff = 1440 - diff;
-      if (diff < minDiff) {
-        minDiff = diff;
-        bestShift = s;
-      }
-    }
-
-    // Eğer tanımlı bir vardiya ile yakın eşleşiyorsa (en fazla 45 dk fark), onu kullan
-    if (bestShift && minDiff <= 45) {
-      return bestShift;
-    }
-  }
-
-  // Tanımlı tam eşleşen vardiya yoksa ve gece saatinde giriş yapılmışsa (21:00 - 04:00 arası):
-  // 23:00 - 07:00 veya 00:00 - 08:00 gece vardiyası otomatik oluşturulur
+  // Gece saatinde giriş yapılmışsa (21:00 - 04:00 arası) önce tanımlı gece vardiyasını ara, yoksa otomatik oluştur
   if (gH >= 21 || gH <= 4) {
+    if (allShifts && allShifts.length > 0) {
+      const nightShift = allShifts.find((s) => {
+        if (!s.start_time) return false;
+        const [sH] = s.start_time.split(':').map(Number);
+        return sH >= 20 || sH <= 4;
+      });
+      if (nightShift) return nightShift;
+    }
     const is23Shift = gH === 22 || gH === 23 || (gH === 0 && gM < 30);
     return {
       id: 'gece-vardiyasi-auto',
@@ -289,8 +396,9 @@ export function hesaplaPersonelAylikPuantaj(params: {
   adminOverrides?: Record<string, any>;
   saturdayConfig?: SaturdayWorkConfig;
   leaveTypes?: any[];
+  overtimeAuthMap?: Record<string, any>;
 }): PersonelAylikPuantaj {
-  const { employee, year, monthIndex, shift, vardiyaKayitlari, izinTalepleri, adminOverrides = {}, saturdayConfig, leaveTypes } = params;
+  const { employee, year, monthIndex, shift, vardiyaKayitlari, izinTalepleri, adminOverrides = {}, saturdayConfig, leaveTypes, overtimeAuthMap } = params;
 
   const activeShift = shift || VARSAYILAN_VARDIYALAR[0];
   const monthDays = getAyinGunleri(year, monthIndex);
@@ -358,10 +466,17 @@ export function hesaplaPersonelAylikPuantaj(params: {
       cikisSaati = cikisSaati.substring(0, 5);
     }
 
-    // Vardiya parametreleri (Giriş saatine ve gece vardiyasına göre akıllı eşleşme)
+    // Vardiya parametreleri (Kayıtlı vardiya etiketi ve gece vardiyasına göre akıllı eşleşme)
     let currentDayShift = activeShift;
+    if (realShift?.notlar && params.allShifts && params.allShifts.length > 0) {
+      const vIdMatch = realShift.notlar.match(/\[VARDIYA_ID:\s*([^\]]+)\]/i);
+      if (vIdMatch && vIdMatch[1]) {
+        const matchedById = params.allShifts.find((s) => s.id === vIdMatch[1].trim());
+        if (matchedById) currentDayShift = matchedById;
+      }
+    }
     if (girisSaati) {
-      currentDayShift = findBestMatchingShift(girisSaati, activeShift, params.allShifts);
+      currentDayShift = findBestMatchingShift(girisSaati, currentDayShift, params.allShifts);
     }
 
     let activeStartTime = currentDayShift?.start_time || '08:30';
@@ -382,6 +497,43 @@ export function hesaplaPersonelAylikPuantaj(params: {
     const isToday = tarih === todayYMD;
     const isPast = tarih < todayYMD;
 
+    const isOvertimeAuthorized = checkEmployeeOvertimeAuth(
+      overtimeAuthMap,
+      empId,
+      tarih,
+      realShift?.notlar,
+      todayYMD
+    );
+
+    // 1. Vardiya başlangıcından önce basılan girişleri vardiya başlangıç saatine çek
+    if (girisSaati && overrideData?.giris === undefined) {
+      girisSaati = snapEarlyCheckInToShiftStart(girisSaati, activeStartTime);
+    }
+
+    // 2. Açık kalmış vardiyaları (fazla mesai onayı yoksa vardiya bitiş saatinde) otomatik sonlandır
+    if (girisSaati && !cikisSaati && overrideData?.cikis === undefined) {
+      const { isExpired, autoCloseTime } = checkIsShiftExpired(
+        `${tarih}T${girisSaati}:00`,
+        activeEndTime,
+        isOvertimeAuthorized,
+        0,
+        activeStartTime
+      );
+      if (isExpired) {
+        cikisSaati = autoCloseTime;
+      }
+    }
+
+    // 3. Fazla mesai onayı yoksa vardiya bitiş saatinden sonra basılan çıkışları vardiya bitiş saatine çek
+    if (girisSaati && cikisSaati && overrideData?.cikis === undefined) {
+      cikisSaati = snapLateCheckOutToShiftEnd(
+        cikisSaati,
+        activeEndTime,
+        activeStartTime,
+        isOvertimeAuthorized
+      );
+    }
+
     // Süre hesaplama
     let brutSureSaat = 0;
     let netSureSaat = 0;
@@ -392,20 +544,6 @@ export function hesaplaPersonelAylikPuantaj(params: {
 
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    let shiftStartMinutes = 8 * 60 + 30;
-    let shiftEndMinutes = 18 * 60;
-    if (activeStartTime) {
-      const [sH, sM] = activeStartTime.split(':').map(Number);
-      if (!isNaN(sH) && !isNaN(sM)) {
-        shiftStartMinutes = sH * 60 + sM;
-      }
-    }
-    if (activeEndTime) {
-      const [eH, eM] = activeEndTime.split(':').map(Number);
-      if (!isNaN(eH) && !isNaN(eM)) {
-        shiftEndMinutes = eH * 60 + eM;
-      }
-    }
 
     if (girisSaati && cikisSaati) {
       const [gH, gM] = girisSaati.split(':').map(Number);
@@ -437,7 +575,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
           }
         }
 
-        // Planlanan mesai süresi üzeri fazla mesai
+        // Planlanan mesai süresi üzeri fazla mesai (Yalnızca fazla mesai onayı varsa hesaplanır)
         const [eH, eM] = activeEndTime.split(':').map(Number);
         if (!isNaN(eH) && !isNaN(eM) && !isNaN(sH) && !isNaN(sM)) {
           let plannedShiftDiffMins = (eH * 60 + eM) - (sH * 60 + sM);
@@ -445,13 +583,13 @@ export function hesaplaPersonelAylikPuantaj(params: {
           const plannedShiftGrossHours = plannedShiftDiffMins / 60;
           const plannedBreakMins = hesaplaYasalAraDinlenme(plannedShiftGrossHours, activeMolaDk);
           const normalShiftMins = Math.max(0, plannedShiftDiffMins - plannedBreakMins);
-          if (netMins > normalShiftMins) {
+          if (isOvertimeAuthorized && netMins > normalShiftMins) {
             fazlaMesaiSaat = parseFloat(((netMins - normalShiftMins) / 60).toFixed(1));
           }
         }
       }
     } else if (girisSaati && !cikisSaati) {
-      // KULLANICI KESİN TALİMATI: Gün bitse bile vardiya ASLA otomatik kapatılmaz!
+      // Henüz vardiya bitiş saati gelmemiş (veya fazla mesai onayıyla devam eden) aktif vardiya
       const [gH, gM] = girisSaati.split(':').map(Number);
       isOngoing = true;
       cikisSaati = null;
@@ -462,14 +600,8 @@ export function hesaplaPersonelAylikPuantaj(params: {
         if (!isNaN(entryDateTime.getTime())) {
           const diffMs = now.getTime() - entryDateTime.getTime();
           const elapsedMins = Math.max(0, Math.floor(diffMs / (1000 * 60)));
-          if (elapsedMins > 0 && elapsedMins <= 16 * 60) {
+          if (elapsedMins > 0 && elapsedMins <= 18 * 60) {
             workedSoFarMins = elapsedMins;
-          } else {
-            const [sH, sM] = activeStartTime.split(':').map(Number);
-            const [eH, eM] = activeEndTime.split(':').map(Number);
-            let plannedDiff = (eH * 60 + eM) - (sH * 60 + sM);
-            if (plannedDiff < 0) plannedDiff += 1440;
-            workedSoFarMins = plannedDiff > 0 ? plannedDiff : 480;
           }
         } else {
           workedSoFarMins = Math.max(0, currentMinutes - (gH * 60 + gM));
@@ -519,6 +651,7 @@ export function hesaplaPersonelAylikPuantaj(params: {
       kodAciklama = effectiveKodAciklama || 'Manuel Düzenlendi';
       if (kod === 'Ç') {
         fiiliCalismaGun += 1;
+        toplamFazlaMesaiSaat += fazlaMesaiSaat;
         if (netSureSaat > 0) {
           fiiliCalismaSaat += netSureSaat;
         } else if (girisSaati || cikisSaati) {

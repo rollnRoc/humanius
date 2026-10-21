@@ -32,6 +32,7 @@ import { pdksService, VardiyaKaydi } from '../services/pdksService';
 import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG } from '../services/shiftService';
 import { leaveTypeService } from '../services/leaveTypeService';
 import { izinService } from '../services/izinService';
+import { systemDataService } from '../services/systemDataService';
 import { IzinTuruKural } from './IzinTanimlari';
 import { getCompanyIzinTurleri, formatIzinSuresiLabel } from '../utils/izinCalculations';
 import {
@@ -151,6 +152,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const [vardiyaKayitlari, setVardiyaKayitlari] = useState<VardiyaKaydi[]>([]);
   const [companyShifts, setCompanyShifts] = useState<CompanyShift[]>(VARSAYILAN_VARDIYALAR);
   const [shiftAssignments, setShiftAssignments] = useState<Record<string, string>>({});
+  const [overtimeAuthMap, setOvertimeAuthMap] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Cumartesi Çalışma Yapılandırması
@@ -232,17 +234,21 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
       setAdminOverrides({});
 
       const targetCompanyId = profile?.company_id || employees[0]?.company_id || undefined;
-      const [fetchedVardiyalar, fetchedShifts, fetchedAssignments, fetchedSaturday, fetchedLeaveTypes] = await Promise.all([
+      const [fetchedVardiyalar, fetchedShifts, fetchedAssignments, fetchedSaturday, fetchedLeaveTypes, fetchedOvertimeAuth] = await Promise.all([
         pdksService.getVardiyalar(targetCompanyId),
         shiftService.getShifts(targetCompanyId),
         shiftService.getAssignments(targetCompanyId),
         shiftService.getSaturdayConfig(targetCompanyId),
         leaveTypeService.getLeaveTypes(targetCompanyId),
+        targetCompanyId ? systemDataService.getCompanyData<Record<string, any>>(targetCompanyId, 'pdks_overtime_auth', {}) : Promise.resolve({}),
       ]);
       setVardiyaKayitlari(fetchedVardiyalar);
       setCompanyShifts(fetchedShifts.length > 0 ? fetchedShifts : VARSAYILAN_VARDIYALAR);
       setShiftAssignments(fetchedAssignments);
       setSaturdayConfig(fetchedSaturday);
+      if (fetchedOvertimeAuth && typeof fetchedOvertimeAuth === 'object') {
+        setOvertimeAuthMap(fetchedOvertimeAuth);
+      }
       if (fetchedLeaveTypes && fetchedLeaveTypes.length > 0) {
         setLeaveTypes(fetchedLeaveTypes);
       }
@@ -261,6 +267,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     window.addEventListener('humanius_puantaj_updated', handleUpdate);
     window.addEventListener('humanius_saturday_updated', handleUpdate);
     window.addEventListener('humanius_izin_turleri_updated', handleUpdate);
+    window.addEventListener('humanius_system_data_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     const handleVisibility = () => {
@@ -273,6 +280,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
       window.removeEventListener('humanius_puantaj_updated', handleUpdate);
       window.removeEventListener('humanius_saturday_updated', handleUpdate);
       window.removeEventListener('humanius_izin_turleri_updated', handleUpdate);
+      window.removeEventListener('humanius_system_data_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
@@ -285,8 +293,27 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     const defaultShift = companyShifts.find((s) => s.is_default) || companyShifts[0] || VARSAYILAN_VARDIYALAR[0];
 
     return employees.map((emp) => {
-      const assignedShiftId = shiftAssignments[emp.id];
-      const empShift = companyShifts.find((s) => s.id === assignedShiftId) || defaultShift;
+      const assignedShiftId = shiftAssignments[emp.id] || ((emp as any).user_id && shiftAssignments[(emp as any).user_id]);
+      let empShift = companyShifts.find((s) => s.id === assignedShiftId) || null;
+      if (!empShift) {
+        try {
+          const savedShiftId = localStorage.getItem(`humanius_emp_selected_shift_${emp.id}`);
+          if (savedShiftId) {
+            empShift = companyShifts.find((s) => s.id === savedShiftId) || null;
+          }
+        } catch {}
+      }
+      if (!empShift) {
+        const empLoc = emp.department || (emp as any).branch || (emp as any).office_name || '';
+        if (empLoc) {
+          empShift = companyShifts.find(
+            (s) =>
+              s.name.toLowerCase().includes(empLoc.toLowerCase()) ||
+              (s.office_name && s.office_name.toLowerCase().includes(empLoc.toLowerCase()))
+          ) || null;
+        }
+      }
+      if (!empShift) empShift = defaultShift;
 
       return hesaplaPersonelAylikPuantaj({
         employee: emp,
@@ -299,9 +326,10 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
         adminOverrides,
         saturdayConfig,
         leaveTypes,
+        overtimeAuthMap,
       });
     });
-  }, [employees, selectedYear, selectedMonthIndex, companyShifts, shiftAssignments, vardiyaKayitlari, izinTalepleri, adminOverrides, saturdayConfig, leaveTypes]);
+  }, [employees, selectedYear, selectedMonthIndex, companyShifts, shiftAssignments, vardiyaKayitlari, izinTalepleri, adminOverrides, saturdayConfig, leaveTypes, overtimeAuthMap]);
 
   const filteredPuantaj = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
