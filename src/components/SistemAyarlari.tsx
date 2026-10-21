@@ -2105,23 +2105,20 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
                       {/* Aşama Simülasyonu Seçici */}
                       <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-purple-200 shadow-2xs">
                         <span className="text-[10px] font-bold text-slate-500 px-1.5">Örnek Durum:</span>
-                        {activeApprovalSteps.map((step) => (
-                          <button
-                            key={step.id}
-                            type="button"
-                            onClick={() => setWorkflowSimulationStep(step.stepNum)}
-                            className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
-                              workflowSimulationStep === step.stepNum
-                                ? 'bg-blue-600 text-white shadow-xs'
-                                : 'text-slate-600 hover:bg-slate-100'
-                            }`}
-                          >
-                            {workflowSimulationStep === step.stepNum && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                            )}
-                            <span>Onay Yetkiliside</span>
-                          </button>
-                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setWorkflowSimulationStep(1)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                            workflowSimulationStep <= activeApprovalSteps.length
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {workflowSimulationStep <= activeApprovalSteps.length && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          )}
+                          <span>Onay Yetkilisinde</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => setWorkflowSimulationStep(activeApprovalSteps.length + 1)}
