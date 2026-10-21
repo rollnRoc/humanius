@@ -3,7 +3,7 @@ import { Users, Calendar, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown,
 import type { Employee } from '../types';
 import type { IzinTalebi, IzinHakki } from '../types/izin';
 import { useAuth } from '../contexts/AuthContext';
-import { formatIzinTuru, calculateCompletedYears, calculateYillikIzinHakki, hasCompletedOneYear, getYillikIzinHakEdisTarihi, formatDate } from '../utils/izinCalculations';
+import { formatIzinTuru, calculateCompletedYears, calculateYillikIzinHakki, hasCompletedOneYear, getYillikIzinHakEdisTarihi, formatDate, formatIzinSuresiLabel } from '../utils/izinCalculations';
 
 interface IzinOzetKartlariProps {
   employees: Employee[];
@@ -535,7 +535,7 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
                       </div>
                       {siradakiIzin ? (
                         <span className="font-bold text-blue-700 truncate text-right">
-                          {formatIzinTuru(siradakiIzin.izinTuru)} ({siradakiIzin.gunSayisi} gün)
+                          {formatIzinTuru(siradakiIzin.izinTuru)} ({formatIzinSuresiLabel(siradakiIzin, true)})
                         </span>
                       ) : (
                         <span className="text-slate-400 font-medium">Planlı izin yok</span>
@@ -773,7 +773,7 @@ export const IzinOzetKartlari: React.FC<IzinOzetKartlariProps> = ({
                               </span>
                               <span className="font-semibold text-gray-800 shrink-0">{formatIzinTuru(t.izinTuru)}</span>
                               <span className="text-gray-400 text-xs shrink-0">{t.baslangicTarihi} – {t.bitisTarihi}</span>
-                              <span className="ml-auto text-gray-700 font-semibold text-xs shrink-0">{t.gunSayisi} gün</span>
+                              <span className="ml-auto text-gray-700 font-semibold text-xs shrink-0">{formatIzinSuresiLabel(t, true)}</span>
                               
                               {/* Düzenle / Sil */}
                               {isAuthorized && (onEditIzin || onDeleteIzin) && (

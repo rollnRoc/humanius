@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, User, FileText, AlertCircle, AlertTriangle, MapPin, Upload, CheckCircle } from 'lucide-react';
+import { X, Calendar, User, FileText, AlertCircle, AlertTriangle, MapPin, Upload, CheckCircle, Clock } from 'lucide-react';
 import { Employee } from '../types';
 import { IzinTalebi, IzinHakki, IzinTuru } from '../types/izin';
 import {
@@ -14,7 +14,9 @@ import {
   calculateCompletedYears,
   hasCompletedOneYear,
   getYillikIzinHakEdisTarihi,
-  getYillikIzinKalanGunSayisi
+  getYillikIzinKalanGunSayisi,
+  calculateHourlyDuration,
+  formatHourlyLeaveTag
 } from '../utils/izinCalculations';
 import { leaveTypeService } from '../services/leaveTypeService';
 import { shiftService } from '../services/shiftService';
@@ -43,6 +45,9 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
     employeeId: employees.length === 1 ? employees[0]?.id || '' : '',
     izinTuru: 'yillik' as IzinTuru,
     kismiYillik: false,
+    saatlikMazeret: false,
+    baslangicSaati: '14:00',
+    bitisSaati: '16:00',
     baslangicTarihi: '',
     bitisTarihi: '',
     aciklama: '',
@@ -55,6 +60,17 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
   const [belgeDosyasi, setBelgeDosyasi] = useState<File | null>(null);
   const [belgeYuklendi, setBelgeYuklendi] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isMazeretTuru = useMemo(() => {
+    const tur = String(formData.izinTuru || '').toLowerCase();
+    return tur === 'mazeret' || tur.includes('mazeret');
+  }, [formData.izinTuru]);
+
+  const isSaatlikMazeretActive = isMazeretTuru && formData.saatlikMazeret;
+
+  const hourlyDuration = useMemo(() => {
+    return calculateHourlyDuration(formData.baslangicSaati, formData.bitisSaati);
+  }, [formData.baslangicSaati, formData.bitisSaati]);
 
   // Pure derived state for selected employee and leave rights
   const selectedEmployee = useMemo(() => {
@@ -103,11 +119,14 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
 
   // Pure derived state for working days calculation (6 günlük çalışma düzeninde Cumartesi de iş günüdür)
   const gunSayisi = useMemo(() => {
+    if (isSaatlikMazeretActive) {
+      return 0;
+    }
     if (formData.baslangicTarihi && formData.bitisTarihi) {
       return calculateWorkingDays(formData.baslangicTarihi, formData.bitisTarihi, isSaturdayWork);
     }
     return 0;
-  }, [formData.baslangicTarihi, formData.bitisTarihi, isSaturdayWork]);
+  }, [formData.baslangicTarihi, formData.bitisTarihi, isSaturdayWork, isSaatlikMazeretActive]);
 
   const [availableLeaveTypes, setAvailableLeaveTypes] = useState<Array<{ id: string; ad: string }>>(() => {
     const compId = employees[0]?.company_id;
@@ -143,9 +162,6 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
   const effectiveMaxGun = formData.izinTuru === 'yillik' && formData.kismiYillik
     ? 10
     : maxSureInfo.maxGun;
-  const effectiveMaxLabel = formData.izinTuru === 'yillik' && formData.kismiYillik
-    ? '10 gün'
-    : maxSureInfo.label;
   const effectiveMaxAciklama = formData.izinTuru === 'yillik' && formData.kismiYillik
     ? 'Kısmi yıllık izin talepleri en az 1, en fazla 10 iş günü olabilir.'
     : maxSureInfo.aciklama;
@@ -162,6 +178,17 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
     // 4857 Sayılı İş Kanunu Madde 53/54 — 1 Yıl Dolum Kontrolü
     if (selectedEmployee && formData.izinTuru === 'yillik' && !employeeHas1Year) {
       return `4857 Sayılı İş Kanunu (Madde 53/54) uyarınca yıllık ücretli izin hakkı işe giriş tarihinden itibaren en az 1 tam yıl çalışıldıktan sonra hak edilir. ${selectedEmployee.name} henüz 1 yılını doldurmadığı için yıllık izin kullanamaz.${formattedCompletionDate ? ` (İşe Giriş: ${formattedJoinDate} • 1 Yıl Dolum: ${formattedCompletionDate}${kalanGunToOneYear > 0 ? ` • Kalan: ${kalanGunToOneYear} gün` : ''})` : ''}`;
+    }
+
+    if (isSaatlikMazeretActive) {
+      if (!formData.baslangicTarihi) return '';
+      if (!hourlyDuration.isValid) {
+        return 'Saatlik mazeret izni için bitiş saati başlangıç saatinden sonra olmalıdır.';
+      }
+      if (hourlyDuration.hours > 8) {
+        return 'Saatlik mazeret izni en fazla 8 saat olabilir. Tam gün izin için "Günlük (Tam Gün)" seçeneğini kullanınız.';
+      }
+      return '';
     }
 
     if (!formData.baslangicTarihi || !formData.bitisTarihi) {
@@ -202,16 +229,34 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
     }
 
     return '';
-  }, [formData.baslangicTarihi, formData.bitisTarihi, formData.izinTuru, formData.kismiYillik, formData.yolIzniTalep, formData.yolIzniGun, gunSayisi, selectedEmployee, izinHakki, employeeHas1Year, formattedCompletionDate, formattedJoinDate, kalanGunToOneYear]);
+  }, [
+    formData.baslangicTarihi,
+    formData.bitisTarihi,
+    formData.izinTuru,
+    formData.kismiYillik,
+    formData.yolIzniTalep,
+    formData.yolIzniGun,
+    gunSayisi,
+    selectedEmployee,
+    izinHakki,
+    employeeHas1Year,
+    formattedCompletionDate,
+    formattedJoinDate,
+    kalanGunToOneYear,
+    isSaatlikMazeretActive,
+    hourlyDuration,
+    isSaturdayWork
+  ]);
 
   // Pure derived conflict detection (çakışan izinler)
   const clashingLeaves = useMemo(() => {
-    if (!formData.baslangicTarihi || !formData.bitisTarihi || !selectedEmployee) {
+    const effectiveEnd = isSaatlikMazeretActive ? formData.baslangicTarihi : formData.bitisTarihi;
+    if (!formData.baslangicTarihi || !effectiveEnd || !selectedEmployee) {
       return [];
     }
 
     const start = new Date(formData.baslangicTarihi).getTime();
-    const end = new Date(formData.bitisTarihi).getTime();
+    const end = new Date(effectiveEnd).getTime();
 
     return (izinTalepleri || []).filter(t => {
       if (t.durum !== 'onaylandi' && t.durum !== 'İK Onayladı' && t.durum !== 'Yönetici Onayladı') return false;
@@ -228,20 +273,18 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
       ...t,
       employee: employees.find(e => e.id === t.employeeId)
     }));
-  }, [formData.baslangicTarihi, formData.bitisTarihi, selectedEmployee, izinTalepleri, employees]);
+  }, [formData.baslangicTarihi, formData.bitisTarihi, isSaatlikMazeretActive, selectedEmployee, izinTalepleri, employees]);
 
   // Belge yükleme
   const handleBelgeYukle = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Dosya türü kontrolü
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
       if (!allowedTypes.includes(file.type)) {
         alert('Sadece PDF, JPG, PNG dosyaları yükleyebilirsiniz.');
         return;
       }
 
-      // Dosya boyutu kontrolü (5MB)
       if (file.size > 5 * 1024 * 1024) {
         alert('Dosya boyutu 5MB\'dan küçük olmalıdır.');
         return;
@@ -251,53 +294,68 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
       setBelgeYuklendi(true);
     }
   };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const effectiveEndDate = isSaatlikMazeretActive ? formData.baslangicTarihi : formData.bitisTarihi;
 
     if (
       !formData.employeeId ||
       !formData.baslangicTarihi ||
-      !formData.bitisTarihi
+      !effectiveEndDate
     ) {
       alert('Lütfen tüm zorunlu alanları doldurun!');
       return;
     }
 
-    if (new Date(formData.baslangicTarihi) > new Date(formData.bitisTarihi)) {
-      alert('Başlangıç tarihi bitiş tarihinden sonra olamaz!');
-      return;
-    }
+    if (isSaatlikMazeretActive) {
+      if (!hourlyDuration.isValid) {
+        alert('Saatlik mazeret izni için bitiş saati başlangıç saatinden sonra olmalıdır!');
+        return;
+      }
+      if (hourlyDuration.hours > 8) {
+        alert('Saatlik mazeret izni en fazla 8 saat olabilir!');
+        return;
+      }
+    } else {
+      if (new Date(formData.baslangicTarihi) > new Date(effectiveEndDate)) {
+        alert('Başlangıç tarihi bitiş tarihinden sonra olamaz!');
+        return;
+      }
 
-    if (selectedEmployee && formData.izinTuru === 'yillik' && !employeeHas1Year) {
-      alert(`4857 Sayılı İş Kanunu (Madde 53/54) uyarınca yıllık ücretli izin hakkı, işe giriş tarihinden itibaren en az 1 tam yıl çalışıldıktan sonra hak edilir. ${selectedEmployee.name} henüz 1 yılını doldurmadığı için yıllık izin kullanamaz.`);
-      return;
-    }
+      if (selectedEmployee && formData.izinTuru === 'yillik' && !employeeHas1Year) {
+        alert(`4857 Sayılı İş Kanunu (Madde 53/54) uyarınca yıllık ücretli izin hakkı, işe giriş tarihinden itibaren en az 1 tam yıl çalışıldıktan sonra hak edilir. ${selectedEmployee.name} henüz 1 yılını doldurmadığı için yıllık izin kullanamaz.`);
+        return;
+      }
 
-    if (formData.izinTuru === 'yillik' && formData.kismiYillik && (gunSayisi < 1 || gunSayisi > 10)) {
-      alert('Kısmi yıllık izin 1 ile 10 iş günü arasında seçilmelidir.');
-      return;
-    }
+      if (formData.izinTuru === 'yillik' && formData.kismiYillik && (gunSayisi < 1 || gunSayisi > 10)) {
+        alert('Kısmi yıllık izin 1 ile 10 iş günü arasında seçilmelidir.');
+        return;
+      }
 
-    if (formData.izinTuru === 'mazeret' && izinHakki && gunSayisi > (izinHakki.kalanIzin || 0)) {
-      alert(`Mazeret izni süresi kalan yıllık izin süresinden fazla olamaz. Kalan yıllık izin: ${izinHakki.kalanIzin} gün.`);
-      return;
-    }
+      if (formData.izinTuru === 'mazeret' && izinHakki && gunSayisi > (izinHakki.kalanIzin || 0)) {
+        alert(`Mazeret izni süresi kalan yıllık izin süresinden fazla olamaz. Kalan yıllık izin: ${izinHakki.kalanIzin} gün.`);
+        return;
+      }
 
-    if (formData.yolIzniTalep && formData.ilDisiSeyahat && !belgeDosyasi) {
-      alert('İl dışı seyahat için belge yüklemeniz gereklidir!');
-      return;
-    }
+      if (formData.yolIzniTalep && formData.ilDisiSeyahat && !belgeDosyasi) {
+        alert('İl dışı seyahat için belge yüklemeniz gereklidir!');
+        return;
+      }
 
-    if (formData.yolIzniTalep && !formData.seyahatYeri.trim()) {
-      alert('Seyahat yeri belirtmeniz gereklidir!');
-      return;
-    }
-    if (gunSayisi <= 0 && !formData.yolIzniTalep) {
-      alert(isSaturdayWork
-        ? 'Seçilen tarih aralığında iş günü bulunmamaktadır (tarihler hafta tatili olan Pazar gününe denk gelmektedir). Lütfen geçerli bir iş günü aralığı seçiniz.'
-        : 'Seçilen tarih aralığında iş günü bulunmamaktadır (tarihler hafta sonuna denk gelmektedir). Lütfen geçerli bir iş günü aralığı seçiniz.'
-      );
-      return;
+      if (formData.yolIzniTalep && !formData.seyahatYeri.trim()) {
+        alert('Seyahat yeri belirtmeniz gereklidir!');
+        return;
+      }
+
+      if (gunSayisi <= 0 && !formData.yolIzniTalep) {
+        alert(isSaturdayWork
+          ? 'Seçilen tarih aralığında iş günü bulunmamaktadır (tarihler hafta tatili olan Pazar gününe denk gelmektedir). Lütfen geçerli bir iş günü aralığı seçiniz.'
+          : 'Seçilen tarih aralığında iş günü bulunmamaktadır (tarihler hafta sonuna denk gelmektedir). Lütfen geçerli bir iş günü aralığı seçiniz.'
+        );
+        return;
+      }
     }
 
     if (validationError) {
@@ -308,10 +366,15 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
     if (isSubmitting) return;
     setIsSubmitting(true);
 
+    const finalAciklama = isSaatlikMazeretActive
+      ? `${formatHourlyLeaveTag(formData.baslangicSaati, formData.bitisSaati, hourlyDuration.label)}${formData.aciklama.trim() ? ' ' + formData.aciklama.trim() : ''}`.trim()
+      : formData.aciklama;
+
     const talepData = {
       ...formData,
-      bitisTarihi: formData.bitisTarihi,
-      gunSayisi,
+      bitisTarihi: effectiveEndDate,
+      gunSayisi: isSaatlikMazeretActive ? 0 : gunSayisi,
+      aciklama: finalAciklama,
       belgeDosyasi: belgeDosyasi
     };
 
@@ -325,6 +388,20 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => {
       const next = { ...prev, [field]: value };
+      if (field === 'izinTuru') {
+        const nextIsMazeret = String(value || '').toLowerCase().includes('mazeret');
+        if (!nextIsMazeret) {
+          next.saatlikMazeret = false;
+        }
+      }
+      if (field === 'saatlikMazeret' && value === true) {
+        if (next.baslangicTarihi) {
+          next.bitisTarihi = next.baslangicTarihi;
+        }
+      }
+      if (field === 'baslangicTarihi' && next.saatlikMazeret) {
+        next.bitisTarihi = value;
+      }
       if (field === 'kismiYillik' && value) {
         next.izinTuru = 'yillik';
         next.yolIzniTalep = false;
@@ -350,6 +427,14 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
 
   // Minimum tarih (bugün)
   const minDate = new Date().toISOString().split('T')[0];
+
+  const isSubmitDisabled =
+    isSubmitting ||
+    !!validationError ||
+    !formData.employeeId ||
+    !formData.baslangicTarihi ||
+    (!isSaatlikMazeretActive && !formData.bitisTarihi) ||
+    (isSaatlikMazeretActive ? !hourlyDuration.isValid : (gunSayisi <= 0 && !formData.yolIzniTalep));
 
   return (
     <>
@@ -501,6 +586,47 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
                 ))}
               </select>
 
+              {/* Mazeret İzni İçin: Günlük (Tam Gün) vs Saatlik İzin Seçimi */}
+              {isMazeretTuru && (
+                <div className="mt-3 p-3.5 bg-orange-50/70 border border-orange-200 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs font-bold text-orange-950 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-orange-600" />
+                      Mazeret İzni Kullanım Şekli:
+                    </span>
+                    <div className="inline-flex rounded-xl bg-white p-1 border border-orange-200 shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => handleInputChange('saatlikMazeret', false)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          !formData.saatlikMazeret
+                            ? 'bg-orange-600 text-white shadow-2xs'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        📅 Günlük (Tam Gün)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleInputChange('saatlikMazeret', true)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          formData.saatlikMazeret
+                            ? 'bg-orange-600 text-white shadow-2xs'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        ⏱️ Saatlik İzin
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-orange-800 leading-relaxed">
+                    {formData.saatlikMazeret
+                      ? 'Saatlik mazeret izni (örn. 2 saatlik acil iş/doktor/banka vb.) personelin izin bakiyesinden tam gün olarak düşülmez; Puantaj Cetvelinde ilgili günün açıklama/not kısmına otomatik olarak işlenir.'
+                      : 'Tam günlük mazeret izni seçilen tarih aralığındaki iş günleri baz alınarak hesaplanır.'}
+                  </p>
+                </div>
+              )}
+
               {/* 1 Yıl Dolmadı Uyarısı */}
               {selectedEmployee && formData.izinTuru === 'yillik' && !employeeHas1Year && (
                 <div className="mt-3 p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 shadow-2xs">
@@ -529,15 +655,17 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
               )}
 
               {/* Maksimum süre bilgisi */}
-              <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <div className="flex items-center gap-2 text-sm">
-                  <AlertCircle className="w-4 h-4 text-gray-500" />
-                  <span className="text-gray-600">
-                    <strong>Maksimum Süre:</strong> {effectiveMaxGun} gün
-                  </span>
+              {!isSaatlikMazeretActive && (
+                <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-sm">
+                    <AlertCircle className="w-4 h-4 text-gray-500" />
+                    <span className="text-gray-600">
+                      <strong>Maksimum Süre:</strong> {effectiveMaxGun} gün
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{effectiveMaxAciklama}</p>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{effectiveMaxAciklama}</p>
-              </div>
+              )}
 
               {formData.izinTuru === 'yillik' && (
                 <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
@@ -557,34 +685,89 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Başlangıç Tarihi *</label>
-                <input
-                  type="date"
-                  value={formData.baslangicTarihi}
-                  onChange={(e) => handleInputChange('baslangicTarihi', e.target.value)}
-                  min={minDate}
-                  className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  required
-                />
+            {/* Tarih ve Saat Seçimi */}
+            {isSaatlikMazeretActive ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">İzin Tarihi *</label>
+                  <input
+                    type="date"
+                    value={formData.baslangicTarihi}
+                    onChange={(e) => handleInputChange('baslangicTarihi', e.target.value)}
+                    min={minDate}
+                    className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Başlangıç Saati *</label>
+                  <input
+                    type="time"
+                    value={formData.baslangicSaati}
+                    onChange={(e) => handleInputChange('baslangicSaati', e.target.value)}
+                    className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 font-mono font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Bitiş Saati *</label>
+                  <input
+                    type="time"
+                    value={formData.bitisSaati}
+                    onChange={(e) => handleInputChange('bitisSaati', e.target.value)}
+                    className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 font-mono font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    required
+                  />
+                </div>
               </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Başlangıç Tarihi *</label>
+                  <input
+                    type="date"
+                    value={formData.baslangicTarihi}
+                    onChange={(e) => handleInputChange('baslangicTarihi', e.target.value)}
+                    min={minDate}
+                    className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    required
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Bitiş Tarihi *</label>
-                <input
-                  type="date"
-                  value={formData.bitisTarihi}
-                  onChange={(e) => handleInputChange('bitisTarihi', e.target.value)}
-                  min={formData.baslangicTarihi || minDate}
-                  className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  required
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Bitiş Tarihi *</label>
+                  <input
+                    type="date"
+                    value={formData.bitisTarihi}
+                    onChange={(e) => handleInputChange('bitisTarihi', e.target.value)}
+                    min={formData.baslangicTarihi || minDate}
+                    className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    required
+                  />
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Saatlik İzin Süresi Gösterimi */}
+            {isSaatlikMazeretActive && hourlyDuration.isValid && (
+              <div className="border rounded-xl p-4 bg-orange-50/70 border-orange-200">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-orange-600" />
+                    <span className="text-sm font-semibold text-gray-700">Saatlik İzin Süresi:</span>
+                    <span className="text-base font-extrabold text-orange-700">
+                      {hourlyDuration.label} ({formData.baslangicSaati} - {formData.bitisSaati})
+                    </span>
+                  </div>
+                  <div className="text-xs text-orange-800 font-semibold bg-white px-2.5 py-1 rounded-lg border border-orange-200">
+                    Puantajda &quot;Açıklama / Not&quot; olarak görünür • 0 Gün Düşülür
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Gün Sayısı Gösterimi */}
-            {(gunSayisi > 0 || formData.yolIzniTalep) && (
+            {!isSaatlikMazeretActive && (gunSayisi > 0 || formData.yolIzniTalep) && (
               <div className={`border rounded-xl p-4 ${
                 validationError
                   ? 'bg-red-50 border-red-200'
@@ -616,7 +799,7 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
             )}
 
             {/* Hafta tatili bilgilendirmesi (sadece 5 günlükte Cumartesi günü seçildiğinde) */}
-            {formData.baslangicTarihi && formData.bitisTarihi && gunSayisi === 0 && !formData.yolIzniTalep && (
+            {!isSaatlikMazeretActive && formData.baslangicTarihi && formData.bitisTarihi && gunSayisi === 0 && !formData.yolIzniTalep && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm">
@@ -748,12 +931,18 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
 
             {/* Açıklama */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Açıklama</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {isSaatlikMazeretActive ? 'Mazeret Nedeni / Açıklama' : 'Açıklama'}
+              </label>
               <textarea
                 value={formData.aciklama}
                 onChange={(e) => handleInputChange('aciklama', e.target.value)}
                 rows={3}
-                placeholder="İzin talebiniz hakkında ek bilgiler..."
+                placeholder={
+                  isSaatlikMazeretActive
+                    ? 'Örn: Doktor randevusu, banka işlemi, resmi kurum işi...'
+                    : 'İzin talebiniz hakkında ek bilgiler...'
+                }
                 className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none"
               />
             </div>
@@ -783,7 +972,7 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
             <button
               type="submit"
               onClick={handleSubmit}
-              disabled={isSubmitting || !!validationError || !formData.employeeId || !formData.baslangicTarihi || !formData.bitisTarihi || (gunSayisi <= 0 && !formData.yolIzniTalep)}
+              disabled={isSubmitDisabled}
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
             >
               {isSubmitting ? 'Gönderiliyor...' : 'Talebi Gönder'}
@@ -792,8 +981,6 @@ const IzinTalepForm: React.FC<IzinTalepFormProps> = ({
         </div>
       </div>
     </div>
-
-
     </>
   );
 };

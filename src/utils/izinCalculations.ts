@@ -572,3 +572,145 @@ export function calculateYillikIzinHakki(calismaYili: number): number {
   if (calismaYili < 15) return 20;
   return 26;
 }
+
+
+// ─── Saatlik Mazeret İzni Yardımcıları ────────────────────────────────────────
+
+/**
+ * Başlangıç ve bitiş saati arasındaki süreyi saat ve dakika olarak hesaplar.
+ */
+export function calculateHourlyDuration(
+  startTime?: string,
+  endTime?: string
+): { hours: number; minutes: number; label: string; isValid: boolean } {
+  if (!startTime || !endTime) {
+    return { hours: 0, minutes: 0, label: '0 Saat', isValid: false };
+  }
+  const [sH, sM] = startTime.split(':').map(Number);
+  const [eH, eM] = endTime.split(':').map(Number);
+  if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) {
+    return { hours: 0, minutes: 0, label: '0 Saat', isValid: false };
+  }
+  const diffMins = (eH * 60 + eM) - (sH * 60 + sM);
+  if (diffMins <= 0) {
+    return { hours: 0, minutes: 0, label: '0 Saat', isValid: false };
+  }
+  const hours = parseFloat((diffMins / 60).toFixed(2));
+  const wholeHours = Math.floor(diffMins / 60);
+  const remMins = diffMins % 60;
+  let label = '';
+  if (wholeHours > 0 && remMins > 0) {
+    label = `${wholeHours} Saat ${remMins} Dk`;
+  } else if (wholeHours > 0) {
+    label = `${wholeHours} Saat`;
+  } else {
+    label = `${remMins} Dakika`;
+  }
+  return { hours, minutes: diffMins, label, isValid: true };
+}
+
+/**
+ * Saatlik izin bilgisini açıklama metnine eklenecek standart etikete dönüştürür.
+ * Örn: [SAATLİK İZİN: 14:00 - 16:00 (2 Saat)]
+ */
+export function formatHourlyLeaveTag(startTime: string, endTime: string, hoursLabel: string): string {
+  return `[SAATLİK İZİN: ${startTime} - ${endTime} (${hoursLabel})]`;
+}
+
+/**
+ * Bir izin talebinin veya açıklama metninin saatlik mazeret izni olup olmadığını ayrıştırır.
+ */
+export function parseHourlyLeaveInfo(talepOrAciklama: any): {
+  isHourly: boolean;
+  startTime: string;
+  endTime: string;
+  hoursLabel: string;
+  rangeLabel: string;
+  badgeLabel: string;
+  puantajNote: string;
+  cleanAciklama: string;
+} {
+  const rawAciklama =
+    typeof talepOrAciklama === 'string'
+      ? talepOrAciklama
+      : String(talepOrAciklama?.aciklama ?? '');
+
+  const match = rawAciklama.match(
+    /\[SAATLİK İZİN:\s*([0-9]{1,2}:[0-9]{2})\s*-\s*([0-9]{1,2}:[0-9]{2})\s*\(([^)]+)\)\]/i
+  );
+
+  const cleanAciklama = rawAciklama
+    .replace(/\[SAATLİK İZİN:[^\]]+\]/gi, '')
+    .trim();
+
+  if (match) {
+    const startTime = match[1];
+    const endTime = match[2];
+    const hoursLabel = match[3].trim();
+    const rangeLabel = `${startTime} - ${endTime} (${hoursLabel})`;
+    const badgeLabel = `Saatlik İzin (${startTime} - ${endTime} • ${hoursLabel})`;
+    const puantajNote = cleanAciklama
+      ? `Saatlik Mazeret İzni: ${startTime} - ${endTime} (${hoursLabel}) — ${cleanAciklama}`
+      : `Saatlik Mazeret İzni: ${startTime} - ${endTime} (${hoursLabel})`;
+    return {
+      isHourly: true,
+      startTime,
+      endTime,
+      hoursLabel,
+      rangeLabel,
+      badgeLabel,
+      puantajNote,
+      cleanAciklama,
+    };
+  }
+
+  // Eğer gunSayisi === 0 ve izinTuru mazeret ise (etiketsiz saatlik izin fallback)
+  if (typeof talepOrAciklama === 'object' && talepOrAciklama !== null) {
+    const gun = Number(talepOrAciklama.gunSayisi ?? talepOrAciklama.gun_sayisi ?? -1);
+    const tur = String(talepOrAciklama.izinTuru ?? talepOrAciklama.izin_turu ?? '').toLowerCase();
+    const yol = Boolean(talepOrAciklama.yolIzniTalep ?? talepOrAciklama.yol_izni_talep);
+    if (gun === 0 && !yol && tur.includes('mazeret')) {
+      const puantajNote = cleanAciklama
+        ? `Saatlik Mazeret İzni — ${cleanAciklama}`
+        : 'Saatlik Mazeret İzni';
+      return {
+        isHourly: true,
+        startTime: '',
+        endTime: '',
+        hoursLabel: 'Saatlik',
+        rangeLabel: 'Saatlik İzin',
+        badgeLabel: 'Saatlik İzin',
+        puantajNote,
+        cleanAciklama,
+      };
+    }
+  }
+
+  return {
+    isHourly: false,
+    startTime: '',
+    endTime: '',
+    hoursLabel: '',
+    rangeLabel: '',
+    badgeLabel: '',
+    puantajNote: '',
+    cleanAciklama: rawAciklama,
+  };
+}
+
+/**
+ * İzin süresini ekranda gösterilecek metne çevirir (Örn: "3 Gün" veya "Saatlik İzin (14:00 - 16:00 • 2 Saat)").
+ */
+export function formatIzinSuresiLabel(talep: any, short = false): string {
+  const hourly = parseHourlyLeaveInfo(talep);
+  if (hourly.isHourly) {
+    if (short) {
+      return hourly.hoursLabel && hourly.startTime
+        ? `${hourly.hoursLabel} (${hourly.startTime}-${hourly.endTime})`
+        : 'Saatlik İzin';
+    }
+    return hourly.badgeLabel;
+  }
+  const gun = Number(talep?.gunSayisi ?? talep?.gun_sayisi ?? talep?.kullanilanGun ?? 0);
+  return `${gun} Gün`;
+}

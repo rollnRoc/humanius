@@ -3,7 +3,7 @@
 import { Employee } from '../types';
 import { VardiyaKaydi } from '../services/pdksService';
 import { CompanyShift, SaturdayWorkConfig, DEFAULT_SATURDAY_CONFIG, VARSAYILAN_VARDIYALAR } from '../services/shiftService';
-import { getCompanyIzinTurleri, formatIzinTuru } from './izinCalculations';
+import { getCompanyIzinTurleri, formatIzinTuru, parseHourlyLeaveInfo } from './izinCalculations';
 
 export type PuantajKodu = 
   | 'Ç'    // Normal Fiili Çalışma
@@ -44,6 +44,7 @@ export interface GunlukPuantajDetay {
   yasalUyari11Saat: boolean; // Günlük 11 saat sınır aşımı
   yasalUyariGece: boolean;   // Gece 7.5 saat sınır aşımı
   notlar?: string;
+  saatlikIzinNotu?: string;  // Saatlik mazeret izni varsa açıklama/not özeti
   isOngoing?: boolean;       // Vardiyası / mesaisi şu an devam ediyor mu (henüz çıkış saati gelmemiş)
 }
 
@@ -323,16 +324,20 @@ export function hesaplaPersonelAylikPuantaj(params: {
     const overrideKey = `${empId}_${tarih}`;
     const overrideData = adminOverrides[overrideKey];
 
-    // 1. Öncelik: İzin Talebi
-    const approvedLeave = (izinTalepleri || []).find((t) => {
+    // 1. Öncelik: İzin Talepleri (Tam Gün vs Saatlik Mazeret İzni ayrımı)
+    const matchingApprovedLeaves = (izinTalepleri || []).filter((t) => {
       const tEmpId = t.employeeId || t.employee_id;
       if (!tEmpId || tEmpId !== empId) return false;
       const tDurum = String(t.durum || '').toLowerCase();
-      if (tDurum !== 'onaylandi' && tDurum !== 'onaylandı') return false;
+      if (!['onaylandi', 'onaylandı', 'ik onayladı', 'yönetici onayladı'].includes(tDurum)) return false;
       const s = (t.baslangicTarihi || t.baslangic_tarihi || '').split('T')[0];
       const e = (t.bitisTarihi || t.bitis_tarihi || '').split('T')[0];
       return Boolean(s && e && tarih >= s && tarih <= e);
     });
+
+    const approvedLeave = matchingApprovedLeaves.find((t) => !parseHourlyLeaveInfo(t).isHourly);
+    const hourlyApprovedLeave = matchingApprovedLeaves.find((t) => parseHourlyLeaveInfo(t).isHourly);
+    const hourlyLeaveInfo = hourlyApprovedLeave ? parseHourlyLeaveInfo(hourlyApprovedLeave) : null;
 
     // 2. Öncelik: Gerçek PDKS Giriş-Çıkış Kaydı
     const realShift = (vardiyaKayitlari || []).find((v) => {
@@ -401,7 +406,6 @@ export function hesaplaPersonelAylikPuantaj(params: {
         shiftEndMinutes = eH * 60 + eM;
       }
     }
-    const isOvernight = shiftEndMinutes < shiftStartMinutes;
 
     if (girisSaati && cikisSaati) {
       const [gH, gM] = girisSaati.split(':').map(Number);
@@ -448,7 +452,6 @@ export function hesaplaPersonelAylikPuantaj(params: {
       }
     } else if (girisSaati && !cikisSaati) {
       // KULLANICI KESİN TALİMATI: Gün bitse bile vardiya ASLA otomatik kapatılmaz!
-      // Gece 23'te başlatılan mesai ya da sabahtan açık unutulan mesai kapatılmaz, personel kendi kapatır.
       const [gH, gM] = girisSaati.split(':').map(Number);
       isOngoing = true;
       cikisSaati = null;
@@ -460,11 +463,8 @@ export function hesaplaPersonelAylikPuantaj(params: {
           const diffMs = now.getTime() - entryDateTime.getTime();
           const elapsedMins = Math.max(0, Math.floor(diffMs / (1000 * 60)));
           if (elapsedMins > 0 && elapsedMins <= 16 * 60) {
-            // Son 16 saat içinde başlayan aktif vardiya (bugün veya dünkü gece vardiyası)
             workedSoFarMins = elapsedMins;
           } else {
-            // 16 saatten daha eski (açık unutulan mesai): 22 saat basılmaz!
-            // Planlanan standart vardiya süresi baz alınır, çıkış boş (açık) kalır
             const [sH, sM] = activeStartTime.split(':').map(Number);
             const [eH, eM] = activeEndTime.split(':').map(Number);
             let plannedDiff = (eH * 60 + eM) - (sH * 60 + sM);
@@ -533,7 +533,6 @@ export function hesaplaPersonelAylikPuantaj(params: {
       } else if (kod === 'UBGT') {
         ubgtGun += 1;
       } else if (kod === 'Yİ' || kod === 'YI') {
-        // Yıllık izin doğrudan toplam yıllık izin ve toplam izin kısmına yansır, günün gelmesini beklemez
         yillikIzinGun += 1;
         toplamIzinGun += 1;
       } else if (kod === 'R' || kod === 'HA' || kod === 'RP') {
@@ -578,7 +577,6 @@ export function hesaplaPersonelAylikPuantaj(params: {
       }
     } else if (isCumartesi && !isCumartesiCalisma) {
       // 5 Günlük Çalışma Düzeni: Cumartesi günü Akdi Tatildir (AT).
-      // İzin aralığına denk gelse dahi izinler toplamına yazılmaz ve izin sayılmaz.
       if (girisSaati && (cikisSaati || isToday) && (netSureSaat > 0 || (girisSaati && cikisSaati))) {
         kod = 'Ç';
         kodAciklama = 'Cumartesi Akdi Tatil Çalışması';
@@ -591,16 +589,14 @@ export function hesaplaPersonelAylikPuantaj(params: {
         if (!isFuture) akdiTatilGun += 1;
       }
     } else if (approvedLeave) {
-      // İzin Talebi: Eğer izin Pazar gününe denk geliyorsa Pazar günü de izne dahil edilir
+      // Tam Günlük İzin Talebi: Eğer izin Pazar gününe denk geliyorsa Pazar günü de izne dahil edilir
       const rawTur = approvedLeave.izinTuru || approvedLeave.izin_turu || '';
       const turLower = String(rawTur).trim().toLowerCase();
 
-      // Şirkete tanımlı izin türlerini al (parametre verilmemişse dinamik depodan yükle)
       const companyTurler = (leaveTypes && leaveTypes.length > 0)
         ? leaveTypes
         : getCompanyIzinTurleri(employee.company_id);
 
-      // İlgili izin tanımını bul (id, kod veya ad üzerinden)
       const matched = companyTurler.find((t: any) => {
         const idLower = (t.id || '').toLowerCase();
         const kodLower = (t.kod || '').toLowerCase();
@@ -650,30 +646,25 @@ export function hesaplaPersonelAylikPuantaj(params: {
          (matched?.ucretli === false && !turLower.includes('rapor') && !turLower.includes('hastalik') && !turLower.includes('hastalık') && !turLower.includes('istirahat')));
 
       if (isRapor) {
-        // İstirahat / SGK Raporu (RP veya R)
         let shortCode = matched?.kod ? String(matched.kod).toUpperCase() : 'RP';
         if (shortCode !== 'R' && shortCode !== 'RP' && shortCode !== 'HA') shortCode = 'RP';
         kod = shortCode as PuantajKodu;
         kodAciklama = matched?.ad || 'İstirahat (SGK Raporu)';
         raporluGun += 1;
       } else if (isEgitim) {
-        // Eğitim İzni: Toplam izin kısmında toplanmaz, bordro tam hak ediş olarak korunur
         kod = 'EG';
         kodAciklama = matched?.ad || 'Eğitim İzni';
         egitimGun += 1;
       } else if (isYillik) {
-        // Yıllık Ücretli İzin: Doğrudan toplam yıllık izin ve toplam izin kısmına yansır, günlerin gelmesini beklemez
         kod = 'Yİ';
         kodAciklama = matched?.ad || 'Yıllık Ücretli İzin';
         yillikIzinGun += 1;
         toplamIzinGun += 1;
       } else if (isUnpaid) {
-        // Ücretsiz İzin: Özel sütunu için toplanır
         kod = 'Üİ';
         kodAciklama = matched?.ad || 'Ücretsiz İzin';
         ucretsizIzinGun += 1;
       } else if (turLower.includes('mazeret') || turLower.includes('evlilik') || turLower.includes('olum') || turLower.includes('ölüm') || turLower.includes('babalik') || turLower.includes('dogum')) {
-        // Ücretli mazeret izinleri
         kod = matched?.kod ? String(matched.kod).toUpperCase() : 'Mİ';
         if (kod === 'MZ') kod = 'Mİ';
         kodAciklama = matched?.ad || 'Ücretli Mazeret İzni';
@@ -702,7 +693,6 @@ export function hesaplaPersonelAylikPuantaj(params: {
           toplamIzinGun += 1;
         }
       } else {
-        // Tanımsız özel izin metni durumunda
         const title = formatIzinTuru(rawTur, employee.company_id);
         const titleLower = title.toLowerCase();
         if (titleLower.includes('rapor') || titleLower.includes('istirahat') || titleLower.includes('hastalik') || titleLower.includes('hastalık')) {
@@ -749,6 +739,11 @@ export function hesaplaPersonelAylikPuantaj(params: {
         fiiliCalismaGun += 1;
         fiiliCalismaSaat += netSureSaat;
         toplamFazlaMesaiSaat += fazlaMesaiSaat;
+      } else if (hourlyLeaveInfo?.isHourly && !isFuture) {
+        kod = 'Ç';
+        kodAciklama = 'Cumartesi Fiili Çalışma';
+        fiiliCalismaGun += 1;
+        fiiliCalismaSaat += 7.0;
       } else if (isFuture) {
         kod = '-';
         kodAciklama = 'Gelecek Gün / Henüz Gerçekleşmedi';
@@ -770,20 +765,39 @@ export function hesaplaPersonelAylikPuantaj(params: {
       fiiliCalismaGun += 1;
       fiiliCalismaSaat += netSureSaat;
       toplamFazlaMesaiSaat += fazlaMesaiSaat;
+    } else if (hourlyLeaveInfo?.isHourly && isPast) {
+      // Saatlik izinli geçmiş iş gününde PDKS girişi yoksa devamsız (D) yazılmaz, normal mesai (Ç) kabul edilir
+      kod = 'Ç';
+      kodAciklama = 'Fiili Çalışma';
+      fiiliCalismaGun += 1;
+      fiiliCalismaSaat += (shift?.start_time && shift?.end_time ? 8.5 : 8.5);
     } else if (isFuture) {
-      // Gelecek gün: Henüz gelmedi, Ç yazılamaz!
       kod = '-';
       kodAciklama = 'Gelecek Gün / Henüz Gerçekleşmedi';
     } else if (isToday) {
-      // Bugün: Henüz giriş yapılmamış olabilir
       kod = '-';
       kodAciklama = 'Bugün / Henüz Giriş Yapılmadı';
     } else {
-      // Geçmiş gün ve hiçbir giriş yok
       kod = 'D';
       kodAciklama = 'Devamsız / İşe Giriş Yapılmadı';
       devamsizGun += 1;
     }
+
+    // Saatlik Mazeret İzni Varsa Açıklama ve Notlara Ekle (Günü Tam Gün İzne Çevirmeden)
+    let saatlikIzinNotu: string | undefined = undefined;
+    if (hourlyLeaveInfo?.isHourly) {
+      saatlikIzinNotu = hourlyLeaveInfo.puantajNote;
+      if (!kodAciklama.includes(hourlyLeaveInfo.puantajNote)) {
+        kodAciklama = `${kodAciklama} • ${hourlyLeaveInfo.puantajNote}`;
+      }
+    }
+
+    const rawExistingNotlar = overrideData?.notlar || realShift?.notlar || '';
+    const combinedNotlar = saatlikIzinNotu
+      ? (rawExistingNotlar && !rawExistingNotlar.includes(saatlikIzinNotu)
+          ? `${rawExistingNotlar} | ${saatlikIzinNotu}`
+          : (rawExistingNotlar || saatlikIzinNotu))
+      : (rawExistingNotlar || undefined);
 
     toplamGecikmeDk += gecikmeDk;
 
@@ -820,7 +834,8 @@ export function hesaplaPersonelAylikPuantaj(params: {
       ubgtCalismasi,
       yasalUyari11Saat,
       yasalUyariGece,
-      notlar: overrideData?.notlar || realShift?.notlar || undefined,
+      notlar: combinedNotlar,
+      saatlikIzinNotu,
       isOngoing,
     };
   });
@@ -829,10 +844,8 @@ export function hesaplaPersonelAylikPuantaj(params: {
   const isCurrentMonth = (new Date().getFullYear() === year && new Date().getMonth() === monthIndex);
   let bordroGun = 0;
   if (isCurrentMonth) {
-    // İçinde bulunulan ay: şu ana kadar fiilen çalışılan ve hak kazanılan günler
     bordroGun = Math.min(30, fiiliCalismaGun + haftaTatiliGun + akdiTatilGun + yillikIzinGun + ucretliIzinGun + ubgtGun + egitimGun);
   } else {
-    // Tamamlanmış geçmiş ay: 30 gün standardı - eksik günler
     const toplamEksikGun = raporluGun + ucretsizIzinGun + devamsizGun;
     bordroGun = Math.max(0, 30 - toplamEksikGun);
   }

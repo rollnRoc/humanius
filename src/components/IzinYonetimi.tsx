@@ -21,7 +21,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import type { Employee } from '../types';
-import { formatIzinTuru, calculateCompletedYears, calculateYillikIzinHakki, hasCompletedOneYear, getYillikIzinHakEdisTarihi, formatDate } from '../utils/izinCalculations';
+import { formatIzinTuru, calculateCompletedYears, calculateYillikIzinHakki, hasCompletedOneYear, getYillikIzinHakEdisTarihi, formatDate, formatIzinSuresiLabel, parseHourlyLeaveInfo } from '../utils/izinCalculations';
 import { IzinWorkflow } from './IzinWorkflow';
 import { canApproveLeave } from '../auth/roles';
 import { leaveApprovalService, type LeaveApprovalConfig, DEFAULT_LEAVE_APPROVAL_CONFIG } from '../services/leaveApprovalService';
@@ -766,8 +766,8 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
                           ? '✗ Reddedildi'
                           : 'İptal Edildi'}
                       </span>
-                      <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                        {talep.gunSayisi} Gün
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${parseHourlyLeaveInfo(talep).isHourly ? "text-orange-800 bg-orange-50 border-orange-200" : "text-blue-700 bg-blue-50 border-blue-200"}`}>
+                        {formatIzinSuresiLabel(talep)}
                       </span>
                     </div>
 
@@ -778,7 +778,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
 
                     {talep.aciklama && (
                       <p className="text-xs text-gray-600 mt-1 italic bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100 inline-block">
-                        &quot;{talep.aciklama}&quot;
+                        &quot;{parseHourlyLeaveInfo(talep).cleanAciklama || talep.aciklama}&quot;
                       </p>
                     )}
 
@@ -865,7 +865,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
                       <div className="flex items-center gap-2.5">
                         <span className="font-bold text-slate-800">{formatIzinTuru(talep.izinTuru)}</span>
                         <span className="text-slate-300">•</span>
-                        <span className="font-semibold text-blue-700">{talep.gunSayisi} gün</span>
+                        <span className="font-semibold text-blue-700">{formatIzinSuresiLabel(talep, true)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-slate-500">
                         <span>{formatDateRange(talep.baslangicTarihi, talep.bitisTarihi)}</span>

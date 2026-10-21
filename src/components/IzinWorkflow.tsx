@@ -4,7 +4,7 @@ import {
   Edit2, Trash2, Check
 } from 'lucide-react';
 import type { IzinTalebi } from '../types/izin';
-import { formatIzinTuru } from '../utils/izinCalculations';
+import { formatIzinTuru, formatIzinSuresiLabel, parseHourlyLeaveInfo } from '../utils/izinCalculations';
 import { leaveApprovalService, type LeaveApprovalConfig, DEFAULT_LEAVE_APPROVAL_CONFIG } from '../services/leaveApprovalService';
 
 interface IzinWorkflowProps {
@@ -231,8 +231,12 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
             <span>•</span>
             <span className="font-semibold text-slate-700">{formatIzinTuru(talep.izinTuru)}</span>
             <span>•</span>
-            <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 text-xs">
-              {talep.gunSayisi} Gün
+            <span className={`font-bold px-2 py-0.5 rounded-md border text-xs ${
+              parseHourlyLeaveInfo(talep).isHourly
+                ? 'text-orange-800 bg-orange-50 border-orange-200'
+                : 'text-blue-700 bg-blue-50 border-blue-200'
+            }`}>
+              {formatIzinSuresiLabel(talep)}
             </span>
             {talep.baslangicTarihi && (
               <>
@@ -243,6 +247,11 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
               </>
             )}
           </div>
+          {parseHourlyLeaveInfo(talep).cleanAciklama && (
+            <p className="text-xs text-slate-500 italic mt-1">
+              &quot;{parseHourlyLeaveInfo(talep).cleanAciklama}&quot;
+            </p>
+          )}
         </div>
 
         {/* Genel İzin Statüsü Rozeti */}

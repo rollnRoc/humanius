@@ -33,7 +33,7 @@ import { shiftService, CompanyShift, VARSAYILAN_VARDIYALAR, SaturdayWorkConfig, 
 import { leaveTypeService } from '../services/leaveTypeService';
 import { izinService } from '../services/izinService';
 import { IzinTuruKural } from './IzinTanimlari';
-import { getCompanyIzinTurleri } from '../utils/izinCalculations';
+import { getCompanyIzinTurleri, formatIzinSuresiLabel } from '../utils/izinCalculations';
 import {
   hesaplaPersonelAylikPuantaj,
   PersonelAylikPuantaj,
@@ -1342,7 +1342,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                             key={g.tarih}
                             onClick={() => handleOpenEditCell(p, g)}
                             className={`px-0.5 py-1 text-center border-r border-gray-100 ${cellBg} cursor-pointer transition-all hover:ring-1 hover:ring-blue-400`}
-                            title={`${emp.name} - ${g.tarih} (${g.gunAdi})\nDurum: ${g.kodAciklama}\nGiriş: ${g.girisSaati || '-'}\nÇıkış: ${g.cikisSaati || (g.isOngoing ? 'Vardiyası Devam Ediyor' : '-')}\nNet Süre: ${g.netSureSaat > 0 && g.netSureSaat < 0.1 ? `${Math.max(1, Math.round(g.netSureSaat * 60))} dk (${g.netSureSaat} saat)` : `${g.netSureSaat} saat`}\n(Düzenlemek için tıklayın)`}
+                            title={`${emp.name} - ${g.tarih} (${g.gunAdi})\nDurum: ${g.kodAciklama}${g.saatlikIzinNotu || g.notlar ? `\n📌 Açıklama / Not: ${g.saatlikIzinNotu || g.notlar}` : ''}\nGiriş: ${g.girisSaati || '-'}\nÇıkış: ${g.cikisSaati || (g.isOngoing ? 'Vardiyası Devam Ediyor' : '-')}\nNet Süre: ${g.netSureSaat > 0 && g.netSureSaat < 0.1 ? `${Math.max(1, Math.round(g.netSureSaat * 60))} dk (${g.netSureSaat} saat)` : `${g.netSureSaat} saat`}\n(Düzenlemek için tıklayın)`}
                           >
                             <div className="flex flex-col items-center justify-center">
                               <span
@@ -1351,6 +1351,9 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                                 {g.isOngoing && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
                                 {displayVal}
                               </span>
+                              {g.saatlikIzinNotu && (
+                                <span className="mt-0.5 px-1 py-0 rounded bg-orange-100 text-orange-800 border border-orange-300 text-[7.5px] font-extrabold leading-tight" title={g.saatlikIzinNotu}>⏱️Not</span>
+                              )}
                               {g.yasalUyari11Saat && (
                                 <span className="text-[8px] text-amber-600 font-bold" title="Günlük 11 saat yasal sınır aşımı!">⚠️11s</span>
                               )}
@@ -1842,7 +1845,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
                   </div>
                   <p className="mt-0.5 text-amber-800 font-medium">
                     {editActiveLeave
-                      ? `${editActiveLeave.baslangicTarihi} - ${editActiveLeave.bitisTarihi} (${editActiveLeave.gunSayisi} gün)`
+                      ? `${editActiveLeave.baslangicTarihi} - ${editActiveLeave.bitisTarihi} (${formatIzinSuresiLabel(editActiveLeave)})`
                       : `${editTarget.gun.tarih} (${editTarget.gun.kodAciklama})`}
                   </p>
                   <p className="text-[11px] text-amber-700 mt-1">
