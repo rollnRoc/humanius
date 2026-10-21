@@ -34,43 +34,18 @@ export interface DynamicIzinTuru {
 }
 
 export function getCompanyIzinTurleri(companyId?: string): DynamicIzinTuru[] {
-  const allFound: DynamicIzinTuru[] = [];
   try {
     if (companyId && companyId !== 'default') {
       const saved = localStorage.getItem(`humanius_izin_turleri_${companyId}`);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    }
-    const savedDef = localStorage.getItem('humanius_izin_turleri_default');
-    if (savedDef) {
-      const parsed = JSON.parse(savedDef);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-    if (typeof localStorage !== 'undefined') {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith('humanius_izin_turleri_')) {
-          const raw = localStorage.getItem(k);
-          if (raw) {
-            try {
-              const list = JSON.parse(raw);
-              if (Array.isArray(list)) {
-                list.forEach((item: DynamicIzinTuru) => {
-                  if (item && item.id && !allFound.some((x) => x.id === item.id)) {
-                    allFound.push(item);
-                  }
-                });
-              }
-            } catch {}
-          }
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const clean = parsed.filter((x: any) => x && !x.id?.startsWith('__'));
+          if (clean.length > 0) return clean;
         }
       }
     }
   } catch (e) {}
-
-  if (allFound.length > 0) return allFound;
 
   return [
     { id: 'yillik', ad: 'Yıllık İzin', kod: 'YI', ucretli: true },
@@ -430,43 +405,15 @@ export function formatDate(dateStr: string): string {
  */
 export function isSaturdayWorkActive(companyId?: string): boolean {
   try {
-    if (typeof localStorage !== 'undefined') {
-      if (companyId && companyId !== 'default') {
-        const raw = localStorage.getItem(`humanius_saturday_work_${companyId}`);
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (typeof parsed?.isSaturdayWork === 'boolean') {
-              return parsed.isSaturdayWork;
-            }
-          } catch {}
-        }
-      }
-
-      const rawDef = localStorage.getItem('humanius_saturday_work_default');
-      if (rawDef) {
+    if (typeof localStorage !== 'undefined' && companyId && companyId !== 'default') {
+      const raw = localStorage.getItem(`humanius_saturday_work_${companyId}`);
+      if (raw) {
         try {
-          const parsed = JSON.parse(rawDef);
+          const parsed = JSON.parse(raw);
           if (typeof parsed?.isSaturdayWork === 'boolean') {
             return parsed.isSaturdayWork;
           }
         } catch {}
-      }
-
-      // Check any saved company saturday work setting if companyId is not specifically matched
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith('humanius_saturday_work_')) {
-          const raw = localStorage.getItem(k);
-          if (raw) {
-            try {
-              const parsed = JSON.parse(raw);
-              if (parsed?.isSaturdayWork === true) {
-                return true;
-              }
-            } catch {}
-          }
-        }
       }
     }
   } catch {}

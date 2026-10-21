@@ -35,54 +35,27 @@ class LeaveApprovalService {
   }
 
   /**
-   * İzin onay ayarlarını VERİTABANINDAN (Database-First) okur.
-   * Tüm cihazlar ve tarayıcılar PostgreSQL / Supabase üzerindeki güncel kaydı alır.
+   * İzin onay ayarlarını ilgili şirkete izole olarak VERİTABANINDAN (Database-First) okur.
    */
   public async getConfig(companyId?: string): Promise<LeaveApprovalConfig> {
     const effectiveCompanyId = companyId && companyId !== 'default' ? companyId : 'default';
 
-    // 1. SUPABASE DATABASE FIRST: Veritabanından çek
     try {
-      let query = supabase.from('company_leave_types').select('company_id, leave_types');
-      if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
-        query = query.eq('company_id', companyId);
-      }
+      localStorage.removeItem('humanius_leave_approval_config_default');
+    } catch {}
 
-      const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        // İlgili şirketin satırını bul
-        const targetRow = (companyId && companyId !== 'default')
-          ? data.find(r => r.company_id === companyId) || data[0]
-          : data[0];
+    // 1. SUPABASE DATABASE FIRST: Yalnızca ilgili şirketin kaydını çek
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        const { data: targetRow, error } = await supabase
+          .from('company_leave_types')
+          .select('company_id, leave_types')
+          .eq('company_id', companyId)
+          .maybeSingle();
 
-        if (targetRow?.leave_types && Array.isArray(targetRow.leave_types)) {
-          const configItem = targetRow.leave_types.find((x: any) => x && x.id === '__approval_config__');
-          if (configItem?.approval_config?.stages) {
-            const parsed = configItem.approval_config;
-            const result: LeaveApprovalConfig = {
-              stages: {
-                manager: Boolean(parsed.stages.manager),
-                hr: Boolean(parsed.stages.hr),
-                admin: Boolean(parsed.stages.admin),
-              },
-              updatedAt: parsed.updatedAt,
-              updatedBy: parsed.updatedBy,
-            };
-            this.configCache[effectiveCompanyId] = result;
-            try {
-              localStorage.setItem(this.getStorageKey(companyId), JSON.stringify(result));
-            } catch {}
-            return result;
-          }
-        }
-      }
-
-      // Şirket satırında bulunamadıysa veritabanındaki kayıtlı şirket satırlarını tara
-      const { data: allRows } = await supabase.from('company_leave_types').select('leave_types').limit(5);
-      if (allRows) {
-        for (const row of allRows) {
-          if (Array.isArray(row.leave_types)) {
-            const configItem = row.leave_types.find((x: any) => x && x.id === '__approval_config__');
+        if (!error) {
+          if (targetRow?.leave_types && Array.isArray(targetRow.leave_types)) {
+            const configItem = targetRow.leave_types.find((x: any) => x && x.id === '__approval_config__');
             if (configItem?.approval_config?.stages) {
               const parsed = configItem.approval_config;
               const result: LeaveApprovalConfig = {
@@ -95,38 +68,45 @@ class LeaveApprovalService {
                 updatedBy: parsed.updatedBy,
               };
               this.configCache[effectiveCompanyId] = result;
+              try {
+                localStorage.setItem(this.getStorageKey(companyId), JSON.stringify(result));
+              } catch {}
               return result;
             }
           }
+          // Veritabanında bu şirkete özel onay ayarı yoksa varsayılan kuralı dön (başka şirketin satırını okuma)
+          return DEFAULT_LEAVE_APPROVAL_CONFIG;
         }
+      } catch (e) {
+        console.warn('Supabase leave approval config fetch error:', e);
       }
-    } catch (e) {
-      console.warn('Supabase leave approval config fetch error:', e);
     }
 
-    // 2. Bellek / Offline Yedek
-    if (this.configCache[effectiveCompanyId]) {
+    // 2. Bellek / Offline Yedek (Yalnızca ilgili companyId için)
+    if (effectiveCompanyId !== 'default' && this.configCache[effectiveCompanyId]) {
       return this.configCache[effectiveCompanyId];
     }
 
-    try {
-      const cached = localStorage.getItem(this.getStorageKey(companyId));
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed?.stages) {
-          return {
-            stages: {
-              manager: Boolean(parsed.stages.manager),
-              hr: Boolean(parsed.stages.hr),
-              admin: Boolean(parsed.stages.admin),
-            },
-            updatedAt: parsed.updatedAt,
-            updatedBy: parsed.updatedBy,
-          };
+    if (effectiveCompanyId !== 'default') {
+      try {
+        const cached = localStorage.getItem(this.getStorageKey(companyId));
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.stages) {
+            return {
+              stages: {
+                manager: Boolean(parsed.stages.manager),
+                hr: Boolean(parsed.stages.hr),
+                admin: Boolean(parsed.stages.admin),
+              },
+              updatedAt: parsed.updatedAt,
+              updatedBy: parsed.updatedBy,
+            };
+          }
         }
+      } catch (e) {
+        console.warn('Error reading fallback leave approval config:', e);
       }
-    } catch (e) {
-      console.warn('Error reading fallback leave approval config:', e);
     }
 
     // 3. Fallback: Varsayılan onay yetkisi
@@ -134,8 +114,8 @@ class LeaveApprovalService {
   }
 
   /**
-   * İzin onay ayarlarını VERİTABANINA (Database-First) yazar.
-   * Tüm şirket kayıtlarına ve cihazlara anında yansır.
+   * İzin onay ayarlarını yalnızca ilgili şirketin VERİTABANI satırına (Database-First) yazar.
+   * Satır yoksa o şirket için yeni satır oluşturur, diğer şirketlerin kayıtlarına dokunmaz.
    */
   public async saveConfig(companyId: string, config: LeaveApprovalConfig, userEmail?: string): Promise<boolean> {
     const effectiveCompanyId = companyId && companyId !== 'default' ? companyId : 'default';
@@ -161,22 +141,18 @@ class LeaveApprovalService {
       approval_config: payload,
     };
 
-    // 1. SUPABASE DATABASE FIRST: Veritabanına doğrudan yaz
+    // 1. SUPABASE DATABASE FIRST: Yalnızca ilgili şirketin satırını güncelle veya oluştur
     let savedToDb = false;
-    try {
-      const { data: rows, error: fetchErr } = await supabase
-        .from('company_leave_types')
-        .select('id, company_id, leave_types');
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        const { data: existingRow, error: fetchErr } = await supabase
+          .from('company_leave_types')
+          .select('id, company_id, leave_types')
+          .eq('company_id', companyId)
+          .maybeSingle();
 
-      if (!fetchErr && rows && rows.length > 0) {
-        const targetRows = (companyId && companyId !== 'default' && !companyId.includes('demo'))
-          ? rows.filter(r => r.company_id === companyId)
-          : rows;
-
-        const rowsToUpdate = targetRows.length > 0 ? targetRows : rows;
-
-        for (const row of rowsToUpdate) {
-          const rawTypes = Array.isArray(row.leave_types) ? row.leave_types : [];
+        if (!fetchErr && existingRow?.id) {
+          const rawTypes = Array.isArray(existingRow.leave_types) ? existingRow.leave_types : [];
           const filtered = rawTypes.filter((x: any) => x && x.id !== '__approval_config__');
           const updatedTypes = [...filtered, approvalItem];
 
@@ -186,21 +162,32 @@ class LeaveApprovalService {
               leave_types: updatedTypes,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', row.id);
+            .eq('id', existingRow.id);
 
           if (!updErr) savedToDb = true;
+        } else if (!fetchErr && !existingRow) {
+          const { error: insErr } = await supabase
+            .from('company_leave_types')
+            .insert({
+              company_id: companyId,
+              leave_types: [approvalItem],
+              updated_at: new Date().toISOString(),
+            });
+
+          if (!insErr) savedToDb = true;
         }
+      } catch (e) {
+        console.error('Supabase leave approval config save error:', e);
       }
-    } catch (e) {
-      console.error('Supabase leave approval config save error:', e);
     }
 
-    // 2. Bellek & yerel depolama aynalaması
+    // 2. Şirket bazlı bellek & yerel depolama aynalaması
     this.configCache[effectiveCompanyId] = payload;
-    this.configCache['default'] = payload;
     try {
-      localStorage.setItem(this.getStorageKey(companyId), JSON.stringify(payload));
-      localStorage.setItem('humanius_leave_approval_config_default', JSON.stringify(payload));
+      if (effectiveCompanyId !== 'default') {
+        localStorage.setItem(this.getStorageKey(companyId), JSON.stringify(payload));
+      }
+      localStorage.removeItem('humanius_leave_approval_config_default');
     } catch (e) {
       console.warn('Error saving leave approval config to localStorage:', e);
     }
@@ -258,7 +245,7 @@ class LeaveApprovalService {
 
   public async loadRequestStagesFromDb(): Promise<Record<string, 'manager' | 'hr' | 'admin' | 'completed'>> {
     try {
-      const { data: rows } = await supabase.from('company_leave_types').select('leave_types').limit(5);
+      const { data: rows } = await supabase.from('company_leave_types').select('leave_types').limit(20);
       if (rows) {
         for (const r of rows) {
           if (Array.isArray(r.leave_types)) {
@@ -311,29 +298,35 @@ class LeaveApprovalService {
       console.warn('Error saving talep stage to localStorage:', e);
     }
 
-    try {
-      const { data: rows } = await supabase.from('company_leave_types').select('id, company_id, leave_types');
-      if (rows && rows.length > 0) {
-        const targetRow = companyId ? rows.find(r => r.company_id === companyId) || rows[0] : rows[0];
-        const rawTypes = Array.isArray(targetRow.leave_types) ? targetRow.leave_types : [];
-        const existingStagesItem = rawTypes.find((x: any) => x && x.id === '__request_stages__');
-        const currentStagesMap = existingStagesItem?.stages || {};
-        currentStagesMap[talepId] = nextStage;
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        const { data: targetRow } = await supabase
+          .from('company_leave_types')
+          .select('id, company_id, leave_types')
+          .eq('company_id', companyId)
+          .maybeSingle();
 
-        const filtered = rawTypes.filter((x: any) => x && x.id !== '__request_stages__');
-        filtered.push({
-          id: '__request_stages__',
-          stages: currentStagesMap,
-          updated_at: new Date().toISOString()
-        });
+        if (targetRow?.id) {
+          const rawTypes = Array.isArray(targetRow.leave_types) ? targetRow.leave_types : [];
+          const existingStagesItem = rawTypes.find((x: any) => x && x.id === '__request_stages__');
+          const currentStagesMap = existingStagesItem?.stages || {};
+          currentStagesMap[talepId] = nextStage;
 
-        await supabase.from('company_leave_types').update({
-          leave_types: filtered,
-          updated_at: new Date().toISOString()
-        }).eq('id', targetRow.id);
+          const filtered = rawTypes.filter((x: any) => x && x.id !== '__request_stages__');
+          filtered.push({
+            id: '__request_stages__',
+            stages: currentStagesMap,
+            updated_at: new Date().toISOString()
+          });
+
+          await supabase.from('company_leave_types').update({
+            leave_types: filtered,
+            updated_at: new Date().toISOString()
+          }).eq('id', targetRow.id);
+        }
+      } catch (e) {
+        console.warn('Error persisting talep stage to DB:', e);
       }
-    } catch (e) {
-      console.warn('Error persisting talep stage to DB:', e);
     }
 
     if (typeof window !== 'undefined') {

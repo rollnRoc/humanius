@@ -244,6 +244,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setProfile(null);
             try {
               localStorage.removeItem('humanius_cached_profile');
+      localStorage.removeItem('humanius_izin_turleri_default');
+      localStorage.removeItem('humanius_shifts_default');
+      localStorage.removeItem('humanius_saturday_work_default');
+      localStorage.removeItem('humanius_leave_approval_config_default');
               for (let i = localStorage.length - 1; i >= 0; i--) {
                 const k = localStorage.key(i);
                 if (k && k.startsWith('humanius_cached_employees_')) {
@@ -507,6 +511,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('humanius_demo_start_time');
       localStorage.removeItem('humanius_superadmin_session');
       localStorage.removeItem('humanius_cached_profile');
+      localStorage.removeItem('humanius_izin_turleri_default');
+      localStorage.removeItem('humanius_shifts_default');
+      localStorage.removeItem('humanius_saturday_work_default');
+      localStorage.removeItem('humanius_leave_approval_config_default');
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const k = localStorage.key(i);
         if (k && k.startsWith('humanius_cached_employees_')) {

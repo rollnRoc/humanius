@@ -424,7 +424,6 @@ class ShiftService {
             }
 
             localStorage.setItem(storageKey, JSON.stringify(formatted));
-            localStorage.setItem('humanius_shifts_default', JSON.stringify(formatted));
             return formatted;
           } else {
             // Company exists in DB but has 0 shifts saved in company_shifts.
@@ -456,7 +455,6 @@ class ShiftService {
               });
             } catch {}
             localStorage.setItem(storageKey, JSON.stringify([initialShift]));
-            localStorage.setItem('humanius_shifts_default', JSON.stringify([initialShift]));
             return [initialShift];
           }
         }
@@ -487,25 +485,7 @@ class ShiftService {
           }
         }
       }
-      const defSaved = localStorage.getItem('humanius_shifts_default');
-      if (defSaved !== null) {
-        const localData = JSON.parse(defSaved);
-        if (Array.isArray(localData) && localData.length > 0) {
-          const clean = localData.filter(isNotSaturdayShift);
-          if (clean.length > 0) {
-            clean.forEach((s: any) => {
-              if (s.is_default && s.end_time === '16:00') {
-                s.end_time = '17:45';
-              }
-              if (s.name && s.name.toLowerCase().includes('toyota') && s.end_time === '16:00') {
-                s.end_time = '17:45';
-              }
-            });
-            if (!clean.some((s: any) => s.is_default)) clean[0].is_default = true;
-            return clean;
-          }
-        }
-      }
+      localStorage.removeItem('humanius_shifts_default');
     } catch {}
 
     // 3. Fallback to default shifts
@@ -615,7 +595,6 @@ class ShiftService {
           }
 
           localStorage.setItem(storageKey, JSON.stringify(formatted));
-          localStorage.setItem('humanius_shifts_default', JSON.stringify(formatted));
           window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
           return success;
         }
@@ -648,7 +627,6 @@ class ShiftService {
         updated = updated.map((s) => ({ ...s, is_default: s.id === shift.id }));
       }
       localStorage.setItem(storageKey, JSON.stringify(updated));
-      localStorage.setItem('humanius_shifts_default', JSON.stringify(updated));
     } catch {}
 
     window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
@@ -721,7 +699,6 @@ class ShiftService {
           }
 
           localStorage.setItem(storageKey, JSON.stringify(formatted));
-          localStorage.setItem('humanius_shifts_default', JSON.stringify(formatted));
           window.dispatchEvent(new CustomEvent('humanius_shifts_updated', { detail: { companyId: effectiveCompanyId } }));
           return true;
         }
@@ -746,7 +723,6 @@ class ShiftService {
       }
 
       localStorage.setItem(storageKey, JSON.stringify(updated));
-      localStorage.setItem('humanius_shifts_default', JSON.stringify(updated));
     } catch (e) {
       console.error('Delete shift cache error:', e);
     }
@@ -911,7 +887,6 @@ class ShiftService {
             };
             try {
               localStorage.setItem(storageKey, JSON.stringify(config));
-              localStorage.setItem('humanius_saturday_work_default', JSON.stringify(config));
             } catch {}
             return config;
           } else {
@@ -929,7 +904,8 @@ class ShiftService {
     }
 
     try {
-      const cached = localStorage.getItem(storageKey) || localStorage.getItem('humanius_saturday_work_default');
+      localStorage.removeItem('humanius_saturday_work_default');
+      const cached = effectiveCompanyId !== 'default' ? localStorage.getItem(storageKey) : null;
       if (cached) {
         return JSON.parse(cached);
       }
@@ -991,7 +967,6 @@ class ShiftService {
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(config));
-      localStorage.setItem('humanius_saturday_work_default', JSON.stringify(config));
     } catch {}
 
     // Clean regular shift caches to prevent any accidental leakage of Saturday shift
@@ -1011,7 +986,6 @@ class ShiftService {
         if (Array.isArray(parsed)) {
           const cleaned = parsed.filter(isNotSaturdayShift);
           if (cleaned.length > 0 && !cleaned.some((s: any) => s.is_default)) cleaned[0].is_default = true;
-          localStorage.setItem('humanius_shifts_default', JSON.stringify(cleaned));
         }
       }
     } catch {}

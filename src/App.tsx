@@ -198,6 +198,11 @@ const AppInner: React.FC = () => {
       localStorage.removeItem('logoConfig_undefined');
       localStorage.removeItem('logoSrc_null');
       localStorage.removeItem('logoConfig_null');
+      localStorage.removeItem('humanius_izin_turleri_default');
+      localStorage.removeItem('humanius_shifts_default');
+      localStorage.removeItem('humanius_saturday_work_default');
+      localStorage.removeItem('humanius_leave_approval_config_default');
+      localStorage.removeItem('humanius_sertifikalar_default');
     } catch {}
 
     // Initial state replace
