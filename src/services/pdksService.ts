@@ -104,7 +104,7 @@ export const pdksService = {
         let query = supabase
           .from('pdks_vardiya_kayitlari')
           .select('*')
-          .order('tarih', { ascending: false });
+          .order('tarih', { ascending: false }).order('id', { ascending: true });
 
         if (companyId) {
           const cleanCompId = normalizeCompanyId(companyId);
@@ -330,7 +330,7 @@ export const pdksService = {
       const { data, error } = await supabase
         .from('pdks_fazla_mesai')
         .select('*')
-        .order('tarih', { ascending: false })
+        .order('tarih', { ascending: false }).order('id', { ascending: true })
         .range(from, from + pageSize - 1);
 
       if (error) throw error;
