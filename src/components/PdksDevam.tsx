@@ -1773,7 +1773,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     const currentOpenRec = (allShiftRecords || []).find(
       (r) => r.id === activeShiftRecordId || (r.employee_id === currentEmployee?.id && r.giris_saati && (!r.cikis_saati || r.cikis_saati === '00:00:00' || r.cikis_saati === '00:00' || r.cikis_saati === '-'))
     );
-    const endShiftObj = extractShiftFromNotes(currentOpenRec?.notlar, companyShifts, activeUserShift);
+    const endShiftObj = extractShiftFromNotes(currentOpenRec?.notlar, allCompanyShifts, activeUserShift);
 
     const shiftStart = getTargetGirisTime(endShiftObj, undefined, isTodayWeekend, saturdayConfig);
     const shiftEnd = getTargetCikisTime(endShiftObj, undefined, isTodayWeekend, saturdayConfig);
@@ -1843,7 +1843,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
 
       if (targetShiftId) {
-        const finalShiftObj = extractShiftFromNotes(openVNotes, companyShifts, endShiftObj);
+        const finalShiftObj = extractShiftFromNotes(openVNotes, allCompanyShifts, endShiftObj);
         const finalShiftName = finalShiftObj?.name || 'Vardiya';
         const finalShiftId = finalShiftObj?.id || '';
         try {
@@ -2665,7 +2665,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         const openRec = (allShiftRecords || []).find(
                           (r) => r.id === activeShiftRecordId || (r.employee_id === currentEmployee?.id && r.giris_saati && (!r.cikis_saati || r.cikis_saati === '00:00:00' || r.cikis_saati === '00:00' || r.cikis_saati === '-'))
                         );
-                        const openRecShift = extractShiftFromNotes(openRec?.notlar, companyShifts, activeUserShift);
+                        const openRecShift = extractShiftFromNotes(openRec?.notlar, allCompanyShifts, activeUserShift);
                         const shiftStartStr = getTargetGirisTime(openRecShift, undefined, isTodayWeekend, saturdayConfig);
                         if (openRec?.giris_saati) {
                           const rawTimePart = openRec.giris_saati.substring(0, 5);
@@ -2702,7 +2702,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                   if (!isShiftActive && latestCompletedRec && (latestCompletedRec.tarih === todayStr || Math.abs(new Date().getTime() - new Date(`${latestCompletedRec.tarih}T${latestCompletedRec.cikis_saati.substring(0, 5)}:00`).getTime()) < 24 * 3600 * 1000)) {
                     const recDateObj = new Date(latestCompletedRec.tarih);
                     const isRecWeekend = recDateObj.getDay() === 6 || recDateObj.getDay() === 0;
-                    const recShiftObj = extractShiftFromNotes(latestCompletedRec.notlar, companyShifts, activeUserShift);
+                    const recShiftObj = extractShiftFromNotes(latestCompletedRec.notlar, allCompanyShifts, activeUserShift);
                     const recShiftStart = getTargetGirisTime(recShiftObj, undefined, isRecWeekend, saturdayConfig);
                     const recShiftEnd = getTargetCikisTime(recShiftObj, undefined, isRecWeekend, saturdayConfig);
                     const recOvertimeAuth = checkEmployeeOvertimeAuth(
