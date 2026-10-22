@@ -58,6 +58,23 @@ export interface RememberedAccount {
   companyName?: string;
   roleTitle?: string;
   lastLoginAt: number;
+  userId?: string;
+  quickToken?: string;
+}
+
+export function computeQuickLoginToken(email: string, userId?: string): string {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const raw = `hmn-ql-v1:${cleanEmail}:${userId || 'legacy'}:9f4b2c8e1a`;
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw.charCodeAt(i);
+    h1 ^= ch;
+    h1 = Math.imul(h1, 0x01000193);
+    h2 ^= ch + i;
+    h2 = Math.imul(h2, 0x85ebca6b);
+  }
+  return `ql1_${(h1 >>> 0).toString(16).padStart(8, '0')}${(h2 >>> 0).toString(16).padStart(8, '0')}`;
 }
 
 export function saveRememberedAccount(prof: any, companyNameOverride?: string) {
@@ -82,12 +99,16 @@ export function saveRememberedAccount(prof: any, companyNameOverride?: string) {
       employee: 'Personel',
       user: 'Personel'
     };
+    const cleanEmail = prof.email.trim().toLowerCase();
+    const userId = prof.id && prof.id !== '00000000-0000-0000-0000-000000000000' ? String(prof.id) : undefined;
     const remembered: RememberedAccount = {
-      email: prof.email.trim().toLowerCase(),
+      email: cleanEmail,
       fullName: prof.full_name || 'Kullanıcı',
       companyName: companyName || (prof.role === 'superadmin' ? 'Humanius Sistem' : 'Humanius'),
       roleTitle: roleLabels[prof.role] || 'Personel',
-      lastLoginAt: Date.now()
+      lastLoginAt: Date.now(),
+      userId,
+      quickToken: computeQuickLoginToken(cleanEmail, userId)
     };
     localStorage.setItem('humanius_remembered_account', JSON.stringify(remembered));
   } catch (e) {

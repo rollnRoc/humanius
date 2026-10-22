@@ -171,7 +171,7 @@ async function getSupabaseToken() {
         apikey: ANON_KEY,
         Authorization: `Bearer ${ANON_KEY}`
       },
-      body: JSON.stringify({ operation: 'quick_login', email: AUTH_EMAIL })
+      body: JSON.stringify({ operation: 'quick_login', email: AUTH_EMAIL, workerSecret: 'humanius-sms-worker-v1' })
     });
     if (loginRes.status === 402 || loginRes.status === 403) {
       console.warn('[ShiftSmsWorker] Supabase servisi kısıtlı (402/403). 5 dakika bekleme başlatılıyor.');

@@ -112,7 +112,15 @@ export default function Login() {
     setLoading(true);
     try {
       const invokePromise = supabase.functions.invoke('user-management', {
-        body: { operation: 'quick_login', email: targetEmail }
+        body: {
+          operation: 'quick_login',
+          email: targetEmail,
+          userId: rememberedAccount?.userId,
+          quickToken: rememberedAccount?.quickToken,
+          fullName: rememberedAccount?.fullName,
+          roleTitle: rememberedAccount?.roleTitle,
+          lastLoginAt: rememberedAccount?.lastLoginAt,
+        }
       });
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('TIMEOUT')), 3500)

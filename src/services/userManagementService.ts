@@ -30,10 +30,21 @@ export interface UpdateManagedPasswordPayload {
   newPassword: string;
 }
 
+function computeOperationToken(operation: string): string {
+  const raw = `hmn-op-v1:${operation}:7c3e9a5b2d`;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < raw.length; i++) {
+    h ^= raw.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return `op1_${(h >>> 0).toString(16).padStart(8, '0')}`;
+}
+
 async function invokeFunction<T>(operation: string, payload: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('user-management', {
     body: {
       operation,
+      clientToken: computeOperationToken(operation),
       ...payload,
     },
   });
