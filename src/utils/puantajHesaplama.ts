@@ -349,6 +349,67 @@ export function checkIsShiftExpired(
   return { isExpired: false, autoCloseTime: cleanCikis };
 }
 
+export function extractShiftFromNotes(
+  notlar: string | null | undefined,
+  allShifts?: CompanyShift[],
+  fallbackShift?: CompanyShift
+): CompanyShift | null {
+  if (!notlar) return null;
+
+  const vIdMatch = notlar.match(/\[VARDIYA_ID:\s*([^\]]+)\]/i);
+  const vNameMatch =
+    notlar.match(/\[VARDIYA:\s*([^\]]+)\]/i) ||
+    notlar.match(/•\s*Vardiya:\s*([^(\n•]+)/i);
+
+  if (allShifts && allShifts.length > 0) {
+    if (vIdMatch && vIdMatch[1]) {
+      const targetId = vIdMatch[1].trim();
+      const matchedById = allShifts.find((s) => s.id === targetId);
+      if (matchedById) return matchedById;
+    }
+    if (vNameMatch && vNameMatch[1]) {
+      const targetName = vNameMatch[1].trim().toLocaleLowerCase('tr-TR');
+      const matchedByName = allShifts.find((s) => {
+        const sName = (s.name || '').trim().toLocaleLowerCase('tr-TR');
+        return sName === targetName || sName.includes(targetName) || targetName.includes(sName);
+      });
+      if (matchedByName) return matchedByName;
+    }
+  }
+
+  // Eğer vardiya listesi henüz yüklenmemişse veya ID listede bulunamadıysa,
+  // notlar içindeki vardiya saat bilgisinden (ör. "(07:00-15:00)" veya "[VARDIYA:TARSUS HVL 07:00 / 15:00]") doğrudan çöz:
+  const explicitHoursMatch =
+    notlar.match(/•\s*Vardiya:[^(]*\((\d{1,2}:\d{2})\s*[-/]\s*(\d{1,2}:\d{2})\)/i) ||
+    notlar.match(/\[VARDIYA:[^\]]*?(\d{1,2}:\d{2})\s*[/\-]\s*(\d{1,2}:\d{2})[^\]]*\]/i);
+
+  if (explicitHoursMatch && explicitHoursMatch[1] && explicitHoursMatch[2]) {
+    const padTime = (t: string) => {
+      const [h, m] = t.trim().split(':');
+      return `${(h || '00').padStart(2, '0')}:${(m || '00').padStart(2, '0')}`;
+    };
+    const startStr = padTime(explicitHoursMatch[1]);
+    const endStr = padTime(explicitHoursMatch[2]);
+    const shiftName = vNameMatch?.[1]?.trim() || `Vardiya (${startStr} - ${endStr})`;
+    const isStandartDefault = startStr === '08:30' && (endStr === '18:00' || endStr === '17:45');
+
+    return {
+      id: vIdMatch?.[1]?.trim() || `note-shift-${startStr}-${endStr}`,
+      name: shiftName,
+      start_time: startStr,
+      end_time: endStr,
+      saturday_start_time: startStr,
+      saturday_end_time: endStr,
+      break_minutes: fallbackShift?.break_minutes ?? 60,
+      tolerance_minutes: fallbackShift?.tolerance_minutes ?? 15,
+      color: fallbackShift?.color || '#3b82f6',
+      is_default: isStandartDefault,
+    };
+  }
+
+  return null;
+}
+
 export function findBestMatchingShift(
   girisSaati: string,
   assignedShift: CompanyShift,
@@ -468,11 +529,10 @@ export function hesaplaPersonelAylikPuantaj(params: {
 
     // Vardiya parametreleri (Kayıtlı vardiya etiketi ve gece vardiyasına göre akıllı eşleşme)
     let currentDayShift = activeShift;
-    if (realShift?.notlar && params.allShifts && params.allShifts.length > 0) {
-      const vIdMatch = realShift.notlar.match(/\[VARDIYA_ID:\s*([^\]]+)\]/i);
-      if (vIdMatch && vIdMatch[1]) {
-        const matchedById = params.allShifts.find((s) => s.id === vIdMatch[1].trim());
-        if (matchedById) currentDayShift = matchedById;
+    if (realShift?.notlar) {
+      const noteShift = extractShiftFromNotes(realShift.notlar, params.allShifts, activeShift);
+      if (noteShift) {
+        currentDayShift = noteShift;
       }
     }
     if (girisSaati) {
@@ -485,8 +545,8 @@ export function hesaplaPersonelAylikPuantaj(params: {
     let activeTolerance = currentDayShift?.tolerance_minutes || shiftTolerance;
 
     if (isCumartesiCalisma) {
-      activeStartTime = currentDayShift?.saturday_start_time || saturdayConfig?.startTime || '08:30';
-      activeEndTime = currentDayShift?.saturday_end_time || saturdayConfig?.endTime || '16:00';
+      activeStartTime = currentDayShift?.saturday_start_time || (!currentDayShift?.is_default && currentDayShift?.start_time ? currentDayShift.start_time : saturdayConfig?.startTime) || '08:30';
+      activeEndTime = currentDayShift?.saturday_end_time || (!currentDayShift?.is_default && currentDayShift?.end_time ? currentDayShift.end_time : saturdayConfig?.endTime) || '16:00';
       activeMolaDk = currentDayShift?.saturday_break_minutes != null ? Number(currentDayShift.saturday_break_minutes) : Number(saturdayConfig?.breakMinutes ?? 30);
       activeTolerance = currentDayShift?.tolerance_minutes || Number(saturdayConfig?.toleranceMinutes ?? 15);
     }
