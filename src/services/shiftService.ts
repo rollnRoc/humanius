@@ -748,7 +748,9 @@ class ShiftService {
         if (!error && data && Array.isArray(data)) {
           const map: Record<string, string> = {};
           data.forEach((row: any) => {
-            map[row.employee_id] = row.shift_id;
+            if (row.employee_id && row.shift_id) {
+              map[row.employee_id] = row.shift_id;
+            }
           });
           localStorage.setItem(storageKey, JSON.stringify(map));
           return map;
@@ -787,46 +789,71 @@ class ShiftService {
 
     // 1. Persist to Supabase FIRST
     if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
-      try {
-        const rows = employeeIds.map((empId) => ({
-          id: `sa-${companyId.substring(0, 4)}-${empId}`,
-          company_id: companyId,
-          employee_id: String(empId),
-          shift_id: String(shiftId),
-          updated_at: new Date().toISOString(),
-        }));
-        const { error } = await supabase
-          .from('company_shift_assignments')
-          .upsert(rows, { onConflict: 'company_id,employee_id' });
-        if (!error) success = true;
-      } catch {}
-
-      if (!success) {
+      if (!shiftId) {
+        // Varsayılan vardiyaya sıfırlama: özel atama kaydını sil
         try {
-          const { data: res } = await supabase.functions.invoke('user-management', {
-            body: {
-              operation: 'bulk_save_company_shift_assignments',
-              companyId,
-              employee_ids: employeeIds,
-              shift_id: shiftId,
-            },
-          });
-          success = !!res?.success;
-        } catch (e) {
-          console.error('Bulk assign shift error:', e);
+          const { error } = await supabase
+            .from('company_shift_assignments')
+            .delete()
+            .eq('company_id', companyId)
+            .in('employee_id', employeeIds.map(String));
+          if (!error) success = true;
+        } catch {}
+      } else {
+        try {
+          const rows = employeeIds.map((empId) => ({
+            id: `sa-${companyId.substring(0, 4)}-${empId}`,
+            company_id: companyId,
+            employee_id: String(empId),
+            shift_id: String(shiftId),
+            updated_at: new Date().toISOString(),
+          }));
+          const { error } = await supabase
+            .from('company_shift_assignments')
+            .upsert(rows, { onConflict: 'company_id,employee_id' });
+          if (!error) success = true;
+        } catch {}
+
+        if (!success) {
+          try {
+            const { data: res } = await supabase.functions.invoke('user-management', {
+              body: {
+                operation: 'bulk_save_company_shift_assignments',
+                companyId,
+                employee_ids: employeeIds,
+                shift_id: shiftId,
+              },
+            });
+            success = !!res?.success;
+          } catch (e) {
+            console.error('Bulk assign shift error:', e);
+          }
         }
       }
     } else {
       success = true;
     }
 
-    // 2. Update local cache
+    // 2. Update local cache & clear stale per-employee browser shift cache
     try {
       let map: Record<string, string> = {};
       const saved = localStorage.getItem(storageKey);
       if (saved) map = JSON.parse(saved);
       employeeIds.forEach((empId) => {
-        map[empId] = shiftId;
+        if (!shiftId) {
+          delete map[empId];
+          localStorage.removeItem(`humanius_emp_selected_shift_${empId}`);
+        } else {
+          map[empId] = shiftId;
+          localStorage.setItem(`humanius_emp_selected_shift_${empId}`, shiftId);
+        }
+        // Bugünkü veya geçmiş yerel günlük vardiya önbelleğini temizle ki yeni atama anında görünsün
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith(`humanius_daily_shift_${empId}_`)) {
+            localStorage.removeItem(k);
+          }
+        }
       });
       localStorage.setItem(storageKey, JSON.stringify(map));
     } catch {}

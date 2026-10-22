@@ -294,26 +294,7 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
 
     return employees.map((emp) => {
       const assignedShiftId = shiftAssignments[emp.id] || ((emp as any).user_id && shiftAssignments[(emp as any).user_id]);
-      let empShift = companyShifts.find((s) => s.id === assignedShiftId) || null;
-      if (!empShift) {
-        try {
-          const savedShiftId = localStorage.getItem(`humanius_emp_selected_shift_${emp.id}`);
-          if (savedShiftId) {
-            empShift = companyShifts.find((s) => s.id === savedShiftId) || null;
-          }
-        } catch {}
-      }
-      if (!empShift) {
-        const empLoc = emp.department || (emp as any).branch || (emp as any).office_name || '';
-        if (empLoc) {
-          empShift = companyShifts.find(
-            (s) =>
-              s.name.toLowerCase().includes(empLoc.toLowerCase()) ||
-              (s.office_name && s.office_name.toLowerCase().includes(empLoc.toLowerCase()))
-          ) || null;
-        }
-      }
-      if (!empShift) empShift = defaultShift;
+      const empShift = (assignedShiftId ? companyShifts.find((s) => s.id === assignedShiftId) : null) || defaultShift;
 
       return hesaplaPersonelAylikPuantaj({
         employee: emp,
