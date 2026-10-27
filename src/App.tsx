@@ -2253,7 +2253,7 @@ const AppInner: React.FC = () => {
           loadData();
         }}
         activeCompanyId={profile?.company_id}
-        activeCompanyName={companies[0]}
+        activeCompanyName={selectedCompany && selectedCompany !== 'all' ? selectedCompany : companies[0]}
       />
 
       <EmployeeExportModal

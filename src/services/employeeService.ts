@@ -381,7 +381,10 @@ export const employeeService = {
       return {
         ...rawPayload,
         level: sanitizeLevel(rawPayload.level),
-        join_date: rawPayload.join_date || (joinDate ? String(joinDate).split('T')[0] : new Date().toISOString().split('T')[0]),
+        join_date: normalizeDateForInput(rawPayload.join_date ?? joinDate) || new Date().toISOString().split('T')[0],
+        birth_date: normalizeDateForInput(rawPayload.birth_date ?? (rawPayload as any).birthDate) || null,
+        medeni_durum: rawPayload.medeni_durum || null,
+        is_yeri_sgk_sicil_no: String(rawPayload.is_yeri_sgk_sicil_no ?? rawPayload.isYeriSgkSicilNo ?? '').trim(),
         status: rawPayload.status || 'active',
         employee_type: rawPayload.employee_type || employeeType || 'normal',
       };
@@ -390,10 +393,16 @@ export const employeeService = {
     // 1. Mevcut personelleri çek ve TC No / İsim eşleşmesi ile mükerrer kayıtları engelle
     let existingMap: any[] = [];
     try {
-      const { data: dbExisting } = await supabase
-        .from('employees')
-        .select('id, name, tc_no, email, company_id');
-      if (dbExisting) existingMap = dbExisting;
+      const targetCompId = cleaned[0]?.company_id;
+      const allExisting = await this.getAll(targetCompId);
+      if (allExisting && allExisting.length > 0) {
+        existingMap = allExisting as any[];
+      } else {
+        const { data: dbExisting } = await supabase
+          .from('employees')
+          .select('id, name, tc_no, email, company_id, address');
+        if (dbExisting) existingMap = dbExisting;
+      }
     } catch (e) {
       console.warn('Mevcut personel listesi çekilemedi:', e);
     }
@@ -411,37 +420,48 @@ export const employeeService = {
       if (!match && emp.name) {
         match = existingMap.find(ex => 
           ex.company_id === emp.company_id && 
-          String(ex.name).trim().toLowerCase() === String(emp.name).trim().toLowerCase()
+          String(ex.name).trim().toLocaleLowerCase('tr-TR') === String(emp.name).trim().toLocaleLowerCase('tr-TR')
         );
       }
+
+      const targetIsYeriSicil = emp.is_yeri_sgk_sicil_no || '';
 
       if (match) {
         // Mükerrer personel bulundu! İkinci satır eklemek yerine mevcut kartı güncelle
         try {
-          const updateAddr = formatAddressWithCity(emp.address, emp.il, emp.ilce);
+          const updateAddr = formatAddressWithCity(emp.address || match.address, emp.il, emp.ilce, targetIsYeriSicil, undefined);
           if (emp.il || emp.ilce) {
             saveEmployeeLocationMeta(match.id, emp.email, emp.il, emp.ilce);
           }
+          if (targetIsYeriSicil) {
+            saveEmployeeIsYeriSgkSicil(match.id, emp.email, targetIsYeriSicil);
+          }
           const { error: upErr } = await supabase
             .from('employees')
-            .update({
+            .update(filterDbEmployeePayload({
               department: emp.department || undefined,
               position: emp.position || undefined,
               phone: emp.phone || undefined,
               address: updateAddr || undefined,
               sicil_no: emp.sicil_no || undefined,
+              tc_no: emp.tc_no || undefined,
               join_date: emp.join_date || undefined,
+              birth_date: emp.birth_date || undefined,
+              medeni_durum: emp.medeni_durum || undefined,
               status: emp.status || 'active',
-            })
+            }))
             .eq('id', match.id);
           if (!upErr) updatedCount++;
         } catch (upCatch) {
           console.warn('Mevcut personel güncelleme uyarısı:', upCatch);
         }
       } else {
-        const insertAddr = formatAddressWithCity(emp.address, emp.il, emp.ilce);
-        const { il: _il, ilce: _ilce, ...cleanEmp } = emp;
-        toInsert.push(filterDbEmployeePayload({ ...cleanEmp, address: insertAddr }));
+        const insertAddr = formatAddressWithCity(emp.address, emp.il, emp.ilce, targetIsYeriSicil, undefined);
+        const { il: _il, ilce: _ilce, is_yeri_sgk_sicil_no: _sgk, ...cleanEmp } = emp;
+        toInsert.push({
+          dbPayload: filterDbEmployeePayload({ ...cleanEmp, address: insertAddr }),
+          rawEmp: { ...emp, address: insertAddr }
+        });
       }
     }
 
@@ -449,22 +469,46 @@ export const employeeService = {
     const CHUNK_SIZE = 50;
 
     for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
-      const chunk = toInsert.slice(i, i + CHUNK_SIZE);
+      const chunkItems = toInsert.slice(i, i + CHUNK_SIZE);
+      const chunkPayloads = chunkItems.map(item => item.dbPayload);
       const { data, error } = await supabase
         .from('employees')
-        .insert(chunk)
+        .insert(chunkPayloads)
         .select('id, name, email');
 
       if (error) {
         console.warn(`Toplu ekleme ${i} aralığı hatası, satır satır ekleniyor:`, error.message);
-        for (const singleEmp of chunk) {
+        for (const item of chunkItems) {
           try {
             const { data: sData, error: sErr } = await supabase
               .from('employees')
-              .insert(singleEmp)
+              .insert(item.dbPayload)
               .select('id, name, email')
               .single();
             if (!sErr && sData) {
+              if (item.rawEmp.is_yeri_sgk_sicil_no) {
+                saveEmployeeIsYeriSgkSicil(sData.id, sData.email, item.rawEmp.is_yeri_sgk_sicil_no);
+              }
+              totalInserted++;
+            } else {
+              // RLS vb. nedenle doğrudan insert başarısız olduysa Edge Function ile oluştur
+              const { userManagementService } = await import('./userManagementService');
+              await userManagementService.createCompanyUser({
+                companyId: item.rawEmp.company_id || undefined,
+                fullName: item.rawEmp.name,
+                email: item.rawEmp.email,
+                password: '987654',
+                role: 'employee',
+                department: item.rawEmp.department,
+                position: item.rawEmp.position,
+                employeeType: item.rawEmp.employee_type || 'normal',
+                tc_no: item.rawEmp.tc_no || '',
+                phone: item.rawEmp.phone || '',
+                address: item.rawEmp.address || '',
+                sicil_no: item.rawEmp.sicil_no || '',
+                join_date: item.rawEmp.join_date || null,
+                birth_date: item.rawEmp.birth_date || null,
+              } as any);
               totalInserted++;
             }
           } catch (singleErr) {
@@ -472,7 +516,15 @@ export const employeeService = {
           }
         }
       } else {
-        totalInserted += (data?.length || chunk.length);
+        if (Array.isArray(data)) {
+          data.forEach((insertedRow, idx) => {
+            const sgk = chunkItems[idx]?.rawEmp?.is_yeri_sgk_sicil_no;
+            if (insertedRow?.id && sgk) {
+              saveEmployeeIsYeriSgkSicil(insertedRow.id, insertedRow.email, sgk);
+            }
+          });
+        }
+        totalInserted += (data?.length || chunkPayloads.length);
       }
     }
 
