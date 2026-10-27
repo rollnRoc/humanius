@@ -76,7 +76,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     let isMounted = true;
-    companyService.getAll().then((comps) => {
+    companyService.getCompanies().then((comps) => {
       if (!isMounted || !Array.isArray(comps)) return;
       const validComps = comps
         .filter((c: any) => c && c.id && c.name)
@@ -337,7 +337,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   };
 
   // 3. Eşleşmiş Verileri Formatlama & Temizleme
-  const parsedEmployees = React.useMemo(() => {
+  const parsedEmployees = React.useMemo<Record<string, any>[]>(() => {
     if (activeRawRows.length === 0 || rawHeaders.length === 0) return [];
 
     return activeRawRows.map((rowObj, rowIdx) => {
@@ -378,9 +378,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           // Medeni Durum Temizleme
           if (targetKey === 'medeni_durum' && val) {
             const mStr = String(val).trim().toLocaleLowerCase('tr-TR');
-            if (mStr.includes('evli')) val = 'Evli';
-            else if (mStr.includes('bekar') || mStr.includes('bekâr')) val = 'Bekar';
-            else val = toTurkishTitleCase(String(val));
+            if (mStr.includes('evli')) val = 'evli';
+            else if (mStr.includes('bekar') || mStr.includes('bekâr')) val = 'bekar';
+            else val = mStr;
           }
 
           // Seviye Temizleme (Junior, Mid, Senior, Lead, Manager)
@@ -787,6 +787,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                         <th className="p-2">Pozisyon</th>
                         <th className="p-2">TC Kimlik</th>
                         <th className="p-2">İşe Giriş</th>
+                        <th className="p-2">Medeni Durum</th>
                         <th className="p-2">Telefon</th>
                       </tr>
                     </thead>
@@ -806,6 +807,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                           <td className="p-2">{emp.position || '—'}</td>
                           <td className="p-2 font-mono">{emp.tc_no || '—'}</td>
                           <td className="p-2 font-mono">{emp.join_date || '—'}</td>
+                          <td className="p-2 capitalize">{emp.medeni_durum || '—'}</td>
                           <td className="p-2 font-mono">{emp.phone || '—'}</td>
                         </tr>
                       ))}
