@@ -735,15 +735,15 @@ class ShiftService {
    * Get all shift assignments for employees
    */
   public async getAssignments(companyId?: string): Promise<Record<string, string>> {
-    const effectiveCompanyId = companyId || 'default';
+    const effectiveCompanyId = normalizeCompanyId(companyId) || 'default';
     const storageKey = `humanius_shift_assignments_${effectiveCompanyId}`;
 
-    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+    if (effectiveCompanyId && effectiveCompanyId !== 'default' && !effectiveCompanyId.includes('demo')) {
       try {
         const { data, error } = await supabase
           .from('company_shift_assignments')
           .select('*')
-          .eq('company_id', companyId);
+          .eq('company_id', effectiveCompanyId);
 
         if (!error && data && Array.isArray(data)) {
           const map: Record<string, string> = {};
@@ -758,6 +758,23 @@ class ShiftService {
       } catch (err) {
         console.warn('Assignments fetch error:', err);
       }
+
+      // Edge Function fallback
+      try {
+        const { data: res } = await supabase.functions.invoke('user-management', {
+          body: { operation: 'list_company_shift_assignments', companyId: effectiveCompanyId },
+        });
+        if (res?.assignments && Array.isArray(res.assignments)) {
+          const map: Record<string, string> = {};
+          res.assignments.forEach((row: any) => {
+            if (row.employee_id && row.shift_id) {
+              map[row.employee_id] = row.shift_id;
+            }
+          });
+          localStorage.setItem(storageKey, JSON.stringify(map));
+          return map;
+        }
+      } catch {}
     }
 
     let localMap: Record<string, string> = {};
@@ -782,28 +799,43 @@ class ShiftService {
    * Bulk assign shift to multiple employees (e.g. department or multi-select)
    */
   public async bulkAssign(companyId: string, employeeIds: string[], shiftId: string): Promise<boolean> {
-    const effectiveCompanyId = companyId || 'default';
+    const effectiveCompanyId = normalizeCompanyId(companyId) || 'default';
     const storageKey = `humanius_shift_assignments_${effectiveCompanyId}`;
 
     let success = false;
 
     // 1. Persist to Supabase FIRST
-    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+    if (effectiveCompanyId && effectiveCompanyId !== 'default' && !effectiveCompanyId.includes('demo')) {
       if (!shiftId) {
         // Varsayılan vardiyaya sıfırlama: özel atama kaydını sil
         try {
           const { error } = await supabase
             .from('company_shift_assignments')
             .delete()
-            .eq('company_id', companyId)
+            .eq('company_id', effectiveCompanyId)
             .in('employee_id', employeeIds.map(String));
           if (!error) success = true;
         } catch {}
+
+        if (!success) {
+          try {
+            for (const empId of employeeIds) {
+              await supabase.functions.invoke('user-management', {
+                body: {
+                  operation: 'delete_company_shift_assignment',
+                  companyId: effectiveCompanyId,
+                  employee_id: String(empId),
+                },
+              });
+            }
+            success = true;
+          } catch {}
+        }
       } else {
         try {
           const rows = employeeIds.map((empId) => ({
-            id: `sa-${companyId.substring(0, 4)}-${empId}`,
-            company_id: companyId,
+            id: `sa-${effectiveCompanyId.substring(0, 4)}-${empId}`,
+            company_id: effectiveCompanyId,
             employee_id: String(empId),
             shift_id: String(shiftId),
             updated_at: new Date().toISOString(),
@@ -819,7 +851,7 @@ class ShiftService {
             const { data: res } = await supabase.functions.invoke('user-management', {
               body: {
                 operation: 'bulk_save_company_shift_assignments',
-                companyId,
+                companyId: effectiveCompanyId,
                 employee_ids: employeeIds,
                 shift_id: shiftId,
               },
@@ -886,15 +918,15 @@ class ShiftService {
    * Get Saturday work configuration for a company (Database-First)
    */
   public async getSaturdayConfig(companyId?: string): Promise<SaturdayWorkConfig> {
-    const effectiveCompanyId = companyId || 'default';
+    const effectiveCompanyId = normalizeCompanyId(companyId) || 'default';
     const storageKey = `humanius_saturday_work_${effectiveCompanyId}`;
 
-    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+    if (effectiveCompanyId && effectiveCompanyId !== 'default' && !effectiveCompanyId.includes('demo')) {
       try {
         const { data, error } = await supabase
           .from('company_shifts')
           .select('*')
-          .eq('company_id', companyId)
+          .eq('company_id', effectiveCompanyId)
           .like('id', '%cumartesi%')
           .maybeSingle();
 
@@ -945,18 +977,18 @@ class ShiftService {
    * Save Saturday work configuration for a company (Database-First)
    */
   public async saveSaturdayConfig(companyId: string, config: SaturdayWorkConfig): Promise<boolean> {
-    const effectiveCompanyId = companyId || 'default';
+    const effectiveCompanyId = normalizeCompanyId(companyId) || 'default';
     const storageKey = `humanius_saturday_work_${effectiveCompanyId}`;
     let success = false;
 
-    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
-      const shiftId = `shift-cumartesi-${companyId}`;
+    if (effectiveCompanyId && effectiveCompanyId !== 'default' && !effectiveCompanyId.includes('demo')) {
+      const shiftId = `shift-cumartesi-${effectiveCompanyId}`;
       try {
         if (config.isSaturdayWork) {
           const { error } = await supabase.from('company_shifts').upsert(
             {
               id: shiftId,
-              company_id: companyId,
+              company_id: effectiveCompanyId,
               name: 'Cumartesi Mesaisi',
               start_time: config.startTime || '08:30',
               end_time: config.endTime || '16:00',
@@ -977,7 +1009,7 @@ class ShiftService {
           const { error } = await supabase
             .from('company_shifts')
             .delete()
-            .eq('company_id', companyId)
+            .eq('company_id', effectiveCompanyId)
             .eq('id', shiftId);
           if (!error) {
             success = true;

@@ -455,13 +455,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       return adminOverrides[emp.id].officeName;
     }
 
-    // 3. Atanmış vardiyada ofis açıkça tanımlıysa (Yalnızca vardiyada açık office_id veya office_name varsa)
-    if (shift && (shift.office_id || shift.office_name)) {
-      const shiftOff = resolveOfficeForShift(shift, compOffices);
-      if (shiftOff && !shiftOff.is_default) return shiftOff.name;
-    }
-
-    // 4. Personelin departman / il / ilçe bilgisine göre ofis eşleştir
+    // 3. Personelin departman / il / ilçe bilgisine göre ofis eşleştir (Atanmış vardiya etiketinden önce personelin kendi şehri/şubesi esas alınır)
     const dept = normalizeTr(emp?.department || '');
     const city = normalizeTr(emp?.il || (emp as any)?.city || '');
     const ilce = normalizeTr(emp?.ilce || '');
@@ -482,6 +476,25 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
     }
 
+    // C. İl (Şehir) eşleşmesi (örn. personelin ili Düzce ise Düzce Ofisi)
+    if (city && city.length >= 3) {
+      const matchingCityOffices = compOffices.filter((off) => {
+        const offIlNorm = normalizeTr(off.il || '');
+        const offNameNorm = normalizeTr(off.name || '');
+        return (offIlNorm && offIlNorm === city) || offNameNorm.includes(city);
+      });
+      if (matchingCityOffices.length > 0) {
+        const defInCity = matchingCityOffices.find((o) => o.is_default) || matchingCityOffices[0];
+        return defInCity.name;
+      }
+    }
+
+    // 4. Atanmış vardiyada ofis açıkça tanımlıysa (Personelin il/departman eşleşmesi yoksa yedek olarak)
+    if (shift && (shift.office_id || shift.office_name)) {
+      const shiftOff = resolveOfficeForShift(shift, compOffices);
+      if (shiftOff && !shiftOff.is_default) return shiftOff.name;
+    }
+
     return defaultOfficeName;
   }, [allCompanyOfficesMap, officeLocations, resolvedCompanyId, adminOverrides]);
 
@@ -499,17 +512,17 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       if (found) return found;
     }
 
-    // 2. Atanmış vardiyada ofis açıkça tanımlıysa (Yalnızca vardiyada açık office_id veya office_name varsa)
-    if (employeeAssignedShift && (employeeAssignedShift.office_id || employeeAssignedShift.office_name)) {
-      const off = resolveOfficeForShift(employeeAssignedShift, effectiveLocs);
-      if (off && !off.is_default) return off;
-    }
-
-    // 3. Personelin departman veya il/ilçe/şube bilgisine göre ofis eşleştir
+    // 2. Personelin departman veya il/ilçe/şube bilgisine göre ofis eşleştir (Öncelikli)
     if (currentEmployee) {
       const offName = resolveEmployeeOfficeName(currentEmployee, employeeAssignedShift, null);
       const found = effectiveLocs.find((o) => normalizeTr(o.name) === normalizeTr(offName));
       if (found) return found;
+    }
+
+    // 3. Atanmış vardiyada ofis açıkça tanımlıysa
+    if (employeeAssignedShift && (employeeAssignedShift.office_id || employeeAssignedShift.office_name)) {
+      const off = resolveOfficeForShift(employeeAssignedShift, effectiveLocs);
+      if (off && !off.is_default) return off;
     }
 
     // 4. Varsayılan ofis
@@ -671,21 +684,16 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         const assignedId = (empId && fetchedAssignments[empId]) || (empUserId && fetchedAssignments[empUserId]);
         const userShift = assignedId ? cleanShifts.find((s) => s.id === assignedId) : null;
 
-        const manualShift = userManualShiftIdRef.current
-          ? cleanShifts.find((s) => s.id === userManualShiftIdRef.current)
-          : null;
-        const effectiveShift = manualShift || userShift || defaultShift;
-        setActiveUserShift(effectiveShift);
-
-        // Atanmış vardiyanın ofisini bulup seçili ofis henüz ayarlanmamışsa senkronize et
-        if (effectiveShift && officeLocations.length > 0) {
-          const shiftOff = resolveOfficeForShift(effectiveShift, officeLocations);
-          if (shiftOff?.id) {
-            setSelectedOfficeId((prev) => {
-              if (prev && officeLocations.some((l) => l.id === prev)) return prev;
-              return shiftOff.id;
-            });
-          }
+        // Vardiya Yönetimi'nden yeni bir vardiya atanmışsa her zaman veritabanındaki güncel atamayı esas al
+        if (userShift) {
+          userManualShiftIdRef.current = null;
+          setActiveUserShift(userShift);
+        } else {
+          const manualShift = userManualShiftIdRef.current
+            ? cleanShifts.find((s) => s.id === userManualShiftIdRef.current)
+            : null;
+          const effectiveShift = manualShift || defaultShift;
+          setActiveUserShift(effectiveShift);
         }
       } catch (err) {
         console.warn('Error loading shifts:', err);
@@ -727,7 +735,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       window.removeEventListener('storage', handleShiftsUpdated);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [resolvedCompanyId, currentEmployee?.id, officeLocations]);
+  }, [resolvedCompanyId, currentEmployee?.id]);
   
   // Ofise bağlı vardiya filtrelemesi:
   // - İK ve Şirket Yöneticisi (superadmin, admin, hr) şirketin tüm vardiyalarını görür.
@@ -821,21 +829,23 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   }, []);
 
   // Mesai Başlatma kartında seçili ofise kayıtlı vardiyaların listesi:
-  // - Seçilen ofise kayıtlı vardiyalar ve genel/varsayılan vardiyalar gösterilir.
   // - Personelin atanmış olduğu vardiya daima listede yer alır ve en başta listelenir.
+  // - Ardından seçilen ofise kayıtlı vardiyalar, varsayılan vardiya ve diğer şirket vardiyaları gelir.
   const visibleShiftsForEmployee = useMemo(() => {
     const targetOfficeId = effectiveSelectedOfficeId || employeeAssignedOffice?.id;
-    let baseList = targetOfficeId
+    const officeMatchedList = targetOfficeId
       ? getShiftsForSpecificOffice(targetOfficeId, allCompanyShifts, officeLocations)
       : allCompanyShifts;
+    const officeMatchedIds = new Set(officeMatchedList.map((s) => s.id));
 
-    const merged = [...baseList];
+    const merged = [...officeMatchedList];
     if (employeeAssignedShift && !merged.some((s) => s.id === employeeAssignedShift.id)) {
       merged.unshift(employeeAssignedShift);
     }
-    const defaultShift = allCompanyShifts.find((s) => s.is_default) || allCompanyShifts[0];
-    if (defaultShift && !merged.some((s) => s.id === defaultShift.id)) {
-      merged.push(defaultShift);
+    for (const s of allCompanyShifts) {
+      if (!merged.some((m) => m.id === s.id)) {
+        merged.push(s);
+      }
     }
 
     return merged.sort((a, b) => {
@@ -843,6 +853,10 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         if (a.id === employeeAssignedShift.id) return -1;
         if (b.id === employeeAssignedShift.id) return 1;
       }
+      const aInOffice = officeMatchedIds.has(a.id);
+      const bInOffice = officeMatchedIds.has(b.id);
+      if (aInOffice && !bInOffice) return -1;
+      if (!aInOffice && bInOffice) return 1;
       if (a.is_default && !b.is_default) return -1;
       if (!a.is_default && b.is_default) return 1;
       return a.name.localeCompare(b.name, 'tr-TR');
@@ -1388,7 +1402,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
 
       const targetOff =
-        closestOff && minDist <= Math.max(2500, (closestOff.radius_meters || geofenceRadius) * 3)
+        closestOff && minDist <= 25000
           ? closestOff
           : currentOff;
 
@@ -2855,7 +2869,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                       onChange={(e) => {
                         const newId = e.target.value;
                         setSelectedOfficeId(newId);
-                        // Seçilen ofise kayıtlı vardiyaları anında senkronize et
+                        // Personelin Vardiya Yönetimi'nde atanmış vardiyası veya elle seçtiği vardiya varsa koru;
+                        // ofis değiştirmek veritabanındaki vardiya atamasını ASLA ezmemelidir!
+                        if (explicitAssignedShift || userManualShiftIdRef.current) {
+                          return;
+                        }
                         const newOfficeShifts = getShiftsForSpecificOffice(newId, allCompanyShifts, officeLocations);
                         if (newOfficeShifts.length > 0) {
                           const alreadyValid = newOfficeShifts.some((s) => s.id === activeUserShift?.id);
@@ -2864,9 +2882,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                             const nextShift = matchingAssigned || newOfficeShifts.find((s) => s.is_default) || newOfficeShifts[0];
                             if (nextShift) {
                               setActiveUserShift(nextShift);
-                              if (currentEmployee?.id) {
-                                shiftService.assignShift(resolvedCompanyId || 'default', currentEmployee.id, nextShift.id).catch(() => {});
-                              }
                             }
                           }
                         }
@@ -3141,6 +3156,9 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                         key={loc.id}
                         onClick={() => {
                           setSelectedOfficeId(loc.id);
+                          if (explicitAssignedShift || userManualShiftIdRef.current) {
+                            return;
+                          }
                           const newOfficeShifts = getShiftsForSpecificOffice(loc.id, allCompanyShifts, officeLocations);
                           if (newOfficeShifts.length > 0) {
                             const matchingAssigned = employeeAssignedShift && newOfficeShifts.find((s) => s.id === employeeAssignedShift.id);

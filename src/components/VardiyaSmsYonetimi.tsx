@@ -174,8 +174,13 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
   useEffect(() => {
     loadShiftData();
     const handleOfficeUpdate = () => loadShiftData();
+    const handleShiftUpdate = () => loadShiftData();
     window.addEventListener('humanius_office_locations_updated', handleOfficeUpdate);
-    return () => window.removeEventListener('humanius_office_locations_updated', handleOfficeUpdate);
+    window.addEventListener('humanius_shifts_updated', handleShiftUpdate);
+    return () => {
+      window.removeEventListener('humanius_office_locations_updated', handleOfficeUpdate);
+      window.removeEventListener('humanius_shifts_updated', handleShiftUpdate);
+    };
   }, [effectiveCompanyId]);
 
   useEffect(() => {
@@ -386,8 +391,13 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
   // ─── Personel Atama İşlemleri ─────────────────────────────────────────────
   const handleSingleAssign = async (employeeId: string, shiftId: string) => {
     try {
+      setAssignments((prev) => {
+        const next = { ...prev };
+        if (!shiftId) delete next[employeeId];
+        else next[employeeId] = shiftId;
+        return next;
+      });
       await shiftService.assignShift(effectiveCompanyId, employeeId, shiftId);
-      setAssignments((prev) => ({ ...prev, [employeeId]: shiftId }));
       showSuccess('Vardiya Atandı', 'Personel vardiyası başarıyla güncellendi.');
     } catch (err) {
       console.error('Atama hatası:', err);

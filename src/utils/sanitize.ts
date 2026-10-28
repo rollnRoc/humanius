@@ -126,7 +126,7 @@ export function matchEmployeeToUser<T extends { id: string; name?: string; email
     if (idMatch) return idMatch;
   }
 
-  // 2. Email match (exact or username prefix)
+  // 2. Email match (exact or normalized username prefix without dots/punctuation)
   if (candidateEmails.length > 0) {
     const emailMatch = employees.find((e) => {
       const empEmails = [
@@ -141,9 +141,15 @@ export function matchEmployeeToUser<T extends { id: string; name?: string; email
       return candidateEmails.some((ce) => {
         if (empEmails.includes(ce)) return true;
         const ceUser = ce.split('@')[0];
+        const ceClean = normalizeTurkish(ceUser).replace(/[^a-z0-9]/g, '');
         return empEmails.some((ee) => {
           const eeUser = ee.split('@')[0];
-          return ceUser === eeUser || (ceUser.length >= 3 && eeUser.includes(ceUser));
+          const eeClean = normalizeTurkish(eeUser).replace(/[^a-z0-9]/g, '');
+          return (
+            ceUser === eeUser ||
+            (ceClean.length >= 3 && ceClean === eeClean) ||
+            (ceUser.length >= 3 && eeUser.includes(ceUser))
+          );
         });
       });
     });
@@ -165,15 +171,21 @@ export function matchEmployeeToUser<T extends { id: string; name?: string; email
     if (tcPhoneMatch) return tcPhoneMatch;
   }
 
-  // 3. Name match with Turkish normalization
+  // 3. Name match with Turkish normalization (exact match prioritized first)
   if (normProfileName.length > 1) {
+    const exactNameMatch = employees.find((e) => {
+      const empName = String(e.name || '').trim();
+      const normEmpName = normalizeTurkish(empName).replace(/[\s-]/g, '');
+      return normEmpName.length > 1 && normEmpName === normProfileName;
+    });
+    if (exactNameMatch) return exactNameMatch;
+
     const nameMatch = employees.find((e) => {
       const empName = String(e.name || '').trim();
       const normEmpName = normalizeTurkish(empName).replace(/[\s-]/g, '');
       return (
         normEmpName.length > 1 &&
-        (normEmpName === normProfileName ||
-          normEmpName.includes(normProfileName) ||
+        (normEmpName.includes(normProfileName) ||
           normProfileName.includes(normEmpName) ||
           normEmpName.startsWith(normProfileName) ||
           normProfileName.startsWith(normEmpName))
@@ -182,14 +194,23 @@ export function matchEmployeeToUser<T extends { id: string; name?: string; email
     if (nameMatch) return nameMatch;
   }
 
-  // 4. Fallback: match by email username against employee first name
+  // 4. Fallback: match by email username against employee full name first, then first name
   if (candidateEmails.length > 0) {
+    const emailUserClean = normalizeTurkish(candidateEmails[0].split('@')[0]).replace(/[^a-z0-9]/g, '');
+    if (emailUserClean.length >= 3) {
+      const fullNameEmailMatch = employees.find((e) => {
+        const empFullNorm = normalizeTurkish(String(e.name || '')).replace(/[^a-z0-9]/g, '');
+        return empFullNorm.length >= 3 && (empFullNorm === emailUserClean || empFullNorm.includes(emailUserClean) || emailUserClean.includes(empFullNorm));
+      });
+      if (fullNameEmailMatch) return fullNameEmailMatch;
+    }
+
     const firstPart = candidateEmails[0].split('@')[0].split('.')[0].replace(/[^a-z0-9]/g, '');
     if (firstPart.length >= 3) {
       const firstPartNorm = normalizeTurkish(firstPart);
       const namePartMatch = employees.find((e) => {
         const empFirst = normalizeTurkish(String(e.name || '').split(' ')[0]);
-        return empFirst && (empFirst === firstPartNorm || empFirst.startsWith(firstPartNorm) || firstPartNorm.startsWith(empFirst));
+        return empFirst && (empFirst === firstPartNorm || empFirst.startsWith(firstPartNorm));
       });
       if (namePartMatch) return namePartMatch;
     }
@@ -197,4 +218,3 @@ export function matchEmployeeToUser<T extends { id: string; name?: string; email
 
   return null;
 }
-
