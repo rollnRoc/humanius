@@ -1264,26 +1264,24 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     return () => clearInterval(intervalId);
   }, [isShiftActive, activeUserShift?.start_time, activeUserShift?.end_time, activeUserShift?.tolerance_minutes]);
 
-  // Request browser location once
-  // Request browser location with multi-stage fallback (GPS -> Network/Wi-Fi)
+  const isRealGpsCoordsRef = useRef<boolean>(false);
+
+  // Request browser location with multi-stage fallback (High-Accuracy GPS -> Fast OS Location -> Network/IP Fallback for Firefox/Desktop)
   const requestLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationStatus('error');
-      setLocationErrorMsg('Tarayıcınız konum servisini desteklemiyor.');
-      return;
-    }
-
     setLocationStatus('pending');
+    let resolved = false;
 
-    const handleSuccess = (position: GeolocationPosition) => {
-      const { latitude, longitude } = position.coords;
+    const applyCoordinates = (latitude: number, longitude: number, isExactGps: boolean = true) => {
+      if (isNaN(latitude) || isNaN(longitude)) return;
+      resolved = true;
+      isRealGpsCoordsRef.current = isExactGps;
       setUserCoords({ lat: latitude, lng: longitude });
       setLocationStatus('success');
       setLocationErrorMsg('');
 
       // Akıllı ofis eşleştirme: Kullanıcının GPS koordinatına en yakın şirket şubesini tespit et
       const availableOffices = visibleOfficeLocations.length > 0 ? visibleOfficeLocations : officeLocations;
-      if (availableOffices.length > 0) {
+      if (availableOffices.length > 0 && isExactGps) {
         let closest = availableOffices[0];
         let minD = getDistance(latitude, longitude, closest.lat, closest.lng);
         for (let i = 1; i < availableOffices.length; i++) {
@@ -1300,23 +1298,116 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
     };
 
-    // 1. Aşama: Yüksek hassasiyetli GPS (15 saniye zaman aşımı, son 1 dakikalık önbelleğe izin)
+    const fallbackToNetworkOrOffice = async () => {
+      if (resolved) return;
+      const availableOffices = visibleOfficeLocations.length > 0 ? visibleOfficeLocations : officeLocations;
+      const fallbackOffice =
+        availableOffices.find((o) => o.id === effectiveSelectedOfficeId) ||
+        employeeAssignedOffice ||
+        availableOffices.find((o) => o.is_default) ||
+        availableOffices[0];
+
+      // Firefox Fingerprinting Protection veya masaüstü PC'lerde tarayıcı GPS servisi yanıt vermediğinde
+      // HTTPS tabanlı ağ konum servislerinden (geojs / ipwho / freeipapi) şehir ve koordinat bilgisini al
+      const endpoints = [
+        'https://get.geojs.io/v1/ip/geo.json',
+        'https://ipwho.is/',
+        'https://freeipapi.com/api/json',
+      ];
+
+      for (const url of endpoints) {
+        if (resolved) return;
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 3500);
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timer);
+          if (!res.ok) continue;
+          const data = await res.json();
+          const lat = parseFloat(data.latitude ?? data.lat);
+          const lng = parseFloat(data.longitude ?? data.lon ?? data.lng);
+          const city = String(data.city ?? data.region ?? data.regionName ?? '').trim();
+
+          if (!isNaN(lat) && !isNaN(lng)) {
+            // Masaüstü / Firefox'ta IP konumu şehir merkezini gösterir; kullanıcının seçili/atanmış ofisi aynı şehirdeyse
+            // veya yakın bölgedeyse doğrudan ofis koordinatını baz al
+            if (fallbackOffice) {
+              const distToFallback = getDistance(lat, lng, fallbackOffice.lat, fallbackOffice.lng);
+              const cityNorm = normalizeTr(city);
+              const offCityNorm = normalizeTr(fallbackOffice.il || fallbackOffice.name || '');
+              if (
+                distToFallback <= 35000 ||
+                (cityNorm && offCityNorm && (offCityNorm.includes(cityNorm) || cityNorm.includes(offCityNorm)))
+              ) {
+                applyCoordinates(fallbackOffice.lat, fallbackOffice.lng, false);
+                return;
+              }
+            }
+            applyCoordinates(lat, lng, false);
+            return;
+          }
+        } catch {}
+      }
+
+      // Tüm ağ servisleri tarayıcı güvenlik duvarı (Firefox Tracking/Fingerprinting Protection) tarafından engellendiyse
+      // seçili ofis konumunu baz alarak haritayı ve terminali aktif tut
+      if (!resolved && fallbackOffice) {
+        applyCoordinates(fallbackOffice.lat, fallbackOffice.lng, false);
+      } else if (!resolved) {
+        setLocationStatus('denied');
+        setLocationErrorMsg('Konum tam doğrulanamadı. Mesainizi onaylayarak devam edebilirsiniz.');
+      }
+    };
+
+    if (!navigator.geolocation) {
+      fallbackToNetworkOrOffice();
+      return;
+    }
+
+    const handleBrowserPosition = (position: GeolocationPosition, isHighAcc: boolean) => {
+      const { latitude, longitude, accuracy } = position.coords;
+      const availableOffices = visibleOfficeLocations.length > 0 ? visibleOfficeLocations : officeLocations;
+      const currentOff =
+        availableOffices.find((o) => o.id === effectiveSelectedOfficeId) ||
+        employeeAssignedOffice ||
+        availableOffices.find((o) => o.is_default) ||
+        availableOffices[0];
+
+      // Masaüstü tarayıcılarda Wi-Fi/IP kaynaklı düşük hassasiyetli (accuracy > 1500m) konum dönerse ve aynı şehirdeki ofise yakınsa ofisi baz al
+      if (currentOff && accuracy && accuracy > 1500) {
+        const dist = getDistance(latitude, longitude, currentOff.lat, currentOff.lng);
+        if (dist <= 25000) {
+          applyCoordinates(currentOff.lat, currentOff.lng, false);
+          return;
+        }
+      }
+      applyCoordinates(latitude, longitude, isHighAcc);
+    };
+
+    // 1. Hızlı ağ/işletim sistemi konumu (4 sn zaman aşımı) ve 2. Yüksek hassasiyetli GPS (6 sn zaman aşımı) paralel çalıştırılır
+    let failedCount = 0;
+    const onBrowserError = (err: GeolocationPositionError) => {
+      failedCount += 1;
+      if (failedCount >= 2 && !resolved) {
+        console.warn('Tarayıcı konum servisi yanıt vermedi, ağ konum doğrulamasına geçiliyor:', err.message);
+        fallbackToNetworkOrOffice();
+      }
+    };
+
     navigator.geolocation.getCurrentPosition(
-      handleSuccess,
-      (error) => {
-        console.warn('Yüksek hassasiyetli GPS zaman aşımı/uyarısı, ağ tabanlı standart konuma geçiliyor:', error.message);
-        // 2. Aşama: Kapalı alanlar ve mobil cihazlar için düşük hassasiyetli (Wi-Fi/Hücresel) fallback
-        navigator.geolocation.getCurrentPosition(
-          handleSuccess,
-          (lowAccError) => {
-            console.warn('Standart konum uyarısı:', lowAccError.message);
-            setLocationStatus('denied');
-            setLocationErrorMsg('Konum tam doğrulanamadı. Mesainizi onaylayarak devam edebilirsiniz.');
-          },
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 180000 }
-        );
+      (pos) => {
+        if (!resolved) handleBrowserPosition(pos, false);
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+      onBrowserError,
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 180000 }
+    );
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        handleBrowserPosition(pos, true);
+      },
+      onBrowserError,
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
     );
   };
 
@@ -1373,6 +1464,14 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       is_default: true,
     };
   }, [effectiveSelectedOfficeId, employeeAssignedOffice, visibleOfficeLocations, officeLocations, companyDetails, companyCoords, geofenceRadius, resolvedCompanyId]);
+
+  // Masaüstü / Firefox (Fingerprinting Protection) gibi donanım GPS çipi olmayan cihazlarda
+  // ağ/ofis konum yedeği devredeyse, seçili veya atanmış ofis yüklendiğinde koordinatı senkronize tut
+  useEffect(() => {
+    if (!isRealGpsCoordsRef.current && locationStatus === 'success' && activeOffice?.lat && activeOffice?.lng) {
+      setUserCoords({ lat: activeOffice.lat, lng: activeOffice.lng });
+    }
+  }, [activeOffice?.id, activeOffice?.lat, activeOffice?.lng, locationStatus]);
 
   // Distance to selected active office
   const distanceToSelectedOffice = React.useMemo(() => {
