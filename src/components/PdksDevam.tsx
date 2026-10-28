@@ -455,7 +455,13 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       return adminOverrides[emp.id].officeName;
     }
 
-    // 3. Personelin departman / il / ilçe bilgisine göre ofis eşleştir (Atanmış vardiya etiketinden önce personelin kendi şehri/şubesi esas alınır)
+    // 3. Atanmış vardiyada ofis açıkça tanımlıysa (Yalnızca vardiyada açık office_id veya office_name varsa)
+    if (shift && (shift.office_id || shift.office_name)) {
+      const shiftOff = resolveOfficeForShift(shift, compOffices);
+      if (shiftOff && !shiftOff.is_default) return shiftOff.name;
+    }
+
+    // 4. Personelin departman / il / ilçe bilgisine göre ofis eşleştir
     const dept = normalizeTr(emp?.department || '');
     const city = normalizeTr(emp?.il || (emp as any)?.city || '');
     const ilce = normalizeTr(emp?.ilce || '');
@@ -476,25 +482,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
     }
 
-    // C. İl (Şehir) eşleşmesi (örn. personelin ili Düzce ise Düzce Ofisi)
-    if (city && city.length >= 3) {
-      const matchingCityOffices = compOffices.filter((off) => {
-        const offIlNorm = normalizeTr(off.il || '');
-        const offNameNorm = normalizeTr(off.name || '');
-        return (offIlNorm && offIlNorm === city) || offNameNorm.includes(city);
-      });
-      if (matchingCityOffices.length > 0) {
-        const defInCity = matchingCityOffices.find((o) => o.is_default) || matchingCityOffices[0];
-        return defInCity.name;
-      }
-    }
-
-    // 4. Atanmış vardiyada ofis açıkça tanımlıysa (Personelin il/departman eşleşmesi yoksa yedek olarak)
-    if (shift && (shift.office_id || shift.office_name)) {
-      const shiftOff = resolveOfficeForShift(shift, compOffices);
-      if (shiftOff && !shiftOff.is_default) return shiftOff.name;
-    }
-
     return defaultOfficeName;
   }, [allCompanyOfficesMap, officeLocations, resolvedCompanyId, adminOverrides]);
 
@@ -512,17 +499,17 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       if (found) return found;
     }
 
-    // 2. Personelin departman veya il/ilçe/şube bilgisine göre ofis eşleştir (Öncelikli)
+    // 2. Atanmış vardiyada ofis açıkça tanımlıysa (Yalnızca vardiyada açık office_id veya office_name varsa)
+    if (employeeAssignedShift && (employeeAssignedShift.office_id || employeeAssignedShift.office_name)) {
+      const off = resolveOfficeForShift(employeeAssignedShift, effectiveLocs);
+      if (off && !off.is_default) return off;
+    }
+
+    // 3. Personelin departman veya il/ilçe/şube bilgisine göre ofis eşleştir
     if (currentEmployee) {
       const offName = resolveEmployeeOfficeName(currentEmployee, employeeAssignedShift, null);
       const found = effectiveLocs.find((o) => normalizeTr(o.name) === normalizeTr(offName));
       if (found) return found;
-    }
-
-    // 3. Atanmış vardiyada ofis açıkça tanımlıysa
-    if (employeeAssignedShift && (employeeAssignedShift.office_id || employeeAssignedShift.office_name)) {
-      const off = resolveOfficeForShift(employeeAssignedShift, effectiveLocs);
-      if (off && !off.is_default) return off;
     }
 
     // 4. Varsayılan ofis
@@ -685,15 +672,25 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         const userShift = assignedId ? cleanShifts.find((s) => s.id === assignedId) : null;
 
         // Vardiya Yönetimi'nden yeni bir vardiya atanmışsa her zaman veritabanındaki güncel atamayı esas al
+        let effectiveShift = defaultShift;
         if (userShift) {
           userManualShiftIdRef.current = null;
+          effectiveShift = userShift;
           setActiveUserShift(userShift);
         } else {
           const manualShift = userManualShiftIdRef.current
             ? cleanShifts.find((s) => s.id === userManualShiftIdRef.current)
             : null;
-          const effectiveShift = manualShift || defaultShift;
+          effectiveShift = manualShift || defaultShift;
           setActiveUserShift(effectiveShift);
+        }
+
+        // Atanmış vardiyanın ofisini bulup seçili ofisi senkronize et
+        if (effectiveShift && officeLocations.length > 0 && (effectiveShift.office_id || effectiveShift.office_name)) {
+          const shiftOff = resolveOfficeForShift(effectiveShift, officeLocations);
+          if (shiftOff?.id) {
+            setSelectedOfficeId(shiftOff.id);
+          }
         }
       } catch (err) {
         console.warn('Error loading shifts:', err);
@@ -1293,24 +1290,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       setUserCoords({ lat: latitude, lng: longitude });
       setLocationStatus('success');
       setLocationErrorMsg('');
-
-      // Akıllı ofis eşleştirme: Kullanıcının GPS koordinatına en yakın şirket şubesini tespit et
-      const availableOffices = visibleOfficeLocations.length > 0 ? visibleOfficeLocations : officeLocations;
-      if (availableOffices.length > 0 && isExactGps) {
-        let closest = availableOffices[0];
-        let minD = getDistance(latitude, longitude, closest.lat, closest.lng);
-        for (let i = 1; i < availableOffices.length; i++) {
-          const d = getDistance(latitude, longitude, availableOffices[i].lat, availableOffices[i].lng);
-          if (d < minD) {
-            minD = d;
-            closest = availableOffices[i];
-          }
-        }
-        // Eğer en yakın ofis yakın bir mesafedeyse (şube sınırları veya 2 km civarı), otomatik seç
-        if (closest && minD <= Math.max(2500, (closest.radius_meters || 200) * 3)) {
-          setSelectedOfficeId(closest.id);
-        }
-      }
     };
 
     const fallbackToNetworkOrOffice = async () => {
@@ -1384,27 +1363,11 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     const handleBrowserPosition = (position: GeolocationPosition, isHighAcc: boolean) => {
       const { latitude, longitude, accuracy } = position.coords;
       const availableOffices = visibleOfficeLocations.length > 0 ? visibleOfficeLocations : officeLocations;
-      const currentOff =
+      const targetOff =
         availableOffices.find((o) => o.id === effectiveSelectedOfficeId) ||
         employeeAssignedOffice ||
         availableOffices.find((o) => o.is_default) ||
         availableOffices[0];
-
-      // En yakın şubeyi bul
-      let closestOff = currentOff;
-      let minDist = currentOff ? getDistance(latitude, longitude, currentOff.lat, currentOff.lng) : Infinity;
-      for (const off of availableOffices) {
-        const d = getDistance(latitude, longitude, off.lat, off.lng);
-        if (d < minDist) {
-          minDist = d;
-          closestOff = off;
-        }
-      }
-
-      const targetOff =
-        closestOff && minDist <= 25000
-          ? closestOff
-          : currentOff;
 
       if (targetOff) {
         const distToTarget = getDistance(latitude, longitude, targetOff.lat, targetOff.lng);
@@ -1413,21 +1376,15 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         // 1. Doğrudan şube çemberi içindeyse: kesin ofis içi olarak kilitle
         if (distToTarget <= radius) {
           lockedInsideGeofence = true;
-          if (targetOff.id && targetOff.id !== 'default') {
-            setSelectedOfficeId(targetOff.id);
-          }
           applyCoordinates(latitude, longitude, true);
           return;
         }
 
         // 2. Masaüstü tarayıcılar (Windows/Mac/Linux - donanım GPS çipi yoktur, Wi-Fi/ISP baz istasyonu sapması yaşanır)
-        // veya düşük hassasiyetli (accuracy > 250m) ağ konumu dönerse ve aynı şehirdeki ofise yakınsa (<= 25 km) ofisi baz al
+        // veya düşük hassasiyetli (accuracy > 250m) ağ konumu dönerse ve seçili/atanmış ofis aynı şehirdeyse (<= 25 km) ofisi baz al
         const isDesktopBrowser = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
         if ((isDesktopBrowser || !accuracy || accuracy > 250) && distToTarget <= 25000) {
           lockedInsideGeofence = true;
-          if (targetOff.id && targetOff.id !== 'default') {
-            setSelectedOfficeId(targetOff.id);
-          }
           applyCoordinates(targetOff.lat, targetOff.lng, false);
           return;
         }
