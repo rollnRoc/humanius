@@ -1270,6 +1270,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const requestLocation = () => {
     setLocationStatus('pending');
     let resolved = false;
+    let lockedInsideGeofence = false;
 
     const applyCoordinates = (latitude: number, longitude: number, isExactGps: boolean = true) => {
       if (isNaN(latitude) || isNaN(longitude)) return;
@@ -1339,6 +1340,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
                 distToFallback <= 35000 ||
                 (cityNorm && offCityNorm && (offCityNorm.includes(cityNorm) || cityNorm.includes(offCityNorm)))
               ) {
+                lockedInsideGeofence = true;
                 applyCoordinates(fallbackOffice.lat, fallbackOffice.lng, false);
                 return;
               }
@@ -1352,6 +1354,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       // Tüm ağ servisleri tarayıcı güvenlik duvarı (Firefox Tracking/Fingerprinting Protection) tarafından engellendiyse
       // seçili ofis konumunu baz alarak haritayı ve terminali aktif tut
       if (!resolved && fallbackOffice) {
+        lockedInsideGeofence = true;
         applyCoordinates(fallbackOffice.lat, fallbackOffice.lng, false);
       } else if (!resolved) {
         setLocationStatus('denied');
@@ -1373,18 +1376,59 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         availableOffices.find((o) => o.is_default) ||
         availableOffices[0];
 
-      // Masaüstü tarayıcılarda Wi-Fi/IP kaynaklı düşük hassasiyetli (accuracy > 1500m) konum dönerse ve aynı şehirdeki ofise yakınsa ofisi baz al
-      if (currentOff && accuracy && accuracy > 1500) {
-        const dist = getDistance(latitude, longitude, currentOff.lat, currentOff.lng);
-        if (dist <= 25000) {
-          applyCoordinates(currentOff.lat, currentOff.lng, false);
+      // En yakın şubeyi bul
+      let closestOff = currentOff;
+      let minDist = currentOff ? getDistance(latitude, longitude, currentOff.lat, currentOff.lng) : Infinity;
+      for (const off of availableOffices) {
+        const d = getDistance(latitude, longitude, off.lat, off.lng);
+        if (d < minDist) {
+          minDist = d;
+          closestOff = off;
+        }
+      }
+
+      const targetOff =
+        closestOff && minDist <= Math.max(2500, (closestOff.radius_meters || geofenceRadius) * 3)
+          ? closestOff
+          : currentOff;
+
+      if (targetOff) {
+        const distToTarget = getDistance(latitude, longitude, targetOff.lat, targetOff.lng);
+        const radius = targetOff.radius_meters || geofenceRadius;
+
+        // 1. Doğrudan şube çemberi içindeyse: kesin ofis içi olarak kilitle
+        if (distToTarget <= radius) {
+          lockedInsideGeofence = true;
+          if (targetOff.id && targetOff.id !== 'default') {
+            setSelectedOfficeId(targetOff.id);
+          }
+          applyCoordinates(latitude, longitude, true);
+          return;
+        }
+
+        // 2. Masaüstü tarayıcılar (Windows/Mac/Linux - donanım GPS çipi yoktur, Wi-Fi/ISP baz istasyonu sapması yaşanır)
+        // veya düşük hassasiyetli (accuracy > 250m) ağ konumu dönerse ve aynı şehirdeki ofise yakınsa (<= 25 km) ofisi baz al
+        const isDesktopBrowser = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+        if ((isDesktopBrowser || !accuracy || accuracy > 250) && distToTarget <= 25000) {
+          lockedInsideGeofence = true;
+          if (targetOff.id && targetOff.id !== 'default') {
+            setSelectedOfficeId(targetOff.id);
+          }
+          applyCoordinates(targetOff.lat, targetOff.lng, false);
           return;
         }
       }
+
+      // Eğer daha önce ofis içi konum doğrulanıp kilitlendiyse (Yeşil buton), arkadan gelen ikincil çağrının
+      // ofis dışı (Turuncu buton) koordinatla üstüne yazmasını engelle!
+      if (lockedInsideGeofence) {
+        return;
+      }
+
       applyCoordinates(latitude, longitude, isHighAcc);
     };
 
-    // 1. Hızlı ağ/işletim sistemi konumu (4 sn zaman aşımı) ve 2. Yüksek hassasiyetli GPS (6 sn zaman aşımı) paralel çalıştırılır
+    // 1. Hızlı ağ/işletim sistemi konumu (4 sn zaman aşımı) ve 2. Yüksek hassasiyetli GPS (6 sn zaman aşımı)
     let failedCount = 0;
     const onBrowserError = (err: GeolocationPositionError) => {
       failedCount += 1;
@@ -1396,7 +1440,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        if (!resolved) handleBrowserPosition(pos, false);
+        if (!lockedInsideGeofence) handleBrowserPosition(pos, false);
       },
       onBrowserError,
       { enableHighAccuracy: false, timeout: 4000, maximumAge: 180000 }
@@ -1404,7 +1448,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        handleBrowserPosition(pos, true);
+        if (!lockedInsideGeofence) handleBrowserPosition(pos, true);
       },
       onBrowserError,
       { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
@@ -1418,6 +1462,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     if (navigator.geolocation) {
       watchIdRef.current = navigator.geolocation.watchPosition(
         (position) => {
+          // Masaüstü / ağ bazlı ofis eşleştirmesi devredeyken watchPosition'ın kaba ISP koordinatıyla üstüne yazmasını engelle
+          if (!isRealGpsCoordsRef.current) return;
           const { latitude, longitude } = position.coords;
           setUserCoords({ lat: latitude, lng: longitude });
         },

@@ -762,7 +762,7 @@ export function normalizeCompanyId(companyId?: string | null): string {
 }
 
 export const BIGSAFER_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
-  { id: 'loc-bigsafer-1', company_id: BIGSAFER_COMPANY_ID, name: 'Düzce Ofisi', lat: 40.8438, lng: 31.1565, radius_meters: 200, address: 'Düzce Merkez', il: 'Düzce', ilce: 'Merkez', is_default: true },
+  { id: 'loc-bigsafer-1', company_id: BIGSAFER_COMPANY_ID, name: 'Düzce Ofisi', lat: 40.862707, lng: 31.167807, radius_meters: 300, address: 'Düzce Merkez', il: 'Düzce', ilce: 'Merkez', is_default: true },
   { id: 'loc-bigsafer-2', company_id: BIGSAFER_COMPANY_ID, name: 'Bolu Şubesi', lat: 40.7350, lng: 31.6061, radius_meters: 250, address: 'Bolu Merkez', il: 'Bolu', ilce: 'Merkez', is_default: false },
   { id: 'loc-bigsafer-3', company_id: BIGSAFER_COMPANY_ID, name: 'İstanbul Genel Merkez', lat: 41.0082, lng: 28.9784, radius_meters: 300, address: 'Maslak, Sarıyer', il: 'İstanbul', ilce: 'Sarıyer', is_default: false },
 ];
