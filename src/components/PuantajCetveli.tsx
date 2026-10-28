@@ -41,6 +41,7 @@ import {
   PuantajKodu,
   GunlukPuantajDetay,
   getCalismaSaati,
+  extractShiftFromNotes,
 } from '../utils/puantajHesaplama';
 import { getTodayYYYYMMDD } from '../utils/sanitize';
 
@@ -189,15 +190,8 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   const [editCikis, setEditCikis] = useState<string>('18:00');
   const [editNotlar, setEditNotlar] = useState<string>('');
 
-  // Manuel Düzeltmeler (Overrides)
-  const [adminOverrides, setAdminOverrides] = useState<Record<string, any>>(() => {
-    try {
-      const s = localStorage.getItem('humanius_puantaj_overrides');
-      return s ? JSON.parse(s) : {};
-    } catch {
-      return {};
-    }
-  });
+  // Manuel Düzeltmeler (Overrides - 100% Veritabanı tabanlı)
+  const [adminOverrides, setAdminOverrides] = useState<Record<string, any>>({});
 
   // Departman Listesi
   const deptList = useMemo(() => {
@@ -426,9 +420,10 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
   // Hücre Düzenleme Aç
   const handleOpenEditCell = (rec: PersonelAylikPuantaj, gun: GunlukPuantajDetay) => {
     if (!isManagement) return;
+    const cellShift = extractShiftFromNotes(gun.notlar, companyShifts, rec.shift) || rec.shift;
     setEditTarget({ employee: rec.employee, gun });
     setEditKod(gun.kod);
-    setEditGiris(gun.girisSaati || '08:30');
+    setEditGiris(gun.girisSaati || cellShift?.start_time || '08:30');
     setEditCikis(gun.cikisSaati || '');
     setEditNotlar(gun.notlar || '');
     setEditModalOpen(true);
@@ -487,12 +482,20 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
     const cleanGiris = editGiris && editGiris.trim() !== '-' && editGiris.trim() !== '' ? editGiris.trim() : null;
     const cleanCikis = editCikis && editCikis.trim() !== '-' && editCikis.trim() !== '' ? editCikis.trim() : null;
 
+    const existingRec = vardiyaKayitlari.find(
+      (v) => (v.employee_id === employee.id || (v as any).employeeId === employee.id) && v.tarih === gun.tarih
+    );
+    const defaultShift = companyShifts.find((s) => s.is_default) || companyShifts[0] || VARSAYILAN_VARDIYALAR[0];
+    const assignedShiftId = shiftAssignments[employee.id] || ((employee as any).user_id && shiftAssignments[(employee as any).user_id]);
+    const assignedShift = (assignedShiftId ? companyShifts.find((s) => s.id === assignedShiftId) : null) || defaultShift;
+    const cellShift = extractShiftFromNotes(existingRec?.notlar || gun.notlar, companyShifts, assignedShift) || assignedShift;
+
     const isPrevLeave = Boolean(editActiveLeave) || isLeavePuantajKod(gun.kod, leaveTypes);
     const isNewLeave = isLeavePuantajKod(editKod, leaveTypes);
 
     const isPastDay = gun.tarih < getTodayYYYYMMDD();
-    const effectiveGiris = cleanGiris || '08:30';
-    const effectiveCikis = cleanCikis || (isPastDay ? '18:00' : null);
+    const effectiveGiris = cleanGiris || cellShift?.start_time || '08:30';
+    const effectiveCikis = cleanCikis || (isPastDay ? (cellShift?.end_time || '18:00') : null);
 
     const newOverride = {
       kod: editKod,
@@ -533,7 +536,14 @@ export const PuantajCetveli: React.FC<PuantajCetveliProps> = ({
           await izinService.removeOrSplitLeaveDate(employee.id, gun.tarih, targetCompId);
         }
 
-        const notlarText = `[PUANTAJ:Ç] Fiili Çalışma (${effectiveGiris}-${effectiveCikis || 'Devam'}) ${editNotlar ? '- ' + editNotlar : ''}`.trim();
+        const shiftMetaPrefix = cellShift
+          ? `[VARDIYA:${cellShift.name}] [VARDIYA_ID:${cellShift.id}] `
+          : '';
+        const cleanedEditNotlar = (editNotlar || '')
+          .replace(/\[PUANTAJ:[^\]]+\]/gi, '')
+          .replace(/Fiili Çalışma \([^)]+\)/gi, '')
+          .trim();
+        const notlarText = `${shiftMetaPrefix}[PUANTAJ:Ç] Fiili Çalışma (${effectiveGiris}-${effectiveCikis || 'Devam'}) ${cleanedEditNotlar ? '- ' + cleanedEditNotlar : ''}`.trim();
         await pdksService.createVardiya({
           company_id: targetCompId,
           employee_id: employee.id,

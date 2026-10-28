@@ -168,6 +168,62 @@ export const pdksService = {
     }
 
     // Direct write to Supabase Database (authoritative single source of truth)
+    const isExplicitAdminEdit = Boolean(
+      cleanPayload.notlar &&
+      (/\[PUANTAJ:/i.test(cleanPayload.notlar) || /Yönetici Girişi/i.test(cleanPayload.notlar))
+    );
+
+    try {
+      const { data: rawExisting } = await (supabase
+        .from('pdks_vardiya_kayitlari' as any)
+        .select('*')
+        .eq('employee_id', cleanPayload.employee_id)
+        .eq('tarih', cleanPayload.tarih)
+        .maybeSingle() as any);
+      const existingRec = rawExisting as VardiyaKaydi | null;
+
+      if (existingRec) {
+        const hasValidExistingGiris = Boolean(
+          existingRec.giris_saati &&
+          existingRec.giris_saati !== '-' &&
+          existingRec.giris_saati !== '00:00' &&
+          existingRec.giris_saati !== '00:00:00'
+        );
+
+        // Normal personel girişi ise ve o gün için zaten geçerli bir giriş saati varsa, mevcut kaydın üzerine ASLA yazma
+        if (!isExplicitAdminEdit && hasValidExistingGiris) {
+          return existingRec as VardiyaKaydi;
+        }
+
+        // Yönetici/Puantaj düzenlemesi ise ve yeni notlarda [OFİS:...] / [VARDIYA:...] etiketleri yoksa, mevcut kayıttaki etiketleri koru
+        if (isExplicitAdminEdit && existingRec.notlar && cleanPayload.notlar) {
+          const preservedTags: string[] = [];
+          const ofisMatch = existingRec.notlar.match(/\[(?:OFİS|OFIS):[^\]]+\]/i);
+          const vardiyaMatch = existingRec.notlar.match(/\[VARDIYA:[^\]]+\]/i);
+          const vardiyaIdMatch = existingRec.notlar.match(/\[VARDIYA_ID:[^\]]+\]/i);
+          const hoursSuffixMatch = existingRec.notlar.match(/•\s*Vardiya:\s*[^•\n]+/i);
+
+          if (ofisMatch && !/\[(?:OFİS|OFIS):/i.test(cleanPayload.notlar)) {
+            preservedTags.push(ofisMatch[0]);
+          }
+          if (vardiyaMatch && !/\[VARDIYA:/i.test(cleanPayload.notlar)) {
+            preservedTags.push(vardiyaMatch[0]);
+          }
+          if (vardiyaIdMatch && !/\[VARDIYA_ID:/i.test(cleanPayload.notlar)) {
+            preservedTags.push(vardiyaIdMatch[0]);
+          }
+          if (preservedTags.length > 0) {
+            cleanPayload.notlar = `${preservedTags.join(' ')} ${cleanPayload.notlar}`.trim();
+          }
+          if (hoursSuffixMatch && !/•\s*Vardiya:/i.test(cleanPayload.notlar)) {
+            cleanPayload.notlar = `${cleanPayload.notlar} ${hoursSuffixMatch[0]}`.trim();
+          }
+        }
+      }
+    } catch (checkErr) {
+      console.warn('Mevcut vardiya kontrol uyarısı:', checkErr);
+    }
+
     const { data, error } = await supabase
       .from('pdks_vardiya_kayitlari')
       .upsert(cleanPayload, { onConflict: 'employee_id,tarih' })
@@ -222,6 +278,51 @@ export const pdksService = {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
     try {
+      // Mevcut kayıttaki [OFİS:...], [VARDIYA:...], [VARDIYA_ID:...] etiketlerinin ezilmesini engelle
+      if (cleanUpdates.notlar) {
+        let existingRow: any = null;
+        if (isUuid) {
+          const { data: ex } = await supabase
+            .from('pdks_vardiya_kayitlari')
+            .select('notlar')
+            .eq('id', id)
+            .maybeSingle();
+          existingRow = ex;
+        } else if (targetEmpId && targetTarih) {
+          const { data: ex } = await supabase
+            .from('pdks_vardiya_kayitlari')
+            .select('notlar')
+            .eq('employee_id', targetEmpId)
+            .eq('tarih', targetTarih)
+            .maybeSingle();
+          existingRow = ex;
+        }
+
+        if (existingRow?.notlar) {
+          const preservedTags: string[] = [];
+          const ofisMatch = existingRow.notlar.match(/\[(?:OFİS|OFIS):[^\]]+\]/i);
+          const vardiyaMatch = existingRow.notlar.match(/\[VARDIYA:[^\]]+\]/i);
+          const vardiyaIdMatch = existingRow.notlar.match(/\[VARDIYA_ID:[^\]]+\]/i);
+          const hoursSuffixMatch = existingRow.notlar.match(/•\s*Vardiya:\s*[^•\n]+/i);
+
+          if (ofisMatch && !/\[(?:OFİS|OFIS):/i.test(cleanUpdates.notlar)) {
+            preservedTags.push(ofisMatch[0]);
+          }
+          if (vardiyaMatch && !/\[VARDIYA:/i.test(cleanUpdates.notlar)) {
+            preservedTags.push(vardiyaMatch[0]);
+          }
+          if (vardiyaIdMatch && !/\[VARDIYA_ID:/i.test(cleanUpdates.notlar)) {
+            preservedTags.push(vardiyaIdMatch[0]);
+          }
+          if (preservedTags.length > 0) {
+            cleanUpdates.notlar = `${preservedTags.join(' ')} ${cleanUpdates.notlar}`.trim();
+          }
+          if (hoursSuffixMatch && !/•\s*Vardiya:/i.test(cleanUpdates.notlar)) {
+            cleanUpdates.notlar = `${cleanUpdates.notlar} ${hoursSuffixMatch[0]}`.trim();
+          }
+        }
+      }
+
       if (isUuid) {
         const { data, error } = await supabase
           .from('pdks_vardiya_kayitlari')
