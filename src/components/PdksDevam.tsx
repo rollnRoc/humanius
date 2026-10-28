@@ -1275,154 +1275,41 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     return () => clearInterval(intervalId);
   }, [isShiftActive, activeUserShift?.start_time, activeUserShift?.end_time, activeUserShift?.tolerance_minutes]);
 
-  const isRealGpsCoordsRef = useRef<boolean>(false);
-
-  // Request browser location with multi-stage fallback (High-Accuracy GPS -> Fast OS Location -> Network/IP Fallback for Firefox/Desktop)
+  // Request browser location (Standard GPS -> Network/Wi-Fi fallback on error only, zero artificial tolerance)
   const requestLocation = () => {
-    setLocationStatus('pending');
-    let resolved = false;
-    let lockedInsideGeofence = false;
+    if (!navigator.geolocation) {
+      setLocationStatus('error');
+      setLocationErrorMsg('Tarayıcınız konum servisini desteklemiyor.');
+      return;
+    }
 
-    const applyCoordinates = (latitude: number, longitude: number, isExactGps: boolean = true) => {
+    setLocationStatus('pending');
+
+    const handleSuccess = (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords;
       if (isNaN(latitude) || isNaN(longitude)) return;
-      resolved = true;
-      isRealGpsCoordsRef.current = isExactGps;
       setUserCoords({ lat: latitude, lng: longitude });
       setLocationStatus('success');
       setLocationErrorMsg('');
     };
 
-    const fallbackToNetworkOrOffice = async () => {
-      if (resolved) return;
-      const availableOffices = visibleOfficeLocations.length > 0 ? visibleOfficeLocations : officeLocations;
-      const fallbackOffice =
-        availableOffices.find((o) => o.id === effectiveSelectedOfficeId) ||
-        employeeAssignedOffice ||
-        availableOffices.find((o) => o.is_default) ||
-        availableOffices[0];
-
-      // Firefox Fingerprinting Protection veya masaüstü PC'lerde tarayıcı GPS servisi yanıt vermediğinde
-      // HTTPS tabanlı ağ konum servislerinden (geojs / ipwho / freeipapi) şehir ve koordinat bilgisini al
-      const endpoints = [
-        'https://get.geojs.io/v1/ip/geo.json',
-        'https://ipwho.is/',
-        'https://freeipapi.com/api/json',
-      ];
-
-      for (const url of endpoints) {
-        if (resolved) return;
-        try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 3500);
-          const res = await fetch(url, { signal: controller.signal });
-          clearTimeout(timer);
-          if (!res.ok) continue;
-          const data = await res.json();
-          const lat = parseFloat(data.latitude ?? data.lat);
-          const lng = parseFloat(data.longitude ?? data.lon ?? data.lng);
-          const city = String(data.city ?? data.region ?? data.regionName ?? '').trim();
-
-          if (!isNaN(lat) && !isNaN(lng)) {
-            // Masaüstü / Firefox'ta IP konumu şehir merkezini gösterir; kullanıcının seçili/atanmış ofisi aynı şehirdeyse
-            // veya yakın bölgedeyse doğrudan ofis koordinatını baz al
-            if (fallbackOffice) {
-              const distToFallback = getDistance(lat, lng, fallbackOffice.lat, fallbackOffice.lng);
-              const cityNorm = normalizeTr(city);
-              const offCityNorm = normalizeTr(fallbackOffice.il || fallbackOffice.name || '');
-              if (
-                distToFallback <= 35000 ||
-                (cityNorm && offCityNorm && (offCityNorm.includes(cityNorm) || cityNorm.includes(offCityNorm)))
-              ) {
-                lockedInsideGeofence = true;
-                applyCoordinates(fallbackOffice.lat, fallbackOffice.lng, false);
-                return;
-              }
-            }
-            applyCoordinates(lat, lng, false);
-            return;
-          }
-        } catch {}
-      }
-
-      // Tüm ağ servisleri tarayıcı güvenlik duvarı (Firefox Tracking/Fingerprinting Protection) tarafından engellendiyse
-      // seçili ofis konumunu baz alarak haritayı ve terminali aktif tut
-      if (!resolved && fallbackOffice) {
-        lockedInsideGeofence = true;
-        applyCoordinates(fallbackOffice.lat, fallbackOffice.lng, false);
-      } else if (!resolved) {
-        setLocationStatus('denied');
-        setLocationErrorMsg('Konum tam doğrulanamadı. Mesainizi onaylayarak devam edebilirsiniz.');
-      }
-    };
-
-    if (!navigator.geolocation) {
-      fallbackToNetworkOrOffice();
-      return;
-    }
-
-    const handleBrowserPosition = (position: GeolocationPosition, isHighAcc: boolean) => {
-      const { latitude, longitude, accuracy } = position.coords;
-      const availableOffices = visibleOfficeLocations.length > 0 ? visibleOfficeLocations : officeLocations;
-      const targetOff =
-        availableOffices.find((o) => o.id === effectiveSelectedOfficeId) ||
-        employeeAssignedOffice ||
-        availableOffices.find((o) => o.is_default) ||
-        availableOffices[0];
-
-      if (targetOff) {
-        const distToTarget = getDistance(latitude, longitude, targetOff.lat, targetOff.lng);
-        const radius = targetOff.radius_meters || geofenceRadius;
-
-        // 1. Doğrudan şube çemberi içindeyse: kesin ofis içi olarak kilitle
-        if (distToTarget <= radius) {
-          lockedInsideGeofence = true;
-          applyCoordinates(latitude, longitude, true);
-          return;
-        }
-
-        // 2. Masaüstü tarayıcılar (Windows/Mac/Linux - donanım GPS çipi yoktur, Wi-Fi/ISP baz istasyonu sapması yaşanır)
-        // veya düşük hassasiyetli (accuracy > 250m) ağ konumu dönerse ve seçili/atanmış ofis aynı şehirdeyse (<= 25 km) ofisi baz al
-        const isDesktopBrowser = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
-        if ((isDesktopBrowser || !accuracy || accuracy > 250) && distToTarget <= 25000) {
-          lockedInsideGeofence = true;
-          applyCoordinates(targetOff.lat, targetOff.lng, false);
-          return;
-        }
-      }
-
-      // Eğer daha önce ofis içi konum doğrulanıp kilitlendiyse (Yeşil buton), arkadan gelen ikincil çağrının
-      // ofis dışı (Turuncu buton) koordinatla üstüne yazmasını engelle!
-      if (lockedInsideGeofence) {
-        return;
-      }
-
-      applyCoordinates(latitude, longitude, isHighAcc);
-    };
-
-    // 1. Hızlı ağ/işletim sistemi konumu (4 sn zaman aşımı) ve 2. Yüksek hassasiyetli GPS (6 sn zaman aşımı)
-    let failedCount = 0;
-    const onBrowserError = (err: GeolocationPositionError) => {
-      failedCount += 1;
-      if (failedCount >= 2 && !resolved) {
-        console.warn('Tarayıcı konum servisi yanıt vermedi, ağ konum doğrulamasına geçiliyor:', err.message);
-        fallbackToNetworkOrOffice();
-      }
-    };
-
+    // 1. Aşama: Yüksek hassasiyetli GPS
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        if (!lockedInsideGeofence) handleBrowserPosition(pos, false);
+      handleSuccess,
+      (error) => {
+        console.warn('Yüksek hassasiyetli GPS zaman aşımı/uyarısı, standart konuma geçiliyor:', error.message);
+        // 2. Aşama: Yalnızca yüksek hassasiyetli GPS hata verirse standart tarayıcı konumunu dene
+        navigator.geolocation.getCurrentPosition(
+          handleSuccess,
+          (lowAccError) => {
+            console.warn('Standart konum uyarısı:', lowAccError.message);
+            setLocationStatus('denied');
+            setLocationErrorMsg('Konum tam doğrulanamadı. Mesainizi onaylayarak devam edebilirsiniz.');
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+        );
       },
-      onBrowserError,
-      { enableHighAccuracy: false, timeout: 4000, maximumAge: 180000 }
-    );
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        if (!lockedInsideGeofence) handleBrowserPosition(pos, true);
-      },
-      onBrowserError,
-      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
@@ -1433,8 +1320,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     if (navigator.geolocation) {
       watchIdRef.current = navigator.geolocation.watchPosition(
         (position) => {
-          // Masaüstü / ağ bazlı ofis eşleştirmesi devredeyken watchPosition'ın kaba ISP koordinatıyla üstüne yazmasını engelle
-          if (!isRealGpsCoordsRef.current) return;
           const { latitude, longitude } = position.coords;
           setUserCoords({ lat: latitude, lng: longitude });
         },
@@ -1481,14 +1366,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       is_default: true,
     };
   }, [effectiveSelectedOfficeId, employeeAssignedOffice, visibleOfficeLocations, officeLocations, companyDetails, companyCoords, geofenceRadius, resolvedCompanyId]);
-
-  // Masaüstü / Firefox (Fingerprinting Protection) gibi donanım GPS çipi olmayan cihazlarda
-  // ağ/ofis konum yedeği devredeyse, seçili veya atanmış ofis yüklendiğinde koordinatı senkronize tut
-  useEffect(() => {
-    if (!isRealGpsCoordsRef.current && locationStatus === 'success' && activeOffice?.lat && activeOffice?.lng) {
-      setUserCoords({ lat: activeOffice.lat, lng: activeOffice.lng });
-    }
-  }, [activeOffice?.id, activeOffice?.lat, activeOffice?.lng, locationStatus]);
 
   // Distance to selected active office
   const distanceToSelectedOffice = React.useMemo(() => {
@@ -1622,7 +1499,27 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
     const dateStr = getTodayYYYYMMDD();
 
-    // Veritabanında bugün için zaten bir giriş kaydı var mı kontrol et (Çift giriş ve üzerine yazmayı engelle)
+    // Calculate shift hours based on selected/assigned shift (Cumartesi ve Pazar dahil)
+    const dayOfWeek = now.getDay();
+    const isTodayWeekend = dayOfWeek === 6 || dayOfWeek === 0;
+    const isWeekendActive = isTodayWeekend && saturdayConfig?.isSaturdayWork;
+
+    const shiftStart = getTargetGirisTime(activeUserShift, undefined, isTodayWeekend, saturdayConfig);
+    const shiftEnd = getTargetCikisTime(activeUserShift, undefined, isTodayWeekend, saturdayConfig);
+    const toleranceMinutes = (activeUserShift?.tolerance_minutes !== undefined && activeUserShift?.tolerance_minutes !== null)
+      ? Number(activeUserShift.tolerance_minutes)
+      : (isWeekendActive && saturdayConfig?.toleranceMinutes != null ? Number(saturdayConfig.toleranceMinutes) : 15);
+    const breakMinutes = isWeekendActive
+      ? (activeUserShift?.saturday_break_minutes !== undefined ? Number(activeUserShift.saturday_break_minutes) : Number(saturdayConfig?.breakMinutes ?? 30))
+      : (activeUserShift?.break_minutes ?? 60);
+
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+    const [sH, sM] = shiftStart.split(':').map(Number);
+    const [eH, eM] = shiftEnd.split(':').map(Number);
+    const shiftTargetMin = (!isNaN(sH) && !isNaN(sM)) ? (sH * 60 + sM) : (9 * 60);
+    const shiftEndMin = (!isNaN(eH) && !isNaN(eM)) ? (eH * 60 + eM) : (18 * 60);
+
+    // Veritabanında bugün için zaten bir giriş kaydı var mı kontrol et
     const existingTodayRec = (allShiftRecords || []).find(
       (r) => r.employee_id === empId && r.tarih === dateStr && r.giris_saati && r.giris_saati !== '-' && r.giris_saati !== '00:00:00'
     );
@@ -1647,32 +1544,46 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
           `Bugün saat <strong>${cleanGiris}</strong> itibarıyla başlatılmış aktif mesainiz veritabanından yüklendi.`
         );
         return;
-      } else {
+      }
+    }
+
+    // Seçili/atanmış vardiyanın mesai saatleri bugün için sona ermişse uyarı ver ve işlemi durdur
+    const isOvertimeAuthorized = checkEmployeeOvertimeAuth(
+      overtimeAuthMap,
+      empId,
+      dateStr,
+      existingTodayRec?.notlar || null,
+      dateStr
+    );
+    const isOvernightShift = shiftEndMin < shiftTargetMin;
+    const isShiftHoursEnded = isOvernightShift
+      ? (currentMin >= shiftEndMin && currentMin < shiftTargetMin - 180)
+      : (currentMin >= shiftEndMin);
+
+    if (isShiftHoursEnded && !isOvertimeAuthorized) {
+      showWarning(
+        'Vardiya Mesai Saatleri Sona Erdi',
+        `Seçili vardiyanızın (<strong>${activeUserShift?.name || 'Standart Vardiya'}: ${shiftStart} - ${shiftEnd}</strong>) mesai saatleri bugün için sona ermiştir (Bitiş: <strong>${shiftEnd}</strong>).<br/><br/>Mesai saatleri tamamlanmış bir vardiyada mesai başlatılamaz.`
+      );
+      return;
+    }
+
+    if (existingTodayRec && existingTodayRec.cikis_saati) {
+      const existGiris = existingTodayRec.giris_saati.substring(0, 5);
+      const existCikis = existingTodayRec.cikis_saati.substring(0, 5);
+      const isCorruptedAutoClose =
+        existCikis < existGiris &&
+        String(existingTodayRec.notlar || '').includes('otomatik tamamlandı');
+
+      if (!isCorruptedAutoClose) {
         showInfo(
           'Bugünkü Mesai Kaydınız Mevcut',
-          `Bugün için (${existingTodayRec.giris_saati.substring(0, 5)} - ${existingTodayRec.cikis_saati.substring(0, 5)}) mesai kaydınız zaten tamamlanmıştır.`
+          `Bugün için (${existGiris} - ${existCikis}) mesai kaydınız zaten tamamlanmıştır.`
         );
         return;
       }
     }
-    
-    // Calculate delay based on selected shift's start time and tolerance (Cumartesi ve Pazar dahil)
-    const dayOfWeek = now.getDay();
-    const isTodayWeekend = dayOfWeek === 6 || dayOfWeek === 0;
-    const isWeekendActive = isTodayWeekend && saturdayConfig?.isSaturdayWork;
 
-    const shiftStart = getTargetGirisTime(activeUserShift, undefined, isTodayWeekend, saturdayConfig);
-    const shiftEnd = getTargetCikisTime(activeUserShift, undefined, isTodayWeekend, saturdayConfig);
-    const toleranceMinutes = (activeUserShift?.tolerance_minutes !== undefined && activeUserShift?.tolerance_minutes !== null)
-      ? Number(activeUserShift.tolerance_minutes)
-      : (isWeekendActive && saturdayConfig?.toleranceMinutes != null ? Number(saturdayConfig.toleranceMinutes) : 15);
-    const breakMinutes = isWeekendActive
-      ? (activeUserShift?.saturday_break_minutes !== undefined ? Number(activeUserShift.saturday_break_minutes) : Number(saturdayConfig?.breakMinutes ?? 30))
-      : (activeUserShift?.break_minutes ?? 60);
-
-    const currentMin = now.getHours() * 60 + now.getMinutes();
-    const [sH, sM] = shiftStart.split(':').map(Number);
-    const shiftTargetMin = (!isNaN(sH) && !isNaN(sM)) ? (sH * 60 + sM) : (9 * 60);
     const diffFromStartMinutes = currentMin - shiftTargetMin;
     const isOneHourEarly = diffFromStartMinutes < -60;
     const isOneHourLate = diffFromStartMinutes > 60;

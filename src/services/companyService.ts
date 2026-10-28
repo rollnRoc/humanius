@@ -549,19 +549,10 @@ export const companyService = {
         address: location.address || '',
         is_default: Boolean(location.is_default),
       };
-      if (location.il !== undefined) dbPayload.il = location.il;
-      if (location.ilce !== undefined) dbPayload.ilce = location.ilce;
 
       if (dbId) {
         dbPayload.updated_at = new Date().toISOString();
-        let { data, error } = await supabase.from('company_locations').update(dbPayload).eq('id', dbId).select().single();
-        if (error && (error as any).code === '42703') {
-          delete dbPayload.il;
-          delete dbPayload.ilce;
-          const retry = await supabase.from('company_locations').update(dbPayload).eq('id', dbId).select().single();
-          data = retry.data;
-          error = retry.error;
-        }
+        const { data, error } = await supabase.from('company_locations').update(dbPayload).eq('id', dbId).select().single();
         if (!error && data) {
           if (location.il || location.ilce) saveLocationMeta(data.id, location.il, location.ilce);
           const finalLoc = {
@@ -574,14 +565,7 @@ export const companyService = {
         }
       } else {
         dbPayload.company_id = targetCompId;
-        let { data, error } = await supabase.from('company_locations').insert(dbPayload).select().single();
-        if (error && (error as any).code === '42703') {
-          delete dbPayload.il;
-          delete dbPayload.ilce;
-          const retry = await supabase.from('company_locations').insert(dbPayload).select().single();
-          data = retry.data;
-          error = retry.error;
-        }
+        const { data, error } = await supabase.from('company_locations').insert(dbPayload).select().single();
         if (!error && data) {
           if (location.il || location.ilce) saveLocationMeta(data.id, location.il, location.ilce);
           const finalLoc = {

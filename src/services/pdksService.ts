@@ -189,9 +189,19 @@ export const pdksService = {
           existingRec.giris_saati !== '00:00' &&
           existingRec.giris_saati !== '00:00:00'
         );
+        const existGiris = (existingRec.giris_saati || '').substring(0, 5);
+        const existCikis = (existingRec.cikis_saati || '').substring(0, 5);
+        const isCorruptedAutoClose = Boolean(
+          existGiris &&
+          existCikis &&
+          existCikis !== '-' &&
+          existCikis !== '00:00' &&
+          existCikis < existGiris &&
+          String(existingRec.notlar || '').includes('otomatik tamamlandı')
+        );
 
         // Normal personel girişi ise ve o gün için zaten geçerli bir giriş saati varsa, mevcut kaydın üzerine ASLA yazma
-        if (!isExplicitAdminEdit && hasValidExistingGiris) {
+        if (!isExplicitAdminEdit && hasValidExistingGiris && !isCorruptedAutoClose) {
           return existingRec as VardiyaKaydi;
         }
 
