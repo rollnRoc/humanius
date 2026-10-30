@@ -120,6 +120,36 @@ export const zimmetService = {
     return data as Zimmet;
   },
 
+  async createBulk(zimmetler: ZimmetInsert[]): Promise<Zimmet[]> {
+    if (!zimmetler || zimmetler.length === 0) return [];
+    const payloads = zimmetler.map((z) => ({
+      ...z,
+      kategori: sanitizeZimmetKategori(z.kategori),
+    }));
+
+    if (demoService.isDemoActive()) {
+      const list = await this.getAll();
+      const nowIso = new Date().toISOString();
+      const created: Zimmet[] = payloads.map((p) => ({
+        ...p,
+        id: 'z-' + Math.random().toString(36).substr(2, 9),
+        created_at: nowIso,
+        updated_at: nowIso,
+      }));
+      list.push(...created);
+      localStorage.setItem('humanius_demo_zimmetler', JSON.stringify(list));
+      return created;
+    }
+
+    const { data, error } = await supabase
+      .from('zimmetler')
+      .insert(payloads)
+      .select();
+
+    if (error) throw error;
+    return (data || []) as Zimmet[];
+  },
+
   async update(id: string, updates: Partial<ZimmetInsert>): Promise<Zimmet> {
     const payload = {
       ...updates,

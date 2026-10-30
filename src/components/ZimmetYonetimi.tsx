@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, QrCode, CheckCircle, AlertTriangle, Clock, Package, Laptop, Smartphone, Car, Key, Monitor, Printer, X, Save, Edit2, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Search, QrCode, CheckCircle, AlertTriangle, Clock, Package, Laptop, Smartphone, Car, Key, Monitor, Printer, X, Save, Edit2, Trash2, Loader2, Copy, FileText } from 'lucide-react';
 import type { Employee } from '../types';
 import { zimmetService, Zimmet, ZimmetKategori, ZimmetDurum, ZimmetInsert } from '../services/zimmetService';
 import { useAuth } from '../contexts/AuthContext';
@@ -50,6 +50,28 @@ interface ZimmetFormState {
   atanmaTarihi: string;
   aciklama: string;
 }
+
+interface ZimmetSatirState {
+  id: string;
+  seriNo: string;
+  ad: string;
+  kategori: ZimmetKategori;
+  marka: string;
+  model: string;
+  deger: string;
+  aciklama: string;
+}
+
+const bosZimmetSatiriOlustur = (): ZimmetSatirState => ({
+  id: 'row-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now(),
+  seriNo: '',
+  ad: '',
+  kategori: '',
+  marka: '',
+  model: '',
+  deger: '',
+  aciklama: '',
+});
 
 const formatPara = (val: number | string | undefined | null): string => {
   const num = typeof val === 'string' ? parseFloat(val.replace(',', '.')) : Number(val || 0);
@@ -173,6 +195,60 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
     aciklama: '',
   });
 
+  const [zimmetSatirlari, setZimmetSatirlari] = useState<ZimmetSatirState[]>(() => [bosZimmetSatiriOlustur()]);
+
+  const yeniZimmetModalAc = (varsayilanPersonelId: string = '') => {
+    const bugun = new Date().toISOString().split('T')[0];
+    setDuzenlenenId(null);
+    setForm({
+      seriNo: '',
+      ad: '',
+      kategori: '',
+      marka: '',
+      model: '',
+      deger: '',
+      atananEmployeeId: varsayilanPersonelId,
+      atanmaTarihi: bugun,
+      aciklama: '',
+    });
+    setZimmetSatirlari([bosZimmetSatiriOlustur()]);
+    setFormAcik(true);
+  };
+
+  const yeniSatirEkle = () => {
+    setZimmetSatirlari((prev) => [...prev, bosZimmetSatiriOlustur()]);
+  };
+
+  const satirCogalt = (index: number) => {
+    setZimmetSatirlari((prev) => {
+      const kaynak = prev[index];
+      if (!kaynak) return prev;
+      const kopya: ZimmetSatirState = {
+        ...bosZimmetSatiriOlustur(),
+        ad: kaynak.ad,
+        kategori: kaynak.kategori,
+        marka: kaynak.marka,
+        model: kaynak.model,
+        deger: kaynak.deger,
+        aciklama: kaynak.aciklama,
+        seriNo: '',
+      };
+      const yeni = [...prev];
+      yeni.splice(index + 1, 0, kopya);
+      return yeni;
+    });
+  };
+
+  const satirSil = (id: string) => {
+    setZimmetSatirlari((prev) => (prev.length <= 1 ? prev : prev.filter((s) => s.id !== id)));
+  };
+
+  const satirGuncelle = (id: string, field: keyof Omit<ZimmetSatirState, 'id'>, value: string) => {
+    setZimmetSatirlari((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, [field]: value } : s))
+    );
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -243,38 +319,79 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
     toplamDeger: zimmetler.reduce((sum, z) => sum + Number(z.deger || 0), 0),
   };
 
-  async function kaydet() {
+  async function kaydet(yazdirSonrasi: boolean = false) {
     const targetCompId = profile?.company_id || (employees.find(e => e.company_id)?.company_id) || '11111111-1111-1111-1111-111111111111';
     setIsSaving(true);
     
     try {
-      // Küsüratlı tutar dönüşümü (virgül veya nokta desteği)
-      const parsedDeger = form.deger ? parseFloat(String(form.deger).replace(',', '.')) : 0;
-      const cleanDeger = isNaN(parsedDeger) ? 0 : Number(parsedDeger.toFixed(2));
       const secilenPersonel = form.atananEmployeeId ? form.atananEmployeeId : null;
       const secilenTarih = form.atanmaTarihi ? form.atanmaTarihi : (secilenPersonel ? new Date().toISOString().split('T')[0] : null);
 
-      const existingItem = duzenlenenId ? zimmetler.find(z => z.id === duzenlenenId) : null;
-
-      const payload: ZimmetInsert = {
-        company_id: targetCompId,
-        seri_no: form.seriNo.trim(),
-        ad: form.ad.trim(),
-        kategori: form.kategori.trim() || 'Genel',
-        marka: form.marka.trim() || null,
-        model: form.model.trim() || null,
-        deger: cleanDeger,
-        durum: secilenPersonel ? 'aktif' : (existingItem ? existingItem.durum : 'aktif'),
-        atanan_employee_id: secilenPersonel,
-        atanma_tarihi: secilenTarih,
-        iade_tarihi: existingItem ? existingItem.iade_tarihi : null,
-        aciklama: form.aciklama.trim() || null,
-      };
-
       if (duzenlenenId) {
+        const parsedDeger = form.deger ? parseFloat(String(form.deger).replace(',', '.')) : 0;
+        const cleanDeger = isNaN(parsedDeger) ? 0 : Number(parsedDeger.toFixed(2));
+        const existingItem = zimmetler.find(z => z.id === duzenlenenId) || null;
+
+        const payload: ZimmetInsert = {
+          company_id: targetCompId,
+          seri_no: form.seriNo.trim(),
+          ad: form.ad.trim(),
+          kategori: form.kategori.trim() || 'Genel',
+          marka: form.marka.trim() || null,
+          model: form.model.trim() || null,
+          deger: cleanDeger,
+          durum: secilenPersonel ? 'aktif' : (existingItem ? existingItem.durum : 'aktif'),
+          atanan_employee_id: secilenPersonel,
+          atanma_tarihi: secilenTarih,
+          iade_tarihi: existingItem ? existingItem.iade_tarihi : null,
+          aciklama: form.aciklama.trim() || null,
+        };
+
         await zimmetService.update(duzenlenenId, payload);
       } else {
-        await zimmetService.create(payload);
+        const gecerliSatirlar = zimmetSatirlari.filter(s => s.ad.trim() && s.seriNo.trim());
+        if (gecerliSatirlar.length === 0) {
+          alert('Lütfen en az bir zimmet için Zimmet Adı ve Seri No bilgilerini doldurun.');
+          setIsSaving(false);
+          return;
+        }
+
+        const payloads: ZimmetInsert[] = gecerliSatirlar.map((satir) => {
+          const parsedDeger = satir.deger ? parseFloat(String(satir.deger).replace(',', '.')) : 0;
+          const cleanDeger = isNaN(parsedDeger) ? 0 : Number(parsedDeger.toFixed(2));
+          return {
+            company_id: targetCompId,
+            seri_no: satir.seriNo.trim(),
+            ad: satir.ad.trim(),
+            kategori: satir.kategori.trim() || 'Genel',
+            marka: satir.marka.trim() || null,
+            model: satir.model.trim() || null,
+            deger: cleanDeger,
+            durum: 'aktif',
+            atanan_employee_id: secilenPersonel,
+            atanma_tarihi: secilenTarih,
+            iade_tarihi: null,
+            aciklama: satir.aciklama.trim() || null,
+          };
+        });
+
+        const yeniKayitlar = await zimmetService.createBulk(payloads);
+        await loadData();
+        setFormAcik(false);
+        setDuzenlenenId(null);
+
+        if (yazdirSonrasi && secilenPersonel) {
+          // Mevcut + yeni eklenen tüm zimmetleriyle kişi bazlı tutanak yazdır
+          const mevcutKisiZimmetleri = zimmetler.filter(
+            (z) => z.atanan_employee_id === secilenPersonel && z.durum !== 'iade-edildi'
+          );
+          const birlesikListe = [
+            ...yeniKayitlar,
+            ...mevcutKisiZimmetleri.filter((m) => !yeniKayitlar.some((y) => y.id === m.id)),
+          ];
+          yazdirKisiTopluZimmet(secilenPersonel, birlesikListe);
+        }
+        return;
       }
 
       await loadData();
@@ -571,6 +688,285 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
     }
   };
 
+  const yazdirKisiTopluZimmet = (employeeId: string, ozelListe?: Zimmet[]) => {
+    const emp = employees.find((e) => e.id === employeeId);
+    const kisiZimmetleri = (ozelListe || zimmetler).filter(
+      (z) => z.atanan_employee_id === employeeId && z.durum !== 'iade-edildi'
+    );
+
+    if (kisiZimmetleri.length === 0) {
+      alert('Bu personele ait aktif zimmet kaydı bulunamadı.');
+      return;
+    }
+
+    const companyName = getCompanyDisplayName();
+    const toplamDeger = kisiZimmetleri.reduce((sum, z) => sum + Number(z.deger || 0), 0);
+    const bugunFormatted = new Date().toLocaleDateString('tr-TR');
+
+    const rowsHtml = kisiZimmetleri
+      .map((z, idx) => {
+        const tarihFormatted = z.atanma_tarihi
+          ? new Date(z.atanma_tarihi).toLocaleDateString('tr-TR')
+          : bugunFormatted;
+        return `
+          <tr>
+            <td style="text-align:center;font-weight:700;color:#475569;">${idx + 1}</td>
+            <td>
+              <strong>${z.ad}</strong>
+              ${z.aciklama ? `<br><small style="color:#64748b;">${z.aciklama}</small>` : ''}
+            </td>
+            <td>${z.kategori || 'Genel'}</td>
+            <td>${[z.marka, z.model].filter(Boolean).join(' ') || '-'}</td>
+            <td><strong style="font-family:monospace;letter-spacing:0.4px;">${z.seri_no}</strong></td>
+            <td style="text-align:center;">${tarihFormatted}</td>
+            <td style="text-align:right;font-weight:600;">${formatPara(z.deger)}</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="tr">
+      <head>
+        <meta charset="utf-8">
+        <title>Kişi Bazlı Toplu Zimmet Teslim Tutanağı - ${emp?.name || 'Personel'}</title>
+        <style>
+          @page { size: A4 portrait; margin: 14mm; }
+          * { box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            margin: 0;
+            padding: 20px;
+            font-size: 11.5px;
+            line-height: 1.45;
+            background: #fff;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+          }
+          .header h1 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
+            font-weight: 800;
+            text-transform: uppercase;
+          }
+          .header h2 {
+            margin: 0;
+            font-size: 13.5px;
+            color: #2563eb;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+          }
+          .doc-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #475569;
+            margin-bottom: 14px;
+            padding: 6px 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+          }
+          .section-title {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #1e293b;
+            background: #e2e8f0;
+            padding: 6px 10px;
+            margin-top: 14px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+          }
+          table.details-table, table.items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+          }
+          table.details-table td {
+            padding: 6px 8px;
+            border: 1px solid #e2e8f0;
+            font-size: 11px;
+          }
+          table.details-table td.label {
+            width: 24%;
+            background: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+          }
+          table.items-table th {
+            background: #f1f5f9;
+            color: #1e293b;
+            font-weight: 700;
+            text-align: left;
+            padding: 7px 6px;
+            border: 1px solid #cbd5e1;
+            font-size: 10px;
+            text-transform: uppercase;
+          }
+          table.items-table td {
+            padding: 6px 6px;
+            border: 1px solid #e2e8f0;
+            font-size: 10.5px;
+            vertical-align: middle;
+          }
+          table.items-table tr:nth-child(even) {
+            background-color: #f8fafc;
+          }
+          .summary-row td {
+            background: #eef2ff !important;
+            font-weight: 700;
+            color: #1e1b4b;
+            border-top: 2px solid #6366f1 !important;
+          }
+          .taahhut-text {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 11px 12px;
+            font-size: 10.5px;
+            color: #334155;
+            text-align: justify;
+            margin-top: 12px;
+            margin-bottom: 20px;
+          }
+          .signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 28px;
+            margin-top: 20px;
+            page-break-inside: avoid;
+          }
+          .sig-box {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+          }
+          .sig-box .title {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 11px;
+            margin-bottom: 42px;
+          }
+          .sig-box .line {
+            border-top: 1px solid #475569;
+            margin: 0 20px 6px 20px;
+          }
+          .sig-box .name {
+            font-weight: 600;
+            font-size: 11px;
+          }
+          .sig-box .sub {
+            font-size: 10px;
+            color: #64748b;
+          }
+          @media print {
+            body { padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${companyName}</h1>
+          <h2>PERSONEL ZİMMET TESLİM VE TAAHHÜT TUTANAĞI (${kisiZimmetleri.length} KALEM)</h2>
+        </div>
+
+        <div class="doc-info">
+          <div><strong>Personel:</strong> ${emp?.name || '-'}</div>
+          <div><strong>Toplam Zimmet Adedi:</strong> ${kisiZimmetleri.length} Adet</div>
+          <div><strong>Düzenlenme Tarihi:</strong> ${bugunFormatted}</div>
+        </div>
+
+        <div class="section-title">1. TESLİM ALAN PERSONEL BİLGİLERİ</div>
+        <table class="details-table">
+          <tr>
+            <td class="label">Adı Soyadı:</td>
+            <td><strong>${emp?.name || '-'}</strong></td>
+            <td class="label">TC Kimlik No:</td>
+            <td>${emp?.tc_no || '-'}</td>
+          </tr>
+          <tr>
+            <td class="label">Departman / Şube:</td>
+            <td>${emp?.department || '-'}</td>
+            <td class="label">Görevi / Pozisyon:</td>
+            <td>${emp?.position || '-'}</td>
+          </tr>
+          <tr>
+            <td class="label">İletişim Telefonu:</td>
+            <td>${emp?.phone || '-'}</td>
+            <td class="label">E-posta:</td>
+            <td>${emp?.email || '-'}</td>
+          </tr>
+        </table>
+
+        <div class="section-title">2. TESLİM EDİLEN ZİMMET / EKİPMAN LİSTESİ</div>
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th style="width:28px;text-align:center;">#</th>
+              <th>Zimmet / Ekipman Adı & Açıklama</th>
+              <th>Kategori</th>
+              <th>Marka / Model</th>
+              <th>Seri Numarası</th>
+              <th style="text-align:center;">Teslim Tarihi</th>
+              <th style="text-align:right;">Değer (₺)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+            <tr class="summary-row">
+              <td colspan="6" style="text-align:right;padding-right:10px;">TOPLAM (${kisiZimmetleri.length} Adet Zimmet Kalemi):</td>
+              <td style="text-align:right;">${formatPara(toplamDeger)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-title">3. TAAHHÜT VE SORUMLULUK BEYANI</div>
+        <div class="taahhut-text">
+          İşbu tutanakta listelenen <strong>${kisiZimmetleri.length} adet</strong> şirket demirbaşını/ekipmanını (yukarıda marka, model ve seri numaraları belirtilen cihaz ve malzemeleri) eksiksiz, hasarsız ve tam çalışır vaziyette teslim aldım.
+          Zimmet konusu ekipmanları yalnızca şirket faaliyetleri kapsamında ve gerekli özeni göstererek kullanacağımı; üçüncü şahıslara devretmeyeceğimi veya ödünç vermeyeceğimi;
+          meydana gelebilecek kasıt veya ağır ihmal kaynaklı hasar ve kayıplardan sorumlu olacağımı; şirket tarafından talep edildiğinde veya iş akdimin herhangi bir nedenle son bulması durumunda
+          aynı şekilde eksiksiz, hasarsız ve çalışır olarak yetkililere iade edeceğimi gayrikabili rücu kabul, beyan ve taahhüt ederim.
+        </div>
+
+        <div class="signatures">
+          <div class="sig-box">
+            <div class="title">TESLİM EDEN (ŞİRKET YETKİLİSİ)</div>
+            <div class="line"></div>
+            <div class="name">İnsan Kaynakları / İdari İşler</div>
+            <div class="sub">İmza / Kaşe / Tarih</div>
+          </div>
+          <div class="sig-box">
+            <div class="title">TESLİM ALAN (ÇALIŞAN)</div>
+            <div class="line"></div>
+            <div class="name">${emp?.name || 'Personel'}</div>
+            <div class="sub">İmza / Tarih</div>
+          </div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+      printWin.document.write(htmlContent);
+      printWin.document.close();
+    }
+  };
+
   const yazdirTekZimmet = (z: Zimmet) => {
     const emp = employees.find(e => e.id === z.atanan_employee_id);
     const companyName = getCompanyDisplayName();
@@ -817,11 +1213,21 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
           <h2 className="text-xl font-bold text-gray-800">Zimmet Yönetimi</h2>
           <p className="text-sm text-gray-500 mt-0.5">
             {isAdminOrHR 
-              ? "Şirket ekipmanlarını kayıt altına alın, personele atayın, QR ile takip edin" 
+              ? "Şirket ekipmanlarını kayıt altına alın, personele tekli veya toplu zimmet atayın" 
               : "Size atanmış olan şirket ekipmanları ve cihazlar"}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {!isAdminOrHR && currentEmployeeId && zimmetler.length > 0 && (
+            <button
+              onClick={() => yazdirKisiTopluZimmet(currentEmployeeId)}
+              className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 text-indigo-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-100 shadow-sm transition-all"
+              title="Üzerinizdeki tüm zimmetleri tek bir tutanakta yazdır / PDF kaydet"
+            >
+              <FileText className="w-4 h-4 text-indigo-600" />
+              Toplu Zimmet Tutanağım (PDF)
+            </button>
+          )}
           <button
             onClick={yazdirAtananZimmetler}
             className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 shadow-sm transition-all"
@@ -832,25 +1238,11 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
           </button>
           {isAdminOrHR && (
             <button
-              onClick={() => {
-                setFormAcik(true);
-                setDuzenlenenId(null);
-                setForm({
-                  seriNo: '',
-                  ad: '',
-                  kategori: '',
-                  marka: '',
-                  model: '',
-                  deger: '',
-                  atananEmployeeId: '',
-                  atanmaTarihi: new Date().toISOString().split('T')[0],
-                  aciklama: '',
-                });
-              }}
+              onClick={() => yeniZimmetModalAc('')}
               className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700 shadow-sm transition-all"
             >
               <Plus className="w-4 h-4" />
-              Yeni Zimmet
+              Yeni Zimmet Ekle
             </button>
           )}
         </div>
@@ -1052,7 +1444,29 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                   </td>
                   {isAdminOrHR && (
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {z.atanan_employee_id ? getEmpName(z.atanan_employee_id) : <span className="text-gray-400 italic">Atanmamış</span>}
+                      {z.atanan_employee_id ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-gray-800">{getEmpName(z.atanan_employee_id)}</span>
+                          {(() => {
+                            const kisiZimmetSayisi = zimmetler.filter(
+                              (item) => item.atanan_employee_id === z.atanan_employee_id && item.durum !== 'iade-edildi'
+                            ).length;
+                            return kisiZimmetSayisi > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => yazdirKisiTopluZimmet(z.atanan_employee_id!)}
+                                title={`${getEmpName(z.atanan_employee_id)} adına kayıtlı tüm zimmetleri (${kisiZimmetSayisi} adet) tek bir A4 tutanakta yazdır`}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full hover:bg-indigo-100 transition-colors"
+                              >
+                                <FileText className="w-3 h-3" />
+                                {kisiZimmetSayisi} Zimmet · Toplu Tutanak
+                              </button>
+                            ) : null;
+                          })()}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 italic">Atanmamış</span>
+                      )}
                     </td>
                   )}
                   <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap font-medium">
@@ -1062,6 +1476,15 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                   {isAdminOrHR && (
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1.5">
+                        {z.atanan_employee_id && (
+                          <button
+                            title={`${getEmpName(z.atanan_employee_id)} adına yeni zimmet(ler) ekle`}
+                            onClick={() => yeniZimmetModalAc(z.atanan_employee_id || '')}
+                            className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           title="Personele Ata / İade Al"
                           onClick={() => {
@@ -1073,13 +1496,22 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                           <Package className="w-4 h-4" />
                         </button>
                         {z.atanan_employee_id && (
-                          <button
-                            title="Zimmet Teslim Tutanağı Yazdır (PDF)"
-                            onClick={() => yazdirTekZimmet(z)}
-                            className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600"
-                          >
-                            <Printer className="w-4 h-4" />
-                          </button>
+                          <>
+                            <button
+                              title="Bu Zimmetin Teslim Tutanağını Yazdır (Tekil PDF)"
+                              onClick={() => yazdirTekZimmet(z)}
+                              className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+                            <button
+                              title={`${getEmpName(z.atanan_employee_id)} - Kişi Bazlı Toplu Zimmet Tutanağı Yazdır (Tüm Zimmetleri Tek A4'te)`}
+                              onClick={() => yazdirKisiTopluZimmet(z.atanan_employee_id!)}
+                              className="p-1.5 rounded-lg hover:bg-violet-50 text-violet-600"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
                         <button
                           title="Düzenle"
@@ -1210,152 +1642,428 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
       {/* Ekle / Düzenle Formu */}
       {formAcik && isAdminOrHR && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className={`bg-white rounded-2xl shadow-2xl w-full ${duzenlenenId ? 'max-w-lg' : 'max-w-3xl'} p-6 space-y-4 max-h-[92vh] overflow-y-auto`}>
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
-                <p className="font-bold text-gray-900 text-base">{duzenlenenId ? 'Zimmeti Düzenle' : 'Yeni Zimmet Ekle'}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Demirbaş/cihaz bilgilerini, teslim tarihini ve küsüratlı tutarını belirleyin</p>
+                <p className="font-bold text-gray-900 text-base">
+                  {duzenlenenId ? 'Zimmeti Düzenle' : 'Yeni Zimmet Ekle (Tekli / Çoklu)'}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {duzenlenenId
+                    ? 'Demirbaş/cihaz bilgilerini, teslim tarihini ve küsüratlı tutarını güncelleyin'
+                    : 'Personeli ve teslim tarihini seçip aynı ekranda birden fazla zimmet satırı ekleyebilirsiniz'}
+                </p>
               </div>
               <button onClick={() => setFormAcik(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <label className="text-xs font-semibold text-gray-700 block mb-1">Zimmet Adı *</label>
-                <input
-                  value={form.ad}
-                  onChange={(e) => setForm({ ...form, ad: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="ör. MacBook Pro 14"
-                  required
-                />
-              </div>
+            <datalist id="zimmet-kategori-listesi">
+              <option value="Bilgisayar" />
+              <option value="Telefon" />
+              <option value="Araç" />
+              <option value="Monitör" />
+              <option value="Anahtar" />
+              <option value="Yazıcı" />
+              <option value="Tablet" />
+              <option value="Hat / SIM Kart" />
+              <option value="Genel" />
+            </datalist>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-700 block mb-1">Seri No *</label>
-                <input
-                  value={form.seriNo}
-                  onChange={(e) => setForm({ ...form, seriNo: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 font-mono"
-                  placeholder="ör. APL-001"
-                  required
-                />
-              </div>
+            {duzenlenenId ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">Zimmet Adı *</label>
+                    <input
+                      value={form.ad}
+                      onChange={(e) => setForm({ ...form, ad: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                      placeholder="ör. MacBook Pro 14"
+                      required
+                    />
+                  </div>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-700 block mb-1">Kategori</label>
-                <input
-                  type="text"
-                  value={form.kategori}
-                  onChange={(e) => setForm({ ...form, kategori: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="ör. Bilgisayar, Telefon, Araç..."
-                />
-              </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">Seri No *</label>
+                    <input
+                      value={form.seriNo}
+                      onChange={(e) => setForm({ ...form, seriNo: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 font-mono"
+                      placeholder="ör. APL-001"
+                      required
+                    />
+                  </div>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-700 block mb-1">Marka</label>
-                <input
-                  value={form.marka}
-                  onChange={(e) => setForm({ ...form, marka: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="ör. Apple"
-                />
-              </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">Kategori</label>
+                    <input
+                      type="text"
+                      list="zimmet-kategori-listesi"
+                      value={form.kategori}
+                      onChange={(e) => setForm({ ...form, kategori: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                      placeholder="ör. Bilgisayar, Telefon, Araç..."
+                    />
+                  </div>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-700 block mb-1">Model</label>
-                <input
-                  value={form.model}
-                  onChange={(e) => setForm({ ...form, model: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="ör. MacBook Pro M3"
-                />
-              </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">Marka</label>
+                    <input
+                      value={form.marka}
+                      onChange={(e) => setForm({ ...form, marka: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                      placeholder="ör. Apple"
+                    />
+                  </div>
 
-              {/* Tutar / Değer Girişi (Küsürat Desteği) */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-gray-700">Değer / Tutar (₺)</label>
-                  <span className="text-[10px] text-indigo-600 font-medium">Küsüratlı (0.01)</span>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">Model</label>
+                    <input
+                      value={form.model}
+                      onChange={(e) => setForm({ ...form, model: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                      placeholder="ör. MacBook Pro M3"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-gray-700">Değer / Tutar (₺)</label>
+                      <span className="text-[10px] text-indigo-600 font-medium">Küsüratlı (0.01)</span>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₺</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={form.deger}
+                        onChange={(e) => setForm({ ...form, deger: e.target.value })}
+                        className="w-full border border-gray-200 rounded-xl pl-7 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 font-mono font-semibold"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">
+                      Zimmet / Teslim Tarihi *
+                    </label>
+                    <input
+                      type="date"
+                      value={form.atanmaTarihi}
+                      onChange={(e) => setForm({ ...form, atanmaTarihi: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 font-medium"
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">
+                      Atanan Personel (İsteğe Bağlı)
+                    </label>
+                    <select
+                      value={form.atananEmployeeId}
+                      onChange={(e) => setForm({ ...form, atananEmployeeId: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                    >
+                      <option value="">Henüz Atanmadı (Boşta / Stokta)</option>
+                      {employees.filter(e => e.status === 'active' || e.status === 'onLeave').map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name} — {emp.department || 'Genel'} {emp.position ? `(${emp.position})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">Açıklama</label>
+                    <textarea
+                      value={form.aciklama}
+                      onChange={(e) => setForm({ ...form, aciklama: e.target.value })}
+                      rows={2}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                      placeholder="Ekipman teslim durumu veya seri no detayları..."
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₺</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.deger}
-                    onChange={(e) => setForm({ ...form, deger: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl pl-7 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 font-mono font-semibold"
-                    placeholder="0.00"
-                  />
+
+                <div className="flex gap-2 pt-2 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setFormAcik(false)}
+                    className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => kaydet(false)}
+                    disabled={!form.ad || !form.seriNo || isSaving}
+                    className="flex-1 bg-indigo-600 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm shadow-indigo-200"
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Güncelle
+                  </button>
                 </div>
-              </div>
+              </>
+            ) : (
+              <>
+                {/* 1. Ortak Personel & Teslim Tarihi Alanı */}
+                <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <p className="text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                      1. Atanacak Kişi ve Teslim Tarihi
+                    </p>
+                    {form.atananEmployeeId && (() => {
+                      const mevcutAdet = zimmetler.filter(
+                        (z) => z.atanan_employee_id === form.atananEmployeeId && z.durum !== 'iade-edildi'
+                      ).length;
+                      return (
+                        <span className="text-xs font-semibold text-indigo-700 bg-white border border-indigo-200 px-2.5 py-0.5 rounded-full">
+                          Seçili Personel: {getEmpName(form.atananEmployeeId)} (Mevcut: {mevcutAdet} zimmet)
+                        </span>
+                      );
+                    })()}
+                  </div>
 
-              {/* Tarih Girişi */}
-              <div>
-                <label className="text-xs font-semibold text-gray-700 block mb-1">
-                  Zimmet / Teslim Tarihi *
-                </label>
-                <input
-                  type="date"
-                  value={form.atanmaTarihi}
-                  onChange={(e) => setForm({ ...form, atanmaTarihi: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 font-medium"
-                />
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="md:col-span-2">
+                      <label className="text-xs font-semibold text-gray-700 block mb-1">
+                        Atanan Personel (İsteğe Bağlı)
+                      </label>
+                      <select
+                        value={form.atananEmployeeId}
+                        onChange={(e) => setForm({ ...form, atananEmployeeId: e.target.value })}
+                        className="w-full border border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white font-medium"
+                      >
+                        <option value="">Henüz Atanmadı (Boşta / Stokta)</option>
+                        {employees.filter(e => e.status === 'active' || e.status === 'onLeave').map((emp) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.name} — {emp.department || 'Genel'} {emp.position ? `(${emp.position})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-              {/* Atanan Personel */}
-              <div className="col-span-2">
-                <label className="text-xs font-semibold text-gray-700 block mb-1">
-                  Atanan Personel (İsteğe Bağlı)
-                </label>
-                <select
-                  value={form.atananEmployeeId}
-                  onChange={(e) => setForm({ ...form, atananEmployeeId: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-                >
-                  <option value="">Henüz Atanmadı (Boşta / Stokta)</option>
-                  {employees.filter(e => e.status === 'active' || e.status === 'onLeave').map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} — {emp.department || 'Genel'} {emp.position ? `(${emp.position})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-700 block mb-1">
+                        Zimmet / Teslim Tarihi *
+                      </label>
+                      <input
+                        type="date"
+                        value={form.atanmaTarihi}
+                        onChange={(e) => setForm({ ...form, atanmaTarihi: e.target.value })}
+                        className="w-full border border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white font-medium"
+                      />
+                    </div>
+                  </div>
+                </div>
 
-              <div className="col-span-2">
-                <label className="text-xs font-semibold text-gray-700 block mb-1">Açıklama</label>
-                <textarea
-                  value={form.aciklama}
-                  onChange={(e) => setForm({ ...form, aciklama: e.target.value })}
-                  rows={2}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
-                  placeholder="Ekipman teslim durumu veya seri no detayları..."
-                />
-              </div>
-            </div>
+                {/* 2. Çoklu Zimmet Satırları */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      2. Eklenecek Zimmet Kalemleri ({zimmetSatirlari.length} Satır)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={yeniSatirEkle}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-xl transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {form.atananEmployeeId
+                        ? `${getEmpName(form.atananEmployeeId)} Adına Zimmet Satırı Ekle`
+                        : 'Yeni Zimmet Satırı Ekle'}
+                    </button>
+                  </div>
 
-            <div className="flex gap-2 pt-2 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={() => setFormAcik(false)}
-                className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
-              >
-                İptal
-              </button>
-              <button
-                type="button"
-                onClick={kaydet}
-                disabled={!form.ad || !form.seriNo || isSaving}
-                className="flex-1 bg-indigo-600 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm shadow-indigo-200"
-              >
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Kaydet
-              </button>
-            </div>
+                  <div className="space-y-3">
+                    {zimmetSatirlari.map((satir, idx) => (
+                      <div
+                        key={satir.id}
+                        className="border border-gray-200 rounded-2xl p-4 bg-gray-50/60 space-y-3 relative transition-all hover:border-indigo-200"
+                      >
+                        <div className="flex items-center justify-between border-b border-gray-200/80 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs font-bold text-gray-800">
+                              {satir.ad.trim() ? satir.ad : `${idx + 1}. Zimmet Kalemi`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => satirCogalt(idx)}
+                              title="Bu satırın marka/kategori/tutar bilgilerini kopyalayarak altına yeni satır ekle"
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-indigo-700 bg-white border border-gray-200 hover:border-indigo-200 px-2 py-1 rounded-lg transition-colors"
+                            >
+                              <Copy className="w-3 h-3" />
+                              Kopyala
+                            </button>
+                            {zimmetSatirlari.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => satirSil(satir.id)}
+                                title="Bu satırı kaldır"
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-red-600 hover:bg-red-50 bg-white border border-red-200 px-2 py-1 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Kaldır
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-xs font-semibold text-gray-700 block mb-1">Zimmet Adı *</label>
+                            <input
+                              value={satir.ad}
+                              onChange={(e) => satirGuncelle(satir.id, 'ad', e.target.value)}
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                              placeholder="ör. MacBook Pro 14 / Şirket Hattı"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-xs font-semibold text-gray-700 block mb-1">Seri No / Kod *</label>
+                            <input
+                              value={satir.seriNo}
+                              onChange={(e) => satirGuncelle(satir.id, 'seriNo', e.target.value)}
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 font-mono bg-white"
+                              placeholder="ör. APL-001"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-xs font-semibold text-gray-700 block mb-1">Kategori</label>
+                            <input
+                              type="text"
+                              list="zimmet-kategori-listesi"
+                              value={satir.kategori}
+                              onChange={(e) => satirGuncelle(satir.id, 'kategori', e.target.value)}
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                              placeholder="ör. Bilgisayar, Telefon, Araç..."
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-xs font-semibold text-gray-700 block mb-1">Marka</label>
+                            <input
+                              value={satir.marka}
+                              onChange={(e) => satirGuncelle(satir.id, 'marka', e.target.value)}
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                              placeholder="ör. Apple / Samsung"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-xs font-semibold text-gray-700 block mb-1">Model</label>
+                            <input
+                              value={satir.model}
+                              onChange={(e) => satirGuncelle(satir.id, 'model', e.target.value)}
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                              placeholder="ör. M3 Pro / S24"
+                            />
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-semibold text-gray-700">Değer / Tutar (₺)</label>
+                              <span className="text-[10px] text-indigo-600 font-medium">Küsüratlı</span>
+                            </div>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₺</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={satir.deger}
+                                onChange={(e) => satirGuncelle(satir.id, 'deger', e.target.value)}
+                                className="w-full border border-gray-200 rounded-xl pl-7 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 font-mono font-semibold bg-white"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="md:col-span-3">
+                            <label className="text-xs font-semibold text-gray-700 block mb-1">Açıklama / Teslim Notu (İsteğe Bağlı)</label>
+                            <input
+                              value={satir.aciklama}
+                              onChange={(e) => satirGuncelle(satir.id, 'aciklama', e.target.value)}
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                              placeholder="Ekipman aksesuarları, şarj aleti, çanta veya teslim durumu notu..."
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={yeniSatirEkle}
+                    className="w-full py-2.5 border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/40 hover:bg-indigo-50 text-indigo-700 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {form.atananEmployeeId
+                      ? `+ Bu Kişiye Zimmet Eklemeye Devam Et (${getEmpName(form.atananEmployeeId)})`
+                      : '+ Yeni Zimmet Satırı Ekle'}
+                  </button>
+                </div>
+
+                {/* Alt Özet ve Kaydet Butonları */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                  <div className="text-xs text-gray-600 font-medium">
+                    Toplam <strong className="text-gray-900">{zimmetSatirlari.length}</strong> zimmet satırı · Toplam Tutar:{' '}
+                    <strong className="text-indigo-700 font-mono">
+                      {formatPara(
+                        zimmetSatirlari.reduce((sum, s) => {
+                          const n = s.deger ? parseFloat(String(s.deger).replace(',', '.')) : 0;
+                          return sum + (isNaN(n) ? 0 : n);
+                        }, 0)
+                      )}
+                    </strong>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setFormAcik(false)}
+                      className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      İptal
+                    </button>
+                    {form.atananEmployeeId && (
+                      <button
+                        type="button"
+                        onClick={() => kaydet(true)}
+                        disabled={zimmetSatirlari.some((s) => !s.ad.trim() || !s.seriNo.trim()) || isSaving}
+                        className="px-4 py-2.5 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-700 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
+                        title="Tüm satırları kaydeder ve bu personelin tüm zimmetlerini içeren tek sayfalık A4 teslim tutanağını açar"
+                      >
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                        Kaydet & Toplu Tutanak Yazdır
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => kaydet(false)}
+                      disabled={zimmetSatirlari.some((s) => !s.ad.trim() || !s.seriNo.trim()) || isSaving}
+                      className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm shadow-indigo-200"
+                    >
+                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      {zimmetSatirlari.length > 1 ? `Tümünü Kaydet (${zimmetSatirlari.length} Zimmet)` : 'Kaydet'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
