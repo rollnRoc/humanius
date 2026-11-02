@@ -653,7 +653,6 @@ const AppInner: React.FC = () => {
       }
 
       filteredMapped.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
-      console.log(`✅ loadData: ${filteredMapped.length} personel listelendi. (${effectiveIsSuper ? 'Süper Yönetici - Tüm Şirketler' : isEmployeeRole ? 'Personel Kendi Kaydı' : 'Şirket: ' + effectiveUserCompanyId})`);
       setEmployees(filteredMapped);
 
       // Şirket listesi: Normal kullanıcılar yalnızca kendi şirketini görsün

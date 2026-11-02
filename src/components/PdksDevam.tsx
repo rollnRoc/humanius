@@ -190,7 +190,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       const fallbackEmail = profile?.email || user?.email || '';
       return {
         id: fallbackId,
-        company_id: profile?.company_id || user?.user_metadata?.company_id || MICI_COMPANY_ID,
+        company_id: profile?.company_id || user?.user_metadata?.company_id || '',
         name: fallbackName,
         email: fallbackEmail,
         department: (profile as any)?.department || 'Genel',
@@ -217,7 +217,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       if (matchedEmp?.company_id) return matchedEmp.company_id;
     }
 
-    // 2. Personal employee record company or location hint
+    // 2. Personal employee record company
     if (currentEmployee?.company_id) {
       const norm = normalizeCompanyId(currentEmployee.company_id);
       if (norm) return norm;
@@ -225,10 +225,6 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     if (currentEmployee?.company) {
       const norm = normalizeCompanyId(currentEmployee.company);
       if (norm) return norm;
-    }
-    const empCity = (currentEmployee?.il || (currentEmployee as any)?.city || currentEmployee?.department || '').toLowerCase();
-    if (empCity.includes('adana') || empCity.includes('mersin') || empCity.includes('tarsus') || empCity.includes('kayseri')) {
-      return MICI_COMPANY_ID;
     }
 
     // 3. User profile company
@@ -260,9 +256,8 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
     } catch {}
 
-    // Default to Mıçı Otomotiv
-    return MICI_COMPANY_ID;
-  }, [selectedCompany, currentEmployee?.company_id, currentEmployee?.company, currentEmployee?.il, profile?.company_id, employees]);
+    return profile?.company_id || currentEmployee?.company_id || '';
+  }, [selectedCompany, currentEmployee?.company_id, currentEmployee?.company, profile?.company_id, employees]);
 
   const effectiveCompanyId = resolvedCompanyId;
 
@@ -352,9 +347,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const [allShiftRecords, setAllShiftRecords] = useState<any[]>([]);
 
   // Multi-office locations state
-  const [officeLocations, setOfficeLocations] = useState<CompanyOfficeLocation[]>(() => {
-    return getDefaultOfficesForCompany(MICI_COMPANY_ID) || MICI_DEFAULT_OFFICES;
-  });
+  const [officeLocations, setOfficeLocations] = useState<CompanyOfficeLocation[]>([]);
   const [allCompanyOfficesMap, setAllCompanyOfficesMap] = useState<Record<string, CompanyOfficeLocation[]>>({});
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>('');
   const [adminOverrides, setAdminOverrides] = useState<Record<string, any>>({});
@@ -489,7 +482,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
   const employeeAssignedOffice = useMemo<CompanyOfficeLocation | null>(() => {
     const effectiveLocs = (officeLocations && officeLocations.length > 0)
       ? officeLocations
-      : (getDefaultOfficesForCompany(resolvedCompanyId) || MICI_DEFAULT_OFFICES);
+      : getDefaultOfficesForCompany(resolvedCompanyId);
     if (!effectiveLocs || effectiveLocs.length === 0) return null;
 
     // 1. Admin müdahalesi
@@ -552,20 +545,17 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
     if (isManagement) return false;
     const userCityNorm = currentEmployee?.il ? currentEmployee.il.trim().toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '') : '';
     if (!userCityNorm) return false;
-    const locs = (officeLocations && officeLocations.length > 0) ? officeLocations : MICI_DEFAULT_OFFICES;
+    const locs = (officeLocations && officeLocations.length > 0) ? officeLocations : getDefaultOfficesForCompany(resolvedCompanyId);
     return locs.some((loc) => {
       const locCityNorm = loc.il ? loc.il.trim().toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '') : '';
       return locCityNorm === userCityNorm;
     });
-  }, [isManagement, currentEmployee?.il, officeLocations]);
+  }, [isManagement, currentEmployee?.il, officeLocations, resolvedCompanyId]);
 
   const visibleOfficeLocations = useMemo(() => {
-    let locs = (officeLocations && officeLocations.length > 0)
+    const locs = (officeLocations && officeLocations.length > 0)
       ? officeLocations
-      : (getDefaultOfficesForCompany(resolvedCompanyId) || MICI_DEFAULT_OFFICES);
-    if (!locs || locs.length === 0) {
-      locs = MICI_DEFAULT_OFFICES;
-    }
+      : getDefaultOfficesForCompany(resolvedCompanyId);
 
     // Tüm şirket ofisleri seçilebilir olmalıdır (isteyen ofisini değiştirebilsin).
     // Personelin kendi ofisi (Kendi Ofisiniz) daima en üstte (1. sırada), ardından iline uyan ofisler, varsayılan merkez ofis ve diğerleri sıralanır.
@@ -955,7 +945,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
         companyService.getOfficeLocations(resolvedCompanyId),
         companyService.getAllOfficeLocations()
       ]);
-      const effectiveLocs = (locs && locs.length > 0) ? locs : (getDefaultOfficesForCompany(resolvedCompanyId) || MICI_DEFAULT_OFFICES);
+      const effectiveLocs = (locs && locs.length > 0) ? locs : getDefaultOfficesForCompany(resolvedCompanyId);
       setOfficeLocations(effectiveLocs);
       setAllCompanyOfficesMap(allMap);
       if (effectiveLocs && effectiveLocs.length > 0) {
@@ -967,7 +957,7 @@ const PdksDevam: React.FC<PdksDevamProps> = ({
       }
     } catch (e) {
       console.error("Error loading office locations:", e);
-      const fallbackLocs = getDefaultOfficesForCompany(resolvedCompanyId) || MICI_DEFAULT_OFFICES;
+      const fallbackLocs = getDefaultOfficesForCompany(resolvedCompanyId);
       setOfficeLocations(fallbackLocs);
     }
   }, [resolvedCompanyId]);

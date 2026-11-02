@@ -471,15 +471,6 @@ class ShiftService {
         if (Array.isArray(localData) && localData.length > 0) {
           const clean = localData.filter(isNotSaturdayShift);
           if (clean.length > 0) {
-            clean.forEach((s: any) => {
-              // Self-repair: Eğer hafta içi varsayılan vardiyasının çıkışı sehven 16:00 (Cumartesi çıkışı) olarak kalmışsa düzelt
-              if (s.is_default && s.end_time === '16:00') {
-                s.end_time = '17:45';
-              }
-              if (s.name && s.name.toLowerCase().includes('toyota') && s.end_time === '16:00') {
-                s.end_time = '17:45';
-              }
-            });
             if (!clean.some((s: any) => s.is_default)) clean[0].is_default = true;
             return clean;
           }

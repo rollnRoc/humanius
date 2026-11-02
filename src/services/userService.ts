@@ -156,34 +156,39 @@ export const userService = {
       return cachedUserProfiles.data;
     }
 
-    try {
-      const stored = localStorage.getItem('humanius_cached_user_profiles');
-      if (stored && !cachedUserProfiles) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          cachedUserProfiles = { data: parsed, timestamp: Date.now() };
-        }
-      }
-    } catch {}
-
     let profilesList: UserProfile[] = [];
+    // 1. Doğrudan veritabanı sorgusu (1. Öncelik - Database-First)
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
-      if (!error && data && data.length > 0) {
+      if (!error && data && data.length > 1) {
         profilesList = data as UserProfile[];
       }
     } catch {}
 
-    if (profilesList.length === 0 && (!cachedUserProfiles || cachedUserProfiles.data.length === 0)) {
+    // 2. RLS nedeniyle boş veya tek satır döndüyse Edge Function ile veritabanından çek
+    if (profilesList.length <= 1) {
       try {
         const { data: res } = await supabase.functions.invoke('user-management', {
           body: { operation: 'list_users' }
         });
         if (res?.users && res.users.length > 0) {
           profilesList = res.users as UserProfile[];
+        }
+      } catch {}
+    }
+
+    // 3. Offline Yedek: Yalnızca veritabanına ulaşılamadığında yerel önbellekten oku
+    if (profilesList.length === 0) {
+      try {
+        const stored = localStorage.getItem('humanius_cached_user_profiles');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            profilesList = parsed;
+          }
         }
       } catch {}
     }

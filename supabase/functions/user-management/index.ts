@@ -438,11 +438,16 @@ Deno.serve(async (req: Request) => {
         lng: Number(lng),
         radius_meters: Number(radius_meters || 200),
         address: String(address || '').trim(),
-        il: il ? String(il).trim() : null,
-        ilce: ilce ? String(ilce).trim() : null,
+        il: il != null ? String(il).trim() : '',
+        ilce: ilce != null ? String(ilce).trim() : '',
         is_default: Boolean(is_default),
         updated_at: new Date().toISOString(),
       };
+      if (Boolean(is_default)) {
+        try {
+          await adminClient.from('company_locations').update({ is_default: false }).eq('company_id', company_id);
+        } catch {}
+      }
       if (id) {
         const { data, error } = await adminClient.from('company_locations').update(locationData).eq('id', id).select().single();
         if (error) return jsonResponse({ error: error.message }, 400);
@@ -1412,14 +1417,35 @@ Deno.serve(async (req: Request) => {
             lng DOUBLE PRECISION NOT NULL,
             radius_meters INTEGER NOT NULL DEFAULT 200,
             address TEXT DEFAULT '',
+            il TEXT DEFAULT '',
+            ilce TEXT DEFAULT '',
             is_default BOOLEAN DEFAULT false,
             created_at TIMESTAMPTZ DEFAULT now(),
             updated_at TIMESTAMPTZ DEFAULT now()
           );
+          ALTER TABLE public.company_locations ADD COLUMN IF NOT EXISTS il TEXT DEFAULT '';
+          ALTER TABLE public.company_locations ADD COLUMN IF NOT EXISTS ilce TEXT DEFAULT '';
           GRANT ALL ON TABLE public.company_locations TO anon, authenticated, service_role;
           ALTER TABLE public.company_locations ENABLE ROW LEVEL SECURITY;
           DROP POLICY IF EXISTS "Public full access to company_locations" ON public.company_locations;
           CREATE POLICY "Public full access to company_locations" ON public.company_locations FOR ALL TO public USING (true) WITH CHECK (true);
+
+          UPDATE public.company_locations SET il = 'Balıkesir', ilce = 'Altıeylül' WHERE id = 'ef746830-03ec-4ff6-9aeb-ce540a594e9b' AND (il IS NULL OR il = '');
+          UPDATE public.company_locations SET il = 'Balıkesir', ilce = 'Bandırma'  WHERE id = 'da80ae30-522f-4c1d-b2aa-8b94305b6d2d' AND (il IS NULL OR il = '');
+          UPDATE public.company_locations SET il = 'Balıkesir', ilce = 'Edremit'   WHERE id = 'bfefb10f-40c2-42b0-8d7c-3fb53b8ac6bf' AND (il IS NULL OR il = '');
+          UPDATE public.company_locations SET il = 'Balıkesir', ilce = 'Altıeylül' WHERE id = 'daf385ef-17d5-4b27-b6a0-5030363cca2c' AND (il IS NULL OR il = '');
+          UPDATE public.company_locations SET il = 'Balıkesir', ilce = 'Karesi'    WHERE id = '751baf0c-2106-4ab9-b4a2-0cdf6cb69952' AND (il IS NULL OR il = '');
+
+          UPDATE public.company_locations SET il = 'Adana',   ilce = 'Seyhan'    WHERE id IN ('f4715a38-36e2-4e5b-aed6-de7e869e304a', 'cbf1a8e2-dbe5-4da6-bcc9-cab0bc5af1d0') AND (il IS NULL OR il = '');
+          UPDATE public.company_locations SET il = 'Adana',   ilce = 'Yüreğir'   WHERE id = 'f48267c8-bf34-4e7a-8f02-a02cd2bfc592' AND (il IS NULL OR il = '');
+          UPDATE public.company_locations SET il = 'Mersin',  ilce = 'Tarsus'    WHERE id = 'c8a208a1-16e4-4e08-8ccc-7c3d2d9fae06' AND (il IS NULL OR il = '');
+          UPDATE public.company_locations SET il = 'Kayseri', ilce = 'Melikgazi' WHERE id IN ('0442aec2-6107-41b5-afde-6363b58c3b54', '67ecd99d-49e6-42be-a0c8-e5493e8abdf4') AND (il IS NULL OR il = '');
+
+          UPDATE public.company_locations SET il = 'Düzce',    ilce = 'Merkez'  WHERE id IN ('e9dddc8e-8ea9-4987-a776-0163c74459eb', 'b99e3383-f927-484d-ab02-2f919d939697') AND (il IS NULL OR il = '');
+          UPDATE public.company_locations SET il = 'Bolu',     ilce = 'Merkez'  WHERE id = 'aa7e4644-2964-4603-bad7-f872658a358f' AND (il IS NULL OR il = '');
+          UPDATE public.company_locations SET il = 'İstanbul', ilce = 'Sarıyer' WHERE id = 'a0e7325c-06bc-4819-9506-0bdfd60f07c9' AND (il IS NULL OR il = '');
+          UPDATE public.company_locations SET il = 'Kütahya',  ilce = 'Merkez'  WHERE id IN ('37692deb-8947-4ab3-87e2-8ce0722fcb71', '81961e26-d0e3-45c7-a690-c0237799d8b1') AND (il IS NULL OR il = '');
+          NOTIFY pgrst, 'reload schema';
         `);
         await client.queryArray(`
           CREATE TABLE IF NOT EXISTS public.company_leave_types (

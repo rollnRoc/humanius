@@ -9,43 +9,32 @@ class LMSService {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_egitimler_${effectiveCompanyId}`;
 
-    // 1. Read local cache first
-    let localData: Egitim[] = [];
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        localData = JSON.parse(saved);
-      }
-    } catch {}
+    // 1. Fetch from Supabase database FIRST (Database-First)
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        const { data, error } = await supabase
+          .from('company_courses')
+          .select('*')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: false });
 
-    if (!companyId || companyId === 'default' || companyId.includes('demo')) {
-      return localData;
-    }
+        if (!error && data && Array.isArray(data)) {
+          const formatted: Egitim[] = data.map((c: any) => ({
+            id: c.id,
+            baslik: c.baslik,
+            kategori: c.kategori || 'Genel',
+            tur: c.tur || 'video',
+            seviye: c.seviye || 'baslangic',
+            egitmen: c.egitmen || '',
+            aciklama: c.aciklama || '',
+            zorunlu: Boolean(c.zorunlu),
+            tamamlayanSayisi: 0,
+          }));
+          localStorage.setItem(storageKey, JSON.stringify(formatted));
+          return formatted;
+        }
+      } catch {}
 
-    // 2. Fetch from Supabase database
-    try {
-      const { data, error } = await supabase
-        .from('company_courses')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
-
-      if (!error && data && Array.isArray(data)) {
-        const formatted: Egitim[] = data.map((c: any) => ({
-          id: c.id,
-          baslik: c.baslik,
-          kategori: c.kategori || 'Genel',
-          tur: c.tur || 'video',
-          seviye: c.seviye || 'baslangic',
-          egitmen: c.egitmen || '',
-          aciklama: c.aciklama || '',
-          zorunlu: Boolean(c.zorunlu),
-          tamamlayanSayisi: 0,
-        }));
-        localStorage.setItem(storageKey, JSON.stringify(formatted));
-        return formatted;
-      }
-    } catch {
       try {
         const { data: res } = await supabase.functions.invoke('user-management', {
           body: { operation: 'list_company_courses', companyId },
@@ -70,7 +59,15 @@ class LMSService {
       }
     }
 
-    return localData;
+    // 2. Offline / Demo Fallback: Read local cache
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+
+    return [];
   }
 
   /**
@@ -187,49 +184,40 @@ class LMSService {
     const effectiveCompanyId = companyId || 'default';
     const storageKey = `humanius_sertifikalar_${effectiveCompanyId}`;
 
-    let localData: SertifikaKaydi[] = [];
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        localData = JSON.parse(saved);
-      }
-    } catch {}
+    // 1. Fetch from Supabase database FIRST (Database-First)
+    if (companyId && companyId !== 'default' && !companyId.includes('demo')) {
+      try {
+        let query = supabase
+          .from('company_course_assignments')
+          .select('*')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: false });
 
-    if (!companyId || companyId === 'default' || companyId.includes('demo')) {
-      return localData;
-    }
-
-    try {
-      let query = supabase
-        .from('company_course_assignments')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
-
-      if (employeeId) {
-        query = query.eq('employee_id', employeeId);
-      }
-
-      const { data, error } = await query;
-      if (!error && data && Array.isArray(data)) {
-        const formatted: SertifikaKaydi[] = data.map((s: any) => ({
-          id: s.id,
-          employeeId: s.employee_id,
-          employeeName: s.employee_name,
-          egitimId: s.egitim_id,
-          egitimAdi: s.egitim_adi,
-          durum: s.durum || 'devam_ediyor',
-          tamamlanmaTarihi: s.tamamlanma_tarihi || undefined,
-          hedefTarih: s.hedef_tarih || undefined,
-          puan: s.puan != null ? Number(s.puan) : undefined,
-          gecerlilikSuresi: s.gecerlilik_suresi || undefined,
-        }));
-        if (!employeeId) {
-          localStorage.setItem(storageKey, JSON.stringify(formatted));
+        if (employeeId) {
+          query = query.eq('employee_id', employeeId);
         }
-        return formatted;
-      }
-    } catch {
+
+        const { data, error } = await query;
+        if (!error && data && Array.isArray(data)) {
+          const formatted: SertifikaKaydi[] = data.map((s: any) => ({
+            id: s.id,
+            employeeId: s.employee_id,
+            employeeName: s.employee_name,
+            egitimId: s.egitim_id,
+            egitimAdi: s.egitim_adi,
+            durum: s.durum || 'devam_ediyor',
+            tamamlanmaTarihi: s.tamamlanma_tarihi || undefined,
+            hedefTarih: s.hedef_tarih || undefined,
+            puan: s.puan != null ? Number(s.puan) : undefined,
+            gecerlilikSuresi: s.gecerlilik_suresi || undefined,
+          }));
+          if (!employeeId) {
+            localStorage.setItem(storageKey, JSON.stringify(formatted));
+          }
+          return formatted;
+        }
+      } catch {}
+
       try {
         const { data: res } = await supabase.functions.invoke('user-management', {
           body: { operation: 'list_company_course_assignments', companyId, employeeId },
@@ -257,7 +245,15 @@ class LMSService {
       }
     }
 
-    return localData;
+    // 2. Offline / Demo Fallback: Read local cache
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+
+    return [];
   }
 
   /**

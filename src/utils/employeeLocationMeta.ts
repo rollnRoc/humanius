@@ -258,8 +258,8 @@ export function enrichEmployeeWithLocation<T extends Record<string, any>>(emp: T
     getEmployeeContactEmail(emp.id, emp.email) ||
     '';
 
-  const resolvedIl = (emp.il && String(emp.il).trim()) || meta.il || parsed.il || '';
-  const resolvedIlce = (emp.ilce && String(emp.ilce).trim()) || meta.ilce || parsed.ilce || '';
+  const resolvedIl = (emp.il && String(emp.il).trim()) || parsed.il || meta.il || '';
+  const resolvedIlce = (emp.ilce && String(emp.ilce).trim()) || parsed.ilce || meta.ilce || '';
 
   return {
     ...emp,

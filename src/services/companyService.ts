@@ -27,20 +27,19 @@ export function fixUtf8Encoding(str: string | null | undefined): string {
 
 export const companyService = {
   async getCompanies() {
-    // 1. In-memory & local cache
     const STATIC_KNOWN_COMPANIES: Company[] = [
       {
         id: '1cc4a668-c6ad-49d9-8f9c-aea1243239c9',
         name: 'ALTAN MOTORLU ARAÇLAR SAN.ve TİC. A.Ş',
-        city: 'Adana',
+        city: 'Balıkesir',
         email: '',
         phone: '',
-        address: 'Adana, Türkiye',
+        address: '',
         tax_number: '',
         sgk_sicil_no: '',
         logo_url: null,
-        created_at: '2024-01-01T00:00:00.000Z',
-        updated_at: '2024-01-01T00:00:00.000Z'
+        created_at: '2026-10-16T11:35:04.082913+00:00',
+        updated_at: '2026-10-16T11:35:04.082913+00:00'
       },
       {
         id: '735825a4-f12b-4ee7-959c-a8a29e674617',
@@ -97,15 +96,15 @@ export const companyService = {
       {
         id: '12004fce-050b-4db1-9a56-e414aec14246',
         name: 'Bakırcılar Otomotiv',
-        city: 'Konya',
+        city: 'Antalya',
         email: '',
         phone: '',
-        address: 'Konya',
+        address: '',
         tax_number: '',
         sgk_sicil_no: '',
         logo_url: null,
-        created_at: '2024-01-01T00:00:00.000Z',
-        updated_at: '2024-01-01T00:00:00.000Z'
+        created_at: '2026-09-30T21:49:15.943741+00:00',
+        updated_at: '2026-09-30T21:49:15.943741+00:00'
       },
       {
         id: 'c2b6dd6f-317e-41a1-90d8-ac8774249c75',
@@ -148,18 +147,7 @@ export const companyService = {
       }
     ];
 
-    // 1. Önce Hızlı Yerel Önbellek Kontrolü
-    try {
-      const cached = localStorage.getItem('humanius_cached_companies');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length >= 5) {
-          return parsed;
-        }
-      }
-    } catch {}
-
-    // 2. Doğrudan PostgREST veritabanı sorgusu (1. Öncelik - 0 Edge Function çağrısı)
+    // 1. Doğrudan PostgREST veritabanı sorgusu (1. Öncelik - Database-First)
     try {
       const { data, error } = await supabase
         .from('companies')
@@ -173,7 +161,7 @@ export const companyService = {
       }
     } catch {}
 
-    // 3. Edge Function (Yalnızca doğrudan DB başarısız olursa son çare yedek)
+    // 2. Edge Function (Doğrudan DB RLS nedeniyle boş dönerse service_role ile veritabanından çek)
     try {
       const { data: res } = await supabase.functions.invoke('user-management', {
         body: { operation: 'list_companies' }
@@ -185,7 +173,17 @@ export const companyService = {
       }
     } catch {}
 
-    try { localStorage.setItem('humanius_cached_companies', JSON.stringify(STATIC_KNOWN_COMPANIES)); } catch {}
+    // 3. Offline Yedek: Yerel Önbellek Kontrolü (Yalnızca veritabanına ulaşılamadığında)
+    try {
+      const cached = localStorage.getItem('humanius_cached_companies');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+
     return STATIC_KNOWN_COMPANIES;
   },
 
@@ -207,49 +205,7 @@ export const companyService = {
       } as Company;
     }
 
-    // 1. Check local cache or static match first (instant)
-    try {
-      const cached = localStorage.getItem('humanius_cached_companies');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) {
-          const match = parsed.find((c: any) => c.id === id);
-          if (match) return match;
-        }
-      }
-    } catch {}
-
-    if (id === MICI_COMPANY_ID) {
-      return {
-        id: MICI_COMPANY_ID,
-        name: 'Mıçı Otomotiv',
-        city: 'Adana',
-        email: 'info@mici.com.tr',
-        phone: '',
-        address: 'Adana, Türkiye',
-        tax_number: '',
-        sgk_sicil_no: '',
-        logo_url: null,
-        created_at: '2024-01-01T00:00:00.000Z',
-        updated_at: '2024-01-01T00:00:00.000Z'
-      } as Company;
-    }
-    if (id === BIGSAFER_COMPANY_ID) {
-      return {
-        id: BIGSAFER_COMPANY_ID,
-        name: 'Bigsafer Teknolojiler A.Ş.',
-        city: 'Düzce',
-        email: 'info@bigsafer.com',
-        phone: '',
-        address: 'Düzce Teknopark',
-        tax_number: '',
-        sgk_sicil_no: '',
-        logo_url: null,
-        created_at: '2024-01-01T00:00:00.000Z',
-        updated_at: '2024-01-01T00:00:00.000Z'
-      } as Company;
-    }
-
+    // 1. Doğrudan veritabanından çek (1. Öncelik - Database-First)
     try {
       const { data, error } = await supabase
         .from('companies')
@@ -262,12 +218,25 @@ export const companyService = {
       }
     } catch {}
 
+    // 2. Edge Function üzerinden veritabanından çek
     try {
       const { data: res } = await supabase.functions.invoke('user-management', {
         body: { operation: 'get_company', id }
       });
       if (res?.company) {
         return { ...res.company, name: fixUtf8Encoding(res.company.name) };
+      }
+    } catch {}
+
+    // 3. Offline Yedek: Yerel önbellekten kontrol et
+    try {
+      const cached = localStorage.getItem('humanius_cached_companies');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          const match = parsed.find((c: any) => c.id === id);
+          if (match) return match;
+        }
       }
     } catch {}
 
@@ -308,10 +277,12 @@ export const companyService = {
 
   async getAllOfficeLocations(): Promise<Record<string, import('../types').CompanyOfficeLocation[]>> {
     const companyIds = [
+      ALTAN_COMPANY_ID,
       BIGSAFER_COMPANY_ID,
       MICI_COMPANY_ID,
       HIZEL_COMPANY_ID,
       CAVDARLI_COMPANY_ID,
+      BAKIRCILAR_COMPANY_ID,
       SKILLBRIDGE_COMPANY_ID,
       BIGSAFELY_COMPANY_ID
     ];
@@ -352,11 +323,10 @@ export const companyService = {
       return getDefaultOfficesForCompany(targetCompId).filter((l) => !deletedIds.has(l.id));
     }
 
-    // 2. SUPABASE / PRODUCTION MODE
+    // 2. SUPABASE / PRODUCTION MODE (Database-First)
     let locations: import('../types').CompanyOfficeLocation[] = [];
 
     try {
-      // Query strictly by company_id to avoid cross-tenant pollution
       const { data, error } = await supabase
         .from('company_locations')
         .select('*')
@@ -382,58 +352,45 @@ export const companyService = {
       } catch {}
     }
 
-    // Local custom offices backup merge (if any offices were saved in local cache)
-    try {
-      const customKey = `humanius_custom_office_locations_${targetCompId}`;
-      const rawCustom = localStorage.getItem(customKey);
-      if (rawCustom) {
-        const customLocs = JSON.parse(rawCustom);
-        if (Array.isArray(customLocs)) {
-          for (const cLoc of customLocs) {
-            if (!locations.some((l) => l.id === cLoc.id || l.name.trim().toLowerCase() === cLoc.name.trim().toLowerCase())) {
-              locations.push(cLoc);
+    // Local custom offices backup merge ONLY if remote DB had no records
+    if (locations.length === 0) {
+      try {
+        const customKey = `humanius_custom_office_locations_${targetCompId}`;
+        const rawCustom = localStorage.getItem(customKey);
+        if (rawCustom) {
+          const customLocs = JSON.parse(rawCustom);
+          if (Array.isArray(customLocs)) {
+            for (const cLoc of customLocs) {
+              if (!locations.some((l) => l.id === cLoc.id || l.name.trim().toLowerCase() === cLoc.name.trim().toLowerCase())) {
+                locations.push(cLoc);
+              }
             }
           }
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
     // STRICT MULTI-TENANCY FILTER:
-    // Guarantee that ONLY locations belonging to targetCompId are ever returned, and exclude deleted!
     locations = locations.filter((l) => (l.company_id === targetCompId || !l.company_id) && !deletedIds.has(l.id));
 
-    // If still empty in database, provide company-specific defaults without leaking other companies
+    // Only if completely empty in database, provide company-specific defaults without leaking other companies
     if (locations.length === 0) {
       locations = getDefaultOfficesForCompany(targetCompId).filter((l) => !deletedIds.has(l.id));
     }
 
-    // For BigSafer: ensure core defaults are present ONLY IF not explicitly deleted and not already in list
-    if (targetCompId === BIGSAFER_COMPANY_ID) {
-      for (const defOff of BIGSAFER_DEFAULT_OFFICES) {
-        if (!deletedIds.has(defOff.id) && !locations.some((l) => l.name.trim().toLowerCase() === defOff.name.trim().toLowerCase() || l.id === defOff.id)) {
-          locations.push(defOff);
-        }
-      }
-    }
-
-    // For Mıçı Otomotiv: ensure core defaults are present ONLY IF not explicitly deleted and not already in list
-    if (targetCompId === MICI_COMPANY_ID) {
-      for (const defOff of MICI_DEFAULT_OFFICES) {
-        if (!deletedIds.has(defOff.id) && !locations.some((l) => l.name.trim().toLowerCase() === defOff.name.trim().toLowerCase() || l.id === defOff.id)) {
-          locations.push(defOff);
-        }
-      }
-    }
-
-    // Enrich every location with il / ilce from metadata or intelligent fallback
+    // Enrich every location with il / ilce strictly prioritizing the Database columns (loc.il, loc.ilce)
     return locations.map((loc) => {
+      const dbIl = loc.il ? String(loc.il).trim() : '';
+      const dbIlce = loc.ilce ? String(loc.ilce).trim() : '';
       const meta = getLocationMeta(loc.id);
-      const inferred = inferIlIlce(loc.name, loc.address, loc.il || meta.il, loc.ilce || meta.ilce);
+      const effectiveIl = dbIl || meta.il || '';
+      const effectiveIlce = dbIlce || meta.ilce || '';
+      const inferred = (!effectiveIl) ? inferIlIlce(loc.name, loc.address, effectiveIl, effectiveIlce) : { il: effectiveIl, ilce: effectiveIlce };
       return {
         ...loc,
         company_id: targetCompId,
-        il: loc.il || meta.il || inferred.il || '',
-        ilce: loc.ilce || meta.ilce || inferred.ilce || ''
+        il: effectiveIl || inferred.il || '',
+        ilce: effectiveIlce || inferred.ilce || ''
       };
     });
   },
@@ -445,7 +402,6 @@ export const companyService = {
     // Determine if we have a real UUID to update
     let dbId: string | undefined = isValidUuid(location.id) ? location.id : undefined;
 
-    // If editing a location that had a mock id like 'loc-bigsafer-1', check if a DB row with this name already exists
     if (!dbId && location.id) {
       try {
         const { data: existingRows } = await supabase
@@ -464,7 +420,7 @@ export const companyService = {
     }
 
     const tempLocId = dbId || location.id || `loc-${Date.now()}`;
-    if (location.il || location.ilce) {
+    if (location.il !== undefined || location.ilce !== undefined) {
       saveLocationMeta(tempLocId, location.il, location.ilce);
       if (dbId && tempLocId !== dbId) {
         saveLocationMeta(dbId, location.il, location.ilce);
@@ -513,24 +469,24 @@ export const companyService = {
         lng: location.lng,
         radius_meters: location.radius_meters || 200,
         address: location.address || '',
+        il: location.il || '',
+        ilce: location.ilce || '',
         is_default: Boolean(location.is_default),
       };
       if (dbId) payload.id = dbId;
-      if (location.il) payload.il = location.il;
-      if (location.ilce) payload.ilce = location.ilce;
 
       const { data: res } = await supabase.functions.invoke('user-management', {
         body: payload
       });
       if (res?.location) {
         const result = res.location as import('../types').CompanyOfficeLocation;
-        if (location.il || location.ilce) {
+        if (location.il !== undefined || location.ilce !== undefined) {
           saveLocationMeta(result.id, location.il, location.ilce);
         }
         const finalLoc = {
           ...result,
-          il: location.il || result.il || '',
-          ilce: location.ilce || result.ilce || ''
+          il: result.il || location.il || '',
+          ilce: result.ilce || location.ilce || ''
         };
         window.dispatchEvent(new CustomEvent('humanius_office_locations_updated', { detail: { companyId: targetCompId, location: finalLoc } }));
         return finalLoc;
@@ -541,12 +497,20 @@ export const companyService = {
 
     // Fallback: Direct Database Operation
     try {
+      if (Boolean(location.is_default)) {
+        try {
+          await supabase.from('company_locations').update({ is_default: false }).eq('company_id', targetCompId);
+        } catch {}
+      }
+
       const dbPayload: any = {
         name: location.name,
         lat: location.lat,
         lng: location.lng,
         radius_meters: location.radius_meters || 200,
         address: location.address || '',
+        il: location.il || '',
+        ilce: location.ilce || '',
         is_default: Boolean(location.is_default),
       };
 
@@ -554,11 +518,11 @@ export const companyService = {
         dbPayload.updated_at = new Date().toISOString();
         const { data, error } = await supabase.from('company_locations').update(dbPayload).eq('id', dbId).select().single();
         if (!error && data) {
-          if (location.il || location.ilce) saveLocationMeta(data.id, location.il, location.ilce);
+          if (location.il !== undefined || location.ilce !== undefined) saveLocationMeta(data.id, location.il, location.ilce);
           const finalLoc = {
             ...data,
-            il: location.il || data.il || '',
-            ilce: location.ilce || data.ilce || ''
+            il: data.il || location.il || '',
+            ilce: data.ilce || location.ilce || ''
           } as import('../types').CompanyOfficeLocation;
           window.dispatchEvent(new CustomEvent('humanius_office_locations_updated', { detail: { companyId: targetCompId, location: finalLoc } }));
           return finalLoc;
@@ -567,11 +531,11 @@ export const companyService = {
         dbPayload.company_id = targetCompId;
         const { data, error } = await supabase.from('company_locations').insert(dbPayload).select().single();
         if (!error && data) {
-          if (location.il || location.ilce) saveLocationMeta(data.id, location.il, location.ilce);
+          if (location.il !== undefined || location.ilce !== undefined) saveLocationMeta(data.id, location.il, location.ilce);
           const finalLoc = {
             ...data,
-            il: location.il || data.il || '',
-            ilce: location.ilce || data.ilce || ''
+            il: data.il || location.il || '',
+            ilce: data.ilce || location.ilce || ''
           } as import('../types').CompanyOfficeLocation;
           window.dispatchEvent(new CustomEvent('humanius_office_locations_updated', { detail: { companyId: targetCompId, location: finalLoc } }));
           return finalLoc;
@@ -661,10 +625,12 @@ export const companyService = {
   }
 };
 
+export const ALTAN_COMPANY_ID = '1cc4a668-c6ad-49d9-8f9c-aea1243239c9';
 export const BIGSAFER_COMPANY_ID = '11111111-1111-1111-1111-111111111111';
 export const MICI_COMPANY_ID = '735825a4-f12b-4ee7-959c-a8a29e674617';
 export const CAVDARLI_COMPANY_ID = '87ed6f79-6a54-40ea-b188-8b325513dc41';
 export const HIZEL_COMPANY_ID = 'd4be3c56-bc23-4ecd-91e3-78f9625a5cb9';
+export const BAKIRCILAR_COMPANY_ID = '12004fce-050b-4db1-9a56-e414aec14246';
 export const SKILLBRIDGE_COMPANY_ID = 'c2b6dd6f-317e-41a1-90d8-ac8774249c75';
 export const BIGSAFELY_COMPANY_ID = '71fa880b-c3e2-4967-b121-a2692353aa55';
 
@@ -682,68 +648,47 @@ function getActiveUserCompanyHint(): string {
 export function normalizeCompanyId(companyId?: string | null): string {
   const s = String(companyId || '').trim().toLowerCase();
 
-  if (
-    s === MICI_COMPANY_ID ||
-    s.includes('mıçı') ||
-    s.includes('mici') ||
-    s.includes('toyota') ||
-    s.includes('byd') ||
-    s.includes('sixt') ||
-    s.includes('suzuki') ||
-    s.includes('tarsus') ||
-    s.includes('seyhan') ||
-    s.includes('yuregir') ||
-    s.includes('yüreğir') ||
-    s.includes('adana') ||
-    s.includes('kayseri') ||
-    s.includes('mersin')
-  ) {
-    return MICI_COMPANY_ID;
-  }
-  if (s === BIGSAFELY_COMPANY_ID || s.includes('bigsafely')) {
-    return BIGSAFELY_COMPANY_ID;
-  }
-  if (s === BIGSAFER_COMPANY_ID || s.includes('bigsafer')) {
-    return BIGSAFER_COMPANY_ID;
-  }
-  if (s === CAVDARLI_COMPANY_ID || s.includes('çavdarlı') || s.includes('cavdarli')) {
-    return CAVDARLI_COMPANY_ID;
-  }
-  if (s === HIZEL_COMPANY_ID || s.includes('hızel') || s.includes('hizel')) {
-    return HIZEL_COMPANY_ID;
-  }
-  if (s === SKILLBRIDGE_COMPANY_ID || s.includes('skillbridge')) {
-    return SKILLBRIDGE_COMPANY_ID;
+  // 1. If already a valid UUID, return immediately without any string heuristics
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) {
+    return s;
   }
 
-  // If companyId is not provided, 'all', 'default' or demo, resolve based on active user context
+  // 2. Match strictly by explicit company name (never by car brand or city)
+  if (s.includes('altan')) return ALTAN_COMPANY_ID;
+  if (s.includes('mıçı') || s.includes('mici')) return MICI_COMPANY_ID;
+  if (s.includes('bakırcılar') || s.includes('bakircilar')) return BAKIRCILAR_COMPANY_ID;
+  if (s.includes('bigsafely')) return BIGSAFELY_COMPANY_ID;
+  if (s.includes('bigsafer')) return BIGSAFER_COMPANY_ID;
+  if (s.includes('çavdarlı') || s.includes('cavdarli')) return CAVDARLI_COMPANY_ID;
+  if (s.includes('hızel') || s.includes('hizel')) return HIZEL_COMPANY_ID;
+  if (s.includes('skillbridge')) return SKILLBRIDGE_COMPANY_ID;
+
+  // 3. If companyId is not provided, 'all', 'default' or demo, resolve based on active user context
   if (!companyId || s === 'all' || s === 'default' || s === 'demo-company-id-9999') {
     const hint = getActiveUserCompanyHint();
     if (hint) {
-      if (
-        hint.includes('mıçı') ||
-        hint.includes('mici') ||
-        hint.includes('toyota') ||
-        hint.includes('byd') ||
-        hint.includes('adana') ||
-        hint.includes('kayseri') ||
-        hint.includes('tarsus') ||
-        hint.includes('sixt') ||
-        hint.includes('suzuki') ||
-        hint.includes('mersin')
-      ) {
-        return MICI_COMPANY_ID;
-      }
+      if (hint.includes('altan')) return ALTAN_COMPANY_ID;
+      if (hint.includes('mıçı') || hint.includes('mici')) return MICI_COMPANY_ID;
+      if (hint.includes('bakırcılar') || hint.includes('bakircilar')) return BAKIRCILAR_COMPANY_ID;
       if (hint.includes('çavdarlı') || hint.includes('cavdarli')) return CAVDARLI_COMPANY_ID;
       if (hint.includes('hızel') || hint.includes('hizel')) return HIZEL_COMPANY_ID;
       if (hint.includes('skillbridge')) return SKILLBRIDGE_COMPANY_ID;
       if (hint.includes('bigsafely')) return BIGSAFELY_COMPANY_ID;
+      if (hint.includes('bigsafer')) return BIGSAFER_COMPANY_ID;
     }
     return BIGSAFER_COMPANY_ID;
   }
 
   return companyId;
 }
+
+export const ALTAN_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
+  { id: 'ef746830-03ec-4ff6-9aeb-ce540a594e9b', company_id: ALTAN_COMPANY_ID, name: 'ALTAN MOTORLU ARAÇLAR SAN. TİC. A.Ş. / BALIKESİR TOYOTA', lat: 39.605772, lng: 27.905809, radius_meters: 300, address: 'TOYOTA/BALIKESİR', il: 'Balıkesir', ilce: 'Altıeylül', is_default: true },
+  { id: 'da80ae30-522f-4c1d-b2aa-8b94305b6d2d', company_id: ALTAN_COMPANY_ID, name: 'ALTAN MOTORLU ARAÇLAR SAN. TİC. A.Ş. / BANDIRMA TOYOTA', lat: 40.299202, lng: 28.029721, radius_meters: 200, address: 'BANDIRMA/TOYOTA', il: 'Balıkesir', ilce: 'Bandırma', is_default: false },
+  { id: 'bfefb10f-40c2-42b0-8d7c-3fb53b8ac6bf', company_id: ALTAN_COMPANY_ID, name: 'ALTAN MOTORLU ARAÇLAR SAN. TİC. A.Ş. / EDREMİT HONDA', lat: 39.61283, lng: 27.012634, radius_meters: 200, address: 'EDREMİT/HONDA', il: 'Balıkesir', ilce: 'Edremit', is_default: false },
+  { id: 'daf385ef-17d5-4b27-b6a0-5030363cca2c', company_id: ALTAN_COMPANY_ID, name: 'ALTAN MOTORLU ARAÇLAR SAN. TİC. A.Ş. / KASAPLAR HONDA', lat: 39.643508, lng: 27.881054, radius_meters: 100, address: 'KASAPLAR/HONDA', il: 'Balıkesir', ilce: 'Altıeylül', is_default: false },
+  { id: '751baf0c-2106-4ab9-b4a2-0cdf6cb69952', company_id: ALTAN_COMPANY_ID, name: 'ALTAN MOTORLU ARAÇLAR SAN. TİC. A.Ş. / PAŞAALANI HONDA', lat: 39.655771, lng: 27.907872, radius_meters: 200, address: 'BALIKESİR/HONDA', il: 'Balıkesir', ilce: 'Karesi', is_default: false },
+];
 
 export const BIGSAFER_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation[] = [
   { id: 'loc-bigsafer-1', company_id: BIGSAFER_COMPANY_ID, name: 'Düzce Ofisi', lat: 40.8438, lng: 31.1565, radius_meters: 200, address: 'Düzce Merkez', il: 'Düzce', ilce: 'Merkez', is_default: true },
@@ -777,13 +722,14 @@ export const BIGSAFELY_DEFAULT_OFFICES: import('../types').CompanyOfficeLocation
 
 export function getDefaultOfficesForCompany(companyId?: string | null): import('../types').CompanyOfficeLocation[] {
   const compId = normalizeCompanyId(companyId);
+  if (compId === ALTAN_COMPANY_ID) return [...ALTAN_DEFAULT_OFFICES];
   if (compId === MICI_COMPANY_ID) return [...MICI_DEFAULT_OFFICES];
   if (compId === BIGSAFER_COMPANY_ID) return [...BIGSAFER_DEFAULT_OFFICES];
   if (compId === HIZEL_COMPANY_ID) return [...HIZEL_DEFAULT_OFFICES];
   if (compId === CAVDARLI_COMPANY_ID) return [...CAVDARLI_DEFAULT_OFFICES];
   if (compId === SKILLBRIDGE_COMPANY_ID) return [...SKILLBRIDGE_DEFAULT_OFFICES];
   if (compId === BIGSAFELY_COMPANY_ID) return [...BIGSAFELY_DEFAULT_OFFICES];
-  return [...BIGSAFER_DEFAULT_OFFICES];
+  return [];
 }
 
 function normalizeCityStr(str?: string): string {
@@ -807,23 +753,7 @@ function inferIlIlce(name?: string, address?: string, currentIl?: string, curren
   const rawText = `${name || ''} ${address || ''}`;
   const normText = normalizeCityStr(rawText);
 
-  // 1. Specific brand / district keywords
-  if (normText.includes('pendik')) return { il: 'İstanbul', ilce: 'Pendik' };
-  if (normText.includes('kadikoy') || normText.includes('kadıköy')) return { il: 'İstanbul', ilce: 'Kadıköy' };
-  if (normText.includes('sariyer') || normText.includes('sarıyer') || normText.includes('maslak')) return { il: 'İstanbul', ilce: 'Sarıyer' };
-  if (normText.includes('tarsus')) return { il: 'Mersin', ilce: 'Tarsus' };
-  if (normText.includes('nilufer') || normText.includes('nilüfer')) return { il: 'Bursa', ilce: 'Nilüfer' };
-  if (normText.includes('cankaya') || normText.includes('çankaya')) return { il: 'Ankara', ilce: 'Çankaya' };
-  if (normText.includes('melikgazi')) return { il: 'Kayseri', ilce: 'Melikgazi' };
-  if (normText.includes('yuregir') || normText.includes('yüreğir')) return { il: 'Adana', ilce: 'Yüreğir' };
-  if (normText.includes('suzuki') || normText.includes('suzik') || normText.includes('mg')) {
-    return { il: 'Adana', ilce: 'Yüreğir' };
-  }
-  if (normText.includes('toyota') || normText.includes('byd') || normText.includes('sixt')) {
-    return { il: 'Adana', ilce: 'Seyhan' };
-  }
-
-  // 2. Scan all 81 provinces and their districts
+  // Scan 81 provinces and their districts (no brand-based assumptions)
   if (Array.isArray(iller)) {
     for (const item of iller) {
       const normIl = normalizeCityStr(item.il);
