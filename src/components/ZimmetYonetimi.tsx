@@ -162,6 +162,9 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
   const [aramaMetni, setAramaMetni] = useState('');
   const [filtreDurum, setFiltreDurum] = useState<ZimmetDurum | 'hepsi'>('hepsi');
   const [filtreKategori, setFiltreKategori] = useState<ZimmetKategori | 'hepsi'>('hepsi');
+  const [filtrePersonel, setFiltrePersonel] = useState<string>('hepsi');
+  const [kisiPdfModalAcik, setKisiPdfModalAcik] = useState(false);
+  const [kisiPdfArama, setKisiPdfArama] = useState('');
   
   type SortField = 'ad' | 'seriNo' | 'durum' | 'personel' | 'tarih' | 'deger';
   const [sortField, setSortField] = useState<SortField>('ad');
@@ -277,13 +280,19 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
     if (!isAdminOrHR && currentEmployeeId && z.atanan_employee_id !== currentEmployeeId) {
       return false;
     }
+    const personelAdi = z.atanan_employee_id ? getEmpName(z.atanan_employee_id).toLowerCase() : '';
+    const q = aramaMetni.toLowerCase();
     const eslesti =
-      z.ad.toLowerCase().includes(aramaMetni.toLowerCase()) ||
-      z.seri_no.toLowerCase().includes(aramaMetni.toLowerCase()) ||
-      (z.marka || '').toLowerCase().includes(aramaMetni.toLowerCase());
+      z.ad.toLowerCase().includes(q) ||
+      z.seri_no.toLowerCase().includes(q) ||
+      (z.marka || '').toLowerCase().includes(q) ||
+      personelAdi.includes(q);
     const durumOk = filtreDurum === 'hepsi' || z.durum === filtreDurum;
     const kategoriOk = filtreKategori === 'hepsi' || z.kategori === filtreKategori;
-    return eslesti && durumOk && kategoriOk;
+    const personelOk =
+      filtrePersonel === 'hepsi' ||
+      (filtrePersonel === 'atanmamis' ? !z.atanan_employee_id : z.atanan_employee_id === filtrePersonel);
+    return eslesti && durumOk && kategoriOk && personelOk;
   }).sort((a, b) => {
     let cmp = 0;
     switch (sortField) {
@@ -1228,6 +1237,23 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
               Toplu Zimmet Tutanağım (PDF)
             </button>
           )}
+          {isAdminOrHR && (
+            <button
+              onClick={() => {
+                if (filtrePersonel !== 'hepsi' && filtrePersonel !== 'atanmamis') {
+                  yazdirKisiTopluZimmet(filtrePersonel);
+                } else {
+                  setKisiPdfArama('');
+                  setKisiPdfModalAcik(true);
+                }
+              }}
+              className="flex items-center gap-2 bg-violet-50 border border-violet-200 text-violet-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-violet-100 shadow-sm transition-all"
+              title="Bir kişiye ait tüm zimmetleri tek bir A4 PDF tutanağı olarak indir / yazdır"
+            >
+              <FileText className="w-4 h-4 text-violet-600" />
+              Kişi Zimmetleri PDF Al
+            </button>
+          )}
           <button
             onClick={yazdirAtananZimmetler}
             className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 shadow-sm transition-all"
@@ -1264,20 +1290,53 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
       </div>
 
       {/* Filtreler */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             value={aramaMetni}
             onChange={(e) => setAramaMetni(e.target.value)}
-            placeholder="Zimmet, seri no veya marka ara..."
+            placeholder="Zimmet, seri no, marka veya personel ara..."
             className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300"
           />
         </div>
+        {isAdminOrHR && (
+          <select
+            value={filtrePersonel}
+            onChange={(e) => setFiltrePersonel(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+          >
+            <option value="hepsi">Tüm Personeller</option>
+            <option value="atanmamis">Atanmamış (Boşta / Stokta)</option>
+            {Array.from(new Set(zimmetler.map((z) => z.atanan_employee_id).filter(Boolean) as string[]))
+              .map((empId) => ({
+                id: empId,
+                name: getEmpName(empId),
+                count: zimmetler.filter((z) => z.atanan_employee_id === empId && z.durum !== 'iade-edildi').length,
+              }))
+              .sort((a, b) => a.name.localeCompare(b.name, 'tr'))
+              .map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} ({emp.count} Zimmet)
+                </option>
+              ))}
+          </select>
+        )}
+        {isAdminOrHR && filtrePersonel !== 'hepsi' && filtrePersonel !== 'atanmamis' && (
+          <button
+            type="button"
+            onClick={() => yazdirKisiTopluZimmet(filtrePersonel)}
+            className="flex items-center gap-1.5 bg-violet-600 text-white px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-violet-700 shadow-sm transition-all"
+            title={`${getEmpName(filtrePersonel)} adına kayıtlı tüm zimmetleri PDF olarak al`}
+          >
+            <FileText className="w-4 h-4" />
+            {getEmpName(filtrePersonel)} — Tüm Zimmetleri PDF Al
+          </button>
+        )}
         <select
           value={filtreKategori}
           onChange={(e) => setFiltreKategori(e.target.value as any)}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 capitalize"
+          className="border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 capitalize bg-white"
         >
           <option value="hepsi">Tüm Kategoriler</option>
           {Array.from(new Set(zimmetler.map((z) => z.kategori).filter(Boolean))).map((kat) => (
@@ -1451,15 +1510,15 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                             const kisiZimmetSayisi = zimmetler.filter(
                               (item) => item.atanan_employee_id === z.atanan_employee_id && item.durum !== 'iade-edildi'
                             ).length;
-                            return kisiZimmetSayisi > 1 ? (
+                            return kisiZimmetSayisi >= 1 ? (
                               <button
                                 type="button"
                                 onClick={() => yazdirKisiTopluZimmet(z.atanan_employee_id!)}
-                                title={`${getEmpName(z.atanan_employee_id)} adına kayıtlı tüm zimmetleri (${kisiZimmetSayisi} adet) tek bir A4 tutanakta yazdır`}
-                                className="inline-flex items-center gap-1 text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full hover:bg-indigo-100 transition-colors"
+                                title={`${getEmpName(z.atanan_employee_id)} adına kayıtlı tüm zimmetleri (${kisiZimmetSayisi} adet) tek bir A4 PDF tutanağı olarak al`}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold bg-violet-50 text-violet-700 border border-violet-200 px-2.5 py-0.5 rounded-full hover:bg-violet-100 transition-colors"
                               >
                                 <FileText className="w-3 h-3" />
-                                {kisiZimmetSayisi} Zimmet · Toplu Tutanak
+                                Tüm Zimmetleri PDF ({kisiZimmetSayisi})
                               </button>
                             ) : null;
                           })()}
@@ -1505,11 +1564,12 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                               <Printer className="w-4 h-4" />
                             </button>
                             <button
-                              title={`${getEmpName(z.atanan_employee_id)} - Kişi Bazlı Toplu Zimmet Tutanağı Yazdır (Tüm Zimmetleri Tek A4'te)`}
+                              title={`${getEmpName(z.atanan_employee_id)} - Kişinin Tüm Zimmetlerini PDF Olarak Al`}
                               onClick={() => yazdirKisiTopluZimmet(z.atanan_employee_id!)}
-                              className="p-1.5 rounded-lg hover:bg-violet-50 text-violet-600"
+                              className="px-2 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-[11px] font-semibold inline-flex items-center gap-1"
                             >
-                              <FileText className="w-4 h-4" />
+                              <FileText className="w-3.5 h-3.5" />
+                              Kişi PDF
                             </button>
                           </>
                         )}
@@ -1553,6 +1613,119 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
           )}
         </div>
       </div>
+
+      {/* Kişiye Ait Tüm Zimmetleri PDF Olarak Alma Modalı */}
+      {kisiPdfModalAcik && isAdminOrHR && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <p className="font-bold text-gray-900 text-base">Kişi Bazlı Tüm Zimmetler PDF Çıktısı</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Bir personelin üzerine kayıtlı tüm aktif zimmetleri tek bir A4 tutanakta PDF olarak alın
+                </p>
+              </div>
+              <button
+                onClick={() => setKisiPdfModalAcik(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                value={kisiPdfArama}
+                onChange={(e) => setKisiPdfArama(e.target.value)}
+                placeholder="Personel adı veya departman ara..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+
+            <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+              {(() => {
+                const aktifAtananEmpIds = Array.from(
+                  new Set(
+                    zimmetler
+                      .filter((z) => z.atanan_employee_id && z.durum !== 'iade-edildi')
+                      .map((z) => z.atanan_employee_id as string)
+                  )
+                );
+
+                const kisiListesi = aktifAtananEmpIds
+                  .map((empId) => {
+                    const emp = employees.find((e) => e.id === empId);
+                    const items = zimmetler.filter(
+                      (z) => z.atanan_employee_id === empId && z.durum !== 'iade-edildi'
+                    );
+                    const toplamTutar = items.reduce((s, i) => s + Number(i.deger || 0), 0);
+                    return {
+                      id: empId,
+                      name: emp?.name || 'Bilinmeyen Personel',
+                      department: emp?.department || 'Genel',
+                      position: emp?.position || '',
+                      items,
+                      toplamTutar,
+                    };
+                  })
+                  .filter(
+                    (k) =>
+                      !kisiPdfArama.trim() ||
+                      k.name.toLowerCase().includes(kisiPdfArama.toLowerCase()) ||
+                      k.department.toLowerCase().includes(kisiPdfArama.toLowerCase())
+                  )
+                  .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+
+                if (kisiListesi.length === 0) {
+                  return (
+                    <div className="py-10 text-center text-gray-400 text-sm">
+                      Üzerinde aktif zimmet bulunan personel bulunamadı.
+                    </div>
+                  );
+                }
+
+                return kisiListesi.map((kisi) => (
+                  <div
+                    key={kisi.id}
+                    className="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 hover:border-violet-200 hover:bg-violet-50/30 transition-all"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-gray-900 text-sm truncate">{kisi.name}</p>
+                        <span className="text-[11px] font-semibold bg-violet-100 text-violet-800 px-2 py-0.5 rounded-full">
+                          {kisi.items.length} Zimmet
+                        </span>
+                        <span className="text-[11px] font-mono font-semibold text-gray-600">
+                          {formatPara(kisi.toplamTutar)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">
+                        {kisi.department}
+                        {kisi.position ? ` · ${kisi.position}` : ''} —{' '}
+                        <span className="text-gray-600">
+                          {kisi.items.map((i) => i.ad).join(', ')}
+                        </span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKisiPdfModalAcik(false);
+                        yazdirKisiTopluZimmet(kisi.id);
+                      }}
+                      className="flex-shrink-0 inline-flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-xs transition-colors"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      Tüm Zimmetleri PDF Al
+                    </button>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
 
 
