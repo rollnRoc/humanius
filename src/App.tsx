@@ -1362,8 +1362,10 @@ const AppInner: React.FC = () => {
     };
 
     try {
+      const empForTalep = employees.find((emp) => emp.id === baseTalep.employeeId);
+      const targetCompanyId = empForTalep?.company_id || (empForTalep as any)?.companyId || resolvedCompanyId || profile?.company_id || '';
       await izinService.createTalep({
-        company_id: resolvedCompanyId,
+        company_id: targetCompanyId,
         employee_id: baseTalep.employeeId ?? '',
         izin_turu: baseTalep.izinTuru ?? 'yillik',
         baslangic_tarihi: baseTalep.baslangicTarihi ?? '',
@@ -1491,7 +1493,8 @@ const AppInner: React.FC = () => {
       showError('Hata', 'İzin talebi bulunamadı.');
       return;
     }
-    const targetCompId = talep.companyId || profile?.company_id || 'default';
+    const empForTalep = employees.find((e) => e.id === talep.employeeId);
+    const targetCompId = talep.companyId || empForTalep?.company_id || profile?.company_id || resolvedCompanyId || 'default';
     const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
 
     const currentStage = leaveApprovalService.getTalepCurrentStage(id, talep.durum, approvalCfg, talep);
@@ -1506,12 +1509,32 @@ const AppInner: React.FC = () => {
     }
 
     try {
+      const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      let effectiveId = id;
+      if (!isValidUuid) {
+        const created = await izinService.createTalep({
+          company_id: targetCompId !== 'default' ? targetCompId : (empForTalep?.company_id || profile?.company_id || ''),
+          employee_id: talep.employeeId,
+          izin_turu: talep.izinTuru || 'yillik',
+          baslangic_tarihi: talep.baslangicTarihi,
+          bitis_tarihi: talep.bitisTarihi,
+          gun_sayisi: Number(talep.gunSayisi || 0),
+          aciklama: talep.aciklama || '',
+          yol_izni_talep: Boolean(talep.yolIzniTalep),
+          yol_izni_gun: Number(talep.yolIzniGun || 0),
+          seyahat_yeri: talep.seyahatYeri || '',
+          il_disi_seyahat: Boolean(talep.ilDisiSeyahat),
+          durum: 'beklemede',
+          talep_tarihi: talep.talepTarihi || (talep as any).talep_tarihi || new Date().toISOString().split('T')[0],
+        });
+        if (created?.id) {
+          effectiveId = created.id;
+        }
+      }
       // Seçilen yetkili onayladığında izin doğrudan onaylanır!
-      await izinService.approveTalep(id, profile.id);
-      await leaveApprovalService.setTalepCurrentStage(id, 'completed', targetCompId);
-      setIzinTalepleri((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, durum: 'onaylandi', onaylayanId: profile.id, currentStage: 'completed' } : t))
-      );
+      await izinService.approveTalep(effectiveId, profile.id);
+      await leaveApprovalService.setTalepCurrentStage(effectiveId, 'completed', targetCompId);
+      await loadData();
       showSuccess('İzin Onaylandı', 'İzin talebi doğrudan onaylandı. İzin kaydı puantaj cetveline ve bordroya işlendi.');
     } catch (error: any) {
       console.error('İzin onaylanamadı:', error);
@@ -1522,32 +1545,35 @@ const AppInner: React.FC = () => {
   const handleTopluIzinSubmit = async (talepler: Partial<IzinTalebi>[]) => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const newTalepler = talepler.map(talep => {
-        const emp = employees.find((e) => e.id === talep.employeeId);
-        return {
-          id: Math.random().toString(36).substr(2, 9),
-          employeeId: talep.employeeId || '',
-          employeeName: emp?.name || 'Bilinmeyen Personel',
-          izinTuru: talep.izinTuru as any,
-          baslangicTarihi: talep.baslangicTarihi || '',
-          bitisTarihi: talep.bitisTarihi || '',
-          gunSayisi: talep.gunSayisi || 0,
-          yolIzniTalep: talep.yolIzniTalep,
-          yolIzniGun: talep.yolIzniGun,
-          seyahatYeri: talep.seyahatYeri,
-          ilDisiSeyahat: talep.ilDisiSeyahat,
-          aciklama: talep.aciklama || '',
-          durum: 'beklemede',
-          talep_tarihi: today,
-        } as IzinTalebi;
-      });
+      const insertPayloads = talepler
+        .filter(talep => Boolean(talep.employeeId))
+        .map(talep => {
+          const emp = employees.find((e) => e.id === talep.employeeId);
+          const targetCompId = emp?.company_id || (emp as any)?.companyId || resolvedCompanyId || profile?.company_id || '';
+          return {
+            company_id: targetCompId,
+            employee_id: String(talep.employeeId || ''),
+            izin_turu: (talep.izinTuru || 'yillik') as any,
+            baslangic_tarihi: String(talep.baslangicTarihi || ''),
+            bitis_tarihi: String(talep.bitisTarihi || ''),
+            gun_sayisi: Number(talep.gunSayisi || 0),
+            aciklama: String(talep.aciklama || ''),
+            yol_izni_talep: Boolean(talep.yolIzniTalep),
+            yol_izni_gun: Number(talep.yolIzniGun || 0),
+            seyahat_yeri: String(talep.seyahatYeri || ''),
+            il_disi_seyahat: Boolean(talep.ilDisiSeyahat),
+            durum: 'beklemede' as const,
+            talep_tarihi: today,
+          };
+        });
 
-      setIzinTalepleri(prev => [...newTalepler, ...prev]);
+      await izinService.createBulkTalepler(insertPayloads);
       setShowTopluIzinForm(false);
-      showSuccess('Toplu İzin Başarılı', `${newTalepler.length} personelin izin talebi başarıyla eklendi.`);
+      await loadData();
+      showSuccess('Toplu İzin Başarılı', `${insertPayloads.length} personelin izin talebi başarıyla kaydedildi.`);
     } catch (err: any) {
       console.error('Toplu izin talebi eklenemedi:', err);
-      showError('Hata', 'Toplu izin eklenirken bir hata oluştu.');
+      showError('Hata', `Toplu izin eklenirken bir hata oluştu: ${err?.message || ''}`);
     }
   };
 
@@ -1561,7 +1587,8 @@ const AppInner: React.FC = () => {
       showError('Hata', 'İzin talebi bulunamadı.');
       return;
     }
-    const targetCompId = talep.companyId || profile?.company_id || 'default';
+    const empForTalep = employees.find((e) => e.id === talep.employeeId);
+    const targetCompId = talep.companyId || empForTalep?.company_id || profile?.company_id || resolvedCompanyId || 'default';
     const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
 
     const currentStage = leaveApprovalService.getTalepCurrentStage(id, talep.durum, approvalCfg, talep);
@@ -1589,10 +1616,30 @@ const AppInner: React.FC = () => {
     if (neden === null) return; // İptal edildi
 
     try {
-      await izinService.rejectTalep(id, profile.id, neden);
-      setIzinTalepleri((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, durum: 'reddedildi', onaylayanId: profile.id, redNedeni: neden } : t))
-      );
+      const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      if (isValidUuid) {
+        await izinService.rejectTalep(id, profile.id, neden);
+      } else {
+        const created = await izinService.createTalep({
+          company_id: targetCompId !== 'default' ? targetCompId : (empForTalep?.company_id || profile?.company_id || ''),
+          employee_id: talep.employeeId,
+          izin_turu: talep.izinTuru || 'yillik',
+          baslangic_tarihi: talep.baslangicTarihi,
+          bitis_tarihi: talep.bitisTarihi,
+          gun_sayisi: Number(talep.gunSayisi || 0),
+          aciklama: talep.aciklama || '',
+          yol_izni_talep: Boolean(talep.yolIzniTalep),
+          yol_izni_gun: Number(talep.yolIzniGun || 0),
+          seyahat_yeri: talep.seyahatYeri || '',
+          il_disi_seyahat: Boolean(talep.ilDisiSeyahat),
+          durum: 'beklemede',
+          talep_tarihi: talep.talepTarihi || (talep as any).talep_tarihi || new Date().toISOString().split('T')[0],
+        });
+        if (created?.id) {
+          await izinService.rejectTalep(created.id, profile.id, neden);
+        }
+      }
+      await loadData();
       showSuccess('Talep Reddedildi', 'İzin talebi red gerekçesiyle birlikte işlendi.');
     } catch (error: any) {
       console.error('İzin reddedilemedi:', error);

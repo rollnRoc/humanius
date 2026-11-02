@@ -74,6 +74,20 @@ export const izinService = {
     return data;
   },
 
+  async createBulkTalepler(talepler: IzinTalebiInsert[]) {
+    if (!talepler || talepler.length === 0) return [];
+    if (demoService.isDemoActive()) {
+      return talepler.map(t => demoService.createIzinTalebi(t as any) as any);
+    }
+    const { data, error } = await supabase
+      .from('izin_talepleri')
+      .insert(talepler)
+      .select();
+
+    if (error) throw error;
+    return data || [];
+  },
+
   async updateTalep(id: string, updates: IzinTalebiUpdate) {
     if (demoService.isDemoActive()) {
       return demoService.updateIzinTalebi(id, updates as any) as any;
@@ -86,6 +100,11 @@ export const izinService = {
       .single();
 
     if (error) throw error;
+    if (data?.employee_id) {
+      await this.recalculateEmployeeAnnualLeave(data.employee_id, data.company_id).catch(err =>
+        console.warn('İzin bakiyesi güncellenemedi:', err)
+      );
+    }
     return data;
   },
 
@@ -95,12 +114,19 @@ export const izinService = {
       demoService.saveIzinTalepleri(list.filter(t => t.id !== id));
       return;
     }
-    const { error } = await supabase
+    const { data: deleted, error } = await supabase
       .from('izin_talepleri')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select('employee_id, company_id')
+      .maybeSingle();
 
     if (error) throw error;
+    if (deleted?.employee_id) {
+      await this.recalculateEmployeeAnnualLeave(deleted.employee_id, deleted.company_id).catch(err =>
+        console.warn('İzin bakiyesi güncellenemedi:', err)
+      );
+    }
   },
 
   async approveTalep(id: string, onaylayanId: string) {
@@ -123,6 +149,11 @@ export const izinService = {
       .single();
 
     if (error) throw error;
+    if (data?.employee_id) {
+      await this.recalculateEmployeeAnnualLeave(data.employee_id, data.company_id).catch(err =>
+        console.warn('İzin bakiyesi güncellenemedi:', err)
+      );
+    }
     return data;
   },
 
@@ -148,6 +179,11 @@ export const izinService = {
       .single();
 
     if (error) throw error;
+    if (data?.employee_id) {
+      await this.recalculateEmployeeAnnualLeave(data.employee_id, data.company_id).catch(err =>
+        console.warn('İzin bakiyesi güncellenemedi:', err)
+      );
+    }
     return data;
   },
 

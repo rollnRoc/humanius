@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, FileText, AlertCircle, MapPin, Upload, CheckCircle } from 'lucide-react';
+import { X, Calendar, User, FileText, AlertCircle, MapPin, Upload, CheckCircle, Search } from 'lucide-react';
 import { Employee } from '../types';
 import { IzinTalebi, IzinHakki, IzinTuru } from '../types/izin';
 import { calculateWorkingDays, izinTuruLabels, getCompanyIzinTurleri, getCompanyIzinTuruLabels, getMaxIzinSureleri, validateIzinTuru, isSaturdayWorkActive, hasCompletedOneYear } from '../utils/izinCalculations';
 import { leaveTypeService } from '../services/leaveTypeService';
+import { shiftService } from '../services/shiftService';
 import { useScrollLock } from '../hooks/useScrollLock';
 
 interface TopluIzinFormProps {
@@ -36,6 +37,20 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
   const [validationError, setValidationError] = useState<string>('');
   const [belgeDosyasi, setBelgeDosyasi] = useState<File | null>(null);
   const [belgeYuklendi, setBelgeYuklendi] = useState(false);
+  const [personelArama, setPersonelArama] = useState('');
+
+  const targetCompanyId = employees[0]?.company_id;
+  const [isSaturdayWork, setIsSaturdayWork] = useState<boolean>(() => isSaturdayWorkActive(targetCompanyId));
+
+  useEffect(() => {
+    const compId = employees[0]?.company_id;
+    setIsSaturdayWork(isSaturdayWorkActive(compId));
+    shiftService.getSaturdayConfig(compId).then(cfg => {
+      if (cfg && typeof cfg.isSaturdayWork === 'boolean') {
+        setIsSaturdayWork(cfg.isSaturdayWork);
+      }
+    }).catch(() => {});
+  }, [employees]);
 
   const [availableLeaveTypes, setAvailableLeaveTypes] = useState<Array<{ id: string; ad: string }>>(() => {
     const compId = employees[0]?.company_id;
@@ -81,13 +96,13 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
   // Tarih değiştiğinde gün sayısını hesapla
   useEffect(() => {
     if (formData.baslangicTarihi && formData.bitisTarihi) {
-      const days = calculateWorkingDays(formData.baslangicTarihi, formData.bitisTarihi);
+      const days = calculateWorkingDays(formData.baslangicTarihi, formData.bitisTarihi, isSaturdayWork);
       setGunSayisi(days);
       
       // İzin süresi ve 1 yıl kıdem validasyonu
       if (formData.izinTuru === 'yillik') {
         const ineligible = employees.filter(
-          (emp) => formData.employeeIds.includes(emp.id) && !hasCompletedOneYear(emp.joinDate || (emp as any).join_date)
+          (emp) => formData.employeeIds.includes(emp.id) && !hasCompletedOneYear(emp.joinDate || (emp as any).join_date || (emp as any).ise_giris_tarihi || (emp as any).hire_date)
         );
         if (ineligible.length > 0) {
           setValidationError(
@@ -95,6 +110,15 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
           );
           return;
         }
+      }
+
+      if (days === 0 && !formData.yolIzniTalep) {
+        setValidationError(
+          isSaturdayWork
+            ? 'Seçilen tarihler hafta tatiline (Pazar günü) denk gelmektedir. Düşülecek iş günü 0 olduğu için izin talebi oluşturulamaz.'
+            : 'Seçilen tarihler hafta sonuna denk gelmektedir. Düşülecek iş günü 0 olduğu için izin talebi oluşturulamaz.'
+        );
+        return;
       }
 
       if (days > 0) {
@@ -118,7 +142,7 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
       setGunSayisi(0);
       setValidationError('');
     }
-  }, [formData.baslangicTarihi, formData.bitisTarihi, formData.izinTuru, formData.kismiYillik, formData.yolIzniTalep, formData.yolIzniGun, formData.employeeIds, employees]);
+  }, [formData.baslangicTarihi, formData.bitisTarihi, formData.izinTuru, formData.kismiYillik, formData.yolIzniTalep, formData.yolIzniGun, formData.employeeIds, employees, isSaturdayWork]);
 
   useEffect(() => {
     if (!formData.kismiYillik) return;
@@ -182,7 +206,7 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
 
     if (formData.izinTuru === 'yillik') {
       const ineligible = employees.filter(
-        (emp) => formData.employeeIds.includes(emp.id) && !hasCompletedOneYear(emp.joinDate || (emp as any).join_date)
+        (emp) => formData.employeeIds.includes(emp.id) && !hasCompletedOneYear(emp.joinDate || (emp as any).join_date || (emp as any).ise_giris_tarihi || (emp as any).hire_date)
       );
       if (ineligible.length > 0) {
         alert(
@@ -262,12 +286,27 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
             </h3>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Personeller *</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">Personeller *</label>
+                <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                  Seçilen: {formData.employeeIds.length} / {employees.length} kişi
+                </span>
+              </div>
+              <div className="relative mb-2">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={personelArama}
+                  onChange={(e) => setPersonelArama(e.target.value)}
+                  placeholder="Personel adı veya departman ara..."
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500"
+                />
+              </div>
               <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-xl p-3 bg-white space-y-2">
                 <label className="flex items-center gap-2 pb-2 border-b border-gray-100 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={formData.employeeIds.length === employees.length}
+                    checked={employees.length > 0 && formData.employeeIds.length === employees.length}
                     onChange={(e) => {
                       if (e.target.checked) {
                         setFormData({ ...formData, employeeIds: employees.map(emp => emp.id) });
@@ -279,8 +318,17 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
                   />
                   <span className="text-sm font-medium text-gray-800">Tümünü Seç</span>
                 </label>
-                {employees.map(employee => {
-                  const has1Year = hasCompletedOneYear(employee.joinDate || (employee as any).join_date);
+                {employees
+                  .filter(emp => {
+                    if (!personelArama.trim()) return true;
+                    const q = personelArama.toLocaleLowerCase('tr-TR');
+                    return (
+                      (emp.name || '').toLocaleLowerCase('tr-TR').includes(q) ||
+                      (emp.department || '').toLocaleLowerCase('tr-TR').includes(q)
+                    );
+                  })
+                  .map(employee => {
+                  const has1Year = hasCompletedOneYear(employee.joinDate || (employee as any).join_date || (employee as any).ise_giris_tarihi || (employee as any).hire_date);
                   return (
                     <label key={employee.id} className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-1.5 rounded">
                       <div className="flex items-center gap-2">
@@ -407,7 +455,7 @@ const TopluIzinForm: React.FC<TopluIzinFormProps> = ({
                     </>
                   )}
                   <span className="text-xs text-gray-500">
-                    ({isSaturdayWorkActive() ? '6 günlük düzen: Cumartesi dahil, Pazar hariç' : '5 günlük düzen: Hafta sonları hariç'})
+                    ({isSaturdayWork ? '6 günlük düzen: Cumartesi dahil, Pazar hariç' : '5 günlük düzen: Hafta sonları hariç'})
                   </span>
                   <span className="text-xs text-gray-500">
                     / Maks: {effectiveMaxLabel}{formData.yolIzniTalep ? ' + 4 gün yol izni' : ''}
