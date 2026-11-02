@@ -276,6 +276,14 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
     loadData();
   }, [currentEmployeeId, isAdminOrHR]);
 
+  const getEmpName = (id: string | null) => employees.find((e) => e.id === id)?.name ?? '-';
+
+  const getCompanyDisplayName = () => {
+    return profile?.company_id 
+      ? (employees.find(e => e.company_id === profile.company_id)?.company || 'Humanius Şirket Grubu')
+      : (employees.find(e => e.company)?.company || 'Humanius Şirket Grubu');
+  };
+
   const filtrelenmis = zimmetler.filter((z) => {
     if (!isAdminOrHR && currentEmployeeId && z.atanan_employee_id !== currentEmployeeId) {
       return false;
@@ -437,14 +445,6 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
       setAtamaPaneli(null);
     }
   }
-
-  const getEmpName = (id: string | null) => employees.find((e) => e.id === id)?.name ?? '-';
-
-  const getCompanyDisplayName = () => {
-    return profile?.company_id 
-      ? (employees.find(e => e.company_id === profile.company_id)?.company || 'Humanius Şirket Grubu')
-      : (employees.find(e => e.company)?.company || 'Humanius Şirket Grubu');
-  };
 
   const yazdirAtananZimmetler = () => {
     const atananlar = zimmetler.filter((z) => z.atanan_employee_id);
