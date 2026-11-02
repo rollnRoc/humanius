@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, QrCode, CheckCircle, AlertTriangle, Clock, Package, Laptop, Smartphone, Car, Key, Monitor, Printer, X, Save, Edit2, Trash2, Loader2, Copy, FileText } from 'lucide-react';
+import { Plus, Search, QrCode, CheckCircle, AlertTriangle, Clock, Package, Laptop, Smartphone, Car, Key, Monitor, Printer, X, Save, Edit2, Trash2, Loader2, Copy, FileText, Users, ChevronDown, ChevronUp, List } from 'lucide-react';
 import type { Employee } from '../types';
 import { zimmetService, Zimmet, ZimmetKategori, ZimmetDurum, ZimmetInsert } from '../services/zimmetService';
 import { useAuth } from '../contexts/AuthContext';
@@ -165,6 +165,8 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
   const [filtrePersonel, setFiltrePersonel] = useState<string>('hepsi');
   const [kisiPdfModalAcik, setKisiPdfModalAcik] = useState(false);
   const [kisiPdfArama, setKisiPdfArama] = useState('');
+  const [gorunumModu, setGorunumModu] = useState<'personel' | 'tum-zimmetler'>('personel');
+  const [acikPersonelId, setAcikPersonelId] = useState<string | null>(null);
   
   type SortField = 'ad' | 'seriNo' | 'durum' | 'personel' | 'tarih' | 'deger';
   const [sortField, setSortField] = useState<SortField>('ad');
@@ -699,9 +701,9 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
 
   const yazdirKisiTopluZimmet = (employeeId: string, ozelListe?: Zimmet[]) => {
     const emp = employees.find((e) => e.id === employeeId);
-    const kisiZimmetleri = (ozelListe || zimmetler).filter(
-      (z) => z.atanan_employee_id === employeeId && z.durum !== 'iade-edildi'
-    );
+    const kisiZimmetleri = (ozelListe || zimmetler)
+      .filter((z) => z.atanan_employee_id === employeeId && z.durum !== 'iade-edildi')
+      .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'));
 
     if (kisiZimmetleri.length === 0) {
       alert('Bu personele ait aktif zimmet kaydı bulunamadı.');
@@ -711,6 +713,7 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
     const companyName = getCompanyDisplayName();
     const toplamDeger = kisiZimmetleri.reduce((sum, z) => sum + Number(z.deger || 0), 0);
     const bugunFormatted = new Date().toLocaleDateString('tr-TR');
+    const isCompact = kisiZimmetleri.length > 14;
 
     const rowsHtml = kisiZimmetleri
       .map((z, idx) => {
@@ -722,7 +725,7 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
             <td style="text-align:center;font-weight:700;color:#475569;">${idx + 1}</td>
             <td>
               <strong>${z.ad}</strong>
-              ${z.aciklama ? `<br><small style="color:#64748b;">${z.aciklama}</small>` : ''}
+              ${z.aciklama ? ` <span style="color:#64748b;font-size:${isCompact ? '8.5px' : '9.5px'};">(${z.aciklama})</span>` : ''}
             </td>
             <td>${z.kategori || 'Genel'}</td>
             <td>${[z.marka, z.model].filter(Boolean).join(' ') || '-'}</td>
@@ -741,32 +744,32 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
         <meta charset="utf-8">
         <title>Kişi Bazlı Toplu Zimmet Teslim Tutanağı - ${emp?.name || 'Personel'}</title>
         <style>
-          @page { size: A4 portrait; margin: 14mm; }
+          @page { size: A4 portrait; margin: ${isCompact ? '8mm 10mm' : '14mm'}; }
           * { box-sizing: border-box; }
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: #0f172a;
             margin: 0;
-            padding: 20px;
-            font-size: 11.5px;
-            line-height: 1.45;
+            padding: ${isCompact ? '8px' : '20px'};
+            font-size: ${isCompact ? '9.5px' : '11.5px'};
+            line-height: ${isCompact ? '1.25' : '1.45'};
             background: #fff;
           }
           .header {
             text-align: center;
             border-bottom: 2px solid #0f172a;
-            padding-bottom: 12px;
-            margin-bottom: 16px;
+            padding-bottom: ${isCompact ? '6px' : '12px'};
+            margin-bottom: ${isCompact ? '8px' : '16px'};
           }
           .header h1 {
-            margin: 0 0 4px 0;
-            font-size: 16px;
+            margin: 0 0 2px 0;
+            font-size: ${isCompact ? '13.5px' : '16px'};
             font-weight: 800;
             text-transform: uppercase;
           }
           .header h2 {
             margin: 0;
-            font-size: 13.5px;
+            font-size: ${isCompact ? '11.5px' : '13.5px'};
             color: #2563eb;
             font-weight: 700;
             letter-spacing: 0.4px;
@@ -774,34 +777,34 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
           .doc-info {
             display: flex;
             justify-content: space-between;
-            font-size: 11px;
+            font-size: ${isCompact ? '9.5px' : '11px'};
             color: #475569;
-            margin-bottom: 14px;
-            padding: 6px 12px;
+            margin-bottom: ${isCompact ? '6px' : '14px'};
+            padding: ${isCompact ? '4px 8px' : '6px 12px'};
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 6px;
           }
           .section-title {
-            font-size: 11.5px;
+            font-size: ${isCompact ? '9.5px' : '11.5px'};
             font-weight: 700;
             color: #1e293b;
             background: #e2e8f0;
-            padding: 6px 10px;
-            margin-top: 14px;
-            margin-bottom: 8px;
+            padding: ${isCompact ? '3px 8px' : '6px 10px'};
+            margin-top: ${isCompact ? '6px' : '14px'};
+            margin-bottom: ${isCompact ? '4px' : '8px'};
             border-radius: 4px;
             text-transform: uppercase;
           }
           table.details-table, table.items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 12px;
+            margin-bottom: ${isCompact ? '6px' : '12px'};
           }
           table.details-table td {
-            padding: 6px 8px;
+            padding: ${isCompact ? '3px 6px' : '6px 8px'};
             border: 1px solid #e2e8f0;
-            font-size: 11px;
+            font-size: ${isCompact ? '9.5px' : '11px'};
           }
           table.details-table td.label {
             width: 24%;
@@ -814,15 +817,15 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
             color: #1e293b;
             font-weight: 700;
             text-align: left;
-            padding: 7px 6px;
+            padding: ${isCompact ? '3.5px 5px' : '7px 6px'};
             border: 1px solid #cbd5e1;
-            font-size: 10px;
+            font-size: ${isCompact ? '8.5px' : '10px'};
             text-transform: uppercase;
           }
           table.items-table td {
-            padding: 6px 6px;
+            padding: ${isCompact ? '2.5px 5px' : '6px 6px'};
             border: 1px solid #e2e8f0;
-            font-size: 10.5px;
+            font-size: ${isCompact ? '9px' : '10.5px'};
             vertical-align: middle;
           }
           table.items-table tr:nth-child(even) {
@@ -838,42 +841,42 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
             background: #f8fafc;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
-            padding: 11px 12px;
-            font-size: 10.5px;
+            padding: ${isCompact ? '6px 8px' : '11px 12px'};
+            font-size: ${isCompact ? '8.5px' : '10.5px'};
             color: #334155;
             text-align: justify;
-            margin-top: 12px;
-            margin-bottom: 20px;
+            margin-top: ${isCompact ? '6px' : '12px'};
+            margin-bottom: ${isCompact ? '8px' : '20px'};
           }
           .signatures {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 28px;
-            margin-top: 20px;
+            gap: ${isCompact ? '16px' : '28px'};
+            margin-top: ${isCompact ? '8px' : '20px'};
             page-break-inside: avoid;
           }
           .sig-box {
             border: 1px solid #cbd5e1;
             border-radius: 8px;
-            padding: 14px;
+            padding: ${isCompact ? '8px' : '14px'};
             text-align: center;
           }
           .sig-box .title {
             font-weight: 700;
             color: #1e293b;
-            font-size: 11px;
-            margin-bottom: 42px;
+            font-size: ${isCompact ? '9.5px' : '11px'};
+            margin-bottom: ${isCompact ? '24px' : '42px'};
           }
           .sig-box .line {
             border-top: 1px solid #475569;
-            margin: 0 20px 6px 20px;
+            margin: 0 20px 4px 20px;
           }
           .sig-box .name {
             font-weight: 600;
-            font-size: 11px;
+            font-size: ${isCompact ? '9.5px' : '11px'};
           }
           .sig-box .sub {
-            font-size: 10px;
+            font-size: ${isCompact ? '8.5px' : '10px'};
             color: #64748b;
           }
           @media print {
@@ -1239,19 +1242,29 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
           )}
           {isAdminOrHR && (
             <button
-              onClick={() => {
-                if (filtrePersonel !== 'hepsi' && filtrePersonel !== 'atanmamis') {
-                  yazdirKisiTopluZimmet(filtrePersonel);
-                } else {
-                  setKisiPdfArama('');
-                  setKisiPdfModalAcik(true);
-                }
-              }}
-              className="flex items-center gap-2 bg-violet-50 border border-violet-200 text-violet-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-violet-100 shadow-sm transition-all"
-              title="Bir kişiye ait tüm zimmetleri tek bir A4 PDF tutanağı olarak indir / yazdır"
+              onClick={() => setGorunumModu((prev) => (prev === 'personel' ? 'tum-zimmetler' : 'personel'))}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition-all border ${
+                gorunumModu === 'tum-zimmetler'
+                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100'
+                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+              }`}
+              title={
+                gorunumModu === 'personel'
+                  ? 'Tüm zimmet kalemlerini tek tek liste halinde görüntüle'
+                  : 'Personel bazlı zimmet listesi görünümüne dön'
+              }
             >
-              <FileText className="w-4 h-4 text-violet-600" />
-              Kişi Zimmetleri PDF Al
+              {gorunumModu === 'personel' ? (
+                <>
+                  <List className="w-4 h-4 text-indigo-600" />
+                  Tüm Zimmetleri Görüntüle
+                </>
+              ) : (
+                <>
+                  <Users className="w-4 h-4 text-indigo-600" />
+                  Personel Listesine Dön
+                </>
+              )}
             </button>
           )}
           <button
@@ -1296,11 +1309,15 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
           <input
             value={aramaMetni}
             onChange={(e) => setAramaMetni(e.target.value)}
-            placeholder="Zimmet, seri no, marka veya personel ara..."
+            placeholder={
+              isAdminOrHR && gorunumModu === 'personel'
+                ? 'Personel adı, departman veya zimmet ara...'
+                : 'Zimmet, seri no, marka veya personel ara...'
+            }
             className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300"
           />
         </div>
-        {isAdminOrHR && (
+        {isAdminOrHR && gorunumModu === 'tum-zimmetler' && (
           <select
             value={filtrePersonel}
             onChange={(e) => setFiltrePersonel(e.target.value)}
@@ -1322,17 +1339,6 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
               ))}
           </select>
         )}
-        {isAdminOrHR && filtrePersonel !== 'hepsi' && filtrePersonel !== 'atanmamis' && (
-          <button
-            type="button"
-            onClick={() => yazdirKisiTopluZimmet(filtrePersonel)}
-            className="flex items-center gap-1.5 bg-violet-600 text-white px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-violet-700 shadow-sm transition-all"
-            title={`${getEmpName(filtrePersonel)} adına kayıtlı tüm zimmetleri PDF olarak al`}
-          >
-            <FileText className="w-4 h-4" />
-            {getEmpName(filtrePersonel)} — Tüm Zimmetleri PDF Al
-          </button>
-        )}
         <select
           value={filtreKategori}
           onChange={(e) => setFiltreKategori(e.target.value as any)}
@@ -1345,7 +1351,431 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
         </select>
       </div>
 
-      {/* Tablo */}
+      {/* Ana İçerik: Yönetici için Varsayılan Personel Bazlı Görünüm veya Tüm Zimmetler Görünümü */}
+      {isAdminOrHR && gorunumModu === 'personel' ? (
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Personel
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Departman / Görev
+                  </th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Atanan Zimmet
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Toplam Değer (₺)
+                  </th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Son Teslim Tarihi
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    İşlemler
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {(() => {
+                  const q = aramaMetni.trim().toLowerCase();
+                  const atananEmpIds = Array.from(
+                    new Set(zimmetler.map((z) => z.atanan_employee_id).filter(Boolean) as string[])
+                  );
+
+                  const personelGruplari = atananEmpIds
+                    .map((empId) => {
+                      const emp = employees.find((e) => e.id === empId);
+                      const tumKisiZimmetleri = zimmetler
+                        .filter(
+                          (z) =>
+                            z.atanan_employee_id === empId &&
+                            (filtreKategori === 'hepsi' || z.kategori === filtreKategori)
+                        )
+                        .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'));
+
+                      const aktifSayi = tumKisiZimmetleri.filter((z) => z.durum !== 'iade-edildi').length;
+                      const toplamTutar = tumKisiZimmetleri.reduce((s, z) => s + Number(z.deger || 0), 0);
+                      const sonTarih = tumKisiZimmetleri
+                        .map((z) => z.atanma_tarihi || '')
+                        .filter(Boolean)
+                        .sort()
+                        .reverse()[0];
+
+                      return {
+                        empId,
+                        name: emp?.name || 'Bilinmeyen Personel',
+                        department: emp?.department || '-',
+                        position: emp?.position || '',
+                        items: tumKisiZimmetleri,
+                        aktifSayi,
+                        toplamTutar,
+                        sonTarih,
+                      };
+                    })
+                    .filter((g) => {
+                      if (g.items.length === 0) return false;
+                      if (!q) return true;
+                      const isimEsles =
+                        g.name.toLowerCase().includes(q) ||
+                        g.department.toLowerCase().includes(q) ||
+                        g.position.toLowerCase().includes(q);
+                      const zimmetEsles = g.items.some(
+                        (z) =>
+                          z.ad.toLowerCase().includes(q) ||
+                          z.seri_no.toLowerCase().includes(q) ||
+                          (z.marka || '').toLowerCase().includes(q)
+                      );
+                      return isimEsles || zimmetEsles;
+                    })
+                    .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+
+                  const atanmamisItems = zimmetler
+                    .filter(
+                      (z) =>
+                        !z.atanan_employee_id &&
+                        (filtreKategori === 'hepsi' || z.kategori === filtreKategori) &&
+                        (!q ||
+                          z.ad.toLowerCase().includes(q) ||
+                          z.seri_no.toLowerCase().includes(q) ||
+                          (z.marka || '').toLowerCase().includes(q))
+                    )
+                    .sort((a, b) => (a.ad || '').localeCompare(b.ad || '', 'tr'));
+
+                  if (personelGruplari.length === 0 && atanmamisItems.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-gray-400 text-sm">
+                          Arama kriterlerine uygun zimmetli personel bulunamadı.
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return (
+                    <>
+                      {personelGruplari.map((grup) => {
+                        const acik = acikPersonelId === grup.empId;
+                        const basHarfler = grup.name
+                          .split(' ')
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((p) => p[0]?.toUpperCase())
+                          .join('');
+
+                        return (
+                          <React.Fragment key={grup.empId}>
+                            <tr
+                              onClick={() => setAcikPersonelId(acik ? null : grup.empId)}
+                              className={`cursor-pointer transition-colors ${
+                                acik ? 'bg-indigo-50/60' : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <td className="px-4 py-3.5">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-xs">
+                                    {basHarfler || 'P'}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-gray-900 text-sm">{grup.name}</p>
+                                    <p className="text-xs text-gray-500">
+                                      Üzerine tıklayarak zimmet kalemlerini {acik ? 'gizleyin' : 'görüntüleyin'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3.5 text-sm text-gray-600">
+                                <span className="font-medium text-gray-800">{grup.department}</span>
+                                {grup.position ? <span className="text-xs text-gray-400 block">{grup.position}</span> : null}
+                              </td>
+                              <td className="px-4 py-3.5 text-center">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
+                                  <Package className="w-3.5 h-3.5" />
+                                  {grup.items.length} Adet Zimmet
+                                </span>
+                              </td>
+                              <td className="px-4 py-3.5 text-right font-bold text-gray-800 font-mono text-sm whitespace-nowrap">
+                                {formatPara(grup.toplamTutar)}
+                              </td>
+                              <td className="px-4 py-3.5 text-center text-sm text-gray-600 font-medium whitespace-nowrap">
+                                {formatDateTR(grup.sonTarih)}
+                              </td>
+                              <td
+                                className="px-4 py-3.5 text-right"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => yeniZimmetModalAc(grup.empId)}
+                                    title={`${grup.name} adına yeni zimmet ekle`}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    Zimmet Ekle
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => yazdirKisiTopluZimmet(grup.empId)}
+                                    title={`${grup.name} adına kayıtlı tüm zimmetleri (${grup.items.length} adet) tek bir PDF tutanağı olarak al`}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-violet-600 text-white hover:bg-violet-700 shadow-xs transition-colors"
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                    Tüm Zimmetleri PDF ({grup.items.length})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setAcikPersonelId(acik ? null : grup.empId)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                                  >
+                                    {acik ? (
+                                      <>
+                                        Gizle <ChevronUp className="w-3.5 h-3.5" />
+                                      </>
+                                    ) : (
+                                      <>
+                                        Detay <ChevronDown className="w-3.5 h-3.5" />
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {acik && (
+                              <tr className="bg-slate-50/80">
+                                <td colSpan={6} className="px-4 py-4 border-t border-indigo-100">
+                                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-xs">
+                                    <div className="px-4 py-2.5 bg-indigo-50/70 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
+                                      <p className="text-xs font-bold text-indigo-950">
+                                        {grup.name} — Atanan Zimmet Kalemleri ({grup.items.length} Adet)
+                                      </p>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => yazdirKisiTopluZimmet(grup.empId)}
+                                          className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 bg-white border border-violet-200 hover:bg-violet-50 px-2.5 py-1 rounded-lg transition-colors"
+                                        >
+                                          <FileText className="w-3.5 h-3.5" />
+                                          Bu Kişinin Tüm Zimmetlerini PDF Al
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-xs">
+                                        <thead className="bg-gray-50 border-b border-gray-100 text-gray-600 uppercase">
+                                          <tr>
+                                            <th className="text-left px-3 py-2 font-semibold">#</th>
+                                            <th className="text-left px-3 py-2 font-semibold">Zimmet Adı / Marka</th>
+                                            <th className="text-left px-3 py-2 font-semibold">Kategori</th>
+                                            <th className="text-left px-3 py-2 font-semibold">Seri No</th>
+                                            <th className="text-left px-3 py-2 font-semibold">Durum</th>
+                                            <th className="text-right px-3 py-2 font-semibold">Değer (₺)</th>
+                                            <th className="text-center px-3 py-2 font-semibold">Atanma Tarihi</th>
+                                            <th className="text-center px-3 py-2 font-semibold">İşlemler</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                          {grup.items.map((z, idx) => (
+                                            <tr key={z.id} className="hover:bg-gray-50">
+                                              <td className="px-3 py-2 font-bold text-gray-400">{idx + 1}</td>
+                                              <td className="px-3 py-2">
+                                                <div className="flex items-center gap-2">
+                                                  <div
+                                                    className="w-6 h-6 rounded-lg flex items-center justify-center text-white flex-shrink-0"
+                                                    style={{ backgroundColor: getKategoriRenk(z.kategori) }}
+                                                  >
+                                                    {getKategoriIkon(z.kategori)}
+                                                  </div>
+                                                  <div>
+                                                    <p className="font-semibold text-gray-800">{z.ad}</p>
+                                                    {(z.marka || z.model) && (
+                                                      <p className="text-[11px] text-gray-400">{z.marka} {z.model}</p>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              </td>
+                                              <td className="px-3 py-2 text-gray-600 capitalize">{z.kategori || 'Genel'}</td>
+                                              <td className="px-3 py-2">
+                                                <code className="text-[11px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
+                                                  {z.seri_no}
+                                                </code>
+                                              </td>
+                                              <td className="px-3 py-2">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${DURUM_RENK[z.durum]}`}>
+                                                  {DURUM_ETIKET[z.durum]}
+                                                </span>
+                                              </td>
+                                              <td className="px-3 py-2 text-right font-mono font-semibold text-gray-800">
+                                                {formatPara(z.deger)}
+                                              </td>
+                                              <td className="px-3 py-2 text-center text-gray-600">
+                                                {formatDateTR(z.atanma_tarihi)}
+                                              </td>
+                                              <td className="px-3 py-2">
+                                                <div className="flex items-center justify-center gap-1">
+                                                  <button
+                                                    title="Personele Ata / İade Al"
+                                                    onClick={() => {
+                                                      setAtamaPaneli(z);
+                                                      setAtamaTarihi(z.atanma_tarihi || new Date().toISOString().split('T')[0]);
+                                                    }}
+                                                    className="p-1 rounded-lg hover:bg-blue-50 text-blue-600"
+                                                  >
+                                                    <Package className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    title="Düzenle"
+                                                    onClick={() => {
+                                                      setForm({
+                                                        seriNo: z.seri_no,
+                                                        ad: z.ad,
+                                                        kategori: z.kategori,
+                                                        marka: z.marka || '',
+                                                        model: z.model || '',
+                                                        deger: (z.deger !== undefined && z.deger !== null) ? z.deger.toString() : '',
+                                                        atananEmployeeId: z.atanan_employee_id || '',
+                                                        atanmaTarihi: z.atanma_tarihi || (z.created_at ? z.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
+                                                        aciklama: z.aciklama || '',
+                                                      });
+                                                      setDuzenlenenId(z.id);
+                                                      setFormAcik(true);
+                                                    }}
+                                                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-600"
+                                                  >
+                                                    <Edit2 className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    title="Sil"
+                                                    onClick={() => setSilOnay(z.id)}
+                                                    className="p-1 rounded-lg hover:bg-red-50 text-red-500"
+                                                  >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                  </button>
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+
+                      {atanmamisItems.length > 0 && (
+                        <>
+                          <tr
+                            onClick={() => setAcikPersonelId(acikPersonelId === '__atanmamis__' ? null : '__atanmamis__')}
+                            className="cursor-pointer bg-amber-50/40 hover:bg-amber-50/80 transition-colors"
+                          >
+                            <td className="px-4 py-3.5">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-amber-500 text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
+                                  ?
+                                </div>
+                                <div>
+                                  <p className="font-bold text-gray-900 text-sm">Atanmamış (Boşta / Stoktaki Zimmetler)</p>
+                                  <p className="text-xs text-gray-500">Henüz bir personele zimmetlenmemiş ekipmanlar</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 text-sm text-gray-500">Stok / Depo</td>
+                            <td className="px-4 py-3.5 text-center">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                                <Package className="w-3.5 h-3.5" />
+                                {atanmamisItems.length} Adet Boşta
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-right font-bold text-gray-800 font-mono text-sm">
+                              {formatPara(atanmamisItems.reduce((s, z) => s + Number(z.deger || 0), 0))}
+                            </td>
+                            <td className="px-4 py-3.5 text-center text-sm text-gray-400">-</td>
+                            <td className="px-4 py-3.5 text-right">
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white border border-amber-200 text-amber-800"
+                              >
+                                {acikPersonelId === '__atanmamis__' ? (
+                                  <>
+                                    Gizle <ChevronUp className="w-3.5 h-3.5" />
+                                  </>
+                                ) : (
+                                  <>
+                                    Görüntüle <ChevronDown className="w-3.5 h-3.5" />
+                                  </>
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                          {acikPersonelId === '__atanmamis__' && (
+                            <tr className="bg-amber-50/20">
+                              <td colSpan={6} className="px-4 py-4">
+                                <div className="bg-white rounded-xl border border-amber-200 overflow-hidden">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-amber-50/60 border-b border-amber-100 text-gray-600 uppercase">
+                                      <tr>
+                                        <th className="text-left px-3 py-2 font-semibold">#</th>
+                                        <th className="text-left px-3 py-2 font-semibold">Zimmet Adı</th>
+                                        <th className="text-left px-3 py-2 font-semibold">Seri No</th>
+                                        <th className="text-right px-3 py-2 font-semibold">Değer (₺)</th>
+                                        <th className="text-center px-3 py-2 font-semibold">İşlemler</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                      {atanmamisItems.map((z, idx) => (
+                                        <tr key={z.id} className="hover:bg-gray-50">
+                                          <td className="px-3 py-2 font-bold text-gray-400">{idx + 1}</td>
+                                          <td className="px-3 py-2 font-semibold text-gray-800">{z.ad}</td>
+                                          <td className="px-3 py-2">
+                                            <code className="bg-gray-100 px-1.5 py-0.5 rounded">{z.seri_no}</code>
+                                          </td>
+                                          <td className="px-3 py-2 text-right font-mono font-semibold">{formatPara(z.deger)}</td>
+                                          <td className="px-3 py-2 text-center">
+                                            <div className="flex items-center justify-center gap-1">
+                                              <button
+                                                title="Personele Ata"
+                                                onClick={() => {
+                                                  setAtamaPaneli(z);
+                                                  setAtamaTarihi(new Date().toISOString().split('T')[0]);
+                                                }}
+                                                className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100"
+                                              >
+                                                Personele Ata
+                                              </button>
+                                              <button
+                                                title="Sil"
+                                                onClick={() => setSilOnay(z.id)}
+                                                className="p-1 rounded-lg hover:bg-red-50 text-red-500"
+                                              >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -1504,25 +1934,7 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                   {isAdminOrHR && (
                     <td className="px-4 py-3 text-sm text-gray-700">
                       {z.atanan_employee_id ? (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-gray-800">{getEmpName(z.atanan_employee_id)}</span>
-                          {(() => {
-                            const kisiZimmetSayisi = zimmetler.filter(
-                              (item) => item.atanan_employee_id === z.atanan_employee_id && item.durum !== 'iade-edildi'
-                            ).length;
-                            return kisiZimmetSayisi >= 1 ? (
-                              <button
-                                type="button"
-                                onClick={() => yazdirKisiTopluZimmet(z.atanan_employee_id!)}
-                                title={`${getEmpName(z.atanan_employee_id)} adına kayıtlı tüm zimmetleri (${kisiZimmetSayisi} adet) tek bir A4 PDF tutanağı olarak al`}
-                                className="inline-flex items-center gap-1 text-[11px] font-semibold bg-violet-50 text-violet-700 border border-violet-200 px-2.5 py-0.5 rounded-full hover:bg-violet-100 transition-colors"
-                              >
-                                <FileText className="w-3 h-3" />
-                                Tüm Zimmetleri PDF ({kisiZimmetSayisi})
-                              </button>
-                            ) : null;
-                          })()}
-                        </div>
+                        <span className="font-medium text-gray-800">{getEmpName(z.atanan_employee_id)}</span>
                       ) : (
                         <span className="text-gray-400 italic">Atanmamış</span>
                       )}
@@ -1535,15 +1947,6 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                   {isAdminOrHR && (
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1.5">
-                        {z.atanan_employee_id && (
-                          <button
-                            title={`${getEmpName(z.atanan_employee_id)} adına yeni zimmet(ler) ekle`}
-                            onClick={() => yeniZimmetModalAc(z.atanan_employee_id || '')}
-                            className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        )}
                         <button
                           title="Personele Ata / İade Al"
                           onClick={() => {
@@ -1554,25 +1957,6 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
                         >
                           <Package className="w-4 h-4" />
                         </button>
-                        {z.atanan_employee_id && (
-                          <>
-                            <button
-                              title="Bu Zimmetin Teslim Tutanağını Yazdır (Tekil PDF)"
-                              onClick={() => yazdirTekZimmet(z)}
-                              className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600"
-                            >
-                              <Printer className="w-4 h-4" />
-                            </button>
-                            <button
-                              title={`${getEmpName(z.atanan_employee_id)} - Kişinin Tüm Zimmetlerini PDF Olarak Al`}
-                              onClick={() => yazdirKisiTopluZimmet(z.atanan_employee_id!)}
-                              className="px-2 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-[11px] font-semibold inline-flex items-center gap-1"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              Kişi PDF
-                            </button>
-                          </>
-                        )}
                         <button
                           title="Düzenle"
                           onClick={() => {
@@ -1613,6 +1997,7 @@ const ZimmetYonetimi: React.FC<ZimmetYonetimiProps> = ({ employees }) => {
           )}
         </div>
       </div>
+      )}
 
       {/* Kişiye Ait Tüm Zimmetleri PDF Olarak Alma Modalı */}
       {kisiPdfModalAcik && isAdminOrHR && (
