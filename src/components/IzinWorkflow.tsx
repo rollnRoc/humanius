@@ -16,6 +16,7 @@ interface IzinWorkflowProps {
   compact?: boolean;
   talepleri?: IzinTalebi[];
   effectiveAppRole?: string;
+  managerDepartment?: string;
 }
 
 export type StepDurum = 'gecilen' | 'bulunulan' | 'ilerlenmemis' | 'red';
@@ -66,7 +67,8 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
   onDelete, 
   compact = false, 
   talepleri = [],
-  effectiveAppRole = ''
+  effectiveAppRole = '',
+  managerDepartment
 }) => {
   const [approvalConfig, setApprovalConfig] = useState<LeaveApprovalConfig>(DEFAULT_LEAVE_APPROVAL_CONFIG);
   const [localCurrentStage, setLocalCurrentStage] = useState<string | null>(null);
@@ -156,11 +158,20 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
     return 'ilerlenmemis';
   };
 
-  // Kullanıcının rolü seçili onay yetkililerinden biri mi kontrolü
+  // Kullanıcının rolü seçili onay yetkililerinden biri mi kontrolü (Birim amiri için ayrıca departman eşleşmesi zorunlu)
   const isRoleAuthorizedForThisStage = useMemo(() => {
     if (talep.durum !== 'beklemede' || currentStage === 'completed') return false;
-    return leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage as any, approvalConfig);
-  }, [talep.durum, currentStage, effectiveAppRole, approvalConfig]);
+    const roleAllowed = leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, currentStage as any, approvalConfig);
+    if (!roleAllowed) return false;
+    if (effectiveAppRole === 'manager') {
+      const normMgr = String(managerDepartment ?? '').trim().toLocaleLowerCase('tr-TR').replace(/\s+/g, ' ');
+      const normTalep = String(talep.department || (talep as any).employee?.department || '').trim().toLocaleLowerCase('tr-TR').replace(/\s+/g, ' ');
+      if (!normMgr || !normTalep || normMgr !== normTalep) {
+        return false;
+      }
+    }
+    return true;
+  }, [talep.durum, talep.department, (talep as any).employee?.department, currentStage, effectiveAppRole, approvalConfig, managerDepartment]);
 
   // Kompakt görünüm (Tablo satırları ve drawer içi küçük durum göstergesi)
   if (compact) {
@@ -228,6 +239,11 @@ const IzinWorkflow: React.FC<IzinWorkflowProps> = ({
 
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
             <span className="font-extrabold text-slate-900 text-sm">{talep.employeeName}</span>
+            {talep.department && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                {talep.department}
+              </span>
+            )}
             <span>•</span>
             <span className="font-semibold text-slate-700">{formatIzinTuru(talep.izinTuru)}</span>
             <span>•</span>

@@ -96,6 +96,30 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
   onUpdateHak,
 }) => {
   const isAuthorized = !['employee', 'user'].includes(effectiveAppRole);
+  const isManagerRole = effectiveAppRole === 'manager';
+
+  const normalizeDept = (dept?: string | null) =>
+    String(dept ?? '')
+      .trim()
+      .toLocaleLowerCase('tr-TR')
+      .replace(/\s+/g, ' ');
+
+  const managerDepartment = useMemo(() => {
+    if (!isManagerRole) return '';
+    return (
+      currentEmployeeMatch?.department ||
+      (profile as any)?.department ||
+      employees[0]?.department ||
+      ''
+    ).trim();
+  }, [isManagerRole, currentEmployeeMatch?.department, profile, employees]);
+
+  const scopedEmployees = useMemo(() => {
+    if (!isManagerRole) return employees;
+    const normMgr = normalizeDept(managerDepartment);
+    if (!normMgr) return currentEmployeeMatch ? [currentEmployeeMatch] : [];
+    return employees.filter((e) => normalizeDept(e.department) === normMgr);
+  }, [isManagerRole, managerDepartment, employees, currentEmployeeMatch]);
   
   const [approvalConfig, setApprovalConfig] = useState<LeaveApprovalConfig>(DEFAULT_LEAVE_APPROVAL_CONFIG);
 
@@ -116,23 +140,40 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
     return leaveApprovalService.canRoleApproveCurrentStage(effectiveAppRole, 'hr', approvalConfig);
   }, [effectiveAppRole, approvalConfig]);
 
-  // Normal personel sadece kendisine ait talepleri görebilir, yetkili roller tüm şirket taleplerini görebilir
+  // Normal personel sadece kendisine ait talepleri görebilir, birim amirleri sadece kendi departmanlarının taleplerini görebilir
   const userLeaves = useMemo(() => {
-    if (isAuthorized) return izinTalepleri;
-    return izinTalepleri.filter((talep) => {
-      if (currentEmployeeMatch && talep.employeeId === currentEmployeeMatch.id) return true;
-      const profileEmail = String(profile?.email ?? '').trim().toLowerCase();
-      const empEmail = String(talep.employees?.email ?? '').trim().toLowerCase();
-      if (profileEmail && empEmail && profileEmail === empEmail) return true;
-      const profileName = String(profile?.full_name ?? '').trim().toLowerCase();
-      const talepEmpName = String(talep.employeeName ?? '').trim().toLowerCase();
-      if (profileName && talepEmpName) {
-        if (profileName === talepEmpName) return true;
-        if (profileName.replace(/[\s-]/g, '') === talepEmpName.replace(/[\s-]/g, '')) return true;
-      }
-      return false;
-    });
-  }, [isAuthorized, izinTalepleri, currentEmployeeMatch, profile]);
+    if (!isAuthorized) {
+      return izinTalepleri.filter((talep) => {
+        if (currentEmployeeMatch && talep.employeeId === currentEmployeeMatch.id) return true;
+        const profileEmail = String(profile?.email ?? '').trim().toLowerCase();
+        const empEmail = String(talep.employees?.email ?? '').trim().toLowerCase();
+        if (profileEmail && empEmail && profileEmail === empEmail) return true;
+        const profileName = String(profile?.full_name ?? '').trim().toLowerCase();
+        const talepEmpName = String(talep.employeeName ?? '').trim().toLowerCase();
+        if (profileName && talepEmpName) {
+          if (profileName === talepEmpName) return true;
+          if (profileName.replace(/[\s-]/g, '') === talepEmpName.replace(/[\s-]/g, '')) return true;
+        }
+        return false;
+      });
+    }
+
+    if (isManagerRole) {
+      const normMgr = normalizeDept(managerDepartment);
+      const allowedEmpIds = new Set(scopedEmployees.map((e) => e.id));
+      return izinTalepleri.filter((talep) => {
+        if (!normMgr) {
+          return currentEmployeeMatch ? talep.employeeId === currentEmployeeMatch.id : false;
+        }
+        const emp = employees.find((e) => e.id === talep.employeeId);
+        const talepDept = normalizeDept(talep.department || emp?.department || (talep as any).employee?.department);
+        if (talepDept && talepDept === normMgr) return true;
+        return allowedEmpIds.has(talep.employeeId);
+      });
+    }
+
+    return izinTalepleri;
+  }, [isAuthorized, isManagerRole, managerDepartment, scopedEmployees, izinTalepleri, employees, currentEmployeeMatch, profile]);
 
   // Ayrılmış talepler (personel için yalnızca kendi talepleri)
   const bekleyenler = useMemo(() => {
@@ -319,11 +360,20 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900 leading-tight">
-                {isAuthorized ? 'İzin Yönetimi' : 'İzinlerim ve Taleplerim'}
-              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-bold text-gray-900 leading-tight">
+                  {isAuthorized ? 'İzin Yönetimi' : 'İzinlerim ve Taleplerim'}
+                </h2>
+                {isManagerRole && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                    Birim Amiri • {managerDepartment || 'Departmanınız'}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-gray-500 mt-0.5">
-                {isAuthorized
+                {isManagerRole
+                  ? `Yalnızca ${managerDepartment || 'kendi'} departmanınıza ait izin talepleri görüntülenmekte ve yönetilmektedir`
+                  : isAuthorized
                   ? 'İzin onay süreçleri, çalışan hak edişleri ve özet göstergeler'
                   : 'Kişisel izin bakiyeniz, onay sürecindeki talepleriniz ve geçmiş izin kayıtlarınız'}
               </p>
@@ -593,6 +643,7 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
                   onDelete={onDelete}
                   talepleri={userLeaves}
                   effectiveAppRole={effectiveAppRole}
+                  managerDepartment={isManagerRole ? managerDepartment : undefined}
                 />
               ))}
             </div>
@@ -890,8 +941,8 @@ export const IzinYonetimi: React.FC<IzinYonetimiProps> = ({
 
           {/* KPI Stat Kartları ve Hızlı Özet Grid'i */}
           <IzinOzetKartlari
-            employees={employees}
-            izinTalepleri={izinTalepleri}
+            employees={scopedEmployees}
+            izinTalepleri={userLeaves}
             izinHaklari={izinHaklari}
             viewMode="kpi"
             onNavigateToPending={() => setActiveTab('onay-bekleyen')}

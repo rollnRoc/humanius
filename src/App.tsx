@@ -550,19 +550,35 @@ const AppInner: React.FC = () => {
       let filteredMapped = uniqueMapped;
       let currentUserEmpId: string | null = null;
 
-      // Find current user's employee record
-      const currentUserEmp = uniqueMapped.find((emp) => {
-        const profileEmail = String(profile?.email ?? user?.email ?? '').toLowerCase().trim();
-        const empEmail = String(emp.email ?? '').toLowerCase().trim();
-        if (profileEmail && empEmail && profileEmail === empEmail) return true;
-        const profileName = String(profile?.full_name ?? user?.user_metadata?.full_name ?? '').trim().toLocaleLowerCase('tr-TR');
-        const empName = String(emp.name ?? '').trim().toLocaleLowerCase('tr-TR');
-        if (profileName.length > 0 && profileName === empName) return true;
-        
-        const normalizedProfileName = profileName.replace(/[\s-]/g, '');
-        const normalizedEmpName = empName.replace(/[\s-]/g, '');
-        return normalizedProfileName.length > 0 && normalizedProfileName === normalizedEmpName;
-      });
+      const normalizeDept = (dept?: string | null) =>
+        String(dept ?? '')
+          .trim()
+          .toLocaleLowerCase('tr-TR')
+          .replace(/\s+/g, ' ');
+
+      const matchCurrentUserEmployee = (list: Employee[]) =>
+        list.find((emp) => {
+          if (profile?.id && emp.id === profile.id) return true;
+          const profileEmail = String(profile?.email ?? user?.email ?? '').toLowerCase().trim();
+          const empEmail = String(emp.email ?? '').toLowerCase().trim();
+          const empContactEmail = String((emp as any).contact_email ?? '').toLowerCase().trim();
+          if (profileEmail && ((empEmail && profileEmail === empEmail) || (empContactEmail && profileEmail === empContactEmail))) {
+            return true;
+          }
+          const profileName = String(profile?.full_name ?? user?.user_metadata?.full_name ?? '').trim().toLocaleLowerCase('tr-TR');
+          const empName = String(emp.name ?? '').trim().toLocaleLowerCase('tr-TR');
+          if (profileName.length > 0 && profileName === empName) return true;
+
+          const normalizedProfileName = profileName.replace(/[\s-]/g, '');
+          const normalizedEmpName = empName.replace(/[\s-]/g, '');
+          return normalizedProfileName.length > 0 && normalizedProfileName === normalizedEmpName;
+        });
+
+      // Find current user's employee record (prefer matching within user's company first)
+      const sameCompanyEmployees = profile?.company_id
+        ? uniqueMapped.filter(emp => String(emp.company_id || '').toLowerCase().trim() === String(profile.company_id).toLowerCase().trim())
+        : uniqueMapped;
+      const currentUserEmp = matchCurrentUserEmployee(sameCompanyEmployees) || matchCurrentUserEmployee(uniqueMapped);
 
       if (currentUserEmp) {
         currentUserEmpId = currentUserEmp.id;
@@ -583,7 +599,13 @@ const AppInner: React.FC = () => {
       const isManagerRole = effectiveIsManager;
       const isEmployeeRole = Boolean(!effectiveIsSuper && !effectiveIsAdmin && !effectiveIsHR && !effectiveIsManager);
 
-      const managerDepartment = currentUserEmp?.department || (profile as any)?.department || null;
+      const managerDepartment = (
+        currentUserEmp?.department ||
+        (profile as any)?.department ||
+        (user?.user_metadata as any)?.department ||
+        ''
+      ).trim() || null;
+      const normManagerDept = normalizeDept(managerDepartment);
       const effectiveUserCompanyId = profile?.company_id || currentUserEmp?.company_id;
 
       // Rol bazlı filtreleme:
@@ -624,13 +646,19 @@ const AppInner: React.FC = () => {
         if (filteredMapped[0]) {
           setSelectedEmployee(filteredMapped[0]);
         }
-      } else if (isManagerRole && managerDepartment && effectiveUserCompanyId) {
-        // Departman amiri sadece kendi departmanındaki personelleri görsün
-        filteredMapped = uniqueMapped.filter(emp => {
-          const cMatch = !effectiveUserCompanyId || String(emp.company_id || '').toLowerCase().trim() === String(effectiveUserCompanyId).toLowerCase().trim();
-          const dMatch = String(emp.department || '').toLowerCase().trim() === String(managerDepartment).toLowerCase().trim();
-          return cMatch && dMatch;
-        });
+      } else if (isManagerRole) {
+        // Departman / Birim amiri YALNIZCA kendi departmanındaki personelleri görsün
+        if (normManagerDept) {
+          filteredMapped = uniqueMapped.filter(emp => {
+            const cMatch = !effectiveUserCompanyId || String(emp.company_id || '').toLowerCase().trim() === String(effectiveUserCompanyId).toLowerCase().trim();
+            const dMatch = normalizeDept(emp.department) === normManagerDept;
+            return cMatch && dMatch;
+          });
+        } else if (currentUserEmp) {
+          filteredMapped = [currentUserEmp];
+        } else {
+          filteredMapped = [];
+        }
       } else if (!effectiveIsSuper && effectiveUserCompanyId) {
         // Şirket Yöneticisi (Admin) ve İK (HR) kendi şirketindeki TÜM personelleri görür!
         const normTargetId = String(effectiveUserCompanyId).toLowerCase().trim();
@@ -688,40 +716,58 @@ const AppInner: React.FC = () => {
       }
 
       // İzin talepleri
+      const allowedDepartmentEmpIds = new Set(filteredMapped.map(e => e.id));
+      if (currentUserEmpId) allowedDepartmentEmpIds.add(currentUserEmpId);
+
       let mappedTalepler: IzinTalebi[] = [];
       if (talepData && talepData.length > 0) {
-        mappedTalepler = (talepData ?? []).map((t: any) => ({
-          id: t.id,
-          companyId: t.company_id,
-          employeeId: t.employee_id,
-          izinTuru: t.izin_turu,
-          baslangicTarihi: t.baslangic_tarihi,
-          bitisTarihi: t.bitis_tarihi,
-          gunSayisi: t.gun_sayisi,
-          aciklama: t.aciklama ?? '',
-          yolIzniTalep: t.yol_izni_talep ?? false,
-          yolIzniGun: t.yol_izni_gun ?? 0,
-          seyahatYeri: t.seyahat_yeri ?? '',
-          ilDisiSeyahat: t.il_disi_seyahat ?? false,
-          belgeUrl: t.belge_url,
-          durum: t.durum,
-          onaylayanId: t.onaylayan_id,
-          onayTarihi: t.onay_tarihi,
-          redNedeni: t.red_nedeni,
-          talepTarihi: t.talep_tarihi,
-          createdAt: t.created_at,
-          updatedAt: t.updated_at,
-          employee: t.employees,
-          employeeName: t.employees?.name ?? '',
-          department: t.employees?.department ?? '',
-        }));
+        mappedTalepler = (talepData ?? []).map((t: any) => {
+          const matchedEmp = uniqueMapped.find((e) => e.id === t.employee_id);
+          const empJoin = Array.isArray(t.employees) ? t.employees[0] : t.employees;
+          const resolvedName = (empJoin?.name || matchedEmp?.name || '').trim();
+          const resolvedDept = (empJoin?.department || matchedEmp?.department || '').trim();
+          return {
+            id: t.id,
+            companyId: t.company_id,
+            employeeId: t.employee_id,
+            izinTuru: t.izin_turu,
+            baslangicTarihi: t.baslangic_tarihi,
+            bitisTarihi: t.bitis_tarihi,
+            gunSayisi: t.gun_sayisi,
+            aciklama: t.aciklama ?? '',
+            yolIzniTalep: t.yol_izni_talep ?? false,
+            yolIzniGun: t.yol_izni_gun ?? 0,
+            seyahatYeri: t.seyahat_yeri ?? '',
+            ilDisiSeyahat: t.il_disi_seyahat ?? false,
+            belgeUrl: t.belge_url,
+            durum: t.durum,
+            onaylayanId: t.onaylayan_id,
+            onayTarihi: t.onay_tarihi,
+            redNedeni: t.red_nedeni,
+            talepTarihi: t.talep_tarihi,
+            createdAt: t.created_at,
+            updatedAt: t.updated_at,
+            employee: empJoin || matchedEmp,
+            employeeName: resolvedName,
+            department: resolvedDept,
+          };
+        });
 
         if (isEmployeeRole && currentUserEmpId) {
           mappedTalepler = mappedTalepler.filter(t => t.employeeId === currentUserEmpId);
         } else if (isEmployeeRole && !currentUserEmpId) {
           mappedTalepler = [];
-        } else if (isManagerRole && managerDepartment) {
-          mappedTalepler = mappedTalepler.filter(t => t.department === managerDepartment || t.employeeId === currentUserEmpId);
+        } else if (isManagerRole) {
+          // Birim / Departman amiri YALNIZCA kendi departmanına ait izin taleplerini görebilir
+          mappedTalepler = mappedTalepler.filter(t => {
+            if (!normManagerDept) {
+              return currentUserEmpId ? t.employeeId === currentUserEmpId : false;
+            }
+            const talepEmp = uniqueMapped.find(e => e.id === t.employeeId);
+            const talepDept = normalizeDept(t.department || talepEmp?.department);
+            if (talepDept && talepDept === normManagerDept) return true;
+            return allowedDepartmentEmpIds.has(t.employeeId);
+          });
         }
 
         setIzinTalepleri(mappedTalepler);
@@ -756,15 +802,21 @@ const AppInner: React.FC = () => {
           return acc;
         }, {});
 
-        const updatedHaklar = mappedHaklar.map((hak) => {
-          const usedDays = approvedAnnualByEmployee[hak.employeeId] || 0;
-          const remaining = Math.max(0, Number(hak.toplamHak || 0) - usedDays);
-          return {
-            ...hak,
-            kullanilanIzin: usedDays,
-            kalanIzin: remaining,
-          };
-        });
+        const updatedHaklar = mappedHaklar
+          .filter((hak) => {
+            if (isEmployeeRole) return currentUserEmpId ? hak.employeeId === currentUserEmpId : false;
+            if (isManagerRole) return allowedDepartmentEmpIds.has(hak.employeeId);
+            return true;
+          })
+          .map((hak) => {
+            const usedDays = approvedAnnualByEmployee[hak.employeeId] || 0;
+            const remaining = Math.max(0, Number(hak.toplamHak || 0) - usedDays);
+            return {
+              ...hak,
+              kullanilanIzin: usedDays,
+              kalanIzin: remaining,
+            };
+          });
 
         setIzinHaklari(updatedHaklar);
       } else {
@@ -1431,8 +1483,31 @@ const AppInner: React.FC = () => {
     }
   };
 
+  const currentManagerDepartment = isManager
+    ? (currentEmployeeMatch?.department || (profile as any)?.department || (user?.user_metadata as any)?.department || '').trim()
+    : null;
+
+  const isTalepInManagerDepartment = (talepObj?: Partial<IzinTalebi> | null): boolean => {
+    if (effectiveAppRole !== 'manager') return true;
+    const normMgrDept = String(currentManagerDepartment ?? '').trim().toLocaleLowerCase('tr-TR').replace(/\s+/g, ' ');
+    if (!normMgrDept) return false;
+    const emp = employees.find(e => e.id === talepObj?.employeeId);
+    const talepDept = String(talepObj?.department || emp?.department || (talepObj as any)?.employee?.department || '')
+      .trim()
+      .toLocaleLowerCase('tr-TR')
+      .replace(/\s+/g, ' ');
+    return Boolean(talepDept && talepDept === normMgrDept);
+  };
+
   const handleIzinUpdate = async (updatedTalep: Partial<IzinTalebi>) => {
     if (!editingIzin) return;
+    if (effectiveAppRole === 'manager' && !isTalepInManagerDepartment(editingIzin)) {
+      showWarning(
+        'Departman Yetki Kısıtlaması',
+        `Birim amirleri yalnızca kendi departmanlarına (${currentManagerDepartment || 'Belirtilmemiş'}) ait izin taleplerini yönetebilir.`
+      );
+      return;
+    }
     if (
       (updatedTalep.durum === 'onaylandi' || updatedTalep.durum === 'reddedildi') &&
       updatedTalep.durum !== editingIzin.durum &&
@@ -1464,6 +1539,14 @@ const AppInner: React.FC = () => {
   };
 
   const handleDeleteIzin = async (id: string) => {
+    const targetTalep = izinTalepleri.find((t) => t.id === id);
+    if (effectiveAppRole === 'manager' && !isTalepInManagerDepartment(targetTalep)) {
+      showWarning(
+        'Departman Yetki Kısıtlaması',
+        `Birim amirleri yalnızca kendi departmanlarına (${currentManagerDepartment || 'Belirtilmemiş'}) ait izin taleplerini silebilir.`
+      );
+      return;
+    }
     const confirmed = await showConfirm({
       title: 'İzin Kaydını Silmek İstiyor Musunuz?',
       text: 'Bu izin kaydını kalıcı olarak silmek istediğinize emin misiniz? Kullanılan izin günleri personelin izin bakiyesine otomatik olarak iade edilecektir.',
@@ -1493,8 +1576,15 @@ const AppInner: React.FC = () => {
       showError('Hata', 'İzin talebi bulunamadı.');
       return;
     }
+    if (effectiveAppRole === 'manager' && !isTalepInManagerDepartment(talep)) {
+      showWarning(
+        'Departman Yetki Kısıtlaması',
+        `Birim amirleri yalnızca kendi departmanlarına (<b>${currentManagerDepartment || 'Belirtilmemiş'}</b>) ait izin taleplerini onaylayabilir.`
+      );
+      return;
+    }
     const empForTalep = employees.find((e) => e.id === talep.employeeId);
-    const targetCompId = talep.companyId || empForTalep?.company_id || profile?.company_id || resolvedCompanyId || 'default';
+    const targetCompId = talep.companyId || empForTalep?.company_id || profile?.company_id || user?.user_metadata?.company_id || 'default';
     const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
 
     const currentStage = leaveApprovalService.getTalepCurrentStage(id, talep.durum, approvalCfg, talep);
@@ -1545,11 +1635,17 @@ const AppInner: React.FC = () => {
   const handleTopluIzinSubmit = async (talepler: Partial<IzinTalebi>[]) => {
     try {
       const today = new Date().toISOString().split('T')[0];
+      const fallbackCompId = profile?.company_id || user?.user_metadata?.company_id || employees.find((emp) => !!emp.company_id)?.company_id || '';
       const insertPayloads = talepler
         .filter(talep => Boolean(talep.employeeId))
+        .filter(talep => {
+          if (effectiveAppRole !== 'manager') return true;
+          const emp = employees.find((e) => e.id === talep.employeeId);
+          return isTalepInManagerDepartment({ employeeId: talep.employeeId, department: emp?.department });
+        })
         .map(talep => {
           const emp = employees.find((e) => e.id === talep.employeeId);
-          const targetCompId = emp?.company_id || (emp as any)?.companyId || resolvedCompanyId || profile?.company_id || '';
+          const targetCompId = emp?.company_id || (emp as any)?.companyId || fallbackCompId;
           return {
             company_id: targetCompId,
             employee_id: String(talep.employeeId || ''),
@@ -1587,8 +1683,15 @@ const AppInner: React.FC = () => {
       showError('Hata', 'İzin talebi bulunamadı.');
       return;
     }
+    if (effectiveAppRole === 'manager' && !isTalepInManagerDepartment(talep)) {
+      showWarning(
+        'Departman Yetki Kısıtlaması',
+        `Birim amirleri yalnızca kendi departmanlarına (<b>${currentManagerDepartment || 'Belirtilmemiş'}</b>) ait izin taleplerini reddedebilir.`
+      );
+      return;
+    }
     const empForTalep = employees.find((e) => e.id === talep.employeeId);
-    const targetCompId = talep.companyId || empForTalep?.company_id || profile?.company_id || resolvedCompanyId || 'default';
+    const targetCompId = talep.companyId || empForTalep?.company_id || profile?.company_id || user?.user_metadata?.company_id || 'default';
     const approvalCfg = await leaveApprovalService.getConfig(targetCompId);
 
     const currentStage = leaveApprovalService.getTalepCurrentStage(id, talep.durum, approvalCfg, talep);
