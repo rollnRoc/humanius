@@ -214,10 +214,7 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
           text: res.error || 'Mesaj gönderilemedi.',
         });
       } else {
-        // Ekranı sıfırlamadan (loading spinner göstermeden) giden mesajı anında listeye ekle
-        if (res.record) {
-          setSentMessages((prev) => [res.record!, ...prev.filter((m) => m.id !== res.record!.id)]);
-        }
+        await loadData(true);
         setSubject('');
         setMessageText('');
         setPriority('normal');
@@ -227,8 +224,6 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
         });
         setActiveTab('sent');
         onMessagesChanged?.();
-        // Arka planda sessizce senkronize et
-        loadData(true);
       }
     } finally {
       setSending(false);
@@ -236,21 +231,14 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
   };
 
   const handleMarkAsRead = async (messageId: string) => {
-    const nowIso = new Date().toISOString();
-    setInboxMessages((prev) =>
-      prev.map((m) => (m.id === messageId ? { ...m, isRead: true, readAt: nowIso } : m))
-    );
     const ok = await messageService.markAsRead(companyId, messageId);
     if (ok) {
+      await loadData(true);
       onMessagesChanged?.();
     }
   };
 
   const handleMarkAllAsRead = async () => {
-    const nowIso = new Date().toISOString();
-    setInboxMessages((prev) =>
-      prev.map((m) => ({ ...m, isRead: true, readAt: m.readAt || nowIso }))
-    );
     const ok = await messageService.markAllInboxAsRead({
       companyId,
       userId: currentUser.id,
@@ -259,6 +247,7 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
       userName: currentUser.name,
     });
     if (ok) {
+      await loadData(true);
       onMessagesChanged?.();
     }
   };
