@@ -132,13 +132,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     return parent ? [parent.id] : [];
   });
   const [showLogoEditor, setShowLogoEditor] = useState(false);
-  const [showAlertDot, setShowAlertDot] = React.useState(() => {
-    try {
-      return localStorage.getItem('humanius_new_alert_notification') === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [showAlertDot, setShowAlertDot] = React.useState(false);
 
   React.useEffect(() => {
     const handleStorage = () => {

@@ -253,13 +253,7 @@ const AppInner: React.FC = () => {
   }, [authLoading, user, profile, effectiveAppRole, currentView]);
 
   // ── Global Notification & Toplu Uyarı ────────────────────────────────────────
-  const [showAlertNotification, setShowAlertNotification] = useState(() => {
-    try {
-      return localStorage.getItem('humanius_new_alert_notification') === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [showAlertNotification, setShowAlertNotification] = useState(false);
   const [activeAlertText, setActiveAlertText] = useState<{ title: string; desc: string } | null>(null);
 
   const [showTopluUyariModal, setShowTopluUyariModal] = useState(false);
@@ -285,8 +279,18 @@ const AppInner: React.FC = () => {
         localStorage.setItem('humanius_new_alert_notification', 'false');
         window.dispatchEvent(new Event('storage'));
       } catch {}
+      setShowAlertNotification(false);
+      setActiveAlertText(null);
+      if (profile?.id) {
+        supabase
+          .from('bildirimler')
+          .update({ okundu_mu: true, okunma_tarihi: new Date().toISOString() })
+          .eq('user_id', profile.id)
+          .eq('okundu_mu', false)
+          .then(() => {});
+      }
     }
-  }, [currentView]);
+  }, [currentView, profile?.id]);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -399,7 +403,7 @@ const AppInner: React.FC = () => {
         })() : Promise.resolve({ data: [] }),
         (resolvedCompanyId && profile?.id) ? (async () => {
           try {
-            const res = await supabase.from('bildirimler').select('*').eq('company_id', resolvedCompanyId).eq('user_id', profile.id).eq('okundu_mu', false).order('created_at', { ascending: false });
+            const res = await supabase.from('bildirimler').select('*').eq('company_id', resolvedCompanyId).eq('user_id', profile.id).eq('tur', 'uyari').eq('okundu_mu', false).order('created_at', { ascending: false });
             return res;
           } catch {
             return { data: [] };
@@ -895,10 +899,12 @@ const AppInner: React.FC = () => {
         });
         setShowAlertNotification(true);
         localStorage.setItem('humanius_new_alert_notification', 'true');
+        window.dispatchEvent(new Event('storage'));
       } else {
         setActiveAlertText(null);
         setShowAlertNotification(false);
         localStorage.setItem('humanius_new_alert_notification', 'false');
+        window.dispatchEvent(new Event('storage'));
       }
     } catch (err) {
       console.error('Veri yüklenemedi:', err);
@@ -1945,6 +1951,12 @@ const AppInner: React.FC = () => {
             onEmployeeClick={(emp) => { handleEmployeeClick(emp); }}
             onNavigate={(view) => setCurrentView(view)}
             companyLogoUrl={companyLogoUrl}
+            showAlertNotification={showAlertNotification}
+            activeAlertText={activeAlertText}
+            onDismissAlert={() => {
+              setShowAlertNotification(false);
+              setActiveAlertText(null);
+            }}
           />
         </div>
       );
@@ -2531,7 +2543,6 @@ const AppInner: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-200 bg-white rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-gray-800 text-sm transition-all"
                 >
                   <option value="diger">Duyuru / Diğer</option>
-                  <option value="izin">İzin Bildirimi</option>
                   <option value="bordro">Bordro / Maaş Bildirimi</option>
                   <option value="tatil">Resmi Tatil / Kapalı Gün</option>
                   <option value="egitim">Eğitim / Seminer</option>

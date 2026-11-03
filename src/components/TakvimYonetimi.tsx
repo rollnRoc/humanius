@@ -233,8 +233,8 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                   <option value="all">Tüm Etkinlikler</option>
                   <option value="dogum_gunu">Doğum Günleri</option>
                   <option value="yildonumu">Çalışma Yıldönümleri</option>
-                  <option value="izin">İzin Talepleri & Bildirimleri</option>
-                  <option value="tatil">Resmi Tatiller & İzin Günleri</option>
+                  <option value="tatil">Resmi Tatiller</option>
+                  <option value="toplanti">Toplantı & Organizasyon</option>
                   <option value="egitim">Eğitimler & Seminerler</option>
                   <option value="diger">Diğer / Duyurular</option>
                 </select>
@@ -642,7 +642,7 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <h4 className="text-sm font-medium text-gray-800 mb-3">Etkinlik Türü Renk Kodları</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {(['tatil', 'izin', 'egitim', 'toplanti', 'diger'] as EtkinlikTuru[]).map(tur => (
+          {(['tatil', 'egitim', 'toplanti', 'dogum_gunu', 'yildonumu', 'diger'] as EtkinlikTuru[]).map(tur => (
             <div key={tur} className="flex items-center gap-2">
               <div className={`w-3.5 h-3.5 rounded-full ${getEtkinlikNoktaRengi(tur)}`} />
               <span className="text-xs font-semibold text-gray-700">{getEtkinlikTuruAdi(tur)}</span>
@@ -668,11 +668,10 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                   onChange={(e) => setYeniEtkinlik({ ...yeniEtkinlik, tur: e.target.value as EtkinlikTuru })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 bg-white text-sm font-medium text-gray-800"
                 >
-                  <option value="tatil">🟢 Tatil (Resmi & Genel Tatiller)</option>
-                  <option value="izin">🟠 İzin (Personel İzinleri)</option>
-                  <option value="egitim">🔵 Eğitim (Eğitim & Seminerler)</option>
                   <option value="toplanti">🟣 Toplantı (Toplantı & Etkinlikler)</option>
-                  <option value="diger">🔘 Diğer (Genel & Çeşitli Etkinlikler)</option>
+                  <option value="egitim">🔵 Eğitim (Eğitim & Seminerler)</option>
+                  <option value="tatil">🟢 Tatil (Resmi & Genel Tatiller)</option>
+                  <option value="diger">🔘 Diğer (Genel & Duyuru Etkinlikleri)</option>
                 </select>
               </div>
               <div>
@@ -752,8 +751,27 @@ const TakvimYonetimi: React.FC<TakvimYonetimiProps> = ({
                         calisma_gunu_mu: true,
                         yil: parseInt(newEv.tarih.split('-')[0]) || new Date().getFullYear(),
                       });
+
+                      // Şirket kullanıcılarına sadece takvim etkinliği (tur: 'uyari') bildirimi oluştur
+                      const { data: companyProfiles } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .eq('company_id', companyId);
+
+                      if (companyProfiles && companyProfiles.length > 0) {
+                        const notifs = companyProfiles.map((p: any) => ({
+                          company_id: companyId,
+                          user_id: p.id,
+                          baslik: newEv.baslik,
+                          mesaj: newEv.aciklama || `${newEv.tarih} tarihli yeni takvim etkinliği eklendi.`,
+                          tur: 'uyari',
+                          oncelik: 'normal',
+                          okundu_mu: false,
+                        }));
+                        await supabase.from('bildirimler').insert(notifs);
+                      }
                     } catch (err) {
-                      console.warn('takvim_gunleri insert warning:', err);
+                      console.warn('takvim_gunleri / bildirimler insert warning:', err);
                     }
                   }
 

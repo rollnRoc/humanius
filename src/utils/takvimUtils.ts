@@ -153,41 +153,11 @@ function uid() {
 
 export function createAutomaticEvents(
   employees: Employee[],
-  izinTalepleri: IzinTalebi[],
-  bordrolar: BordroItem[],
+  _izinTalepleri: IzinTalebi[],
+  _bordrolar: BordroItem[],
   year: number = new Date().getFullYear()
 ): TakvimEtkinlik[] {
   const events: TakvimEtkinlik[] = [];
-
-  // İzin talepleri → etkinlik (Sadece onaylanan izinler)
-  izinTalepleri.filter((t) => t.durum === 'onaylandi').forEach((talep) => {
-    const employee = employees.find((e) => e.id === talep.employeeId);
-    let startTarih = talep.baslangicTarihi;
-    let endTarih = talep.bitisTarihi;
-
-    // Shift to selected year if it's legacy 2024 test data
-    if (startTarih && startTarih.startsWith('2024-')) {
-      startTarih = startTarih.replace('2024-', `${year}-`);
-    }
-    if (endTarih && endTarih.startsWith('2024-')) {
-      endTarih = endTarih.replace('2024-', `${year}-`);
-    }
-
-    events.push({
-      id: uid(),
-      baslik: `${employee?.name ?? 'Personel'} - İzinli`,
-      aciklama: `Durum: Onaylandı | Gün: ${talep.gunSayisi}`,
-      tarih: startTarih,
-      bitisTarihi: endTarih,
-      tur: 'izin',
-      oncelik: 'normal',
-      durum: 'tamamlandi',
-      employeeId: talep.employeeId,
-      employeeAdi: employee?.name,
-      departman: employee?.department,
-      otomatik: true,
-    });
-  });
 
   // Resmî tatiller
   const holidays = getResmiTatillerForYear(year);

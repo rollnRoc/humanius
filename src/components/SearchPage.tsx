@@ -14,6 +14,7 @@ import { canAccessView } from '../auth/roles';
 import { formatIzinTuru } from '../utils/izinCalculations';
 import UserNavMenu from './UserNavMenu';
 import { messageService, YoneticiMesaji } from '../services/messageService';
+import { supabase } from '../lib/supabase';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,9 @@ interface SearchPageProps {
   onEmployeeClick: (emp: Employee) => void;
   onNavigate: (view: View) => void;
   companyLogoUrl?: string | null;
+  showAlertNotification?: boolean;
+  activeAlertText?: { title: string; desc: string } | null;
+  onDismissAlert?: () => void;
 }
 
 type Category = 'personel' | 'izin' | 'bordro' | 'sayfa';
@@ -162,6 +166,7 @@ const BlueHLogo: React.FC<{ className?: string; style?: React.CSSProperties }> =
 
 export const SearchPage: React.FC<SearchPageProps> = ({
   employees, izinTalepleri, bordrolar, onEmployeeClick, onNavigate, companyLogoUrl,
+  showAlertNotification: propShowAlert, activeAlertText, onDismissAlert,
 }) => {
   const { appRole, profile, user, signOut } = useAuth();
   const rawRole = (profile?.role || appRole || (user?.user_metadata as any)?.role || '').toLowerCase().trim();
@@ -173,13 +178,13 @@ export const SearchPage: React.FC<SearchPageProps> = ({
   const [activeTab, setActiveTab] = useState<Category | 'all'>('all');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [showAlertNotification, setShowAlertNotification] = useState(() => {
-    try {
-      return localStorage.getItem('humanius_new_alert_notification') === 'true';
-    } catch {
-      return false;
+  const [showAlertNotification, setShowAlertNotification] = useState(Boolean(propShowAlert));
+
+  useEffect(() => {
+    if (propShowAlert !== undefined) {
+      setShowAlertNotification(propShowAlert);
     }
-  });
+  }, [propShowAlert]);
 
   const [inboxMessages, setInboxMessages] = useState<YoneticiMesaji[]>([]);
   const companyId = profile?.company_id || (user?.user_metadata as any)?.company_id || '';
@@ -555,20 +560,33 @@ export const SearchPage: React.FC<SearchPageProps> = ({
                   <Bell className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-amber-900 text-sm">Yeni Etkinlik & Duyuru!</h4>
+                  <h4 className="font-semibold text-amber-900 text-sm">
+                    {activeAlertText?.title || 'Yeni Etkinlik & Duyuru!'}
+                  </h4>
                   <p className="text-xs text-amber-700 mt-0.5">
-                    Takviminizde yeni etkinlikler veya güncel duyurular bulunmaktadır. Lütfen kontrol ediniz.
+                    {activeAlertText?.desc || 'Takviminizde yeni etkinlikler veya güncel duyurular bulunmaktadır. Lütfen kontrol ediniz.'}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
                 <button
                   onClick={() => {
-                    onNavigate('uyari');
+                    setShowAlertNotification(false);
+                    if (onDismissAlert) onDismissAlert();
                     try {
                       localStorage.setItem('humanius_new_alert_notification', 'false');
                       window.dispatchEvent(new Event('storage'));
                     } catch {}
+                    const uid = profile?.id || user?.id;
+                    if (uid) {
+                      supabase
+                        .from('bildirimler')
+                        .update({ okundu_mu: true, okunma_tarihi: new Date().toISOString() })
+                        .eq('user_id', uid)
+                        .eq('okundu_mu', false)
+                        .then(() => {});
+                    }
+                    onNavigate('uyari');
                   }}
                   className="w-full sm:w-auto text-center px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap shrink-0"
                 >
@@ -576,10 +594,21 @@ export const SearchPage: React.FC<SearchPageProps> = ({
                 </button>
                 <button
                   onClick={() => {
+                    setShowAlertNotification(false);
+                    if (onDismissAlert) onDismissAlert();
                     try {
                       localStorage.setItem('humanius_new_alert_notification', 'false');
                       window.dispatchEvent(new Event('storage'));
                     } catch {}
+                    const uid = profile?.id || user?.id;
+                    if (uid) {
+                      supabase
+                        .from('bildirimler')
+                        .update({ okundu_mu: true, okunma_tarihi: new Date().toISOString() })
+                        .eq('user_id', uid)
+                        .eq('okundu_mu', false)
+                        .then(() => {});
+                    }
                   }}
                   className="p-1.5 hover:bg-amber-100 rounded-lg transition-colors text-amber-800 shrink-0"
                 >
