@@ -166,7 +166,10 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
   };
 
   // Load SMS logs according to selected date filter
-  const loadSmsLogs = () => {
+  const loadSmsLogs = async () => {
+    await smsService.refreshFromDatabase();
+    const updatedCfg = smsService.getConfig(effectiveCompanyId);
+    setSmsConfig(updatedCfg);
     const fetched = smsService.getLogs(selectedDate, effectiveCompanyId, employees);
     setSmsLogs(fetched);
   };
@@ -1045,7 +1048,7 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                   SMS Gönderim Kayıt Günlüğü
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Vardiyasını zamanında başlatmayan veya bitirmeyen personellere gönderilen SMS bildirimleri.
+                  Vardiyasını zamanında başlatmayan personellere gönderilen otomatik SMS bildirimleri.
                 </p>
               </div>
 
@@ -1106,7 +1109,6 @@ export const VardiyaSmsYonetimi: React.FC<VardiyaSmsYonetimiProps> = ({
                 >
                   <option value="all">Tüm Bildirim Türleri</option>
                   <option value="start_reminder">Vardiya Başlatma Uyarısı</option>
-                  <option value="end_reminder">Vardiya Bitirme Uyarısı</option>
                   <option value="test">Test SMS</option>
                 </select>
 

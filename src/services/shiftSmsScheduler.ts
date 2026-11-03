@@ -26,7 +26,8 @@ let isWorkerRunning = false;
 
 export const shiftSmsScheduler = {
   /**
-   * Tüm çalışanlar için vardiya başlangıç ve bitiş SMS kontrollerini çalıştırır
+   * Yalnızca SMS servisi aktif şirketler için Vardiya Başlatma SMS kontrollerini çalıştırır.
+   * (Mesai bitişleri otomatik sonlandırıldığı için bitiş SMS kontrolü yapılmaz.)
    */
   async checkAndSendShiftSms(params: {
     employees: Employee[];
@@ -47,22 +48,23 @@ export const shiftSmsScheduler = {
       errors: [],
     };
 
+    await smsService.refreshFromDatabase();
+
+    // Sadece SMS özelliği açık olan şirketlerin aktif personellerini filtrele
     const activeEmployees = params.employees.filter(
-      (e) => e.status !== 'inactive' && e.status !== 'onLeave'
+      (e) =>
+        e.status !== 'inactive' &&
+        e.status !== 'onLeave' &&
+        (smsService.isCompanySmsEnabled(e.company_id, true) ||
+          smsService.isCompanySmsEnabled(e.company, true))
     );
     result.checkedEmployeesCount = activeEmployees.length;
 
-    // Herhangi bir firma için SMS açık mı?
-    const hasAnySmsPermission =
-      smsService.isCompanySmsEnabled(params.companyId) ||
-      activeEmployees.some((e) => smsService.isCompanySmsEnabled(e.company_id || e.company));
-
-    if (!hasAnySmsPermission) {
+    if (activeEmployees.length === 0) {
       return result;
     }
 
     try {
-      // 1. İlgili tüm şirketlerin vardiyalarını, atamalarını ve bugünkü PDKS kayıtlarını yükle
       const companyIds = Array.from(
         new Set(activeEmployees.map((e) => e.company_id || params.companyId).filter(Boolean))
       ) as string[];
@@ -94,27 +96,22 @@ export const shiftSmsScheduler = {
         })
       );
 
-      // 2. Her çalışan için vardiya ve PDKS saatlerini analiz et
       for (const emp of activeEmployees) {
         const empCompanyId = emp.company_id || params.companyId;
-
-        // Firma bazlı SMS kontrolü: Bu firma için SMS kapalıysa kesinlikle SMS gönderme
-        if (!smsService.isCompanySmsEnabled(empCompanyId) && !smsService.isCompanySmsEnabled(emp.company)) {
+        if (!smsService.isCompanySmsEnabled(empCompanyId, true) && !smsService.isCompanySmsEnabled(emp.company, true)) {
           continue;
         }
 
         const empConfig = smsService.getConfig(empCompanyId);
-        const compShifts = shiftsByComp.get(empCompanyId) || shiftsByComp.get('default') || [];
-        const compAssigns = assignsByComp.get(empCompanyId) || assignsByComp.get('default') || {};
+        const compShifts = shiftsByComp.get(empCompanyId || '') || shiftsByComp.get('default') || [];
+        const compAssigns = assignsByComp.get(empCompanyId || '') || assignsByComp.get('default') || {};
         const defaultShift = compShifts.find((s) => s.is_default) || compShifts[0];
 
-        // Çalışanın atanmış vardiyasını bul
         const assignedShiftId = compAssigns[emp.id];
-        let shift: CompanyShift = compShifts.find((s) => s.id === assignedShiftId) || defaultShift;
+        const shift: CompanyShift = compShifts.find((s) => s.id === assignedShiftId) || defaultShift;
 
         if (!shift) continue;
 
-        // Cumartesi ise varsa Cumartesi saatlerini al
         let startTimeStr = shift.start_time || '08:30';
         let endTimeStr = shift.end_time || '18:00';
 
@@ -128,24 +125,14 @@ export const shiftSmsScheduler = {
 
         if (startMinutes === null || endMinutes === null) continue;
 
-        // Tolerans / gecikme dakikaları (Kullanıcı talimatı: 10 dk: 08:30 için 08:40, 18:00 için 18:10)
         const startDelay = empConfig.start_delay_minutes ?? 10;
-        const endDelay = empConfig.end_delay_minutes ?? 10;
-
         const startTriggerMinutes = startMinutes + startDelay;
-        const endTriggerMinutes = endMinutes + endDelay;
 
-        // Çalışanın bugünkü PDKS kaydı
         const todayRec = todayVardiyaMap.get(emp.id);
         const hasGiris = Boolean(
           todayRec?.giris_saati &&
-          todayRec.giris_saati !== '00:00:00' &&
-          todayRec.giris_saati !== '-'
-        );
-        const hasCikis = Boolean(
-          todayRec?.cikis_saati &&
-          todayRec.cikis_saati !== '00:00:00' &&
-          todayRec.cikis_saati !== '-'
+            todayRec.giris_saati !== '00:00:00' &&
+            todayRec.giris_saati !== '-'
         );
 
         const shiftInfo = {
@@ -154,20 +141,12 @@ export const shiftSmsScheduler = {
           end_time: endTimeStr,
         };
 
-        // Gece vardiyası toleransı (örn: 22:00 - 06:00)
-        const isNightShift = endMinutes < startMinutes;
-        const isWithinShiftHours = isNightShift
-          ? currentMinutes >= startTriggerMinutes || currentMinutes < endMinutes
-          : currentMinutes >= startTriggerMinutes && currentMinutes < endMinutes;
+        // Yalnızca vardiya başlangıç penceresinde (+10 dk ile +75 dk arası) ve giriş yoksa başlatma SMS'i gönder
+        const isInStartWindow =
+          currentMinutes >= startTriggerMinutes && currentMinutes <= startTriggerMinutes + 65;
 
-        // ── DURUM 1: VARDIYA BAŞLATMA HATIRLATMASI ───────────────────────────
-        // Örn: 08:30 vardiyası için 08:40 ve sonrasında, vardiya henüz bitmeden önce
-        // KULLANICI KESİN TALİMATI: Sadece vardiyası başlamış ama hala vardiyasını başlatmamış kişilere GÜNDE SADECE 1 KERE
-        if (
-          isWithinShiftHours &&
-          !hasGiris
-        ) {
-          const alreadySent = smsService.hasSentToday(emp.id, 'start_reminder', todayStr, empCompanyId);
+        if (isInStartWindow && !hasGiris) {
+          const alreadySent = smsService.hasSentToday(emp.id, 'start_reminder', todayStr);
           if (alreadySent) {
             result.alreadySentCount++;
           } else {
@@ -175,29 +154,6 @@ export const shiftSmsScheduler = {
             const sendRes = await smsService.sendShiftStartReminder(emp, shiftInfo, empConfig, empCompanyId);
             if (sendRes.success) {
               result.startSmsSent++;
-            } else if (sendRes.error) {
-              result.errors.push({ employeeName: emp.name, error: sendRes.error });
-            }
-          }
-        }
-
-        // ── DURUM 2: VARDIYA BİTİRME HATIRLATMASI ────────────────────────────
-        // Örn: 18:00 vardiyası için 18:10 ve sonrasında (en fazla +180 dk içerisinde)
-        // KULLANICI KESİN TALİMATI: Mesaiye girmiş ama vardiya saati dolduğu halde vardiyasını bitirmemiş kişilere GÜNDE SADECE 1 KERE
-        if (
-          currentMinutes >= endTriggerMinutes &&
-          currentMinutes <= endTriggerMinutes + 180 &&
-          hasGiris &&
-          !hasCikis
-        ) {
-          const alreadySent = smsService.hasSentToday(emp.id, 'end_reminder', todayStr, empCompanyId);
-          if (alreadySent) {
-            result.alreadySentCount++;
-          } else {
-            smsService.markSentToday(emp.id, 'end_reminder', todayStr);
-            const sendRes = await smsService.sendShiftEndReminder(emp, shiftInfo, empConfig, empCompanyId);
-            if (sendRes.success) {
-              result.endSmsSent++;
             } else if (sendRes.error) {
               result.errors.push({ employeeName: emp.name, error: sendRes.error });
             }
@@ -211,28 +167,18 @@ export const shiftSmsScheduler = {
     return result;
   },
 
-  /**
-   * Arka plan otomatik zamanlayıcısını başlatır (her 60 saniyede bir kontrol)
-   */
   startShiftSmsWorker(getEmployees: () => Employee[], getCompanyId: () => string): void {
     if (workerIntervalId) {
-      return; // Zaten çalışıyor
+      return;
     }
-
-    // İlk kontrol 5 saniye sonra çalışsın
     setTimeout(() => {
       this.tickWorker(getEmployees, getCompanyId);
     }, 5000);
-
-    // Sonra her 60 saniyede bir tekrar etsin
     workerIntervalId = setInterval(() => {
       this.tickWorker(getEmployees, getCompanyId);
-    }, 60000);
+    }, 5 * 60 * 1000);
   },
 
-  /**
-   * Tekil kontrol adımı
-   */
   async tickWorker(getEmployees: () => Employee[], getCompanyId: () => string): Promise<void> {
     if (isWorkerRunning) return;
     try {
@@ -249,9 +195,6 @@ export const shiftSmsScheduler = {
     }
   },
 
-  /**
-   * Arka plan zamanlayıcısını durdurur
-   */
   stopShiftSmsWorker(): void {
     if (workerIntervalId) {
       clearInterval(workerIntervalId);

@@ -197,6 +197,7 @@ const SistemAyarlari: React.FC<SistemAyarlariProps> = ({ defaultTab, mode }) => 
   const [smsRefreshKey, setSmsRefreshKey] = useState(0);
 
   useEffect(() => {
+    smsService.refreshFromDatabase().then(() => setSmsRefreshKey(k => k + 1));
     const handleSmsChange = () => setSmsRefreshKey(k => k + 1);
     window.addEventListener('humanius_sms_company_updated', handleSmsChange);
     return () => window.removeEventListener('humanius_sms_company_updated', handleSmsChange);

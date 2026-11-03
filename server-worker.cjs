@@ -1,10 +1,12 @@
 /**
- * Humanius 24/7 Shift SMS Background Worker
- * 
- * Bu servis tarayıcı veya yönetici açık olsun ya da olmasın,
- * Google Cloud Run üzerinde 7/24 arka planda çalışarak her 60 saniyede bir
- * mesaisi başlayıp giriş yapmayan veya mesaisi bitip çıkış yapmayan çalışanları tespit eder
- * ve Verimor üzerinden SMS bildirimlerini iletir.
+ * Humanius 24/7 Shift SMS Background Worker (Database-First & Smart Window Optimized)
+ *
+ * - Yalnızca veritabanında (sistem_parametreleri -> company_sms_registry) SMS özelliği AÇIK olan
+ *   şirketlerin personellerini kontrol eder (varsayılan olarak tüm firmalar kapalıdır).
+ * - Yalnızca Vardiya Başlatma Hatırlatması (start_reminder) gönderir; vardiya bitişleri otomatik
+ *   sonlandırıldığı için bitiş SMS'i gönderilmez.
+ * - Gereksiz veritabanı sorgularını önlemek için 5 dakikada bir çalışır ve yalnızca vardiya başlangıç
+ *   penceresinde (+10 dk ile +70 dk arası) henüz bugün kontrol edilmemiş personel varsa PDKS tablosunu sorgular.
  */
 
 const http = require('http');
@@ -24,51 +26,53 @@ process.on('unhandledRejection', (reason) => {
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://gfbtjdedaoleqhrlebof.supabase.co';
 const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_wxlAHN7E63-NbwFiVhJBeA_F3PYc3w-';
-const AUTH_EMAIL = 'gonulunlu@humanius.net'; // Admin auth to query PDKS records
+const AUTH_EMAIL = 'gonulunlu@humanius.net';
+const GLOBAL_STORAGE_COMPANY_ID = '11111111-1111-1111-1111-111111111111';
 
 const VERIMOR_USERNAME = process.env.VERIMOR_USERNAME || '908502428910';
 const VERIMOR_PASSWORD = process.env.VERIMOR_PASSWORD || '3e3f25f6-mpsp-1406';
 const VERIMOR_SOURCE_ADDR = process.env.VERIMOR_SOURCE_ADDR || '';
 const LOGIN_URL = 'https://humanius.net';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ── In-Memory & Persistent State ──────────────────────────────────────────
 let workerState = {
-  enabled: true, // 7/24 Genel otomatik SMS açık
-  companyOverrides: {}, // { [companyId]: boolean }
+  enabled: true,
+  companyOverrides: {}, // { [companyId]: boolean } - Sadece true olan firmalar açıktır
   startDelayMinutes: 10,
-  endDelayMinutes: 10,
   lastTickIso: null,
   lastTickStats: null,
-  sentHistory: {}, // { [key: `${date}_${empId}_${type}`]: { timestamp, phone, name } }
-  recentLogs: [] // Son 200 gönderim kaydı
+  sentHistory: {}, // { [key: `${date}_${empId}_start_reminder`]: { timestamp, phone, name, status } }
+  checkedGirisToday: {}, // { [key: `${date}_${empId}`]: true } - Giriş yaptığı tespit edilenleri tekrar sorgulamaz
+  recentLogs: [],
 };
 
-// State yükle
 function loadState() {
   try {
     if (fs.existsSync(STATE_FILE)) {
       const raw = fs.readFileSync(STATE_FILE, 'utf8');
       const parsed = JSON.parse(raw);
-      workerState = { ...workerState, ...parsed };
-      console.log(`[ShiftSmsWorker] Kalıcı durum dosyası yüklendi (${STATE_FILE}).`);
+      workerState = {
+        ...workerState,
+        ...parsed,
+        checkedGirisToday: parsed.checkedGirisToday || {},
+      };
     }
   } catch (err) {
     console.warn('[ShiftSmsWorker] Durum dosyası okuma uyarısı:', err.message);
   }
 }
 
-// State kaydet
 function saveState() {
   try {
     const dir = path.dirname(STATE_FILE);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    // Son 200 log ile sınırla
     if (workerState.recentLogs && workerState.recentLogs.length > 200) {
       workerState.recentLogs = workerState.recentLogs.slice(0, 200);
     }
-    // Sent history'de 7 günden eski kayıtları temizle
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     if (workerState.sentHistory) {
       for (const [k, v] of Object.entries(workerState.sentHistory)) {
@@ -94,7 +98,7 @@ function getTurkeyTime(customDate) {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false
+    hour12: false,
   });
   const parts = formatter.formatToParts(now);
   const map = {};
@@ -113,7 +117,7 @@ function getTurkeyTime(customDate) {
 
   const dayFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Europe/Istanbul',
-    weekday: 'short'
+    weekday: 'short',
   });
   const weekday = dayFormatter.format(now);
   const isSaturday = weekday === 'Sat';
@@ -141,16 +145,103 @@ function formatPhone(phone) {
   return null;
 }
 
-// ── In-Memory Cache (Quota & Egress Koruması - 15 Dakika TTL) ─────────────
+// ── In-Memory Cache (Veritabanı Sorgu Optimizasyonu - 30 Dakika TTL) ────────
+let cachedRegistry = null;
+let cachedRegistryExpiresAt = 0;
 let cachedEmployees = null;
 let cachedEmployeesExpiresAt = 0;
+let cachedEmployeesKey = '';
 let cachedShifts = null;
 let cachedShiftsExpiresAt = 0;
 let cachedAssigns = null;
 let cachedAssignsExpiresAt = 0;
-let backoffUntil = 0; // Hata veya kısıtlama durumunda geçici bekleme süresi
+let backoffUntil = 0;
 
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || '';
+
+// ── Veritabanı Sistem Parametresi Okuma / Yazma ──────────────────────────
+async function getSystemParam(ad, companyId = GLOBAL_STORAGE_COMPANY_ID) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/user-management`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: ANON_KEY,
+        Authorization: `Bearer ${ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        operation: 'get_system_parameter',
+        companyId,
+        kategori: 'sistem_kurallari',
+        ad,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !data.deger) return null;
+    return typeof data.deger === 'string' ? JSON.parse(data.deger) : data.deger;
+  } catch (err) {
+    console.warn(`[ShiftSmsWorker] getSystemParam (${ad}) uyarısı:`, err.message);
+    return null;
+  }
+}
+
+async function saveSystemParam(ad, value, aciklama = 'SMS Worker Verisi', companyId = GLOBAL_STORAGE_COMPANY_ID) {
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/user-management`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: ANON_KEY,
+        Authorization: `Bearer ${ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        operation: 'save_system_parameter',
+        companyId,
+        kategori: 'sistem_kurallari',
+        ad,
+        deger: typeof value === 'string' ? value : JSON.stringify(value),
+        aciklama,
+      }),
+    });
+  } catch (err) {
+    console.warn(`[ShiftSmsWorker] saveSystemParam (${ad}) uyarısı:`, err.message);
+  }
+}
+
+async function loadCompanyRegistry(force = false) {
+  if (cachedRegistry && Date.now() < cachedRegistryExpiresAt && !force) {
+    return cachedRegistry;
+  }
+  const dbReg = await getSystemParam('company_sms_registry');
+  if (dbReg && typeof dbReg === 'object') {
+    workerState.companyOverrides = dbReg;
+    cachedRegistry = dbReg;
+    cachedRegistryExpiresAt = Date.now() + 15 * 60 * 1000; // 15 dk cache
+    saveState();
+    return dbReg;
+  }
+  cachedRegistry = workerState.companyOverrides || {};
+  cachedRegistryExpiresAt = Date.now() + 5 * 60 * 1000;
+  return cachedRegistry;
+}
+
+async function loadLogsFromDb() {
+  const dbLogs = await getSystemParam('sms_logs_v1');
+  if (Array.isArray(dbLogs)) {
+    workerState.recentLogs = dbLogs.slice(0, 200);
+    saveState();
+  }
+}
+
+async function appendLogToDb(logEntry) {
+  workerState.recentLogs.unshift(logEntry);
+  if (workerState.recentLogs.length > 200) {
+    workerState.recentLogs = workerState.recentLogs.slice(0, 200);
+  }
+  saveState();
+  await saveSystemParam('sms_logs_v1', workerState.recentLogs, 'Vardiya SMS Gönderim Günlüğü');
+}
 
 // ── Supabase Token Yönetimi ───────────────────────────────────────────────
 let cachedToken = null;
@@ -169,22 +260,25 @@ async function getSupabaseToken() {
       headers: {
         'Content-Type': 'application/json',
         apikey: ANON_KEY,
-        Authorization: `Bearer ${ANON_KEY}`
+        Authorization: `Bearer ${ANON_KEY}`,
       },
-      body: JSON.stringify({ operation: 'quick_login', email: AUTH_EMAIL, workerSecret: 'humanius-sms-worker-v1' })
+      body: JSON.stringify({
+        operation: 'quick_login',
+        email: AUTH_EMAIL,
+        workerSecret: 'humanius-sms-worker-v1',
+      }),
     });
     if (loginRes.status === 402 || loginRes.status === 403) {
-      console.warn('[ShiftSmsWorker] Supabase servisi kısıtlı (402/403). 5 dakika bekleme başlatılıyor.');
-      backoffUntil = Date.now() + 5 * 60 * 1000;
+      backoffUntil = Date.now() + 10 * 60 * 1000;
       return null;
     }
     const loginData = await loginRes.json();
-    if (!loginData.token_hash) throw new Error('Token hash alınamadı: ' + JSON.stringify(loginData));
+    if (!loginData.token_hash) throw new Error('Token hash alınamadı');
 
     const verifyRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: ANON_KEY },
-      body: JSON.stringify({ token_hash: loginData.token_hash, type: 'magiclink' })
+      body: JSON.stringify({ token_hash: loginData.token_hash, type: 'magiclink' }),
     });
     const authSession = await verifyRes.json();
     if (!authSession.access_token) throw new Error('Access token üretilemedi');
@@ -212,55 +306,39 @@ async function sendVerimorSms(destPhone, message) {
     messages: [
       {
         msg: message,
-        dest: formattedDest
-      }
-    ]
+        dest: formattedDest,
+      },
+    ],
   };
 
-  // 1. Doğrudan Verimor API çağrısı
   try {
     const res = await fetch('https://sms.verimor.com.tr/v2/send.json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
     const responseText = await res.text();
     if (res.ok) {
       return { success: true, rawResponse: responseText };
     }
-    // Eğer 403 veya IP kısıtlaması ise edge function fallback dene
-    console.warn(`[ShiftSmsWorker] Doğrudan Verimor yanıtı (${res.status}): ${responseText}`);
-  } catch (fetchErr) {
-    console.warn('[ShiftSmsWorker] Doğrudan Verimor ağ hatası:', fetchErr.message);
-  }
-
-  // 2. Supabase Edge Function fallback (send-sms)
-  try {
-    const edgeRes = await fetch(`${SUPABASE_URL}/functions/v1/send-sms`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: ANON_KEY,
-        Authorization: `Bearer ${ANON_KEY}`
-      },
-      body: JSON.stringify(payload)
-    });
-    const edgeData = await edgeRes.json();
-    if (edgeRes.ok && (edgeData.success || edgeData.data)) {
-      return { success: true, rawResponse: edgeData };
+    if (responseText.includes('İzinsiz DNS') || responseText.includes('İzinsiz IP') || res.status === 403) {
+      return {
+        success: false,
+        error: `Verimor IP Kısıtlaması (403): ${responseText}. Verimor panelinden sunucu IP kısıtlaması kaldırılmalıdır.`,
+      };
     }
-    return { success: false, error: edgeData.error || 'Edge function üzerinden SMS gönderilemedi' };
-  } catch (edgeErr) {
-    return { success: false, error: `SMS gönderim hatası: ${edgeErr.message}` };
+    return { success: false, error: `Verimor API Hatası (${res.status}): ${responseText}` };
+  } catch (fetchErr) {
+    return { success: false, error: `Verimor bağlantı hatası: ${fetchErr.message}` };
   }
 }
 
-// ── Ana Vardiya Tarama Fonksiyonu ─────────────────────────────────────────
+// ── Ana Vardiya Tarama Fonksiyonu (Akıllı Pencere & Minimum Sorgu) ────────
 let isTicking = false;
 
 async function checkAndSendShiftSms(options = {}) {
   const trTime = getTurkeyTime(options.targetDate);
-  const { todayStr, trTimeStr, currentMinutes, isSaturday } = trTime;
+  const { todayStr, trTimeStr, currentMinutes, isSaturday, isSunday } = trTime;
 
   const stats = {
     timestamp: new Date().toISOString(),
@@ -269,180 +347,158 @@ async function checkAndSendShiftSms(options = {}) {
     startSmsSent: 0,
     endSmsSent: 0,
     alreadySentCount: 0,
-    errors: []
+    skippedQueries: false,
+    errors: [],
   };
 
-  // Eğer kısıtlama veya hata nedeniyle bekleme modundaysa atla
-  if (Date.now() < backoffUntil && !options.forceRun) {
-    return { ...stats, message: 'Servis kota/hata koruması nedeniyle geçici beklemede.' };
+  // Pazar günleri mesai başlangıç SMS kontrolü yapma (0 sorgu)
+  if (isSunday && !options.forceRun) {
+    return { ...stats, skippedQueries: true, message: 'Pazar günü otomatik SMS taraması pasif.' };
   }
 
-  // Eğer genel olarak kapatılmışsa çık
+  if (Date.now() < backoffUntil && !options.forceRun) {
+    return { ...stats, skippedQueries: true, message: 'Servis geçici beklemede.' };
+  }
+
   if (workerState.enabled === false && !options.forceRun) {
-    return { ...stats, message: 'SMS servisi genel ayarlardan duraklatılmıştır.' };
+    return { ...stats, skippedQueries: true, message: 'SMS servisi genel ayarlardan duraklatılmıştır.' };
+  }
+
+  // 1. Veritabanından yalnızca SMS'i AÇIK olan şirketlerin UUID listesini al
+  const registry = await loadCompanyRegistry(Boolean(options.forceRun));
+  const enabledCompanyIds = Object.entries(registry || {})
+    .filter(([k, val]) => val === true && UUID_REGEX.test(k))
+    .map(([k]) => k);
+
+  if (enabledCompanyIds.length === 0) {
+    return {
+      ...stats,
+      skippedQueries: true,
+      message: 'SMS servisi aktif edilmiş herhangi bir şirket bulunmuyor (0 sorgu).',
+    };
   }
 
   const token = await getSupabaseToken();
   const effectiveKey = SERVICE_ROLE_KEY || ANON_KEY;
   const authHeaders = {
     apikey: effectiveKey,
-    Authorization: token ? `Bearer ${token}` : `Bearer ${effectiveKey}`
+    Authorization: token ? `Bearer ${token}` : `Bearer ${effectiveKey}`,
   };
 
   try {
-    // 1. Çalışanları yükle (15 Dakika In-Memory Cache)
-    let allEmployees = [];
-    if (cachedEmployees && Date.now() < cachedEmployeesExpiresAt && !options.forceRun) {
-      allEmployees = cachedEmployees;
+    const companiesKey = enabledCompanyIds.slice().sort().join(',');
+    const companyFilterParam = `in.(${enabledCompanyIds.join(',')})`;
+
+    // 2. Yalnızca SMS'i açık şirketlerin çalışanlarını, vardiyalarını ve atamalarını yükle (30 Dk Cache)
+    let activeEmployees = [];
+    if (
+      cachedEmployees &&
+      cachedEmployeesKey === companiesKey &&
+      Date.now() < cachedEmployeesExpiresAt &&
+      !options.forceRun
+    ) {
+      activeEmployees = cachedEmployees;
     } else {
-      // 1.1 Öncelik: Hafif PostgREST sorgusu (Sadece gerekli 7 kolon, minik egress)
-      try {
-        const pUrl = `${SUPABASE_URL}/rest/v1/employees?select=id,name,phone,mobile,company_id,status,company&status=neq.inactive`;
-        const pRes = await fetch(pUrl, { headers: authHeaders });
-        if (pRes.ok) {
-          const pData = await pRes.json();
-          if (Array.isArray(pData) && pData.length > 0) {
-            allEmployees = pData;
-          }
-        }
-      } catch (dbErr) {
-        console.warn('[ShiftSmsWorker] PostgREST employees sorgusu uyarısı:', dbErr.message);
-      }
-
-      // 1.2 Yedek: PostgREST boş veya başarısız ise Edge Function
-      if (allEmployees.length === 0) {
-        const empRes = await fetch(`${SUPABASE_URL}/functions/v1/user-management`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: effectiveKey,
-            Authorization: `Bearer ${effectiveKey}`
-          },
-          body: JSON.stringify({ operation: 'list_employees' })
-        });
-        if (empRes.status === 402 || empRes.status === 403) {
-          console.warn('[ShiftSmsWorker] Supabase kota aşımı (402/403). Bekleme başlatıldı.');
-          backoffUntil = Date.now() + 5 * 60 * 1000;
-          return { ...stats, message: 'Supabase kota kısıtlaması nedeniyle beklemede.' };
-        }
+      const empUrl = `${SUPABASE_URL}/rest/v1/employees?select=id,name,phone,mobile,company_id,status,company&company_id=${companyFilterParam}&status=neq.inactive`;
+      const empRes = await fetch(empUrl, { headers: authHeaders });
+      if (empRes.ok) {
         const empData = await empRes.json();
-        allEmployees = empData.employees || [];
-      }
-
-      if (allEmployees.length > 0) {
-        cachedEmployees = allEmployees;
-        cachedEmployeesExpiresAt = Date.now() + 15 * 60 * 1000;
+        if (Array.isArray(empData)) {
+          activeEmployees = empData.filter((e) => e.status !== 'inactive' && e.status !== 'onLeave');
+          cachedEmployees = activeEmployees;
+          cachedEmployeesKey = companiesKey;
+          cachedEmployeesExpiresAt = Date.now() + 30 * 60 * 1000; // 30 dk cache
+        }
       }
     }
 
-    const activeEmployees = (allEmployees || []).filter(
-      (e) => e.status !== 'inactive' && e.status !== 'onLeave'
-    );
     stats.checkedEmployees = activeEmployees.length;
+    if (activeEmployees.length === 0) {
+      return { ...stats, skippedQueries: true, message: 'Aktif şirkette kontrol edilecek personel yok.' };
+    }
 
-    // 2. Vardiyalar ve Atamalar (15 Dakika In-Memory Cache) + Bugünkü PDKS (Canlı)
     let allShifts = cachedShifts;
     let allAssigns = cachedAssigns;
-
     const needShifts = !allShifts || Date.now() >= cachedShiftsExpiresAt || options.forceRun;
     const needAssigns = !allAssigns || Date.now() >= cachedAssignsExpiresAt || options.forceRun;
 
-    const fetchPromises = [];
+    if (needShifts || needAssigns) {
+      const [shiftsRes, assignsRes] = await Promise.all([
+        needShifts
+          ? fetch(
+              `${SUPABASE_URL}/rest/v1/company_shifts?select=id,name,start_time,end_time,company_id,is_default,saturday_start_time,saturday_end_time&company_id=${companyFilterParam}`,
+              { headers: authHeaders }
+            )
+              .then((r) => r.json())
+              .catch(() => [])
+          : Promise.resolve(allShifts),
+        needAssigns
+          ? fetch(`${SUPABASE_URL}/rest/v1/company_shift_assignments?select=employee_id,shift_id`, {
+              headers: authHeaders,
+            })
+              .then((r) => r.json())
+              .catch(() => [])
+          : Promise.resolve(allAssigns),
+      ]);
 
-    if (needShifts) {
-      fetchPromises.push(
-        fetch(`${SUPABASE_URL}/rest/v1/company_shifts?select=id,name,start_time,end_time,company_id,is_default,saturday_start_time,saturday_end_time`, { headers: authHeaders })
-          .then(r => r.json())
-          .catch(() => [])
-      );
-    } else {
-      fetchPromises.push(Promise.resolve(allShifts));
+      if (needShifts && Array.isArray(shiftsRes)) {
+        allShifts = shiftsRes;
+        cachedShifts = shiftsRes;
+        cachedShiftsExpiresAt = Date.now() + 30 * 60 * 1000;
+      }
+      if (needAssigns && Array.isArray(assignsRes)) {
+        allAssigns = assignsRes;
+        cachedAssigns = assignsRes;
+        cachedAssignsExpiresAt = Date.now() + 30 * 60 * 1000;
+      }
     }
 
-    if (needAssigns) {
-      fetchPromises.push(
-        fetch(`${SUPABASE_URL}/rest/v1/company_shift_assignments?select=employee_id,shift_id`, { headers: authHeaders })
-          .then(r => r.json())
-          .catch(() => [])
-      );
-    } else {
-      fetchPromises.push(Promise.resolve(allAssigns));
-    }
-
-    // PDKS kayıtları canlı (sadece bugünün ve sadece gerekli 4 alan)
-    fetchPromises.push(
-      fetch(`${SUPABASE_URL}/rest/v1/pdks_vardiya_kayitlari?select=employee_id,giris_saati,cikis_saati,tarih&tarih=gte.${todayStr}`, { headers: authHeaders })
-        .then(r => r.json())
-        .catch(() => [])
-    );
-
-    const [shiftsRes, assignsRes, pdksRes] = await Promise.all(fetchPromises);
-
-    if (needShifts && Array.isArray(shiftsRes) && shiftsRes.length > 0) {
-      allShifts = shiftsRes;
-      cachedShifts = shiftsRes;
-      cachedShiftsExpiresAt = Date.now() + 15 * 60 * 1000;
-    } else if (!allShifts) {
-      allShifts = Array.isArray(shiftsRes) ? shiftsRes : [];
-    }
-
-    if (needAssigns && Array.isArray(assignsRes) && assignsRes.length > 0) {
-      allAssigns = assignsRes;
-      cachedAssigns = assignsRes;
-      cachedAssignsExpiresAt = Date.now() + 15 * 60 * 1000;
-    } else if (!allAssigns) {
-      allAssigns = Array.isArray(assignsRes) ? assignsRes : [];
-    }
-
-    const todayPdks = Array.isArray(pdksRes) ? pdksRes : [];
-
-    // Haritaları oluştur
     const shiftsByCompany = new Map();
-    allShifts.forEach((s) => {
+    (allShifts || []).forEach((s) => {
       const cid = s.company_id || 'default';
       if (!shiftsByCompany.has(cid)) shiftsByCompany.set(cid, []);
       shiftsByCompany.get(cid).push(s);
     });
 
     const assignsByEmp = new Map();
-    allAssigns.forEach((a) => {
+    (allAssigns || []).forEach((a) => {
       if (a.employee_id && a.shift_id) {
         assignsByEmp.set(a.employee_id, a.shift_id);
       }
     });
 
-    const todayPdksByEmp = new Map();
-    todayPdks.forEach((p) => {
-      const pDate = String(p.tarih).split('T')[0];
-      if (pDate === todayStr && p.employee_id) {
-        todayPdksByEmp.set(p.employee_id, p);
-      }
-    });
+    // 3. ÖN KONTROL (0 PDKS SORGUSU):
+    // Şu anki dakika itibarıyla vardiya başlangıç penceresinde (+10 dk ile +75 dk arası) olan
+    // ve bugün henüz SMS gönderilmemiş / giriş yaptığı doğrulanmamış personel var mı?
+    const startDelay = workerState.startDelayMinutes || 10;
+    const candidates = [];
 
-    // 3. Çalışanları tek tek analiz et
     for (const emp of activeEmployees) {
-      const companyId = emp.company_id || 'default';
+      const companyId = emp.company_id;
+      if (!companyId || registry[companyId] !== true) continue;
 
-      // Firma açık mı? Eğer firma için açıkça false verilmemişse çalıştır
-      const compSetting = workerState.companyOverrides[companyId];
-      if (compSetting === false) {
+      const sentKey = `${todayStr}_${emp.id}_start_reminder`;
+      const girisCacheKey = `${todayStr}_${emp.id}`;
+
+      if (workerState.sentHistory[sentKey]) {
+        stats.alreadySentCount++;
+        continue;
+      }
+      if (workerState.checkedGirisToday[girisCacheKey] && !options.forceRun) {
         continue;
       }
 
-      // Çalışanın vardiyasını bul
-      const compShifts = shiftsByCompany.get(companyId) || shiftsByCompany.get('default') || allShifts;
+      const compShifts = shiftsByCompany.get(companyId) || [];
       const defaultShift = compShifts.find((s) => s.is_default) || compShifts[0] || {
         name: 'Standart Vardiya',
         start_time: '08:30',
-        end_time: '18:00'
+        end_time: '18:00',
       };
-
       const assignedShiftId = assignsByEmp.get(emp.id);
       const shift = compShifts.find((s) => s.id === assignedShiftId) || defaultShift;
 
       let startTimeStr = shift.start_time || '08:30';
       let endTimeStr = shift.end_time || '18:00';
-
       if (isSaturday && shift.saturday_start_time && shift.saturday_end_time) {
         startTimeStr = shift.saturday_start_time;
         endTimeStr = shift.saturday_end_time;
@@ -450,149 +506,131 @@ async function checkAndSendShiftSms(options = {}) {
 
       const startMinutes = timeStringToMinutes(startTimeStr);
       const endMinutes = timeStringToMinutes(endTimeStr);
-
       if (startMinutes === null || endMinutes === null) continue;
 
-      const startDelay = workerState.startDelayMinutes || 15;
-      const endDelay = workerState.endDelayMinutes || 15;
-
       const startTriggerMinutes = startMinutes + startDelay;
-      const endTriggerMinutes = endMinutes + endDelay;
 
-      // PDKS kayıtları
+      // Sadece vardiya başlangıcından +10 dk sonra ile +75 dk sonrası arasındaki pencerede kontrol et
+      // (Böylece günün diğer 23 saatinde PDKS tablosuna hiç sorgu atılmaz)
+      const isInStartCheckWindow =
+        currentMinutes >= startTriggerMinutes && currentMinutes <= startTriggerMinutes + 65;
+
+      if (isInStartCheckWindow) {
+        candidates.push({
+          emp,
+          companyId,
+          sentKey,
+          girisCacheKey,
+          shiftInfo: {
+            name: shift.name || 'Vardiya',
+            start_time: startTimeStr,
+            end_time: endTimeStr,
+          },
+        });
+      }
+    }
+
+    // Eğer şu an vardiya başlangıç penceresinde kontrol bekleyen kimse yoksa PDKS sorgusu atmadan çık!
+    if (candidates.length === 0) {
+      stats.skippedQueries = true;
+      workerState.lastTickIso = new Date().toISOString();
+      workerState.lastTickStats = stats;
+      return stats;
+    }
+
+    // 4. Yalnızca aday personellerin bulunduğu aktif şirketler için bugünkü PDKS kayıtlarını çek
+    const pdksRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/pdks_vardiya_kayitlari?select=employee_id,giris_saati,tarih&company_id=${companyFilterParam}&tarih=eq.${todayStr}`,
+      { headers: authHeaders }
+    )
+      .then((r) => r.json())
+      .catch(() => []);
+
+    const todayPdksByEmp = new Map();
+    if (Array.isArray(pdksRes)) {
+      pdksRes.forEach((p) => {
+        if (p.employee_id) {
+          todayPdksByEmp.set(p.employee_id, p);
+        }
+      });
+    }
+
+    // 5. Adayları kontrol et: Giriş yapmışsa belleğe kaydet, yapmamışsa günde 1 kez başlatma SMS'i gönder
+    for (const item of candidates) {
+      const { emp, companyId, sentKey, girisCacheKey, shiftInfo } = item;
       const todayRec = todayPdksByEmp.get(emp.id);
       const hasGiris = Boolean(
         todayRec?.giris_saati &&
-        todayRec.giris_saati !== '00:00:00' &&
-        todayRec.giris_saati !== '-'
-      );
-      const hasCikis = Boolean(
-        todayRec?.cikis_saati &&
-        todayRec.cikis_saati !== '00:00:00' &&
-        todayRec.cikis_saati !== '-'
+          todayRec.giris_saati !== '00:00:00' &&
+          todayRec.giris_saati !== '-'
       );
 
-      const shiftInfo = {
-        name: shift.name || 'Vardiya',
-        start_time: startTimeStr,
-        end_time: endTimeStr
-      };
-
-      // Gece vardiyası desteği (örn: 22:00 - 06:00)
-      const isNightShift = endMinutes < startMinutes;
-      const isWithinShiftHours = isNightShift
-        ? currentMinutes >= startTriggerMinutes || currentMinutes < endMinutes
-        : currentMinutes >= startTriggerMinutes && currentMinutes < endMinutes;
-
-      // ── DURUM 1: VARDIYA BAŞLATMA HATIRLATMASI ───────────────────────────
-      // Örn: 08:30 vardiyası için 08:40 ve sonrasında, vardiya bitmeden önce, giriş yoksa
-      if (isWithinShiftHours && !hasGiris) {
-        const sentKey = `${todayStr}_${emp.id}_start_reminder`;
-        if (workerState.sentHistory[sentKey]) {
-          stats.alreadySentCount++;
-        } else {
-          const targetPhone = emp.phone || emp.mobile;
-          if (!targetPhone) {
-            stats.errors.push({ employee: emp.name, error: 'Telefon numarası eksik' });
-            continue;
-          }
-
-          const shiftText = `${shiftInfo.start_time} - ${shiftInfo.end_time}`;
-          const smsMessage =
-            `Sayın ${emp.name},\n` +
-            `Bugün ${shiftText} vardiyanız başlamıştır ancak henüz vardiyanızı başlatmadığınız tespit edilmiştir. Lütfen sisteme giriş yaparak vardiyanızı başlatınız.\n` +
-            `${LOGIN_URL}`;
-
-          const sendRes = await sendVerimorSms(targetPhone, smsMessage);
-
-          const logEntry = {
-            id: `sms-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-            employee_id: emp.id,
-            employee_name: emp.name,
-            phone: targetPhone,
-            type: 'start_reminder',
-            shift_name: shiftInfo.name,
-            shift_time: shiftText,
-            message: smsMessage,
-            status: sendRes.success ? 'success' : 'failed',
-            error_message: sendRes.error,
-            timestamp: new Date().toISOString(),
-            date: todayStr
-          };
-
-          workerState.recentLogs.unshift(logEntry);
-
-          if (sendRes.success) {
-            stats.startSmsSent++;
-            workerState.sentHistory[sentKey] = {
-              timestamp: new Date().toISOString(),
-              phone: targetPhone,
-              name: emp.name
-            };
-            console.log(`[ShiftSmsWorker] 🟢 Vardiya Başlatma SMS'i Gönderildi: ${emp.name} (${targetPhone})`);
-          } else {
-            stats.errors.push({ employee: emp.name, error: sendRes.error });
-            console.warn(`[ShiftSmsWorker] 🔴 SMS Gönderilemedi (${emp.name}): ${sendRes.error}`);
-          }
-        }
+      if (hasGiris) {
+        // Personel zaten giriş yapmış, bugün bir daha PDKS sorgusuna dahil etme
+        workerState.checkedGirisToday[girisCacheKey] = true;
+        continue;
       }
 
-      // ── DURUM 2: VARDIYA BİTİRME HATIRLATMASI ────────────────────────────
-      // Örn: 18:00 vardiyası için 18:10 ve sonrasında (+180 dk içinde), giriş var ama çıkış yoksa
-      if (
-        currentMinutes >= endTriggerMinutes &&
-        currentMinutes <= endTriggerMinutes + 180 &&
-        hasGiris &&
-        !hasCikis
-      ) {
-        const sentKey = `${todayStr}_${emp.id}_end_reminder`;
-        if (workerState.sentHistory[sentKey]) {
-          stats.alreadySentCount++;
-        } else {
-          const targetPhone = emp.phone || emp.mobile;
-          if (!targetPhone) {
-            stats.errors.push({ employee: emp.name, error: 'Telefon numarası eksik' });
-            continue;
-          }
+      const targetPhone = emp.phone || emp.mobile;
+      // Tekrar denemeyi önlemek için sentHistory'ye hemen işle (hata alsa bile her dakika tekrar denemesin)
+      workerState.sentHistory[sentKey] = {
+        timestamp: new Date().toISOString(),
+        phone: targetPhone || '-',
+        name: emp.name,
+      };
 
-          const shiftText = `${shiftInfo.start_time} - ${shiftInfo.end_time}`;
-          const smsMessage =
-            `Sayın ${emp.name},\n` +
-            `Bugün ${shiftText} vardiyanız tamamlanmıştır ancak henüz vardiyanızı bitirmediğiniz tespit edilmiştir. Lütfen sisteme giriş yaparak vardiyanızı bitiriniz.\n` +
-            `${LOGIN_URL}`;
+      if (!targetPhone) {
+        stats.errors.push({ employee: emp.name, error: 'Telefon numarası eksik' });
+        await appendLogToDb({
+          id: `sms-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          employee_id: emp.id,
+          employee_name: emp.name,
+          company_id: companyId,
+          phone: '-',
+          type: 'start_reminder',
+          shift_name: shiftInfo.name,
+          shift_time: `${shiftInfo.start_time} - ${shiftInfo.end_time}`,
+          message: '',
+          status: 'failed',
+          error_message: 'Personelin sistemde kayıtlı cep telefonu bulunamadı.',
+          timestamp: new Date().toISOString(),
+          date: todayStr,
+        });
+        continue;
+      }
 
-          const sendRes = await sendVerimorSms(targetPhone, smsMessage);
+      const shiftText = `${shiftInfo.start_time} - ${shiftInfo.end_time}`;
+      const smsMessage =
+        `Sayın ${emp.name},\n` +
+        `Bugün ${shiftText} vardiyanız başlamıştır ancak henüz vardiyanızı başlatmadığınız tespit edilmiştir. Lütfen sisteme giriş yaparak vardiyanızı başlatınız.\n` +
+        `${LOGIN_URL}`;
 
-          const logEntry = {
-            id: `sms-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-            employee_id: emp.id,
-            employee_name: emp.name,
-            phone: targetPhone,
-            type: 'end_reminder',
-            shift_name: shiftInfo.name,
-            shift_time: shiftText,
-            message: smsMessage,
-            status: sendRes.success ? 'success' : 'failed',
-            error_message: sendRes.error,
-            timestamp: new Date().toISOString(),
-            date: todayStr
-          };
+      const sendRes = await sendVerimorSms(targetPhone, smsMessage);
 
-          workerState.recentLogs.unshift(logEntry);
+      const logEntry = {
+        id: `sms-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        employee_id: emp.id,
+        employee_name: emp.name,
+        company_id: companyId,
+        phone: targetPhone,
+        type: 'start_reminder',
+        shift_name: shiftInfo.name,
+        shift_time: shiftText,
+        message: smsMessage,
+        status: sendRes.success ? 'success' : 'failed',
+        error_message: sendRes.error,
+        timestamp: new Date().toISOString(),
+        date: todayStr,
+      };
 
-          if (sendRes.success) {
-            stats.endSmsSent++;
-            workerState.sentHistory[sentKey] = {
-              timestamp: new Date().toISOString(),
-              phone: emp.phone,
-              name: emp.name
-            };
-            console.log(`[ShiftSmsWorker] 🟢 Vardiya Bitirme SMS'i Gönderildi: ${emp.name} (${emp.phone})`);
-          } else {
-            stats.errors.push({ employee: emp.name, error: sendRes.error });
-            console.warn(`[ShiftSmsWorker] 🔴 SMS Gönderilemedi (${emp.name}): ${sendRes.error}`);
-          }
-        }
+      await appendLogToDb(logEntry);
+
+      if (sendRes.success) {
+        stats.startSmsSent++;
+        console.log(`[ShiftSmsWorker] Vardiya Başlatma SMS'i Gönderildi: ${emp.name} (${targetPhone})`);
+      } else {
+        stats.errors.push({ employee: emp.name, error: sendRes.error });
+        console.warn(`[ShiftSmsWorker] SMS Gönderilemedi (${emp.name}): ${sendRes.error}`);
       }
     }
   } catch (err) {
@@ -607,15 +645,12 @@ async function checkAndSendShiftSms(options = {}) {
   return stats;
 }
 
-// ── Periyodik Zamanlayıcı (Her 60 Saniyede Bir) ───────────────────────────
+// ── Periyodik Zamanlayıcı (Her 5 Dakikada Bir - 300 Saniye) ──────────────
 async function tick() {
   if (isTicking) return;
   try {
     isTicking = true;
-    const res = await checkAndSendShiftSms();
-    if (res.startSmsSent > 0 || res.endSmsSent > 0 || res.errors.length > 0) {
-      console.log(`[ShiftSmsWorker ${res.trTimeStr}] Tarama: ${res.checkedEmployees} personel, Başlatma SMS: ${res.startSmsSent}, Bitirme SMS: ${res.endSmsSent}, Önceden Gönderilmiş: ${res.alreadySentCount}, Hata: ${res.errors.length}`);
-    }
+    await checkAndSendShiftSms();
   } catch (err) {
     console.warn('[ShiftSmsWorker] Periyodik tick hatası:', err.message);
   } finally {
@@ -623,9 +658,8 @@ async function tick() {
   }
 }
 
-// ── HTTP API Server (Nginx / Frontend Kontrolü İçin) ───────────────────────
+// ── HTTP API Server ───────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -642,76 +676,87 @@ const server = http.createServer(async (req, res) => {
     pathname = pathname.substring('/api/sms-worker'.length) || '/';
   }
 
-  // JSON helper
   const sendJson = (status, data) => {
     res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(data));
   };
 
-  // Body parser helper
-  const getBody = () => new Promise((resolve) => {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try { resolve(JSON.parse(body || '{}')); } catch { resolve({}); }
+  const getBody = () =>
+    new Promise((resolve) => {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        try {
+          resolve(JSON.parse(body || '{}'));
+        } catch {
+          resolve({});
+        }
+      });
     });
-  });
 
-  // GET /status or /
   if (pathname === '/' || pathname === '/status') {
     const tr = getTurkeyTime();
+    const registry = await loadCompanyRegistry(false);
     return sendJson(200, {
       status: 'online',
-      service: 'Humanius 24/7 Shift SMS Background Worker',
+      service: 'Humanius Shift SMS Background Worker (Smart Window)',
       turkeyTime: tr,
       workerEnabled: workerState.enabled,
-      companyOverrides: workerState.companyOverrides,
+      companyOverrides: registry,
       lastTickIso: workerState.lastTickIso,
       lastTickStats: workerState.lastTickStats,
-      totalRecentLogs: workerState.recentLogs ? workerState.recentLogs.length : 0
+      totalRecentLogs: workerState.recentLogs ? workerState.recentLogs.length : 0,
     });
   }
 
-  // GET /logs
   if (pathname === '/logs') {
     const dateFilter = url.searchParams.get('date');
+    const companyFilter = url.searchParams.get('companyId');
     let logs = workerState.recentLogs || [];
     if (dateFilter) {
-      logs = logs.filter(l => l.date === dateFilter);
+      logs = logs.filter((l) => l.date === dateFilter);
+    }
+    if (companyFilter && companyFilter !== 'all' && companyFilter !== 'default') {
+      logs = logs.filter((l) => !l.company_id || l.company_id === companyFilter);
     }
     return sendJson(200, { logs: logs.slice(0, 100) });
   }
 
-  // POST /trigger-check
   if (pathname === '/trigger-check' && req.method === 'POST') {
-    console.log('[ShiftSmsWorker] Manuel tetikleme alındı.');
     const result = await checkAndSendShiftSms({ forceRun: true });
     return sendJson(200, { success: true, result });
   }
 
-  // POST /toggle-service
   if (pathname === '/toggle-service' && req.method === 'POST') {
     const body = await getBody();
     if (typeof body.enabled === 'boolean') {
       workerState.enabled = body.enabled;
       saveState();
-      console.log(`[ShiftSmsWorker] Genel servis durumu güncellendi: ${body.enabled}`);
       return sendJson(200, { success: true, enabled: workerState.enabled });
     }
     return sendJson(400, { error: 'enabled boolean alani zorunludur' });
   }
 
-  // POST /set-company-permission
   if (pathname === '/set-company-permission' && req.method === 'POST') {
     const body = await getBody();
-    const { companyId, enabled } = body;
+    const { companyId, enabled, companyName } = body;
     if (!companyId || typeof enabled !== 'boolean') {
       return sendJson(400, { error: 'companyId ve enabled zorunludur' });
     }
-    workerState.companyOverrides[companyId] = enabled;
+    const registry = await loadCompanyRegistry(false);
+    registry[companyId] = enabled;
+    if (companyName) {
+      registry[String(companyName).trim().toLowerCase()] = enabled;
+    }
+    workerState.companyOverrides = registry;
+    cachedRegistry = registry;
+    cachedRegistryExpiresAt = Date.now() + 15 * 60 * 1000;
+    cachedEmployees = null; // Şirket listesi değiştiği için çalışan önbelleğini yenile
     saveState();
-    console.log(`[ShiftSmsWorker] Firma izni güncellendi (${companyId}): ${enabled}`);
-    return sendJson(200, { success: true, companyId, enabled });
+    await saveSystemParam('company_sms_registry', registry, 'Firma Bazlı Vardiya SMS Aktiflik Durumu');
+    return sendJson(200, { success: true, companyId, enabled, companyOverrides: registry });
   }
 
   sendJson(404, { error: 'Endpoint bulunamadı' });
@@ -719,18 +764,15 @@ const server = http.createServer(async (req, res) => {
 
 // ── Başlatma ──────────────────────────────────────────────────────────────
 loadState();
+loadCompanyRegistry(true).then(() => loadLogsFromDb());
 
-// Server'ı başlat
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`=============================================================`);
-  console.log(`🚀 Humanius 24/7 Shift SMS Background Worker Aktif!`);
-  console.log(`Port: ${PORT} | Zamanlayıcı Aralığı: 60 saniye`);
-  console.log(`Türkiye Saati: ${JSON.stringify(getTurkeyTime())}`);
+  console.log(`Humanius Shift SMS Background Worker Aktif (5 Dk Akıllı Pencere)`);
+  console.log(`Port: ${PORT} | Türkiye Saati: ${JSON.stringify(getTurkeyTime())}`);
   console.log(`=============================================================`);
 
-  // İlk kontrolü 5 saniye sonra başlat
-  setTimeout(tick, 5000);
-
-  // Her 60 saniyede bir düzenli çalıştır
-  setInterval(tick, 60000);
+  setTimeout(tick, 10000);
+  // Her 5 dakikada bir (300.000 ms) kontrol et
+  setInterval(tick, 5 * 60 * 1000);
 });
