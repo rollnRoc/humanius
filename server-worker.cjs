@@ -414,7 +414,7 @@ async function checkAndSendShiftSms(options = {}) {
     ) {
       activeEmployees = cachedEmployees;
     } else {
-      const empUrl = `${SUPABASE_URL}/rest/v1/employees?select=id,name,phone,mobile,company_id,status,company&company_id=${companyFilterParam}&status=neq.inactive`;
+      const empUrl = `${SUPABASE_URL}/rest/v1/employees?select=id,name,phone,company_id,status&company_id=${companyFilterParam}&status=neq.inactive`;
       const empRes = await fetch(empUrl, { headers: authHeaders });
       if (empRes.ok) {
         const empData = await empRes.json();
