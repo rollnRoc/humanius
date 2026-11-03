@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase';
-import { systemDataService } from './systemDataService';
 
 export type MesajKategori =
   | 'mazeret'
@@ -82,6 +81,8 @@ export interface YoneticiMesaji {
   isRead: boolean;
   readAt: string | null;
   createdAt: string;
+  deletedBySender?: boolean;
+  deletedByRecipient?: boolean;
 }
 
 const STORAGE_KEY = 'yonetici_mesajlari_v1';
@@ -129,9 +130,7 @@ function getRoleLabel(role: 'manager' | 'hr' | 'admin'): string {
 
 class MessageService {
   /**
-   * Şirket içindeki mesaj gönderilebilecek yöneticileri (Birim Amiri, İK Yöneticisi, Şirket Yöneticisi) getirir.
-   * Süper adminleri ve göndericinin kendisini hariç tutar.
-   * Personelin kendi departmanındaki Birim Amirini listenin en üstünde önerir.
+   * Şirket içindeki mesaj gönderilebilecek yöneticileri (Birim Amiri, İK Yöneticisi, Şirket Yöneticisi) doğrudan veritabanından getirir.
    */
   public async getCompanyRecipients(params: {
     companyId: string;
@@ -145,7 +144,6 @@ class MessageService {
     let profiles: any[] = [];
     let employees: any[] = [];
 
-    // 1. Edge function ile tam şirket kullanıcı ve personel listesini al (RLS kısıtlamasına takılmadan)
     try {
       const [usersRes, empsRes] = await Promise.all([
         supabase.functions.invoke('user-management', {
@@ -166,7 +164,6 @@ class MessageService {
       console.warn('[MessageService] Edge list_users/list_employees fallback:', err);
     }
 
-    // 2. Fallback: doğrudan tablo sorgusu
     if (profiles.length === 0) {
       try {
         const { data } = await supabase
@@ -197,7 +194,6 @@ class MessageService {
 
     const recipientsMap = new Map<string, MessageRecipient>();
 
-    // Profiles tablosundaki manager, hr, admin kullanıcılarını eşleştir
     for (const prof of profiles) {
       const role = String(prof.role || '').toLowerCase();
       if (role !== 'manager' && role !== 'hr' && role !== 'admin') continue;
@@ -206,11 +202,9 @@ class MessageService {
       if (SUPERADMIN_EMAILS.has(pEmail)) continue;
       if (normText(prof.full_name) === 'zzzzz' || pEmail.startsWith('zzzzz@')) continue;
 
-      // Göndericinin kendisini hariç tut
       if (senderId && prof.id === senderId) continue;
       if (cleanSenderEmail && pEmail && pEmail === cleanSenderEmail) continue;
 
-      // Eşleşen personel kaydını bul (departman ve pozisyon bilgisi için)
       const matchedEmp = employees.find(
         (e) =>
           e.id === prof.id ||
@@ -243,7 +237,6 @@ class MessageService {
       });
     }
 
-    // Employees tablosunda olup profiles tablosunda henüz yer almayan yönetici/birim amirlerini de kontrol et
     for (const emp of employees) {
       const empRole = String(emp.role || '').toLowerCase();
       const isManagerOrAdmin =
@@ -290,10 +283,6 @@ class MessageService {
 
     const list = Array.from(recipientsMap.values());
 
-    // Sıralama:
-    // 1. Personelin kendi departmanının Birim Amiri
-    // 2. Şirket Yöneticisi (admin) ve İK Yöneticisi (hr)
-    // 3. Diğer departmanların Birim Amirleri
     list.sort((a, b) => {
       if (a.isOwnDepartmentManager && !b.isOwnDepartmentManager) return -1;
       if (!a.isOwnDepartmentManager && b.isOwnDepartmentManager) return 1;
@@ -309,21 +298,103 @@ class MessageService {
   }
 
   /**
-   * Şirketin tüm mesaj havuzunu getirir (iç kullanım - filtreleme getInboxMessages ve getSentMessages içinde yapılır).
+   * Şirketin mesaj kayıtlarını hiçbir yerel önbellek kullanmadan doğrudan veritabanından (PostgreSQL) çeker.
    */
-  private async getAllCompanyMessages(companyId: string): Promise<YoneticiMesaji[]> {
+  private async getAllCompanyMessagesFromDB(companyId: string): Promise<YoneticiMesaji[]> {
     if (!companyId || companyId === 'default') return [];
-    const data = await systemDataService.getCompanyData<YoneticiMesaji[]>(
-      companyId,
-      STORAGE_KEY,
-      []
-    );
-    return Array.isArray(data) ? data : [];
+
+    // 1. Doğrudan user-management edge function (service_role) üzerinden veritabanından oku
+    try {
+      const { data: edgeRes, error: edgeErr } = await supabase.functions.invoke('user-management', {
+        body: {
+          operation: 'get_system_parameter',
+          companyId,
+          kategori: 'sistem_kurallari',
+          ad: STORAGE_KEY,
+        },
+      });
+      if (!edgeErr && edgeRes?.deger) {
+        const parsed =
+          typeof edgeRes.deger === 'string' ? JSON.parse(edgeRes.deger) : edgeRes.deger;
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+
+    // 2. Fallback: doğrudan sistem_parametreleri tablosundan oku
+    try {
+      const { data, error } = await supabase
+        .from('sistem_parametreleri')
+        .select('deger')
+        .eq('company_id', companyId)
+        .eq('kategori', 'sistem_kurallari')
+        .eq('ad', STORAGE_KEY)
+        .maybeSingle();
+
+      if (!error && data?.deger) {
+        const parsed = typeof data.deger === 'string' ? JSON.parse(data.deger) : data.deger;
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+
+    return [];
   }
 
   /**
-   * Yalnızca oturum açmış yöneticiye/kullanıcıya gelen mesajları döndürür.
-   * KURAL: Yöneticiler sadece KENDİLERİNE gönderilen mesajları görebilir.
+   * Şirketin mesaj kayıtlarını doğrudan veritabanına (PostgreSQL) yazar.
+   */
+  private async saveAllCompanyMessagesToDB(
+    companyId: string,
+    messages: YoneticiMesaji[]
+  ): Promise<boolean> {
+    if (!companyId || companyId === 'default') return false;
+    const jsonString = JSON.stringify(messages);
+
+    // 1. Doğrudan user-management edge function (service_role) ile veritabanına yaz (tüm roller için RLS engeli olmadan)
+    try {
+      const { data: edgeRes, error: edgeErr } = await supabase.functions.invoke('user-management', {
+        body: {
+          operation: 'save_system_parameter',
+          companyId,
+          kategori: 'sistem_kurallari',
+          ad: STORAGE_KEY,
+          deger: jsonString,
+          aciklama: 'Personel Yönetici Açıklamalı Mesajları',
+        },
+      });
+      if (!edgeErr && edgeRes?.success) {
+        window.dispatchEvent(new CustomEvent('humanius_messages_updated'));
+        return true;
+      }
+    } catch {}
+
+    // 2. Fallback: doğrudan tablo upsert
+    try {
+      const nowIso = new Date().toISOString();
+      const { error } = await supabase.from('sistem_parametreleri').upsert(
+        {
+          company_id: companyId,
+          kategori: 'sistem_kurallari',
+          ad: STORAGE_KEY,
+          deger: jsonString,
+          aciklama: 'Personel Yönetici Açıklamalı Mesajları',
+          zorunlu: false,
+          degistirilebilir: true,
+          son_guncelleme: nowIso,
+          updated_at: nowIso,
+        },
+        { onConflict: 'company_id,kategori,ad' }
+      );
+      if (!error) {
+        window.dispatchEvent(new CustomEvent('humanius_messages_updated'));
+        return true;
+      }
+    } catch {}
+
+    return false;
+  }
+
+  /**
+   * Yalnızca oturum açmış yöneticiye/kullanıcıya gelen ve silinmemiş mesajları veritabanından döndürür.
    */
   public async getInboxMessages(params: {
     companyId: string;
@@ -333,12 +404,13 @@ class MessageService {
     userName?: string;
   }): Promise<YoneticiMesaji[]> {
     const { companyId, userId, employeeId, userEmail, userName } = params;
-    const all = await this.getAllCompanyMessages(companyId);
+    const all = await this.getAllCompanyMessagesFromDB(companyId);
     const cleanEmail = normEmail(userEmail);
     const cleanName = normText(userName);
 
     return all
       .filter((msg) => {
+        if (msg.deletedByRecipient) return false;
         if (userId && msg.recipientId === userId) return true;
         if (employeeId && msg.recipientId === employeeId) return true;
         if (cleanEmail && msg.recipientEmail && normEmail(msg.recipientEmail) === cleanEmail) {
@@ -358,7 +430,7 @@ class MessageService {
   }
 
   /**
-   * Kullanıcının kendi gönderdiği mesajları döndürür.
+   * Kullanıcının kendi gönderdiği ve silmediği mesajları veritabanından döndürür.
    */
   public async getSentMessages(params: {
     companyId: string;
@@ -368,12 +440,13 @@ class MessageService {
     userName?: string;
   }): Promise<YoneticiMesaji[]> {
     const { companyId, userId, employeeId, userEmail, userName } = params;
-    const all = await this.getAllCompanyMessages(companyId);
+    const all = await this.getAllCompanyMessagesFromDB(companyId);
     const cleanEmail = normEmail(userEmail);
     const cleanName = normText(userName);
 
     return all
       .filter((msg) => {
+        if (msg.deletedBySender) return false;
         if (userId && msg.senderId === userId) return true;
         if (employeeId && msg.senderId === employeeId) return true;
         if (cleanEmail && msg.senderEmail && normEmail(msg.senderEmail) === cleanEmail) {
@@ -393,7 +466,7 @@ class MessageService {
   }
 
   /**
-   * Seçilen tek bir yöneticiye açıklamalı mesaj iletir.
+   * Seçilen tek bir yöneticiye açıklamalı mesaj iletir (doğrudan veritabanına kaydeder).
    */
   public async sendMessage(params: {
     companyId: string;
@@ -485,15 +558,10 @@ class MessageService {
       createdAt: nowIso,
     };
 
-    const existing = await this.getAllCompanyMessages(companyId);
-    const updated = [newMsg, ...existing].slice(0, 500); // Son 500 mesajı sakla
+    const existing = await this.getAllCompanyMessagesFromDB(companyId);
+    const updated = [newMsg, ...existing].slice(0, 500);
 
-    const saved = await systemDataService.saveCompanyData(
-      companyId,
-      STORAGE_KEY,
-      updated,
-      'Personel Yönetici Açıklamalı Mesajları'
-    );
+    const saved = await this.saveAllCompanyMessagesToDB(companyId, updated);
 
     if (!saved) {
       return {
@@ -502,31 +570,83 @@ class MessageService {
       };
     }
 
-    // Best-effort: bildirimler tablosuna da sadece ilgili alıcı user_id ile ekle
-    try {
-      await supabase.from('bildirimler').insert({
-        company_id: companyId,
-        user_id: recipient.id,
-        baslik: `[${catInfo.label}] ${subject.trim()}`,
-        mesaj: `${senderName}: ${message.trim()}`,
-        tur: 'bilgi',
-        oncelik: priority,
-        okundu_mu: false,
-        metadata: {
-          kind: 'personel_mesaji',
-          message_id: newMsg.id,
-          sender_id: senderId,
-          sender_name: senderName,
-          sender_department: senderDepartment || '',
-          recipient_id: recipient.id,
-          recipient_email: recipient.email,
-          category,
-        },
-      });
-    } catch {}
-
-    window.dispatchEvent(new CustomEvent('humanius_messages_updated'));
     return { success: true, record: newMsg };
+  }
+
+  /**
+   * Gönderilen mesajı GERİ ALIR (Sadece yönetici tarafından henüz OKUNMADIYSA).
+   * Veritabanından güncel durumu kontrol eder; okunduysa geri almayı reddeder.
+   * Okunmadıysa mesajı veritabanından tamamen siler (alıcı yöneticinin ekranından da kalkar).
+   */
+  public async recallMessage(
+    companyId: string,
+    messageId: string
+  ): Promise<{ success: boolean; alreadyRead?: boolean; error?: string }> {
+    if (!companyId || !messageId) {
+      return { success: false, error: 'Geçersiz mesaj bilgisi.' };
+    }
+
+    const all = await this.getAllCompanyMessagesFromDB(companyId);
+    const target = all.find((m) => m.id === messageId);
+
+    if (!target) {
+      return { success: true };
+    }
+
+    if (target.isRead) {
+      return {
+        success: false,
+        alreadyRead: true,
+        error: 'Bu mesaj yönetici tarafından okunduğu için artık geri alınamaz.',
+      };
+    }
+
+    const updated = all.filter((m) => m.id !== messageId);
+    const saved = await this.saveAllCompanyMessagesToDB(companyId, updated);
+
+    if (!saved) {
+      return { success: false, error: 'Mesaj geri alınırken veritabanı hatası oluştu.' };
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Gönderen kişinin "Gönderdiğim Mesajlar" listesinden mesajı silmesini sağlar.
+   */
+  public async deleteSentMessage(companyId: string, messageId: string): Promise<boolean> {
+    if (!companyId || !messageId) return false;
+    const all = await this.getAllCompanyMessagesFromDB(companyId);
+
+    const updated = all
+      .map((msg) => {
+        if (msg.id === messageId) {
+          return { ...msg, deletedBySender: true };
+        }
+        return msg;
+      })
+      .filter((msg) => !(msg.deletedBySender && msg.deletedByRecipient));
+
+    return await this.saveAllCompanyMessagesToDB(companyId, updated);
+  }
+
+  /**
+   * Alıcı yöneticinin "Bana Gelen Mesajlar" listesinden mesajı silmesini sağlar.
+   */
+  public async deleteInboxMessage(companyId: string, messageId: string): Promise<boolean> {
+    if (!companyId || !messageId) return false;
+    const all = await this.getAllCompanyMessagesFromDB(companyId);
+
+    const updated = all
+      .map((msg) => {
+        if (msg.id === messageId) {
+          return { ...msg, deletedByRecipient: true };
+        }
+        return msg;
+      })
+      .filter((msg) => !(msg.deletedBySender && msg.deletedByRecipient));
+
+    return await this.saveAllCompanyMessagesToDB(companyId, updated);
   }
 
   /**
@@ -534,7 +654,7 @@ class MessageService {
    */
   public async markAsRead(companyId: string, messageId: string): Promise<boolean> {
     if (!companyId || !messageId) return false;
-    const all = await this.getAllCompanyMessages(companyId);
+    const all = await this.getAllCompanyMessagesFromDB(companyId);
     const nowIso = new Date().toISOString();
     let changed = false;
 
@@ -551,18 +671,7 @@ class MessageService {
     });
 
     if (!changed) return true;
-
-    const saved = await systemDataService.saveCompanyData(
-      companyId,
-      STORAGE_KEY,
-      updated,
-      'Personel Yönetici Açıklamalı Mesajları'
-    );
-
-    if (saved) {
-      window.dispatchEvent(new CustomEvent('humanius_messages_updated'));
-    }
-    return saved;
+    return await this.saveAllCompanyMessagesToDB(companyId, updated);
   }
 
   /**
@@ -578,14 +687,14 @@ class MessageService {
     const { companyId, userId, employeeId, userEmail, userName } = params;
     if (!companyId) return false;
 
-    const all = await this.getAllCompanyMessages(companyId);
+    const all = await this.getAllCompanyMessagesFromDB(companyId);
     const cleanEmail = normEmail(userEmail);
     const cleanName = normText(userName);
     const nowIso = new Date().toISOString();
     let changed = false;
 
     const updated = all.map((msg) => {
-      if (msg.isRead) return msg;
+      if (msg.isRead || msg.deletedByRecipient) return msg;
 
       const isMine =
         (userId && msg.recipientId === userId) ||
@@ -608,18 +717,7 @@ class MessageService {
     });
 
     if (!changed) return true;
-
-    const saved = await systemDataService.saveCompanyData(
-      companyId,
-      STORAGE_KEY,
-      updated,
-      'Personel Yönetici Açıklamalı Mesajları'
-    );
-
-    if (saved) {
-      window.dispatchEvent(new CustomEvent('humanius_messages_updated'));
-    }
-    return saved;
+    return await this.saveAllCompanyMessagesToDB(companyId, updated);
   }
 }
 

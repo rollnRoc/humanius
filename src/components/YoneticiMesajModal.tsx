@@ -13,6 +13,8 @@ import {
   Building2,
   ShieldCheck,
   Sparkles,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react';
 import {
   messageService,
@@ -67,6 +69,7 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
   const [inboxMessages, setInboxMessages] = useState<YoneticiMesaji[]>([]);
   const [sentMessages, setSentMessages] = useState<YoneticiMesaji[]>([]);
   const [initialLoading, setInitialLoading] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   // Compose form state
   const [selectedRecipientKey, setSelectedRecipientKey] = useState<string>('');
@@ -148,6 +151,15 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
       wasOpenRef.current = false;
     }
   }, [isOpen, initialTab, isManagerOrAdmin, loadData]);
+
+  // Pencere açıkken her 8 saniyede bir veritabanından sessizce güncel okundu/geri alındı durumunu çek
+  useEffect(() => {
+    if (!isOpen) return;
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [isOpen, loadData]);
 
   // Escape tuşu ile kapatma ve arka plan kaydırmasını kilitleme
   useEffect(() => {
@@ -231,24 +243,86 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
   };
 
   const handleMarkAsRead = async (messageId: string) => {
-    const ok = await messageService.markAsRead(companyId, messageId);
-    if (ok) {
-      await loadData(true);
-      onMessagesChanged?.();
+    setProcessingId(messageId);
+    try {
+      const ok = await messageService.markAsRead(companyId, messageId);
+      if (ok) {
+        await loadData(true);
+        onMessagesChanged?.();
+      }
+    } finally {
+      setProcessingId(null);
     }
   };
 
   const handleMarkAllAsRead = async () => {
-    const ok = await messageService.markAllInboxAsRead({
-      companyId,
-      userId: currentUser.id,
-      employeeId: currentUser.employeeId,
-      userEmail: currentUser.email,
-      userName: currentUser.name,
-    });
-    if (ok) {
+    setProcessingId('all');
+    try {
+      const ok = await messageService.markAllInboxAsRead({
+        companyId,
+        userId: currentUser.id,
+        employeeId: currentUser.employeeId,
+        userEmail: currentUser.email,
+        userName: currentUser.name,
+      });
+      if (ok) {
+        await loadData(true);
+        onMessagesChanged?.();
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleRecallMessage = async (messageId: string) => {
+    setProcessingId(messageId);
+    setFeedback(null);
+    try {
+      const res = await messageService.recallMessage(companyId, messageId);
       await loadData(true);
       onMessagesChanged?.();
+
+      if (!res.success) {
+        setFeedback({
+          type: 'error',
+          text: res.error || 'Mesaj geri alınamadı.',
+        });
+      } else {
+        setFeedback({
+          type: 'success',
+          text: 'Gönderdiğiniz mesaj başarıyla geri alındı ve alıcının gelen kutusundan kaldırıldı.',
+        });
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDeleteSentMessage = async (messageId: string) => {
+    setProcessingId(messageId);
+    setFeedback(null);
+    try {
+      const ok = await messageService.deleteSentMessage(companyId, messageId);
+      if (ok) {
+        await loadData(true);
+        onMessagesChanged?.();
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDeleteInboxMessage = async (messageId: string) => {
+    setProcessingId(messageId);
+    setFeedback(null);
+    try {
+      const ok = await messageService.deleteInboxMessage(companyId, messageId);
+      if (ok) {
+        await loadData(true);
+        onMessagesChanged?.();
+      }
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -345,6 +419,7 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
               onClick={() => {
                 setActiveTab('inbox');
                 setFeedback(null);
+                loadData(true);
               }}
               className={`flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold rounded-t-xl border-b-2 transition-all whitespace-nowrap ${
                 activeTab === 'inbox'
@@ -386,6 +461,7 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
             type="button"
             onClick={() => {
               setActiveTab('sent');
+              loadData(true);
             }}
             className={`flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold rounded-t-xl border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'sent'
@@ -653,8 +729,9 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
                 {unreadInboxCount > 0 && (
                   <button
                     type="button"
+                    disabled={processingId === 'all'}
                     onClick={handleMarkAllAsRead}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors disabled:opacity-50"
                   >
                     <CheckCheck className="w-3.5 h-3.5" />
                     Tümünü Okundu İşaretle
@@ -721,27 +798,41 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
                         {msg.message}
                       </p>
 
-                      <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
                         <span className="text-[11px] text-slate-500 flex items-center gap-1">
                           <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
                           Alıcı: <strong>{msg.recipientName}</strong> ({msg.recipientRoleLabel})
                         </span>
 
-                        {!msg.isRead ? (
+                        <div className="flex items-center gap-2">
+                          {!msg.isRead ? (
+                            <button
+                              type="button"
+                              disabled={processingId === msg.id}
+                              onClick={() => handleMarkAsRead(msg.id)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold shadow-xs transition-colors"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Okundu Olarak İşaretle
+                            </button>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                              <CheckCheck className="w-3.5 h-3.5" />
+                              Okundu {msg.readAt ? `• ${formatDateTime(msg.readAt)}` : ''}
+                            </span>
+                          )}
+
                           <button
                             type="button"
-                            onClick={() => handleMarkAsRead(msg.id)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors"
+                            disabled={processingId === msg.id}
+                            onClick={() => handleDeleteInboxMessage(msg.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold transition-colors disabled:opacity-50"
+                            title="Bu gelen mesajı sil"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Okundu Olarak İşaretle
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Sil</span>
                           </button>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                            <CheckCheck className="w-3.5 h-3.5" />
-                            Okundu {msg.readAt ? `• ${formatDateTime(msg.readAt)}` : ''}
-                          </span>
-                        )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -776,16 +867,30 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
           /* Sent Messages Tab */
           <div className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 overflow-y-auto p-5 space-y-3">
-              {feedback && feedback.type === 'success' && (
-                <div className="p-3.5 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {feedback && (
+                <div
+                  className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    feedback.type === 'success'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                      : 'bg-red-50 border-red-200 text-red-900'
+                  }`}
+                >
                   <div className="flex items-center gap-2.5 text-xs sm:text-sm">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    {feedback.type === 'success' ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+                    )}
                     <span className="font-bold">{feedback.text}</span>
                   </div>
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shrink-0 transition-colors"
+                    className={`inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-white text-xs font-bold shrink-0 transition-colors ${
+                      feedback.type === 'success'
+                        ? 'bg-emerald-600 hover:bg-emerald-700'
+                        : 'bg-red-600 hover:bg-red-700'
+                    }`}
                   >
                     <X className="w-3.5 h-3.5" />
                     <span>Tamam, Kapat</span>
@@ -841,19 +946,48 @@ export const YoneticiMesajModal: React.FC<YoneticiMesajModalProps> = ({
                       {msg.message}
                     </p>
 
-                    <div className="flex items-center justify-end pt-1">
-                      {msg.isRead ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                          <CheckCheck className="w-3.5 h-3.5" />
-                          Yönetici Tarafından Okundu{' '}
-                          {msg.readAt ? `(${formatDateTime(msg.readAt)})` : ''}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
-                          <Clock className="w-3.5 h-3.5" />
-                          İletildi • Henüz Okunmadı
-                        </span>
-                      )}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                      <div>
+                        {msg.isRead ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                            <CheckCheck className="w-3.5 h-3.5" />
+                            Yönetici Tarafından Okundu{' '}
+                            {msg.readAt ? `(${formatDateTime(msg.readAt)})` : ''}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
+                            <Clock className="w-3.5 h-3.5" />
+                            İletildi • Henüz Okunmadı
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* Mesaj henüz okunmadıysa Mesajı Geri Al butonu gösterilir; okunduysa kalkar */}
+                        {!msg.isRead && (
+                          <button
+                            type="button"
+                            disabled={processingId === msg.id}
+                            onClick={() => handleRecallMessage(msg.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
+                            title="Mesaj henüz okunmadığı için geri alabilirsiniz (alıcının gelen kutusundan da silinir)"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Mesajı Geri Al</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          disabled={processingId === msg.id}
+                          onClick={() => handleDeleteSentMessage(msg.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold transition-colors disabled:opacity-50"
+                          title="Gönderilenler listemden sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Sil</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
