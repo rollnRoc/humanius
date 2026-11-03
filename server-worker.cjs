@@ -26,8 +26,23 @@ process.on('unhandledRejection', (reason) => {
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://gfbtjdedaoleqhrlebof.supabase.co';
 const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_wxlAHN7E63-NbwFiVhJBeA_F3PYc3w-';
-const AUTH_EMAIL = 'gonulunlu@humanius.net';
+const AUTH_EMAIL = 'muhammed.gur@humanius.net';
 const GLOBAL_STORAGE_COMPANY_ID = '11111111-1111-1111-1111-111111111111';
+
+function computeQuickLoginToken(email, userId) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const raw = `hmn-ql-v1:${cleanEmail}:${userId || 'legacy'}:9f4b2c8e1a`;
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw.charCodeAt(i);
+    h1 ^= ch;
+    h1 = Math.imul(h1, 0x01000193);
+    h2 ^= ch + i;
+    h2 = Math.imul(h2, 0x85ebca6b);
+  }
+  return `ql1_${(h1 >>> 0).toString(16).padStart(8, '0')}${(h2 >>> 0).toString(16).padStart(8, '0')}`;
+}
 
 const VERIMOR_USERNAME = process.env.VERIMOR_USERNAME || '908502428910';
 const VERIMOR_PASSWORD = process.env.VERIMOR_PASSWORD || '3e3f25f6-mpsp-1406';
@@ -265,7 +280,7 @@ async function getSupabaseToken() {
       body: JSON.stringify({
         operation: 'quick_login',
         email: AUTH_EMAIL,
-        workerSecret: 'humanius-sms-worker-v1',
+        quickToken: computeQuickLoginToken(AUTH_EMAIL),
       }),
     });
     if (loginRes.status === 402 || loginRes.status === 403) {
