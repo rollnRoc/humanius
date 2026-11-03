@@ -4,6 +4,7 @@ import {
   Hash, Mail, Phone, MapPin, Briefcase, Tag, Layers,
   UserCog, ChevronRight, SlidersHorizontal, Bell,
   Clock, GraduationCap, Target, Shield, Layout, BookOpen, LogOut, Lock,
+  MessageSquarePlus, Inbox, Send,
 } from 'lucide-react';
 import type { Employee, View } from '../types';
 import type { IzinTalebi } from '../types/izin';
@@ -12,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { canAccessView } from '../auth/roles';
 import { formatIzinTuru } from '../utils/izinCalculations';
 import UserNavMenu from './UserNavMenu';
+import { messageService, YoneticiMesaji } from '../services/messageService';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -178,6 +180,45 @@ export const SearchPage: React.FC<SearchPageProps> = ({
       return false;
     }
   });
+
+  const [inboxMessages, setInboxMessages] = useState<YoneticiMesaji[]>([]);
+  const companyId = profile?.company_id || (user?.user_metadata as any)?.company_id || '';
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : '');
+  const userEmail = profile?.email || user?.email || '';
+
+  useEffect(() => {
+    if (!companyId || companyId === 'default' || effectiveRole === 'superadmin') {
+      setInboxMessages([]);
+      return;
+    }
+    const fetchInbox = async () => {
+      try {
+        const list = await messageService.getInboxMessages({
+          companyId,
+          userId: profile?.id || user?.id,
+          userEmail,
+          userName: displayName,
+        });
+        setInboxMessages(list);
+      } catch {}
+    };
+    fetchInbox();
+    window.addEventListener('humanius_messages_updated', fetchInbox);
+    window.addEventListener('humanius_system_data_updated', fetchInbox);
+    return () => {
+      window.removeEventListener('humanius_messages_updated', fetchInbox);
+      window.removeEventListener('humanius_system_data_updated', fetchInbox);
+    };
+  }, [companyId, effectiveRole, profile?.id, user?.id, userEmail, displayName]);
+
+  const unreadInboxMessages = useMemo(
+    () => inboxMessages.filter((m) => !m.isRead),
+    [inboxMessages]
+  );
+
+  const openMessageModal = (tab: 'inbox' | 'compose' | 'sent') => {
+    window.dispatchEvent(new CustomEvent('humanius_open_message_modal', { detail: { tab } }));
+  };
 
   useEffect(() => {
     const handleStorage = () => {
@@ -475,6 +516,37 @@ export const SearchPage: React.FC<SearchPageProps> = ({
             </div>
           )}
 
+          {/* Personal Unread Message Banner for Managers/Admins */}
+          {unreadInboxMessages.length > 0 && (
+            <div className="p-4 bg-gradient-to-r from-indigo-50 via-blue-50 to-indigo-50 border border-indigo-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 rounded-lg text-indigo-700 shrink-0">
+                  <Inbox className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-indigo-950 text-sm flex items-center gap-2">
+                    <span>Şahsınıza İletilen Yeni Personel Mesajı!</span>
+                    <span className="px-2 py-0.5 text-[11px] font-extrabold rounded-full bg-rose-600 text-white">
+                      {unreadInboxMessages.length} Okunmamış
+                    </span>
+                  </h4>
+                  <p className="text-xs text-indigo-800 mt-0.5">
+                    Son mesaj: <strong>{unreadInboxMessages[0].senderName}</strong> ({unreadInboxMessages[0].categoryLabel}) — "{unreadInboxMessages[0].subject}"
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+                <button
+                  type="button"
+                  onClick={() => openMessageModal('inbox')}
+                  className="w-full sm:w-auto text-center px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap shrink-0 shadow-xs"
+                >
+                  Mesajları İncele
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Notification Banner */}
           {showAlertNotification && (
             <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-pulse">
@@ -633,7 +705,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
             </section>
 
             {['superadmin', 'admin', 'hr', 'manager'].includes(effectiveRole) ? (
-              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              <section className={`grid grid-cols-1 sm:grid-cols-2 ${effectiveRole !== 'superadmin' ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-4`}>
                 {[
                   { label: 'Personel', count: employees.length, cat: 'personel' as Category, view: 'personel' as View },
                   {
@@ -656,9 +728,24 @@ export const SearchPage: React.FC<SearchPageProps> = ({
                     </button>
                   );
                 })}
+                {effectiveRole !== 'superadmin' && companyId && companyId !== 'default' && (
+                  <button
+                    type="button"
+                    onClick={() => openMessageModal('inbox')}
+                    className="bg-indigo-50 border border-indigo-200 rounded-2xl px-4 py-4 text-center hover:bg-indigo-100/60 transition-all cursor-pointer shadow-sm hover:shadow-md relative"
+                  >
+                    {unreadInboxMessages.length > 0 && (
+                      <span className="absolute top-2.5 right-2.5 px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-rose-600 text-white">
+                        {unreadInboxMessages.length} Yeni
+                      </span>
+                    )}
+                    <p className="text-3xl font-extrabold text-indigo-700">{inboxMessages.length}</p>
+                    <p className="text-xs text-gray-600 mt-1 font-medium">Bana Gelen Mesajlar</p>
+                  </button>
+                )}
               </section>
             ) : (
-              <section className="flex justify-center max-w-sm mx-auto w-full">
+              <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto w-full">
                 {[
                   {
                     label: 'Bekleyen İzin Talebi',
@@ -671,13 +758,34 @@ export const SearchPage: React.FC<SearchPageProps> = ({
                     <button
                       key={item.label}
                       onClick={() => onNavigate('izin')}
-                      className={`w-full ${cs.bg} border ${cs.border} rounded-2xl px-6 py-5 text-center ${cs.hoverBg} transition-all shadow-sm hover:shadow-md cursor-pointer`}
+                      className={`w-full ${cs.bg} border ${cs.border} rounded-2xl px-6 py-5 text-center ${cs.hoverBg} transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col items-center justify-center`}
                     >
                       <p className={`text-4xl font-extrabold ${cs.text}`}>{item.count}</p>
                       <p className="text-sm font-semibold text-gray-600 mt-1">{item.label}</p>
                     </button>
                   );
                 })}
+
+                {companyId && companyId !== 'default' && (
+                  <button
+                    type="button"
+                    onClick={() => openMessageModal('compose')}
+                    className="w-full bg-gradient-to-br from-indigo-50 via-blue-50 to-indigo-100/70 border border-indigo-200 rounded-2xl px-5 py-5 text-left hover:border-indigo-300 hover:shadow-md transition-all shadow-sm cursor-pointer flex items-center gap-4 group"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-600/20 group-hover:scale-105 transition-transform">
+                      <MessageSquarePlus className="w-6 h-6" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-indigo-950 text-sm sm:text-base flex items-center gap-1.5">
+                        <span>Yöneticiye Mesaj İlet</span>
+                        <Send className="w-3.5 h-3.5 text-indigo-600" />
+                      </p>
+                      <p className="text-xs text-indigo-700/90 mt-0.5 leading-snug">
+                        Birim amirinize veya şirket yöneticinize açıklamalı bildirim gönderin
+                      </p>
+                    </div>
+                  </button>
+                )}
               </section>
             )}
 

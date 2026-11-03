@@ -14,11 +14,15 @@ import {
   RefreshCw, 
   Check, 
   Calendar,
-  ExternalLink
+  ExternalLink,
+  MessageSquarePlus,
+  Inbox
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { translateErrorMessage } from '../utils/errorTranslator';
 import { companyService } from '../services/companyService';
+import { messageService } from '../services/messageService';
+import { YoneticiMesajModal } from './YoneticiMesajModal';
 import type { View } from '../types';
 
 interface UserNavMenuProps {
@@ -107,7 +111,53 @@ export const UserNavMenu: React.FC<UserNavMenuProps> = ({ onNavigate }) => {
   // Display information
   const displayName = profile?.full_name || user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : 'Kullanıcı');
   const userEmail = profile?.email || user?.email || '—';
+  const effectiveRole = String(appRole || profile?.role || 'employee').toLowerCase().trim();
   const roleInfo = getRoleBadge(appRole || profile?.role);
+  const companyId = profile?.company_id || (user?.user_metadata as any)?.company_id || '';
+  const isManagerOrAdmin = effectiveRole === 'admin' || effectiveRole === 'hr' || effectiveRole === 'manager';
+  const canUseMessages = Boolean(companyId && companyId !== 'default' && effectiveRole !== 'superadmin');
+
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+  const [messageModalTab, setMessageModalTab] = useState<'inbox' | 'compose' | 'sent' | undefined>(undefined);
+  const [unreadInboxCount, setUnreadInboxCount] = useState(0);
+
+  const refreshUnreadCount = React.useCallback(async () => {
+    if (!canUseMessages) {
+      setUnreadInboxCount(0);
+      return;
+    }
+    try {
+      const inbox = await messageService.getInboxMessages({
+        companyId,
+        userId: profile?.id || user?.id,
+        userEmail,
+        userName: displayName,
+      });
+      setUnreadInboxCount(inbox.filter((m) => !m.isRead).length);
+    } catch {}
+  }, [canUseMessages, companyId, profile?.id, user?.id, userEmail, displayName]);
+
+  useEffect(() => {
+    refreshUnreadCount();
+    const handleUpdate = () => {
+      refreshUnreadCount();
+    };
+    const handleOpenEvent = (e: Event) => {
+      const custom = e as CustomEvent<{ tab?: 'inbox' | 'compose' | 'sent' }>;
+      setMessageModalTab(custom.detail?.tab);
+      setIsMessageModalOpen(true);
+    };
+    window.addEventListener('humanius_messages_updated', handleUpdate);
+    window.addEventListener('humanius_system_data_updated', handleUpdate);
+    window.addEventListener('humanius_open_message_modal', handleOpenEvent);
+    const interval = setInterval(refreshUnreadCount, 30000);
+    return () => {
+      window.removeEventListener('humanius_messages_updated', handleUpdate);
+      window.removeEventListener('humanius_system_data_updated', handleUpdate);
+      window.removeEventListener('humanius_open_message_modal', handleOpenEvent);
+      clearInterval(interval);
+    };
+  }, [refreshUnreadCount]);
 
   // Resolve company name
   useEffect(() => {
@@ -219,6 +269,47 @@ export const UserNavMenu: React.FC<UserNavMenuProps> = ({ onNavigate }) => {
 
   return (
     <div className="flex items-center gap-2 sm:gap-3 relative" ref={menuRef}>
+      {/* ── Yöneticiye Mesaj İlet / Gelen Mesajlar Button ── */}
+      {canUseMessages && (
+        <button
+          type="button"
+          onClick={() => {
+            setMessageModalTab(isManagerOrAdmin ? 'inbox' : 'compose');
+            setIsMessageModalOpen(true);
+          }}
+          className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-xs shrink-0 border ${
+            isManagerOrAdmin
+              ? unreadInboxCount > 0
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-indigo-500/20'
+                : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+              : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white border-indigo-600 shadow-indigo-500/20'
+          }`}
+          title={
+            isManagerOrAdmin
+              ? 'Şahsınıza Gelen Personel Mesajları ve Bildirimler'
+              : 'Şirket Yöneticisine veya Birim Amirine Açıklamalı Mesaj İlet'
+          }
+        >
+          {isManagerOrAdmin ? (
+            <>
+              <Inbox className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden md:inline">Gelen Mesajlar</span>
+              <span className="md:hidden">Mesajlar</span>
+              {unreadInboxCount > 0 && (
+                <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-extrabold rounded-full bg-rose-500 text-white ring-2 ring-white animate-pulse">
+                  {unreadInboxCount}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <MessageSquarePlus className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>Yöneticiye Mesaj İlet</span>
+            </>
+          )}
+        </button>
+      )}
+
       {/* ── Trigger: User Button ── */}
       <button
         type="button"
@@ -574,6 +665,22 @@ export const UserNavMenu: React.FC<UserNavMenuProps> = ({ onNavigate }) => {
           )}
 
         </div>
+      )}
+
+      {canUseMessages && (
+        <YoneticiMesajModal
+          isOpen={isMessageModalOpen}
+          onClose={() => setIsMessageModalOpen(false)}
+          companyId={companyId}
+          currentUser={{
+            id: profile?.id || user?.id || '',
+            name: displayName,
+            email: userEmail === '—' ? '' : userEmail,
+            role: effectiveRole,
+          }}
+          initialTab={messageModalTab}
+          onMessagesChanged={refreshUnreadCount}
+        />
       )}
     </div>
   );
